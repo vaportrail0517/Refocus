@@ -37,9 +37,7 @@ class OverlayService : LifecycleService() {
         private const val NOTIFICATION_CHANNEL_ID = "overlay_service_channel"
         private const val NOTIFICATION_ID = 1
 
-        // 前面アプリのポーリング間隔（将来設定に出す）
         private const val DEFAULT_POLLING_INTERVAL_MS = 500L
-        // セッションを分割するかどうかの猶予（将来設定に出す）
         private const val DEFAULT_GRACE_PERIOD_MS = 30_000L
     }
 
@@ -51,38 +49,42 @@ class OverlayService : LifecycleService() {
     private lateinit var foregroundAppMonitor: ForegroundAppMonitor
     private lateinit var overlayController: OverlayController
 
+
     private var currentForegroundPackage: String? = null
-    private var isTimerVisible: Boolean = false
+    private var overlayPackage: String? = null
 
-    private var pendingEndPackage: String? = null
-    private var pendingEndJob: Job? = null
-    private var lastLeaveAtMillis: Long? = null
+    /**
+     * あるパッケージのセッションを、サービス内で管理するためのランタイム状態。
+     */
+    private data class RunningSessionState(
+        val packageName: String,
+        var startedAtMillis: Long,
+        var elapsedMillis: Long,
+        var lastForegroundElapsedRealtime: Long?, // 前面にいたときの SystemClock.elapsedRealtime()
+        var pendingEndJob: Job?,                  // 猶予中のジョブ（なければ null）
+        var lastLeaveAtMillis: Long?,             // 最後に前面から離れた時刻
+    )
 
-    private var currentSessionStartedAtMillis: Long? = null
-    private var currentSessionElapsedMillis: Long = 0L
-    private var currentSessionStartElapsedRealtime: Long? = null
+    // packageName → RunningSessionState のマップ
+    private val sessionStates = mutableMapOf<String, RunningSessionState>()
+
+
 
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "onCreate")
-
         val app = application as Application
-
         val repositoryProvider = RepositoryProvider(app)
         targetsRepository = repositoryProvider.targetsRepository
         sessionRepository = repositoryProvider.sessionRepository
-
         foregroundAppMonitor = ForegroundAppMonitor(this)
-
         // LifecycleService 自身を LifecycleOwner として渡す
         overlayController = OverlayController(
             context = this,
             lifecycleOwner = this,
         )
-
         startForegroundWithNotification()
         Log.d(TAG, "startForeground done")
-
         serviceScope.launch {
             try {
                 sessionRepository.repairStaleSessions()
@@ -90,14 +92,12 @@ class OverlayService : LifecycleService() {
                 Log.e(TAG, "repairStaleSessions failed", e)
             }
         }
-
         // 権限が揃っていなければ即終了
         if (!canRunOverlay()) {
             Log.w(TAG, "canRunOverlay = false. stopSelf()")
             stopSelf()
             return
         }
-
         startMonitoring()
     }
 
@@ -113,14 +113,12 @@ class OverlayService : LifecycleService() {
 
     override fun onBind(intent: Intent): IBinder? {
         super.onBind(intent)
-        // バインドは使わない
         return null
     }
 
     @SuppressLint("ForegroundServiceType")
     private fun startForegroundWithNotification() {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
         val channel = NotificationChannel(
             NOTIFICATION_CHANNEL_ID,
             "Refocus timer",
@@ -129,7 +127,6 @@ class OverlayService : LifecycleService() {
             description = "Refocus timer overlay service"
         }
         nm.createNotificationChannel(channel)
-
         // アイコンはとりあえずアプリアイコンを流用
         val notification: Notification =
             NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
@@ -138,7 +135,6 @@ class OverlayService : LifecycleService() {
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setOngoing(true)
                 .build()
-
         startForeground(NOTIFICATION_ID, notification)
     }
 
@@ -149,38 +145,70 @@ class OverlayService : LifecycleService() {
         return hasUsage && hasOverlay
     }
 
-    /**
-     * 前面アプリと対象アプリ集合の変化から導かれる「オーバーレイに対する指示」。
-     * M3 でこのイベントに応じてセッションの開始/終了も処理できるようにする。
-     */
-    private enum class OverlayEvent {
-        ShowTimer,
-        HideTimer,
-        NoChange
+    private fun onEnterForeground(
+        packageName: String,
+        nowMillis: Long,
+        nowElapsed: Long
+    ) {
+        // すでに状態があればそれを使い、なければ新規作成
+        val state = sessionStates.getOrPut(packageName) {
+            RunningSessionState(
+                packageName = packageName,
+                startedAtMillis = nowMillis,
+                elapsedMillis = 0L,
+                lastForegroundElapsedRealtime = null,
+                pendingEndJob = null,
+                lastLeaveAtMillis = null
+            )
+        }
+        // このアプリ用の猶予ジョブが動いていたらキャンセル（猶予中に戻ってきた）
+        state.pendingEndJob?.cancel()
+        state.pendingEndJob = null
+        state.lastLeaveAtMillis = null
+        // 前面に復帰したタイミングを覚えておく（leave 時に差分を足す）
+        state.lastForegroundElapsedRealtime = nowElapsed
+        // DB 上のセッションを開始（既に active があればそのまま返る）
+        serviceScope.launch {
+            try {
+                sessionRepository.startSession(
+                    packageName = packageName,
+                    startedAtMillis = state.startedAtMillis
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start session for $packageName", e)
+            }
+        }
+        // オーバーレイの表示対象を切り替え
+        overlayPackage = packageName
+        serviceScope.launch(Dispatchers.Main) {
+            overlayController.showTimer(initialElapsedMillis = state.elapsedMillis)
+        }
     }
 
-    private data class OverlayTransition(
-        val event: OverlayEvent,
-        val previousPackage: String?,
-        val newPackage: String?
-    )
-
-    private fun reduceForegroundChange(
-        newForegroundPackage: String?,
-        targets: Set<String>
-    ): OverlayTransition {
-        val previous = currentForegroundPackage
-        val wasTarget = previous != null && previous in targets
-        val isTargetNow = newForegroundPackage != null && newForegroundPackage in targets
-
-        currentForegroundPackage = newForegroundPackage
-
-        val event = when {
-            !wasTarget && isTargetNow -> OverlayEvent.ShowTimer
-            wasTarget && !isTargetNow -> OverlayEvent.HideTimer
-            else -> OverlayEvent.NoChange
+    private fun onLeaveForeground(
+        packageName: String,
+        nowMillis: Long,
+        nowElapsed: Long
+    ) {
+        val state = sessionStates[packageName] ?: return
+        // 「前面にいた時間」を累積
+        state.lastForegroundElapsedRealtime?.let { startElapsed ->
+            val delta = nowElapsed - startElapsed
+            if (delta > 0L) {
+                state.elapsedMillis += delta
+            }
         }
-        return OverlayTransition(event, previousPackage = previous, newPackage = newForegroundPackage)
+        state.lastForegroundElapsedRealtime = null
+        state.lastLeaveAtMillis = nowMillis
+        // もし今表示中のアプリならオーバーレイを閉じる
+        if (overlayPackage == packageName) {
+            overlayPackage = null
+            serviceScope.launch(Dispatchers.Main) {
+                overlayController.hideTimer()
+            }
+        }
+        // このアプリに対して猶予タイマーを開始
+        startGraceTimerFor(state)
     }
 
     private fun startMonitoring() {
@@ -193,68 +221,45 @@ class OverlayService : LifecycleService() {
             }.collectLatest { (foregroundPackage, targets) ->
                 Log.d(TAG, "combine: foreground=$foregroundPackage, targets=$targets")
                 try {
-                    val transition = reduceForegroundChange(foregroundPackage, targets)
-                    when (transition.event) {
-                        OverlayEvent.ShowTimer -> {
-                            val nowElapsed = SystemClock.elapsedRealtime()
-                            val nowMillis = System.currentTimeMillis()
-                            val pkg = currentForegroundPackage
-                            Log.d(TAG, "showTimer nowElapsed=$nowElapsed, nowMillis=$nowMillis")
-                            if (pkg != null) {
-                                if (pendingEndPackage == pkg) {
-                                    Log.d(TAG, "Resumed $pkg within grace period, keep session")
-                                    cancelGracePeriodIfAny()
-                                    if (currentSessionStartedAtMillis == null) {
-                                        currentSessionStartedAtMillis = nowMillis
-                                    }
-                                } else {
-                                    Log.d(TAG, "Start new session for $pkg")
-                                    currentSessionStartedAtMillis = nowMillis
-                                    currentSessionElapsedMillis = 0L
-                                    serviceScope.launch {
-                                        try {
-                                            sessionRepository.startSession(
-                                                packageName = pkg,
-                                                startedAtMillis = nowMillis
-                                            )
-                                        } catch (e: Exception) {
-                                            Log.e(TAG, "Failed to start session for $pkg", e)
-                                        }
-                                    }
-                                }
-                            }
-                            currentSessionStartElapsedRealtime = nowElapsed
-                            withContext(Dispatchers.Main) {
-                                overlayController.showTimer(initialElapsedMillis = currentSessionElapsedMillis)
-                            }
-                            isTimerVisible = true
+                    val previous = currentForegroundPackage
+                    val prevIsTarget = previous != null && previous in targets
+                    val nowIsTarget = foregroundPackage != null && foregroundPackage in targets
+                    val nowMillis = System.currentTimeMillis()
+                    val nowElapsed = SystemClock.elapsedRealtime()
+                    // currentForegroundPackage を更新
+                    currentForegroundPackage = foregroundPackage
+                    when {
+                        // 非対象 → 対象
+                        !prevIsTarget && nowIsTarget -> {
+                            onEnterForeground(
+                                packageName = foregroundPackage,
+                                nowMillis = nowMillis,
+                                nowElapsed = nowElapsed
+                            )
                         }
-                        OverlayEvent.HideTimer -> {
-                            val nowMillis = System.currentTimeMillis()
-                            val nowElapsed = SystemClock.elapsedRealtime()
-                            val leftPackage = transition.previousPackage
-                            Log.d(TAG, "hideTimer by event, nowMillis=$nowMillis, leftPackage=$leftPackage")
-                            // 「最後に前面になった瞬間」からの差分を累積時間に足す
-                            currentSessionStartElapsedRealtime?.let { startElapsed ->
-                                val delta = nowElapsed - startElapsed
-                                if (delta > 0L) {
-                                    currentSessionElapsedMillis += delta
-                                }
-                            }
-                            currentSessionStartElapsedRealtime = null
-                            withContext(Dispatchers.Main) {
-                                overlayController.hideTimer()
-                            }
-                            isTimerVisible = false
-                            if (leftPackage != null) {
-                                startGracePeriod(
-                                    packageName = leftPackage,
-                                    leaveAtMillis = nowMillis
-                                )
-                            }
+                        // 対象 → 非対象
+                        prevIsTarget && !nowIsTarget -> {
+                            onLeaveForeground(
+                                packageName = previous,
+                                nowMillis = nowMillis,
+                                nowElapsed = nowElapsed
+                            )
                         }
-                        OverlayEvent.NoChange -> {
-                            // 何もしない（ログも不要なら省略可）
+                        // 対象A → 対象B
+                        prevIsTarget && previous != foregroundPackage -> {
+                            onLeaveForeground(
+                                packageName = previous,
+                                nowMillis = nowMillis,
+                                nowElapsed = nowElapsed
+                            )
+                            onEnterForeground(
+                                packageName = foregroundPackage!!,
+                                nowMillis = nowMillis,
+                                nowElapsed = nowElapsed
+                            )
+                        }
+                        else -> {
+                            // 非対象→非対象 / 対象→同じ対象 (permissions など) は何もしない
                         }
                     }
                 } catch (e: Exception) {
@@ -263,71 +268,43 @@ class OverlayService : LifecycleService() {
                     withContext(Dispatchers.Main) {
                         overlayController.hideTimer()
                     }
-                    isTimerVisible = false
+                    overlayPackage = null
                 }
             }
         }
     }
 
-    /**
-     * 現在の対象アプリを「t ミリ秒後にセッション終了する」という猶予状態にする。
-     * 猶予中に再度 ShowTimer が来た場合はキャンセルされる。
-     */
-    private fun startGracePeriod(
-        packageName: String,
-        leaveAtMillis: Long
+
+    private fun startGraceTimerFor(
+        state: RunningSessionState
     ) {
         // 既存の猶予があればキャンセル
-        pendingEndJob?.cancel()
-        pendingEndPackage = packageName
-        lastLeaveAtMillis = leaveAtMillis
-        pendingEndJob = serviceScope.launch {
+        state.pendingEndJob?.cancel()
+        val packageName = state.packageName
+        state.pendingEndJob = serviceScope.launch {
+            var ended = false
             try {
                 delay(DEFAULT_GRACE_PERIOD_MS)
-                // 猶予中に同じアプリへ戻ってきた場合は cancelGracePeriodIfAny() で
-                // pendingEndPackage が null にされているはず
-                if (pendingEndPackage == null) {
-                    Log.d(TAG, "Grace period job: already canceled for $packageName")
-                    return@launch
-                }
-                // packageName が変わっていても、とりあえず endActiveSession は冪等なので呼んでしまってよい
-                Log.d(TAG, "Grace period expired for $packageName, ending session")
-                val startedAt = currentSessionStartedAtMillis
-                val effectiveEndMillis = if (startedAt != null) {
-                    // 「開始時刻 + 画面表示時間の合計」で終了時刻を算出
-                    startedAt + currentSessionElapsedMillis
-                } else {
-                    // 保険：開始時刻が取れないときは従来通り
-                    leaveAtMillis
-                }
+                Log.d(TAG, "Grace expired for $packageName, ending session")
+                // 「開始時刻 + 累積表示時間」を終了時刻として使う
+                val effectiveEndMillis = state.startedAtMillis + state.elapsedMillis
                 sessionRepository.endActiveSession(
                     packageName = packageName,
                     endedAtMillis = effectiveEndMillis
                 )
-                currentSessionStartedAtMillis = null
-                currentSessionElapsedMillis = 0L
-                currentSessionStartElapsedRealtime = null
-            } catch (e: CancellationException) {
-                Log.d(TAG, "Grace period canceled for $packageName")
+                ended = true
+            } catch (_: CancellationException) {
+                Log.d(TAG, "Grace canceled for $packageName")
             } catch (e: Exception) {
-                Log.e(TAG, "Error in grace period job", e)
+                Log.e(TAG, "Error in grace timer for $packageName", e)
             } finally {
-                // 状態リセットは finally で必ず実行する
-                pendingEndJob = null
-                pendingEndPackage = null
-                lastLeaveAtMillis = null
+                state.pendingEndJob = null
+                state.lastLeaveAtMillis = null
+                if (ended) {
+                    // 終了したアプリのランタイム状態は片付ける
+                    sessionStates.remove(packageName)
+                }
             }
         }
-    }
-
-
-    /**
-     * 猶予状態を解除する（ユーザが猶予時間内に同じアプリへ戻ってきたなど）。
-     */
-    private fun cancelGracePeriodIfAny() {
-        pendingEndJob?.cancel()
-        pendingEndJob = null
-        pendingEndPackage = null
-        lastLeaveAtMillis = null
     }
 }
