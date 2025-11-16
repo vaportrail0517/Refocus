@@ -36,6 +36,8 @@ class AppListViewModel(
 
     private val selected = MutableStateFlow<Set<String>>(emptySet())
 
+    private val selfPackageName: String = application.packageName
+
     init {
         load()
     }
@@ -52,23 +54,27 @@ class AppListViewModel(
 
             val usageMap = queryUsageTime()
 
-            val appList = activities.map { info ->
-                val label = info.loadLabel(pm).toString()
-                val pkg = info.activityInfo.packageName
-                val usage = usageMap[pkg] ?: 0L
-                val icon = try {
-                    info.loadIcon(pm)
-                } catch (e: Exception) {
-                    null
+            val appList = activities
+                .filter { resolveInfo ->
+                    resolveInfo.activityInfo.packageName != selfPackageName
                 }
-                AppUiModel(
-                    label = label,
-                    packageName = pkg,
-                    usageTimeMs = usage,
-                    isSelected = pkg in currentTargets,
-                    icon = icon
-                )
-            }.sortedByDescending { it.usageTimeMs }
+                .map { info ->
+                    val label = info.loadLabel(pm).toString()
+                    val pkg = info.activityInfo.packageName
+                    val usage = usageMap[pkg] ?: 0L
+                    val icon = try {
+                        info.loadIcon(pm)
+                    } catch (e: Exception) {
+                        null
+                    }
+                    AppUiModel(
+                        label = label,
+                        packageName = pkg,
+                        usageTimeMs = usage,
+                        isSelected = pkg in currentTargets,
+                        icon = icon
+                    )
+                }.sortedByDescending { it.usageTimeMs }
 
             _apps.value = appList
         }

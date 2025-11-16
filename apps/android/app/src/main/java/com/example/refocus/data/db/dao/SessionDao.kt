@@ -14,6 +14,28 @@ interface SessionDao {
     suspend fun updateSession(session: SessionEntity)
 
     /**
+     * endedAtMillis が null の「進行中セッション」を全件取得（デグレ修復用）。
+     */
+    @Query("SELECT * FROM sessions WHERE endedAtMillis IS NULL")
+    suspend fun findAllActiveSessions(): List<SessionEntity>
+
+    /**
+     * startedAtMillis > endedAtMillis になってしまっている壊れたセッション。
+     */
+    @Query("""
+        SELECT * FROM sessions
+        WHERE endedAtMillis IS NOT NULL
+          AND endedAtMillis < startedAtMillis
+    """)
+    suspend fun findBrokenSessions(): List<SessionEntity>
+
+    /**
+     * 複数レコードをまとめて更新（デグレ修復で使用）。
+     */
+    @Update
+    suspend fun updateSessions(sessions: List<SessionEntity>)
+
+    /**
      * endedAtMillis が null の「進行中セッション」を1件だけ取得。
      * 通常は packageName ごとに1件までに制御する想定。
      */

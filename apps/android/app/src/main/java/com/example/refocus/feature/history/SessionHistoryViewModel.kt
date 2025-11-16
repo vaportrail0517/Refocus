@@ -97,7 +97,7 @@ class SessionHistoryViewModel(
     }
 
     private fun formatDateTime(millis: Long): String {
-        val df = SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault())
+        val df = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
         return df.format(Date(millis))
     }
 
