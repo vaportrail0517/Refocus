@@ -20,33 +20,44 @@ import androidx.compose.ui.draw.alpha
 //import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.refocus.core.model.OverlaySettings
 import kotlinx.coroutines.delay
 //import kotlin.math.max
+
+enum class OverlayColorMode {
+    SingleColor,
+    Threshold,
+    Gradient
+}
 
 @Composable
 fun OverlayTimerBubble(
     modifier: Modifier = Modifier,
-    // 将来的に今日までの累計時間などを渡したい場合用（今は 0 で開始）
     initialElapsedMillis: Long = 0L,
+    settings: OverlaySettings,
 ) {
     // 経過時間（ミリ秒）
     var elapsedMillis by remember { mutableLongStateOf(initialElapsedMillis) }
-
     // 前回 tick したときの SystemClock.elapsedRealtime()
     var lastTickElapsedRealtime by remember {
         mutableLongStateOf(SystemClock.elapsedRealtime())
     }
-
+    val elapsedMinutes = elapsedMillis / 1000f / 60f
+    val progress = if (settings.timeToMaxMinutes > 0) {
+        (elapsedMinutes / settings.timeToMaxMinutes).coerceIn(0f, 1f)
+    } else {
+        1f
+    }
+    val fontSizeSp = settings.minFontSizeSp +
+            (settings.maxFontSizeSp - settings.minFontSizeSp) * progress
     // タイマー本体：常に 1 秒ごとに state を更新する
     LaunchedEffect(initialElapsedMillis) {
         // 初期値をリセット
         elapsedMillis = initialElapsedMillis
         lastTickElapsedRealtime = SystemClock.elapsedRealtime()
-
         while (true) {
             // 1 秒待つ
             delay(1000L)
-
             val now = SystemClock.elapsedRealtime()
             val delta = now - lastTickElapsedRealtime
             if (delta > 0L) {
@@ -55,7 +66,6 @@ fun OverlayTimerBubble(
             }
         }
     }
-
     Box(
         modifier = modifier
             .alpha(0.9f)
@@ -68,7 +78,7 @@ fun OverlayTimerBubble(
         Text(
             text = formatDuration(elapsedMillis),
             color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 16.sp
+            fontSize = fontSizeSp.sp
         )
     }
 }
@@ -79,7 +89,6 @@ private fun formatDuration(millis: Long): String {
     val seconds = (totalSeconds % 60).toInt()
     val minutes = ((totalSeconds / 60) % 60).toInt()
     val hours = (totalSeconds / 3600).toInt()
-
     return if (hours > 0) {
         String.format("%d:%02d:%02d", hours, minutes, seconds)
     } else {

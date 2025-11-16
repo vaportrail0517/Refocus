@@ -13,9 +13,11 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import com.example.refocus.R
+import com.example.refocus.core.model.OverlaySettings
 import com.example.refocus.data.RepositoryProvider
 import com.example.refocus.data.repository.TargetsRepository
 import com.example.refocus.data.repository.SessionRepository
+import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.feature.monitor.ForegroundAppMonitor
 import com.example.refocus.permissions.PermissionHelper
 import kotlinx.coroutines.CoroutineScope
@@ -36,26 +38,27 @@ class OverlayService : LifecycleService() {
         private const val TAG = "OverlayService"
         private const val NOTIFICATION_CHANNEL_ID = "overlay_service_channel"
         private const val NOTIFICATION_ID = 1
-
-        private const val DEFAULT_POLLING_INTERVAL_MS = 500L
-        private const val DEFAULT_GRACE_PERIOD_MS = 30_000L
     }
 
     // サービス専用のCoroutineScope
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    private lateinit var targetsRepository: TargetsRepository
-    private lateinit var sessionRepository: SessionRepository
+    private lateinit var repositoryProvider: RepositoryProvider
+    private val targetsRepository: TargetsRepository
+        get() = repositoryProvider.targetsRepository
+    private val sessionRepository: SessionRepository
+        get() = repositoryProvider.sessionRepository
+    private val settingsRepository: SettingsRepository
+        get() = repositoryProvider.settingsRepository
+
     private lateinit var foregroundAppMonitor: ForegroundAppMonitor
     private lateinit var overlayController: OverlayController
 
-
     private var currentForegroundPackage: String? = null
     private var overlayPackage: String? = null
+    @Volatile
+    private var overlaySettings: OverlaySettings = OverlaySettings()
 
-    /**
-     * あるパッケージのセッションを、サービス内で管理するためのランタイム状態。
-     */
     private data class RunningSessionState(
         val packageName: String,
         var startedAtMillis: Long,
@@ -74,9 +77,7 @@ class OverlayService : LifecycleService() {
         super.onCreate()
         Log.d(TAG, "onCreate")
         val app = application as Application
-        val repositoryProvider = RepositoryProvider(app)
-        targetsRepository = repositoryProvider.targetsRepository
-        sessionRepository = repositoryProvider.sessionRepository
+        repositoryProvider = RepositoryProvider(app)
         foregroundAppMonitor = ForegroundAppMonitor(this)
         // LifecycleService 自身を LifecycleOwner として渡す
         overlayController = OverlayController(
@@ -90,6 +91,15 @@ class OverlayService : LifecycleService() {
                 sessionRepository.repairStaleSessions()
             } catch (e: Exception) {
                 Log.e(TAG, "repairStaleSessions failed", e)
+            }
+        }
+        serviceScope.launch {
+            try {
+                settingsRepository.observeOverlaySettings().collect { settings ->
+                    overlaySettings = settings
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "observeOverlaySettings failed", e)
             }
         }
         // 権限が揃っていなければ即終了
@@ -214,11 +224,13 @@ class OverlayService : LifecycleService() {
     private fun startMonitoring() {
         serviceScope.launch {
             combine(
-                foregroundAppMonitor.foregroundAppFlow(pollingIntervalMs = DEFAULT_POLLING_INTERVAL_MS),
-                targetsRepository.observeTargets()
-            ) { foregroundPackage, targets ->
-                foregroundPackage to targets
-            }.collectLatest { (foregroundPackage, targets) ->
+                targetsRepository.observeTargets(),
+                foregroundAppMonitor.foregroundAppFlow(
+                    pollingIntervalMs = overlaySettings.pollingIntervalMillis
+                )
+            ) { targets, foregroundPackage ->
+                targets to foregroundPackage
+            }.collectLatest { (targets, foregroundPackage) ->
                 Log.d(TAG, "combine: foreground=$foregroundPackage, targets=$targets")
                 try {
                     val previous = currentForegroundPackage
@@ -284,7 +296,7 @@ class OverlayService : LifecycleService() {
         state.pendingEndJob = serviceScope.launch {
             var ended = false
             try {
-                delay(DEFAULT_GRACE_PERIOD_MS)
+                delay(overlaySettings.gracePeriodMillis)
                 Log.d(TAG, "Grace expired for $packageName, ending session")
                 // 「開始時刻 + 累積表示時間」を終了時刻として使う
                 val effectiveEndMillis = state.startedAtMillis + state.elapsedMillis

@@ -2,7 +2,6 @@ package com.example.refocus.feature.overlay
 
 import android.content.Context
 import android.graphics.PixelFormat
-import android.os.Build
 import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
@@ -18,6 +17,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.example.refocus.core.model.OverlaySettings
 
 /**
  * Service など Activity 以外のコンテキストから、
@@ -29,9 +29,9 @@ class OverlayController(
 ) {
     private val windowManager =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-
     private var overlayView: View? = null
     private var layoutParams: WindowManager.LayoutParams? = null
+    var overlaySettings: OverlaySettings = OverlaySettings()
 
     /**
      * Timer を表示する。既に表示中なら何もしない。
@@ -43,7 +43,6 @@ class OverlayController(
             return
         }
         Log.d("OverlayController", "showTimer: creating overlay view")
-
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -56,28 +55,26 @@ class OverlayController(
             x = 24
             y = 120
         }
-
         val composeView = ComposeView(context).apply {
             // View ツリーの LifecycleOwner は Service(LifecycleService) を使う
             setViewTreeLifecycleOwner(lifecycleOwner)
-
             // SavedStateRegistryOwner はサービスとは独立したダミーのオーナーを使う
             val savedStateOwner = OverlaySavedStateOwner()
             setViewTreeSavedStateRegistryOwner(savedStateOwner)
-
             setContent {
                 RefocusTheme {
-                    OverlayTimerBubble(initialElapsedMillis = initialElapsedMillis)
+                    OverlayTimerBubble(
+                        initialElapsedMillis = initialElapsedMillis,
+                        settings = overlaySettings
+                    )
                 }
             }
-
             // 簡易ドラッグ移動
             setOnTouchListener(object : View.OnTouchListener {
                 private var initialX = 0
                 private var initialY = 0
                 private var initialTouchX = 0f
                 private var initialTouchY = 0f
-
                 override fun onTouch(v: View, event: MotionEvent): Boolean {
                     val lp = this@OverlayController.layoutParams ?: return false
                     when (event.action) {
@@ -99,7 +96,6 @@ class OverlayController(
                 }
             })
         }
-
         overlayView = composeView
         layoutParams = params
         try {
