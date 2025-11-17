@@ -18,6 +18,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.refocus.core.model.OverlaySettings
+import com.example.refocus.core.model.OverlayTouchMode
 
 /**
  * Service など Activity 以外のコンテキストから、
@@ -37,64 +38,91 @@ class OverlayController(
      * Timer を表示する。既に表示中なら何もしない。
      * baseElapsedRealtime は起動開始時刻（SystemClock.elapsedRealtime の値）
      */
-    fun showTimer(initialElapsedMillis: Long) {
+    fun showTimer(
+        initialElapsedMillis: Long,
+        onPositionChanged: ((x: Int, y: Int) -> Unit)? = null,
+    ) {
         if (overlayView != null) {
             Log.d("OverlayController", "showTimer: already showing")
             return
         }
         Log.d("OverlayController", "showTimer: creating overlay view")
+        // ★ここで最新の設定をスナップショットして使う
+        val settings = overlaySettings
+        // 基本フラグ
+        val baseFlags =
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+        // タッチモードに応じて NOT_TOUCHABLE を付け足す
+        val flags = when (settings.touchMode) {
+            OverlayTouchMode.Drag ->
+                baseFlags
+            OverlayTouchMode.PassThrough ->
+                baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        }
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            flags,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.END
-            x = 24
-            y = 120
+            // ★左上基準に変更
+            gravity = Gravity.TOP or Gravity.START
+            // ★設定から初期位置を設定
+            x = settings.positionX
+            y = settings.positionY
         }
         val composeView = ComposeView(context).apply {
-            // View ツリーの LifecycleOwner は Service(LifecycleService) を使う
             setViewTreeLifecycleOwner(lifecycleOwner)
-            // SavedStateRegistryOwner はサービスとは独立したダミーのオーナーを使う
             val savedStateOwner = OverlaySavedStateOwner()
             setViewTreeSavedStateRegistryOwner(savedStateOwner)
             setContent {
                 RefocusTheme {
                     OverlayTimerBubble(
                         initialElapsedMillis = initialElapsedMillis,
-                        settings = overlaySettings
+                        settings = settings
                     )
                 }
             }
-            // 簡易ドラッグ移動
-            setOnTouchListener(object : View.OnTouchListener {
-                private var initialX = 0
-                private var initialY = 0
-                private var initialTouchX = 0f
-                private var initialTouchY = 0f
-                override fun onTouch(v: View, event: MotionEvent): Boolean {
-                    val lp = this@OverlayController.layoutParams ?: return false
-                    when (event.action) {
-                        MotionEvent.ACTION_DOWN -> {
-                            initialX = lp.x
-                            initialY = lp.y
-                            initialTouchX = event.rawX
-                            initialTouchY = event.rawY
-                            return true
+            // ★タッチモードが Drag のときだけドラッグを有効化
+            if (settings.touchMode == OverlayTouchMode.Drag) {
+                setOnTouchListener(object : View.OnTouchListener {
+                    private var initialX = 0
+                    private var initialY = 0
+                    private var initialTouchX = 0f
+                    private var initialTouchY = 0f
+                    override fun onTouch(v: View, event: MotionEvent): Boolean {
+                        val lp = this@OverlayController.layoutParams ?: params
+                        when (event.action) {
+                            MotionEvent.ACTION_DOWN -> {
+                                initialX = lp.x
+                                initialY = lp.y
+                                initialTouchX = event.rawX
+                                initialTouchY = event.rawY
+                                return true
+                            }
+                            MotionEvent.ACTION_MOVE -> {
+                                lp.x = initialX + (event.rawX - initialTouchX).toInt()
+                                lp.y = initialY + (event.rawY - initialTouchY).toInt()
+                                windowManager.updateViewLayout(v, lp)
+                                // layoutParams にも反映しておく
+                                this@OverlayController.layoutParams = lp
+                                return true
+                            }
+                            MotionEvent.ACTION_UP -> {
+                                // ★ドラッグ終了時の位置をコールバック
+                                onPositionChanged?.invoke(lp.x, lp.y)
+                                return true
+                            }
                         }
-                        MotionEvent.ACTION_MOVE -> {
-                            lp.x = initialX + (event.rawX - initialTouchX).toInt()
-                            lp.y = initialY + (event.rawY - initialTouchY).toInt()
-                            windowManager.updateViewLayout(v, lp)
-                            return true
-                        }
+                        return false
                     }
-                    return false
-                }
-            })
+                })
+            } else {
+                // PassThrough の場合はタッチハンドラなし（全て背面へ）
+                setOnTouchListener(null)
+            }
         }
         overlayView = composeView
         layoutParams = params
@@ -105,6 +133,11 @@ class OverlayController(
             Log.e("OverlayController", "showTimer: addView failed", e)
         }
     }
+
+
+
+
+
 
     /**
      * Timer を非表示にする。

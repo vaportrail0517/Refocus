@@ -5,10 +5,17 @@ import android.app.Application
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RangeSlider
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +30,7 @@ import com.example.refocus.permissions.PermissionHelper
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SectionTitle
 import com.example.refocus.ui.components.SettingRow
+import com.example.refocus.core.model.OverlayTouchMode
 
 @Composable
 fun SettingsScreen(
@@ -41,6 +49,47 @@ fun SettingsScreen(
     var usageGranted by remember { mutableStateOf(PermissionHelper.hasUsageAccess(context)) }
     var overlayGranted by remember { mutableStateOf(PermissionHelper.hasOverlayPermission(context)) }
     var notificationGranted by remember { mutableStateOf(PermissionHelper.hasNotificationPermission(context)) }
+
+    var showGraceDialog by remember { mutableStateOf(false) }
+    var graceInput by remember { mutableStateOf("") }       // 秒
+    var showPollingDialog by remember { mutableStateOf(false) }
+//    var pollingInput by remember { mutableStateOf("") }     // ms
+    var selectedPollingMs by remember {
+        mutableStateOf(uiState.overlaySettings.pollingIntervalMillis)
+    }
+    var showFontRangeDialog by remember { mutableStateOf(false) }
+    var fontRange by remember {
+        mutableStateOf(
+            uiState.overlaySettings.minFontSizeSp .. uiState.overlaySettings.maxFontSizeSp
+        )
+    }
+    var showTimeToMaxDialog by remember { mutableStateOf(false) }
+    var timeToMaxInput by remember { mutableStateOf("") }
+
+    data class PollingOption(val ms: Long, val label: String, val description: String)
+
+    val pollingOptions = listOf(
+        PollingOption(
+            ms = 250L,
+            label = "250 ms",
+            description = "最も素早い反応。バッテリ負荷やや高め。"
+        ),
+        PollingOption(
+            ms = 500L,
+            label = "500 ms",
+            description = "標準的なバランス。反応と電池のバランスが良い。"
+        ),
+        PollingOption(
+            ms = 1000L,
+            label = "1000 ms",
+            description = "ややゆっくり。電池を少し節約したい場合。"
+        ),
+        PollingOption(
+            ms = 2000L,
+            label = "2000 ms",
+            description = "最も省エネ。反応はゆっくりになる。"
+        ),
+    )
 
     // 画面復帰時に権限状態を更新
     DisposableEffect(lifecycleOwner) {
@@ -92,7 +141,7 @@ fun SettingsScreen(
             )
         }
 
-        SectionTitle("対象アプリ")
+        SectionTitle("アプリ")
         SectionCard {
             SettingRow(
                 title = "対象アプリを設定",
@@ -101,7 +150,6 @@ fun SettingsScreen(
             )
         }
 
-        // このあと M5 以降で「猶予時間」「タイマー外観」「休憩促し」などの設定セクションを足していく想定
         SectionTitle("動作")
         SectionCard {
             val graceSeconds = uiState.overlaySettings.gracePeriodMillis / 1000L
@@ -111,40 +159,275 @@ fun SettingsScreen(
                 onClick = {
                     // ここでダイアログや bottom sheet を開いて秒数を入力させる
                     // 入力結果で viewModel.updateGracePeriodSeconds(newSec) を呼ぶ
+                    graceInput = graceSeconds.toString()
+                    showGraceDialog = true
                 }
             )
-//            val pollingMs = uiState.overlaySettings.pollingIntervalMillis
-//            SettingRow(
-//                title = "監視間隔",
-//                subtitle = "$pollingMs ms（アプリ切り替えの検出頻度）",
-//                onClick = {
-//                    // 選択肢: 250ms / 500ms / 1000ms / 2000ms などをリストで出して選ばせる
-//                    // viewModel.updatePollingIntervalMillis(selectedMs)
-//                }
-//            )
+            val pollingMs = uiState.overlaySettings.pollingIntervalMillis
             SettingRow(
-                title = "フォントサイズ（最小）",
-                subtitle = "${uiState.overlaySettings.minFontSizeSp} sp",
+                title = "監視間隔",
+                subtitle = "$pollingMs ms（アプリ切り替えの検出頻度）",
                 onClick = {
-                    // スライダーや数値入力ダイアログ→ viewModel.updateMinFontSizeSp(...)
+                    // 選択肢: 250ms / 500ms / 1000ms / 2000ms などをリストで出して選ばせる
+                    // viewModel.updatePollingIntervalMillis(selectedMs)
+                    selectedPollingMs = pollingMs
+                    showPollingDialog = true
                 }
             )
             SettingRow(
-                title = "フォントサイズ（最大）",
-                subtitle = "${uiState.overlaySettings.maxFontSizeSp} sp",
+                title = "フォントサイズ",
+                subtitle = "最小 ${uiState.overlaySettings.minFontSizeSp} sp / 最大 ${uiState.overlaySettings.maxFontSizeSp} sp",
                 onClick = {
-                    // 同上
+                    fontRange = uiState.overlaySettings.minFontSizeSp ..
+                            uiState.overlaySettings.maxFontSizeSp
+                    showFontRangeDialog = true
                 }
             )
             SettingRow(
                 title = "最大サイズになるまでの時間",
                 subtitle = "${uiState.overlaySettings.timeToMaxMinutes} 分",
                 onClick = {
-                    // 分単位の入力→ viewModel.updateTimeToMaxMinutes(...)
+                    timeToMaxInput = uiState.overlaySettings.timeToMaxMinutes.toString()
+                    showTimeToMaxDialog = true
+                }
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "タイマーの移動",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+//                    Spacer(modifier = Modifier.height(4.dp))
+                    val enabled = uiState.overlaySettings.touchMode == OverlayTouchMode.Drag
+                    Text(
+                        text = if (enabled) {
+                            "オン：タイマーをドラッグして移動できます"
+                        } else {
+                            "オフ：タイマーは固定され，タップはタイマーを透過します"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+                val enabled = uiState.overlaySettings.touchMode == OverlayTouchMode.Drag
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = { isOn ->
+                        val mode = if (isOn) {
+                            OverlayTouchMode.Drag
+                        } else {
+                            OverlayTouchMode.PassThrough
+                        }
+                        viewModel.updateOverlayTouchMode(mode)
+                    }
+                )
+            }
+        }
+        if (showGraceDialog) {
+            AlertDialog(
+                onDismissRequest = { showGraceDialog = false },
+                title = { Text("猶予時間") },
+                text = {
+                    Column {
+                        Text(
+                            text = "対象アプリから離れてから、何秒以内に戻れば同じセッションとみなすかを指定します。",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = graceInput,
+                            onValueChange = { graceInput = it },
+                            label = { Text("猶予時間（秒）") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val seconds = graceInput.toLongOrNull()
+                            if (seconds != null) {
+                                viewModel.updateGracePeriodMillis(seconds * 1000L)
+                            }
+                            showGraceDialog = false
+                        }
+                    ) {
+                        Text("保存")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showGraceDialog = false }) {
+                        Text("キャンセル")
+                    }
                 }
             )
         }
+        if (showPollingDialog) {
+            AlertDialog(
+                onDismissRequest = { showPollingDialog = false },
+                title = { Text("監視間隔") },
+                text = {
+                    Column {
+                        Text(
+                            text = "前面アプリをどれくらいの間隔でチェックするかを選びます。",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
 
+                        pollingOptions.forEach { option ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        selectedPollingMs = option.ms
+                                    }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedPollingMs == option.ms,
+                                    onClick = { selectedPollingMs = option.ms }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = option.label,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = option.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.updatePollingIntervalMillis(selectedPollingMs)
+                            showPollingDialog = false
+                        }
+                    ) {
+                        Text("保存")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPollingDialog = false }) {
+                        Text("キャンセル")
+                    }
+                }
+            )
+        }
+        if (showFontRangeDialog) {
+            val minFontSpLimit = 8f
+            val maxFontSpLimit = 96f
+            AlertDialog(
+                onDismissRequest = { showFontRangeDialog = false },
+                title = { Text("フォントサイズ") },
+                text = {
+                    Column {
+                        Text(
+                            text = "タイマーのフォントサイズ範囲を指定します。",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // RangeSlider で [min, max] を同時に指定
+
+                        RangeSlider(
+                            value = fontRange,
+                            onValueChange = { range ->
+                                fontRange = range
+                            },
+                            valueRange = minFontSpLimit..maxFontSpLimit,
+                            steps = (maxFontSpLimit - minFontSpLimit).toInt() - 1, // 1sp刻み
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "最小: ${"%.1f".format(fontRange.start)} sp / 最大: ${"%.1f".format(fontRange.endInclusive)} sp",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val minSp = fontRange.start
+                            val maxSp = fontRange.endInclusive
+                            // 念のため clamp
+                            val clampedMin = minSp.coerceIn(minFontSpLimit, maxFontSpLimit)
+                            val clampedMax = maxSp.coerceIn(clampedMin, maxFontSpLimit)
+                            viewModel.updateMinFontSizeSp(clampedMin)
+                            viewModel.updateMaxFontSizeSp(clampedMax)
+                            showFontRangeDialog = false
+                        }
+                    ) {
+                        Text("保存")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showFontRangeDialog = false }) {
+                        Text("キャンセル")
+                    }
+                }
+            )
+        }
+        // ★ 最大サイズになるまでの時間のダイアログ
+        if (showTimeToMaxDialog) {
+            AlertDialog(
+                onDismissRequest = { showTimeToMaxDialog = false },
+                title = { Text("最大サイズになるまでの時間") },
+                text = {
+                    Column {
+                        Text(
+                            text = "フォントが最大サイズになるまでの時間（分）を指定します。",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = timeToMaxInput,
+                            onValueChange = { timeToMaxInput = it },
+                            label = { Text("時間（分）") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number
+                            ),
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val value = timeToMaxInput.toIntOrNull()
+                            if (value != null) {
+                                val clamped = value.coerceIn(1, 240) // 1〜240分など
+                                viewModel.updateTimeToMaxMinutes(clamped)
+                            }
+                            showTimeToMaxDialog = false
+                        }
+                    ) {
+                        Text("保存")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showTimeToMaxDialog = false }) {
+                        Text("キャンセル")
+                    }
+                }
+            )
+        }
     }
 }
 

@@ -110,6 +110,7 @@ class OverlayService : LifecycleService() {
             try {
                 settingsRepository.observeOverlaySettings().collect { settings ->
                     overlaySettings = settings
+                    overlayController.overlaySettings = settings
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "observeOverlaySettings failed", e)
@@ -218,7 +219,21 @@ class OverlayService : LifecycleService() {
         // オーバーレイの表示対象を切り替え
         overlayPackage = packageName
         serviceScope.launch(Dispatchers.Main) {
-            overlayController.showTimer(initialElapsedMillis = state.elapsedMillis)
+            overlayController.showTimer(
+                initialElapsedMillis = state.elapsedMillis,
+                onPositionChanged = { x, y ->
+                    // 位置を設定として保存（全体共通）
+                    serviceScope.launch {
+                        try {
+                            settingsRepository.updateOverlaySettings { current ->
+                                current.copy(positionX = x, positionY = y)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to save overlay position", e)
+                        }
+                    }
+                }
+            )
         }
     }
 

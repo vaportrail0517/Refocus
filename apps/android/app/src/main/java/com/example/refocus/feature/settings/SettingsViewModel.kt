@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.OverlaySettings
 import com.example.refocus.data.repository.SettingsRepository
+import com.example.refocus.core.model.OverlayTouchMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,10 +38,10 @@ class SettingsViewModel(
         }
     }
 
-    fun updateGracePeriodSeconds(sec: Long) {
+    fun updateGracePeriodMillis(ms: Long) {
         viewModelScope.launch {
             settingsRepository.updateOverlaySettings { current ->
-                current.copy(gracePeriodMillis = sec * 1000L)
+                current.copy(gracePeriodMillis = ms)
             }
         }
     }
@@ -53,5 +54,49 @@ class SettingsViewModel(
         }
     }
 
-    // フォントサイズや timeToMaxMinutes に対する更新関数も同様
+    fun updateMinFontSizeSp(minSp: Float) {
+        viewModelScope.launch {
+            settingsRepository.updateOverlaySettings { current ->
+                current.copy(
+                    minFontSizeSp = minSp
+                )
+            }
+        }
+    }
+
+    fun updateMaxFontSizeSp(maxSp: Float) {
+        viewModelScope.launch {
+            settingsRepository.updateOverlaySettings { current ->
+                current.copy(
+                    maxFontSizeSp = maxSp
+                )
+            }
+        }
+    }
+
+    fun updateTimeToMaxMinutes(minutes: Int) {
+        viewModelScope.launch {
+            settingsRepository.updateOverlaySettings { current ->
+                current.copy(
+                    timeToMaxMinutes = minutes
+                )
+            }
+        }
+    }
+
+    fun updateOverlayTouchMode(mode: OverlayTouchMode) {
+        viewModelScope.launch {
+            settingsRepository.updateOverlaySettings { current ->
+                current.copy(touchMode = mode)
+            }
+        }
+    }
+
+    fun updateOverlayPosition(x: Int, y: Int) {
+        viewModelScope.launch {
+            settingsRepository.updateOverlaySettings { current ->
+                current.copy(positionX = x, positionY = y)
+            }
+        }
+    }
 }
