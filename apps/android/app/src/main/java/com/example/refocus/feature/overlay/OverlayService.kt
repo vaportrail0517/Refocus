@@ -186,6 +186,7 @@ class OverlayService : LifecycleService() {
                 lastLeaveAtMillis = null
             )
         }
+        val wasPaused = state.lastLeaveAtMillis != null
         // このアプリ用の猶予ジョブが動いていたらキャンセル（猶予中に戻ってきた）
         state.pendingEndJob?.cancel()
         state.pendingEndJob = null
@@ -199,6 +200,17 @@ class OverlayService : LifecycleService() {
                     packageName = packageName,
                     startedAtMillis = state.startedAtMillis
                 )
+                // 中断からの復帰であれば「再開イベント」を記録する
+                if (wasPaused) {
+                    try {
+                        sessionRepository.recordResume(
+                            packageName = packageName,
+                            resumedAtMillis = nowMillis
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to record resume for $packageName", e)
+                    }
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to start session for $packageName", e)
             }
@@ -225,6 +237,17 @@ class OverlayService : LifecycleService() {
         }
         state.lastForegroundElapsedRealtime = null
         state.lastLeaveAtMillis = nowMillis
+        // ここで「中断イベント」を記録する
+        serviceScope.launch {
+            try {
+                sessionRepository.recordPause(
+                    packageName = packageName,
+                    pausedAtMillis = nowMillis
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to record pause for $packageName", e)
+            }
+        }
         // もし今表示中のアプリならオーバーレイを閉じる
         if (overlayPackage == packageName) {
             overlayPackage = null

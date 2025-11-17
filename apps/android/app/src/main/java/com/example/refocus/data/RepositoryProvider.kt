@@ -8,6 +8,7 @@ import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SessionRepositoryImpl
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.data.repository.TargetsRepository
+import com.example.refocus.data.db.dao.SessionPauseResumeDao
 /**
  * Application から Repository を組み立てるヘルパー。
  * 将来 SessionRepository / SettingsRepository もここに集約する。
@@ -23,7 +24,11 @@ class RepositoryProvider(
     val sessionRepository: SessionRepository by lazy {
         val db = RefocusDatabase.getInstance(application)
         val sessionDao = db.sessionDao()
-        SessionRepositoryImpl(sessionDao)
+        val pauseResumeDao = db.sessionPauseResumeDao()
+        SessionRepositoryImpl(
+            sessionDao = sessionDao,
+            pauseResumeDao = pauseResumeDao
+        )
     }
     val settingsRepository: SettingsRepository by lazy {
         val dataStore = SettingsDataStore(application)

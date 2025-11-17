@@ -5,6 +5,8 @@ import kotlinx.coroutines.flow.Flow
 import com.example.refocus.data.db.dao.SessionDao
 import com.example.refocus.data.db.entity.SessionEntity
 import kotlinx.coroutines.flow.map
+import com.example.refocus.data.db.dao.SessionPauseResumeDao
+import com.example.refocus.data.db.entity.SessionPauseResumeEntity
 
 interface SessionRepository {
 
@@ -21,6 +23,18 @@ interface SessionRepository {
     suspend fun endActiveSession(packageName: String, endedAtMillis: Long)
 
     /**
+     * アクティブなセッションに「中断イベント」を追加する。
+     * 対象アプリの active session がなければ何もしない。
+     */
+    suspend fun recordPause(packageName: String, pausedAtMillis: Long)
+
+    /**
+     * アクティブなセッションの「最後の未解決の中断イベント」に再開時刻を埋める。
+     * active session がない / 未解決イベントがない場合は何もしない。
+     */
+    suspend fun recordResume(packageName: String, resumedAtMillis: Long)
+
+    /**
      * 全セッションを新しい順で購読（履歴画面用）。
      */
     fun observeAllSessions(): Flow<List<Session>>
@@ -33,7 +47,8 @@ interface SessionRepository {
 }
 
 class SessionRepositoryImpl(
-    private val sessionDao: SessionDao
+    private val sessionDao: SessionDao,
+    private val pauseResumeDao: SessionPauseResumeDao
 ) : SessionRepository {
 
     companion object {
@@ -138,6 +153,31 @@ class SessionRepositoryImpl(
         if (sessionsToFix.isNotEmpty()) {
             sessionDao.updateSessions(sessionsToFix)
         }
+    }
+
+    override suspend fun recordPause(packageName: String, pausedAtMillis: Long) {
+        // 対象アプリの active session を取得
+        val active = sessionDao.findActiveSession(packageName) ?: return
+
+        // このセッションに新しい pause イベントを追加
+        val event = SessionPauseResumeEntity(
+            sessionId = active.id,
+            pausedAtMillis = pausedAtMillis,
+            resumedAtMillis = null
+        )
+        pauseResumeDao.insert(event)
+    }
+
+    override suspend fun recordResume(packageName: String, resumedAtMillis: Long) {
+        // active session がなければ何もしない
+        val active = sessionDao.findActiveSession(packageName) ?: return
+
+        // このセッションの「最後の未解決の pause イベント」を取得
+        val lastPause = pauseResumeDao.findLastUnresolvedPause(active.id) ?: return
+
+        // 再開時刻を埋める
+        val updated = lastPause.copy(resumedAtMillis = resumedAtMillis)
+        pauseResumeDao.update(updated)
     }
 
     /**

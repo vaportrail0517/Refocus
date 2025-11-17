@@ -6,6 +6,8 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.refocus.data.db.dao.SessionDao
 import com.example.refocus.data.db.entity.SessionEntity
+import com.example.refocus.data.db.dao.SessionPauseResumeDao
+import com.example.refocus.data.db.entity.SessionPauseResumeEntity
 
 /**
  * Room のメインDB。
@@ -13,14 +15,16 @@ import com.example.refocus.data.db.entity.SessionEntity
  */
 @Database(
     entities = [
-        SessionEntity::class
+        SessionEntity::class,
+        SessionPauseResumeEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 abstract class RefocusDatabase : RoomDatabase() {
 
     abstract fun sessionDao(): SessionDao
+    abstract fun sessionPauseResumeDao(): SessionPauseResumeDao
 
     companion object {
         @Volatile
