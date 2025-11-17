@@ -45,7 +45,7 @@
         </service>
 
         <receiver
-            android:name=".boot.BootCompletedReceiver"
+            android:name=".system.boot.BootCompletedReceiver"
             android:enabled="true"
             android:exported="false">
             <intent-filter>

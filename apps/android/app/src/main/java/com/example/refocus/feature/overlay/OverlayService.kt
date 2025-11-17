@@ -20,7 +20,7 @@ import com.example.refocus.data.repository.TargetsRepository
 import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.feature.monitor.ForegroundAppMonitor
-import com.example.refocus.permissions.PermissionHelper
+import com.example.refocus.system.permissions.PermissionHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

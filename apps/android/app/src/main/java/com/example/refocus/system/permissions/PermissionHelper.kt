@@ -1,5 +1,6 @@
-package com.example.refocus.permissions
+package com.example.refocus.system.permissions
 
+import android.Manifest
 import android.app.Activity
 import android.app.AppOpsManager
 import android.content.Context
@@ -32,7 +33,7 @@ object PermissionHelper {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
         val granted = ContextCompat.checkSelfPermission(
             context,
-            android.Manifest.permission.POST_NOTIFICATIONS
+            Manifest.permission.POST_NOTIFICATIONS
         ) == PackageManager.PERMISSION_GRANTED
         return granted
     }

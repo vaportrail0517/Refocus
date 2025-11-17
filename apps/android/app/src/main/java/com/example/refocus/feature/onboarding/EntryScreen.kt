@@ -10,7 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.refocus.data.RepositoryProvider
-import com.example.refocus.permissions.PermissionHelper
+import com.example.refocus.system.permissions.PermissionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

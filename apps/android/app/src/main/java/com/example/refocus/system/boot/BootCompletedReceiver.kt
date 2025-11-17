@@ -1,4 +1,4 @@
-package com.example.refocus.boot
+package com.example.refocus.system.boot
 
 import android.content.BroadcastReceiver
 import android.content.Context

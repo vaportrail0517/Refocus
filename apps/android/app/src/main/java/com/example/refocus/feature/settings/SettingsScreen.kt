@@ -26,7 +26,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.refocus.permissions.PermissionHelper
+import com.example.refocus.system.permissions.PermissionHelper
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SectionTitle
 import com.example.refocus.ui.components.SettingRow

@@ -9,7 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.example.refocus.permissions.PermissionHelper
+import com.example.refocus.system.permissions.PermissionHelper
 import androidx.compose.material3.Text
 import com.example.refocus.ui.components.OnboardingPage
 
