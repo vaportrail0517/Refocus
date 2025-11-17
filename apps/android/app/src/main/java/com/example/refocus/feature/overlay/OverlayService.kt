@@ -5,6 +5,7 @@ import android.app.Application
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
+import android.content.IntentFilter
 
 class OverlayService : LifecycleService() {
 
@@ -71,7 +73,18 @@ class OverlayService : LifecycleService() {
     // packageName → RunningSessionState のマップ
     private val sessionStates = mutableMapOf<String, RunningSessionState>()
 
-
+    private var screenReceiverRegistered: Boolean = false
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    Log.d(TAG, "ACTION_SCREEN_OFF received")
+                    handleScreenOff()
+                }
+                // 必要であれば将来ここで USER_PRESENT なども扱う
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -108,6 +121,7 @@ class OverlayService : LifecycleService() {
             stopSelf()
             return
         }
+        registerScreenReceiver()
         startMonitoring()
     }
 
@@ -118,6 +132,7 @@ class OverlayService : LifecycleService() {
     override fun onDestroy() {
         serviceScope.cancel()
         overlayController.hideTimer()
+        unregisterScreenReceiver()
         super.onDestroy()
     }
 
@@ -317,6 +332,50 @@ class OverlayService : LifecycleService() {
                     sessionStates.remove(packageName)
                 }
             }
+        }
+    }
+
+    private fun registerScreenReceiver() {
+        if (screenReceiverRegistered) return
+
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            // 後々 USER_PRESENT を扱いたくなったらここに addAction(Intent.ACTION_USER_PRESENT)
+        }
+        registerReceiver(screenReceiver, filter)
+        screenReceiverRegistered = true
+    }
+
+    private fun unregisterScreenReceiver() {
+        if (!screenReceiverRegistered) return
+        try {
+            unregisterReceiver(screenReceiver)
+        } catch (e: IllegalArgumentException) {
+            // 既に解除済みなど
+            Log.w(TAG, "unregisterScreenReceiver failed", e)
+        }
+        screenReceiverRegistered = false
+    }
+
+    /**
+     * 画面OFF時に呼ばれる。
+     * 対象アプリが前面かつオーバーレイ表示中なら、
+     * 強制的に onLeaveForeground と同じ処理を走らせる。
+     */
+    private fun handleScreenOff() {
+        val pkg = currentForegroundPackage
+        val nowMillis = System.currentTimeMillis()
+        val nowElapsed = SystemClock.elapsedRealtime()
+
+        // 現在オーバーレイを出しているアプリだけ対象にする
+        if (pkg != null && pkg == overlayPackage) {
+            Log.d(TAG, "handleScreenOff: treat $pkg as leave foreground due to screen off")
+            onLeaveForeground(
+                packageName = pkg,
+                nowMillis = nowMillis,
+                nowElapsed = nowElapsed
+            )
+            currentForegroundPackage = null
         }
     }
 }

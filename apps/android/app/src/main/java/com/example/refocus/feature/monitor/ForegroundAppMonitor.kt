@@ -39,9 +39,14 @@ class ForegroundAppMonitor(
                 null
             }
 
-            if (topApp != null && topApp != lastPackage) {
+            if (topApp != null) {
+                // lastPackage はログの参考程度に残したければ更新だけする
+                if (topApp != lastPackage) {
+                    Log.d("ForegroundAppMonitor", "emit foreground=$topApp (changed from $lastPackage)")
+                } else {
+                    Log.d("ForegroundAppMonitor", "emit foreground=$topApp (same as last)")
+                }
                 lastPackage = topApp
-                Log.d("ForegroundAppMonitor", "emit foreground=$topApp")
                 emit(topApp)
             }
 
