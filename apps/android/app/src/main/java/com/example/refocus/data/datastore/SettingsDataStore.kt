@@ -51,9 +51,9 @@ class SettingsDataStore(
             val touchMode = OverlayTouchMode.entries.getOrNull(touchModeOrdinal)
                 ?: OverlayTouchMode.Drag
             OverlaySettings(
-                gracePeriodMillis = prefs[Keys.GRACE_PERIOD_MS] ?: 30_000L,
+                gracePeriodMillis = prefs[Keys.GRACE_PERIOD_MS] ?: 300_000L,
                 pollingIntervalMillis = prefs[Keys.POLLING_INTERVAL_MS] ?: 500L,
-                minFontSizeSp = prefs[Keys.MIN_FONT_SIZE_SP] ?: 20f,
+                minFontSizeSp = prefs[Keys.MIN_FONT_SIZE_SP] ?: 12f,
                 maxFontSizeSp = prefs[Keys.MAX_FONT_SIZE_SP] ?: 28f,
                 timeToMaxMinutes = prefs[Keys.TIME_TO_MAX_MINUTES] ?: 30,
                 positionX = prefs[Keys.POSITION_X] ?: 24,
@@ -68,9 +68,9 @@ class SettingsDataStore(
     ) {
         context.dataStore.edit { prefs ->
             val current = OverlaySettings(
-                gracePeriodMillis = prefs[Keys.GRACE_PERIOD_MS] ?: 30_000L,
+                gracePeriodMillis = prefs[Keys.GRACE_PERIOD_MS] ?: 300_000L,
                 pollingIntervalMillis = prefs[Keys.POLLING_INTERVAL_MS] ?: 500L,
-                minFontSizeSp = prefs[Keys.MIN_FONT_SIZE_SP] ?: 20f,
+                minFontSizeSp = prefs[Keys.MIN_FONT_SIZE_SP] ?: 12f,
                 maxFontSizeSp = prefs[Keys.MAX_FONT_SIZE_SP] ?: 28f,
                 timeToMaxMinutes = prefs[Keys.TIME_TO_MAX_MINUTES] ?: 30,
                 positionX = prefs[Keys.POSITION_X] ?: 24,
