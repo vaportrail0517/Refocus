@@ -18,7 +18,7 @@ import com.example.refocus.data.db.entity.SessionPauseResumeEntity
         SessionEntity::class,
         SessionPauseResumeEntity::class,
     ],
-    version = 2,
+    version = 1,
     exportSchema = true
 )
 abstract class RefocusDatabase : RoomDatabase() {

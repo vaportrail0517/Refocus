@@ -11,4 +11,5 @@ data class Session(
     val packageName: String,
     val startedAtMillis: Long,
     val endedAtMillis: Long? = null,
+    val durationMillis: Long? = null,
 )

@@ -343,19 +343,24 @@ class OverlayService : LifecycleService() {
     private fun startGraceTimerFor(
         state: RunningSessionState
     ) {
-        // 既存の猶予があればキャンセル
         state.pendingEndJob?.cancel()
         val packageName = state.packageName
         state.pendingEndJob = serviceScope.launch {
             var ended = false
             try {
-                delay(overlaySettings.gracePeriodMillis)
+                val leaveAt = state.lastLeaveAtMillis ?: System.currentTimeMillis()
+                val grace = overlaySettings.gracePeriodMillis
+                val targetEndOfGrace = leaveAt + grace
+                val now = System.currentTimeMillis()
+                val delayMillis = (targetEndOfGrace - now).coerceAtLeast(0L)
+                delay(delayMillis)
                 Log.d(TAG, "Grace expired for $packageName, ending session")
-                // 「開始時刻 + 累積表示時間」を終了時刻として使う
-                val effectiveEndMillis = state.startedAtMillis + state.elapsedMillis
+                val endedAt = leaveAt.coerceAtLeast(state.startedAtMillis)
+                val duration = state.elapsedMillis
                 sessionRepository.endActiveSession(
                     packageName = packageName,
-                    endedAtMillis = effectiveEndMillis
+                    endedAtMillis = endedAt,
+                    durationMillis = duration
                 )
                 ended = true
             } catch (_: CancellationException) {
@@ -366,7 +371,6 @@ class OverlayService : LifecycleService() {
                 state.pendingEndJob = null
                 state.lastLeaveAtMillis = null
                 if (ended) {
-                    // 終了したアプリのランタイム状態は片付ける
                     sessionStates.remove(packageName)
                 }
             }

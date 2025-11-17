@@ -10,45 +10,25 @@ import com.example.refocus.data.db.entity.SessionPauseResumeEntity
 
 interface SessionRepository {
 
-    /**
-     * 対象アプリの新しいセッションを開始する。
-     * 既に active session があればそのまま返す（2重開始防止）。
-     */
     suspend fun startSession(packageName: String, startedAtMillis: Long): Session
+    suspend fun endActiveSession(
+        packageName: String,
+        endedAtMillis: Long,
+        durationMillis: Long? = null,
+    )
 
-    /**
-     * 対象アプリのアクティブセッションを終了する。
-     * アクティブセッションがなければ何もしない。
-     */
-    suspend fun endActiveSession(packageName: String, endedAtMillis: Long)
-
-    /**
-     * アクティブなセッションに「中断イベント」を追加する。
-     * 対象アプリの active session がなければ何もしない。
-     */
     suspend fun recordPause(packageName: String, pausedAtMillis: Long)
-
-    /**
-     * アクティブなセッションの「最後の未解決の中断イベント」に再開時刻を埋める。
-     * active session がない / 未解決イベントがない場合は何もしない。
-     */
     suspend fun recordResume(packageName: String, resumedAtMillis: Long)
 
-    /**
-     * 全セッションを新しい順で購読（履歴画面用）。
-     */
     fun observeAllSessions(): Flow<List<Session>>
+    suspend fun getLastFinishedSession(packageName: String): Session?
 
-    /**
-     * バグやクラッシュなどで壊れたセッションを一括修復する。
-     * アプリ起動時や OverlayService 起動時に一度呼び出す想定。
-     */
     suspend fun repairStaleSessions(nowMillis: Long = System.currentTimeMillis())
 }
 
 class SessionRepositoryImpl(
     private val sessionDao: SessionDao,
-    private val pauseResumeDao: SessionPauseResumeDao
+    private val pauseResumeDao: SessionPauseResumeDao,
 ) : SessionRepository {
 
     companion object {
@@ -74,91 +54,80 @@ class SessionRepositoryImpl(
         packageName: String,
         startedAtMillis: Long
     ): Session {
-        // すでにアクティブセッションがあるなら、それをそのまま使う
-        val existing = sessionDao.findActiveSession(packageName)
-        if (existing != null) {
-            return existing.toDomain()
+        val active = sessionDao.findActiveSession(packageName)
+        if (active != null) {
+            return active.toDomain()
         }
-
         val entity = SessionEntity(
             packageName = packageName,
             startedAtMillis = startedAtMillis,
-            endedAtMillis = null
+            endedAtMillis = null,
+            durationMillis = null,
         )
-        val newId = sessionDao.insertSession(entity)
-        return entity.copy(id = newId).toDomain()
+        val id = sessionDao.insertSession(entity)
+        val inserted = entity.copy(id = id)
+        return inserted.toDomain()
     }
 
     override suspend fun endActiveSession(
         packageName: String,
-        endedAtMillis: Long
+        endedAtMillis: Long,
+        durationMillis: Long?
     ) {
         val active = sessionDao.findActiveSession(packageName) ?: return
-        if (active.endedAtMillis != null) return // 既に終わっていたら何もしない
-
-        val updated = active.copy(endedAtMillis = endedAtMillis)
+        if (active.endedAtMillis != null) return
+        // まず終了時刻を確定（将来 degrade 修復ロジックを噛ませるならここで）
+        val fixedEnd = endedAtMillis.coerceAtLeast(active.startedAtMillis)
+        // 1. OverlayService から durationMillis が渡されていればそれを優先
+        // 2. 渡されていなければ、中断/再開イベントから計算
+        val effectiveDuration = durationMillis
+            ?: calculateDurationFromTimestamps(
+                session = active.copy(endedAtMillis = fixedEnd),
+                nowMillis = fixedEnd
+            )
+        val updated = active.copy(
+            endedAtMillis = fixedEnd,
+            durationMillis = effectiveDuration,
+        )
         sessionDao.updateSession(updated)
     }
 
     override fun observeAllSessions(): Flow<List<Session>> {
         return sessionDao.observeAllSessions()
-            .map { list -> list.map { it.toDomain() } }
+            .map { list ->
+                list.map { it.toDomain() }
+            }
+    }
+
+    override suspend fun getLastFinishedSession(packageName: String): Session? {
+        val entity = sessionDao.findLastFinishedSession(packageName) ?: return null
+        return entity.toDomain()
     }
 
     override suspend fun repairStaleSessions(nowMillis: Long) {
-        // 1. endedAtMillis が null のセッション（「永遠に続いている active」）
         val activeSessions = sessionDao.findAllActiveSessions()
-
-        // パッケージごとにグルーピング
-        val activeByPackage = activeSessions.groupBy { it.packageName }
-
-        val sessionsToFix = mutableListOf<SessionEntity>()
-
-        activeByPackage.forEach { (pkg, sessions) ->
-            // startedAt が新しい順にソート
-            val sorted = sessions.sortedByDescending { it.startedAtMillis }
-            val latest = sorted.firstOrNull()
-            val older = sorted.drop(1)
-
-            // (1-1) 同一パッケージで複数 active がいたら、古いものはすべて強制終了
-            older.forEach { orphan ->
-                val end = computeRepairedEndMillis(
-                    startedAtMillis = orphan.startedAtMillis,
-                    nowMillis = nowMillis
-                )
-                sessionsToFix += orphan.copy(endedAtMillis = end)
-            }
-
-            // (1-2) 最新の 1 件も「明らかに長すぎる」なら強制終了
-            if (latest != null) {
-                val age = nowMillis - latest.startedAtMillis
-                if (age > STALE_ACTIVE_THRESHOLD_MS) {
-                    val end = computeRepairedEndMillis(
-                        startedAtMillis = latest.startedAtMillis,
-                        nowMillis = nowMillis
-                    )
-                    sessionsToFix += latest.copy(endedAtMillis = end)
-                }
-            }
-        }
-
-        // 2. endedAtMillis < startedAtMillis になってしまっている壊れたセッション
-        val broken = sessionDao.findBrokenSessions()
-        broken.forEach { brokenEntity ->
-            // とりあえず「継続時間 0」として丸める（started == ended）
-            val fixed = brokenEntity.copy(endedAtMillis = brokenEntity.startedAtMillis)
-            sessionsToFix += fixed
-        }
-
-        if (sessionsToFix.isNotEmpty()) {
-            sessionDao.updateSessions(sessionsToFix)
+        if (activeSessions.isEmpty()) return
+        for (session in activeSessions) {
+            // ここは元のロジックに合わせて修復済みの終了時刻を決める
+            val repairedEnd = calculateRepairedEndMillis(
+                startedAtMillis = session.startedAtMillis,
+                nowMillis = nowMillis
+            )
+            val duration = calculateDurationFromTimestamps(
+                session = session.copy(endedAtMillis = repairedEnd),
+                nowMillis = repairedEnd
+            )
+            val updated = session.copy(
+                endedAtMillis = repairedEnd,
+                durationMillis = duration
+            )
+            sessionDao.updateSession(updated)
         }
     }
 
     override suspend fun recordPause(packageName: String, pausedAtMillis: Long) {
         // 対象アプリの active session を取得
         val active = sessionDao.findActiveSession(packageName) ?: return
-
         // このセッションに新しい pause イベントを追加
         val event = SessionPauseResumeEntity(
             sessionId = active.id,
@@ -171,19 +140,38 @@ class SessionRepositoryImpl(
     override suspend fun recordResume(packageName: String, resumedAtMillis: Long) {
         // active session がなければ何もしない
         val active = sessionDao.findActiveSession(packageName) ?: return
-
         // このセッションの「最後の未解決の pause イベント」を取得
         val lastPause = pauseResumeDao.findLastUnresolvedPause(active.id) ?: return
-
         // 再開時刻を埋める
         val updated = lastPause.copy(resumedAtMillis = resumedAtMillis)
         pauseResumeDao.update(updated)
     }
 
+    private suspend fun calculateDurationFromTimestamps(
+        session: SessionEntity,
+        nowMillis: Long = System.currentTimeMillis(),
+    ): Long {
+        val start = session.startedAtMillis
+        val end = (session.endedAtMillis ?: nowMillis).coerceAtLeast(start)
+        // 素の差分（壁時計ベース）
+        val base = (end - start).coerceAtLeast(0L)
+        // このセッションに紐づく中断イベントを取得
+        val events = pauseResumeDao.findBySessionId(session.id)
+        // 中断区間の合計
+        val pausedTotal = events.fold(0L) { acc, ev ->
+            val pauseStart = ev.pausedAtMillis
+            val pauseEnd = (ev.resumedAtMillis ?: end).coerceAtLeast(pauseStart)
+            val paused = (pauseEnd - pauseStart).coerceAtLeast(0L)
+            acc + paused
+        }
+        // 有効時間 = 全体 − 中断
+        return (base - pausedTotal).coerceAtLeast(0L)
+    }
+
     /**
      * デグレ修復用に「妥当そうな endedAtMillis」を計算するヘルパー。
      */
-    private fun computeRepairedEndMillis(
+    private fun calculateRepairedEndMillis(
         startedAtMillis: Long,
         nowMillis: Long
     ): Long {
@@ -201,6 +189,7 @@ class SessionRepositoryImpl(
         id = this.id,
         packageName = this.packageName,
         startedAtMillis = this.startedAtMillis,
-        endedAtMillis = this.endedAtMillis
+        endedAtMillis = this.endedAtMillis,
+        durationMillis = this.durationMillis,
     )
 }

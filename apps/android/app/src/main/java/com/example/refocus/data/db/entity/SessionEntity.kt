@@ -13,5 +13,6 @@ data class SessionEntity(
     val id: Long = 0L,
     val packageName: String,
     val startedAtMillis: Long,
-    val endedAtMillis: Long? // null の間は「進行中」
+    val endedAtMillis: Long?, // null の間は「進行中」
+    val durationMillis: Long? = null,
 )

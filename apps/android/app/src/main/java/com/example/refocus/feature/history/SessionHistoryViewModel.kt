@@ -37,7 +37,6 @@ class SessionHistoryViewModel(
     )
 
     private val pm: PackageManager = application.packageManager
-
     private val _sessions = MutableStateFlow<List<SessionUiModel>>(emptyList())
     val sessions: StateFlow<List<SessionUiModel>> = _sessions.asStateFlow()
 
@@ -66,15 +65,12 @@ class SessionHistoryViewModel(
         val label = resolveAppLabel(packageName)
         val startedText = formatDateTime(startedAtMillis)
         val endedText = endedAtMillis?.let { formatDateTime(it) } ?: "未終了"
-
-        val durationText = formatDuration(startedAtMillis, endedAtMillis)
-
+        val durationText = formatDuration(this)
         val status = when {
             endedAtMillis != null -> SessionStatus.FINISHED
             packageName == foregroundPackage -> SessionStatus.RUNNING   // 今まさにそのアプリが前面
             else -> SessionStatus.GRACE                                  // DB上はactiveだが前面ではない＝猶予中
         }
-
         return SessionUiModel(
             id = id,
             appLabel = label,
@@ -102,18 +98,20 @@ class SessionHistoryViewModel(
     }
 
     private fun formatDuration(
-        startedAtMillis: Long,
-        endedAtMillis: Long?
+        session: Session
     ): String {
-        val end = endedAtMillis ?: System.currentTimeMillis()
-        val diff = (end - startedAtMillis).coerceAtLeast(0L)
-
-        val totalSeconds = TimeUnit.MILLISECONDS.toSeconds(diff)
+        // ★ まず、durationMillis を優先して使う
+        val baseDuration = session.durationMillis
+            ?: run {
+                // 古いデータなど duration が未設定の場合のフォールバック
+                val end = session.endedAtMillis ?: System.currentTimeMillis()
+                (end - session.startedAtMillis).coerceAtLeast(0L)
+            }
+        val totalSeconds = TimeUnit.MILLISECONDS.toSeconds(baseDuration)
         val minutes = totalSeconds / 60
         val seconds = totalSeconds % 60
         val hours = minutes / 60
         val remMinutes = minutes % 60
-
         return if (hours > 0) {
             String.format("%d時間%02d分%02d秒", hours, remMinutes, seconds)
         } else {
