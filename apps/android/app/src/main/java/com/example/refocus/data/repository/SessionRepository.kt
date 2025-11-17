@@ -7,6 +7,7 @@ import com.example.refocus.data.db.entity.SessionEntity
 import kotlinx.coroutines.flow.map
 import com.example.refocus.data.db.dao.SessionPauseResumeDao
 import com.example.refocus.data.db.entity.SessionPauseResumeEntity
+import com.example.refocus.core.model.SessionPauseResume
 
 interface SessionRepository {
 
@@ -19,6 +20,7 @@ interface SessionRepository {
 
     suspend fun recordPause(packageName: String, pausedAtMillis: Long)
     suspend fun recordResume(packageName: String, resumedAtMillis: Long)
+    suspend fun getPauseResumeEvents(sessionId: Long): List<SessionPauseResume>
 
     fun observeAllSessions(): Flow<List<Session>>
     suspend fun getLastFinishedSession(packageName: String): Session?
@@ -146,6 +148,18 @@ class SessionRepositoryImpl(
         val updated = lastPause.copy(resumedAtMillis = resumedAtMillis)
         pauseResumeDao.update(updated)
     }
+
+    override suspend fun getPauseResumeEvents(sessionId: Long): List<SessionPauseResume> {
+        val entities = pauseResumeDao.findBySessionId(sessionId)
+        return entities.map { it.toDomain() }
+    }
+    private fun SessionPauseResumeEntity.toDomain(): SessionPauseResume =
+        SessionPauseResume(
+            id = this.id,
+            sessionId = this.sessionId,
+            pausedAtMillis = this.pausedAtMillis,
+            resumedAtMillis = this.resumedAtMillis,
+        )
 
     private suspend fun calculateDurationFromTimestamps(
         session: SessionEntity,

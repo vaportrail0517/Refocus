@@ -16,6 +16,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 
 @Composable
 fun SessionHistoryScreen(
@@ -70,10 +75,13 @@ fun SessionHistoryScreen(
 private fun SessionRow(
     session: SessionHistoryViewModel.SessionUiModel
 ) {
+    val defaultKey = "${session.packageName}_${session.startedAtText}"
+    var expanded by rememberSaveable(defaultKey) { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
+            .clickable { expanded = !expanded }
     ) {
         Text(
             text = session.appLabel,
@@ -84,28 +92,46 @@ private fun SessionRow(
             text = session.packageName,
             style = MaterialTheme.typography.bodySmall
         )
+
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = "開始: ${session.startedAtText}",
             style = MaterialTheme.typography.bodySmall
         )
+        if (expanded && session.pauses.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(4.dp))
+            session.pauses.forEach { ev ->
+                if (!ev.resumedAtText.isNullOrEmpty()){
+                    Text(
+                        text = "  ↳ 中断: ${ev.pausedAtText}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        text = "  ↳ 再開: ${ev.resumedAtText}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+        }
         Text(
             text = "終了: ${session.endedAtText}",
             style = MaterialTheme.typography.bodySmall
         )
-        Text(
-            text = "継続時間: ${session.durationText}",
-            style = MaterialTheme.typography.bodySmall
-        )
-
+        if (session.status == SessionHistoryViewModel.SessionStatus.FINISHED &&
+            session.durationText.isNotEmpty()
+        ) {
+            Text(
+                text = "継続時間: ${session.durationText}",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
         Spacer(modifier = Modifier.height(2.dp))
-
         val statusText = when (session.status) {
             SessionHistoryViewModel.SessionStatus.RUNNING -> "状態: 計測中"
             SessionHistoryViewModel.SessionStatus.GRACE   -> "状態: 停止猶予中"
             SessionHistoryViewModel.SessionStatus.FINISHED-> "状態: 終了"
         }
-
         val statusColor = when (session.status) {
             SessionHistoryViewModel.SessionStatus.RUNNING ->
                 MaterialTheme.colorScheme.primary
@@ -114,7 +140,6 @@ private fun SessionRow(
             SessionHistoryViewModel.SessionStatus.FINISHED ->
                 MaterialTheme.colorScheme.onSurfaceVariant
         }
-
         Text(
             text = statusText,
             style = MaterialTheme.typography.bodySmall,

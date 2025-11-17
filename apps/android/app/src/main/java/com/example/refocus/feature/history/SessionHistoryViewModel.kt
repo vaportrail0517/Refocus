@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.Session
+import com.example.refocus.core.model.SessionPauseResume
 import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.feature.monitor.ForegroundAppMonitor
 import kotlinx.coroutines.flow.*
@@ -26,6 +27,10 @@ class SessionHistoryViewModel(
         GRACE,
         FINISHED
     }
+    data class PauseResumeUiModel(
+        val pausedAtText: String,
+        val resumedAtText: String?, // null の場合は「未再開」などで表示
+    )
     data class SessionUiModel(
         val id: Long?,
         val appLabel: String,
@@ -34,6 +39,7 @@ class SessionHistoryViewModel(
         val endedAtText: String,
         val durationText: String,
         val status: SessionStatus,
+        val pauses: List<PauseResumeUiModel>,
     )
 
     private val pm: PackageManager = application.packageManager
@@ -54,22 +60,45 @@ class SessionHistoryViewModel(
             ) { sessions, foregroundPackage ->
                 sessions to foregroundPackage
             }.collect { (sessions, foregroundPackage) ->
-                _sessions.value = sessions.map { it.toUiModel(foregroundPackage) }
+                val pauseMap = mutableMapOf<Long, List<SessionPauseResume>>()
+                for (session in sessions) {
+                    val id = session.id ?: continue
+                    val events = sessionRepository.getPauseResumeEvents(id)
+                    pauseMap[id] = events
+                }
+
+                _sessions.value = sessions.map { session ->
+                    val events = session.id?.let { pauseMap[it] } ?: emptyList()
+                    session.toUiModel(
+                        foregroundPackage = foregroundPackage,
+                        pauses = events
+                    )
+                }
             }
         }
     }
 
     private fun Session.toUiModel(
-        foregroundPackage: String?
+        foregroundPackage: String?,
+        pauses: List<SessionPauseResume>,
     ): SessionUiModel {
         val label = resolveAppLabel(packageName)
         val startedText = formatDateTime(startedAtMillis)
         val endedText = endedAtMillis?.let { formatDateTime(it) } ?: "未終了"
-        val durationText = formatDuration(this)
         val status = when {
             endedAtMillis != null -> SessionStatus.FINISHED
-            packageName == foregroundPackage -> SessionStatus.RUNNING   // 今まさにそのアプリが前面
-            else -> SessionStatus.GRACE                                  // DB上はactiveだが前面ではない＝猶予中
+            packageName == foregroundPackage -> SessionStatus.RUNNING
+            else -> SessionStatus.GRACE
+        }
+        val durationText = when (status) {
+            SessionStatus.GRACE -> ""                          // 何も表示しない
+            else -> formatDuration(this)              // RUNNING / FINISHED は表示
+        }
+        val pauseUiList = pauses.map { ev ->
+            PauseResumeUiModel(
+                pausedAtText = formatDateTime(ev.pausedAtMillis),
+                resumedAtText = ev.resumedAtMillis?.let { formatDateTime(it) }
+            )
         }
         return SessionUiModel(
             id = id,
@@ -78,9 +107,11 @@ class SessionHistoryViewModel(
             startedAtText = startedText,
             endedAtText = endedText,
             durationText = durationText,
-            status = status
+            status = status,
+            pauses = pauseUiList,
         )
     }
+
 
     private fun resolveAppLabel(packageName: String): String {
         return try {
@@ -96,6 +127,11 @@ class SessionHistoryViewModel(
         val df = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
         return df.format(Date(millis))
     }
+
+//    private fun formatTime(millis: Long): String {
+//        val df = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+//        return df.format(Date(millis))
+//    }
 
     private fun formatDuration(
         session: Session
