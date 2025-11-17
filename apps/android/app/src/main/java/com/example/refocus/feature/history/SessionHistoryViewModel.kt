@@ -117,8 +117,7 @@ class SessionHistoryViewModel(
         return try {
             val appInfo = pm.getApplicationInfo(packageName, 0)
             pm.getApplicationLabel(appInfo).toString()
-        } catch (e: Exception) {
-            // 取得できない場合はパッケージ名をそのまま表示
+        } catch (_: Exception) {
             packageName
         }
     }
@@ -127,11 +126,6 @@ class SessionHistoryViewModel(
         val df = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
         return df.format(Date(millis))
     }
-
-//    private fun formatTime(millis: Long): String {
-//        val df = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-//        return df.format(Date(millis))
-//    }
 
     private fun formatDuration(
         session: Session

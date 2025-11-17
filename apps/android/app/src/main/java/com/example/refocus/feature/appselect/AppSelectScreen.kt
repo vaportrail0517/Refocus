@@ -29,17 +29,13 @@ fun AppSelectScreen(
     val viewModel: AppListViewModel = viewModel(
         factory = AppListViewModelFactory(app)
     )
-
     val apps by viewModel.apps.collectAsState()
-
     var query by remember { mutableStateOf(TextFieldValue("")) }
-
     val filtered = remember(apps, query) {
         val q = query.text.trim()
         if (q.isEmpty()) apps
         else apps.filter { it.label.contains(q, ignoreCase = true) }
     }
-
     Scaffold(
         bottomBar = {
             Box(
@@ -72,7 +68,6 @@ fun AppSelectScreen(
                     .padding(vertical = 8.dp),
                 label = "検索"
             )
-
             LazyColumn(
                 modifier = Modifier.weight(1f)
             ) {
@@ -107,7 +102,6 @@ private fun AppRow(
                 BitmapPainter(bitmap.asImageBitmap())
             }
         }
-
         if (iconPainter != null) {
             Image(
                 painter = iconPainter,
@@ -115,15 +109,13 @@ private fun AppRow(
                 modifier = Modifier.size(40.dp)
             )
         } else {
-            // フォールバック：アイコンが取れなかった場合は枠だけ or 先頭文字など
             Box(
                 modifier = Modifier
                     .size(40.dp)
             ) {
-                // 余裕があれば Text(app.label.firstOrNull()?.toString() ?: "") などでもOK
+                //  Text(app.label.firstOrNull()?.toString() ?: "") などでもOK
             }
         }
-
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -132,7 +124,6 @@ private fun AppRow(
             Text(app.label)
             Text(formatUsage(app.usageTimeMs), style = MaterialTheme.typography.bodySmall)
         }
-
         Checkbox(
             checked = app.isSelected,
             onCheckedChange = { onClick() }
@@ -142,12 +133,10 @@ private fun AppRow(
 
 private fun formatUsage(ms: Long): String {
     if (ms <= 0L) return "過去7日間 0分"
-
     val totalSeconds = ms / 1000
     val minutes = totalSeconds / 60
     val hours = minutes / 60
     val remMinutes = minutes % 60
-
     return if (hours > 0) {
         "過去7日間 ${hours}時間${remMinutes}分"
     } else {

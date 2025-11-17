@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.graphics.drawable.Drawable
-import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.data.repository.TargetsRepository
@@ -30,12 +29,9 @@ class AppListViewModel(
     private val pm: PackageManager = application.packageManager
     private val usageStatsManager: UsageStatsManager? =
         application.getSystemService(UsageStatsManager::class.java)
-
     private val _apps = MutableStateFlow<List<AppUiModel>>(emptyList())
     val apps: StateFlow<List<AppUiModel>> = _apps.asStateFlow()
-
     private val selected = MutableStateFlow<Set<String>>(emptySet())
-
     private val selfPackageName: String = application.packageName
 
     init {
@@ -48,12 +44,9 @@ class AppListViewModel(
                 addCategory(Intent.CATEGORY_LAUNCHER)
             }
             val activities: List<ResolveInfo> = pm.queryIntentActivities(launchIntent, 0)
-
             val currentTargets = targetsRepository.observeTargets().first()
             selected.value = currentTargets
-
             val usageMap = queryUsageTime()
-
             val appList = activities
                 .filter { resolveInfo ->
                     resolveInfo.activityInfo.packageName != selfPackageName
@@ -82,17 +75,13 @@ class AppListViewModel(
 
     private fun queryUsageTime(): Map<String, Long> {
         val usm = usageStatsManager ?: return emptyMap()
-
-        // ここでは例として「直近7日」の使用時間合計を取る
         val end = System.currentTimeMillis()
         val start = end - TimeUnit.DAYS.toMillis(7)
-
         val stats = usm.queryUsageStats(
             UsageStatsManager.INTERVAL_DAILY,
             start,
             end
         ) ?: return emptyMap()
-
         val map = mutableMapOf<String, Long>()
         for (s in stats) {
             val pkg = s.packageName
@@ -106,7 +95,6 @@ class AppListViewModel(
         val current = selected.value
         val new = if (packageName in current) current - packageName else current + packageName
         selected.value = new
-
         _apps.value = _apps.value.map {
             if (it.packageName == packageName) it.copy(isSelected = !it.isSelected) else it
         }
