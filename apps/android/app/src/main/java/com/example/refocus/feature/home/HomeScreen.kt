@@ -11,6 +11,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.example.refocus.feature.history.SessionHistoryScreen
 import com.example.refocus.feature.settings.SettingsScreen
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 enum class HomeTab {
     Suggestions,
@@ -18,26 +23,39 @@ enum class HomeTab {
     Settings
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     onOpenAppSelect: () -> Unit
 ) {
-    var selectedTab by remember { mutableStateOf(HomeTab.Settings) }
-
+    val tabs = HomeTab.entries
+    val initialPage = tabs.indexOf(HomeTab.Settings).coerceAtLeast(0)
+    val pagerState = rememberPagerState(
+        initialPage = initialPage,
+        pageCount = { tabs.size }
+    )
+    val scope = rememberCoroutineScope()
+    val currentTab = tabs[pagerState.currentPage]
     Scaffold(
         bottomBar = {
             HomeBottomBar(
-                selectedTab = selectedTab,
-                onTabSelected = { selectedTab = it }
+                selectedTab = currentTab,
+                onTabSelected = { tab ->
+                    val index = tabs.indexOf(tab).coerceAtLeast(0)
+                    scope.launch {
+                        pagerState.animateScrollToPage(index)
+                    }
+                }
             )
         }
     ) { innerPadding ->
-        Box(
+        HorizontalPager(
+            state = pagerState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-        ) {
-            when (selectedTab) {
+        ) { page ->
+            when (tabs[page]) {
                 HomeTab.Suggestions -> SuggestionsTab()
                 HomeTab.Stats       -> StatsTab()
                 HomeTab.Settings    -> SettingsScreen(onOpenAppSelect = onOpenAppSelect)
@@ -45,6 +63,7 @@ fun HomeScreen(
         }
     }
 }
+
 
 @Composable
 private fun HomeBottomBar(
