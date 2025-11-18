@@ -31,7 +31,84 @@ class OverlayController(
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var overlayView: View? = null
     private var layoutParams: WindowManager.LayoutParams? = null
-    var overlaySettings: OverlaySettings by mutableStateOf(OverlaySettings())
+    // ドラッグで位置を変えたときに呼び出すコールバックを保持しておく
+    private var onPositionChangedCallback: ((Int, Int) -> Unit)? = null
+    // Compose が監視するステート本体
+    private var overlaySettingsState by mutableStateOf(OverlaySettings())
+    // 外から触るプロパティ。変更時に onSettingsChanged を呼ぶ
+    var overlaySettings: OverlaySettings
+        get() = overlaySettingsState
+        set(value) {
+            val old = overlaySettingsState
+            overlaySettingsState = value
+            onSettingsChanged(old, value)
+        }
+
+    private fun onSettingsChanged(old: OverlaySettings, new: OverlaySettings) {
+        val view = overlayView ?: return
+        val lp = layoutParams ?: return
+        // タッチモードが変わった場合のみ、flag とリスナーを差し替える
+        if (old.touchMode != new.touchMode) {
+            val baseFlags =
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+            lp.flags = when (new.touchMode) {
+                OverlayTouchMode.Drag ->
+                    baseFlags
+                OverlayTouchMode.PassThrough ->
+                    baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            }
+            windowManager.updateViewLayout(view, lp)
+            applyTouchListener(
+                view = view,
+                lp = lp,
+                touchMode = new.touchMode
+            )
+        }
+    }
+
+    private fun applyTouchListener(
+        view: View,
+        lp: WindowManager.LayoutParams,
+        touchMode: OverlayTouchMode
+    ) {
+        if (touchMode == OverlayTouchMode.Drag) {
+            view.setOnTouchListener(object : View.OnTouchListener {
+                private var initialX = 0
+                private var initialY = 0
+                private var initialTouchX = 0f
+                private var initialTouchY = 0f
+                override fun onTouch(v: View, event: MotionEvent): Boolean {
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            initialX = lp.x
+                            initialY = lp.y
+                            initialTouchX = event.rawX
+                            initialTouchY = event.rawY
+                            return true
+                        }
+                        MotionEvent.ACTION_MOVE -> {
+                            lp.x = initialX + (event.rawX - initialTouchX).toInt()
+                            lp.y = initialY + (event.rawY - initialTouchY).toInt()
+                            windowManager.updateViewLayout(v, lp)
+                            // 状態としても保持しておく
+                            this@OverlayController.layoutParams = lp
+                            return true
+                        }
+                        MotionEvent.ACTION_UP -> {
+                            // 位置の永続化コールバック
+                            onPositionChangedCallback?.invoke(lp.x, lp.y)
+                            return true
+                        }
+                    }
+                    return false
+                }
+            })
+        } else {
+            // 透過モード：タッチを受けず、そのまま背後に流す
+            view.setOnTouchListener(null)
+        }
+    }
 
     fun showTimer(
         initialElapsedMillis: Long,
@@ -43,6 +120,7 @@ class OverlayController(
         }
         Log.d("OverlayController", "showTimer: creating overlay view")
         val settings = overlaySettings
+        onPositionChangedCallback = onPositionChanged
         val baseFlags =
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
@@ -71,47 +149,21 @@ class OverlayController(
                 RefocusTheme {
                     OverlayTimerBubble(
                         initialElapsedMillis = initialElapsedMillis,
-                        settings = overlaySettings
+                        // ここは overlaySettingsState を読むことで、
+                        // setter 経由の更新を Compose に伝える
+                        settings = overlaySettingsState
                     )
                 }
-            }
-            if (settings.touchMode == OverlayTouchMode.Drag) {
-                setOnTouchListener(object : View.OnTouchListener {
-                    private var initialX = 0
-                    private var initialY = 0
-                    private var initialTouchX = 0f
-                    private var initialTouchY = 0f
-                    override fun onTouch(v: View, event: MotionEvent): Boolean {
-                        val lp = this@OverlayController.layoutParams ?: params
-                        when (event.action) {
-                            MotionEvent.ACTION_DOWN -> {
-                                initialX = lp.x
-                                initialY = lp.y
-                                initialTouchX = event.rawX
-                                initialTouchY = event.rawY
-                                return true
-                            }
-                            MotionEvent.ACTION_MOVE -> {
-                                lp.x = initialX + (event.rawX - initialTouchX).toInt()
-                                lp.y = initialY + (event.rawY - initialTouchY).toInt()
-                                windowManager.updateViewLayout(v, lp)
-                                this@OverlayController.layoutParams = lp
-                                return true
-                            }
-                            MotionEvent.ACTION_UP -> {
-                                onPositionChanged?.invoke(lp.x, lp.y)
-                                return true
-                            }
-                        }
-                        return false
-                    }
-                })
-            } else {
-                setOnTouchListener(null)
             }
         }
         overlayView = composeView
         layoutParams = params
+        // タッチモードに応じたリスナーを設定
+        applyTouchListener(
+            view = composeView,
+            lp = params,
+            touchMode = settings.touchMode
+        )
         try {
             windowManager.addView(composeView, params)
             Log.d("OverlayController", "showTimer: addView success")
