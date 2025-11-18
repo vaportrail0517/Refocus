@@ -33,6 +33,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 import android.content.IntentFilter
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flatMapLatest
 
 class OverlayService : LifecycleService() {
 
@@ -92,7 +94,6 @@ class OverlayService : LifecycleService() {
         val app = application as Application
         repositoryProvider = RepositoryProvider(app)
         foregroundAppMonitor = ForegroundAppMonitor(this)
-        // LifecycleService 自身を LifecycleOwner として渡す
         overlayController = OverlayController(
             context = this,
             lifecycleOwner = this,
@@ -110,7 +111,18 @@ class OverlayService : LifecycleService() {
             try {
                 settingsRepository.observeOverlaySettings().collect { settings ->
                     overlaySettings = settings
-                    overlayController.overlaySettings = settings
+                    withContext(Dispatchers.Main) {
+                        overlayController.overlaySettings = settings
+                        val currentPkg = overlayPackage
+                        val state = currentPkg?.let { sessionStates[it] }
+                        if (state != null) {
+                            overlayController.hideTimer()
+                            overlayController.showTimer(
+                                initialElapsedMillis = state.elapsedMillis,
+                                onPositionChanged = ::onOverlayPositionChanged
+                            )
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "observeOverlaySettings failed", e)
@@ -221,18 +233,7 @@ class OverlayService : LifecycleService() {
         serviceScope.launch(Dispatchers.Main) {
             overlayController.showTimer(
                 initialElapsedMillis = state.elapsedMillis,
-                onPositionChanged = { x, y ->
-                    // 位置を設定として保存（全体共通）
-                    serviceScope.launch {
-                        try {
-                            settingsRepository.updateOverlaySettings { current ->
-                                current.copy(positionX = x, positionY = y)
-                            }
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to save overlay position", e)
-                        }
-                    }
-                }
+                onPositionChanged = ::onOverlayPositionChanged
             )
         }
     }
@@ -274,13 +275,20 @@ class OverlayService : LifecycleService() {
         startGraceTimerFor(state)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun startMonitoring() {
         serviceScope.launch {
+            val targetsFlow = targetsRepository.observeTargets()
+            val foregroundFlow = settingsRepository
+                .observeOverlaySettings()
+                .flatMapLatest { settings ->
+                    foregroundAppMonitor.foregroundAppFlow(
+                        pollingIntervalMs = settings.pollingIntervalMillis
+                    )
+                }
             combine(
-                targetsRepository.observeTargets(),
-                foregroundAppMonitor.foregroundAppFlow(
-                    pollingIntervalMs = overlaySettings.pollingIntervalMillis
-                )
+                targetsFlow,
+                foregroundFlow
             ) { targets, foregroundPackage ->
                 targets to foregroundPackage
             }.collectLatest { (targets, foregroundPackage) ->
@@ -418,6 +426,18 @@ class OverlayService : LifecycleService() {
                 nowElapsed = nowElapsed
             )
             currentForegroundPackage = null
+        }
+    }
+
+    private fun onOverlayPositionChanged(x: Int, y: Int) {
+        serviceScope.launch {
+            try {
+                settingsRepository.updateOverlaySettings { current ->
+                    current.copy(positionX = x, positionY = y)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to save overlay position", e)
+            }
         }
     }
 }

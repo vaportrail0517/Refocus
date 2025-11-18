@@ -19,11 +19,10 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.refocus.core.model.OverlaySettings
 import com.example.refocus.core.model.OverlayTouchMode
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
-/**
- * Service など Activity 以外のコンテキストから、
- * TYPE_APPLICATION_OVERLAY で Compose の View を表示するためのコントローラ。
- */
 class OverlayController(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner,
@@ -32,12 +31,8 @@ class OverlayController(
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var overlayView: View? = null
     private var layoutParams: WindowManager.LayoutParams? = null
-    var overlaySettings: OverlaySettings = OverlaySettings()
+    var overlaySettings: OverlaySettings by mutableStateOf(OverlaySettings())
 
-    /**
-     * Timer を表示する。既に表示中なら何もしない。
-     * baseElapsedRealtime は起動開始時刻（SystemClock.elapsedRealtime の値）
-     */
     fun showTimer(
         initialElapsedMillis: Long,
         onPositionChanged: ((x: Int, y: Int) -> Unit)? = null,
@@ -47,13 +42,10 @@ class OverlayController(
             return
         }
         Log.d("OverlayController", "showTimer: creating overlay view")
-        // ★ここで最新の設定をスナップショットして使う
         val settings = overlaySettings
-        // 基本フラグ
         val baseFlags =
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-        // タッチモードに応じて NOT_TOUCHABLE を付け足す
         val flags = when (settings.touchMode) {
             OverlayTouchMode.Drag ->
                 baseFlags
@@ -67,9 +59,7 @@ class OverlayController(
             flags,
             PixelFormat.TRANSLUCENT
         ).apply {
-            // ★左上基準に変更
             gravity = Gravity.TOP or Gravity.START
-            // ★設定から初期位置を設定
             x = settings.positionX
             y = settings.positionY
         }
@@ -81,11 +71,10 @@ class OverlayController(
                 RefocusTheme {
                     OverlayTimerBubble(
                         initialElapsedMillis = initialElapsedMillis,
-                        settings = settings
+                        settings = overlaySettings
                     )
                 }
             }
-            // ★タッチモードが Drag のときだけドラッグを有効化
             if (settings.touchMode == OverlayTouchMode.Drag) {
                 setOnTouchListener(object : View.OnTouchListener {
                     private var initialX = 0
@@ -106,12 +95,10 @@ class OverlayController(
                                 lp.x = initialX + (event.rawX - initialTouchX).toInt()
                                 lp.y = initialY + (event.rawY - initialTouchY).toInt()
                                 windowManager.updateViewLayout(v, lp)
-                                // layoutParams にも反映しておく
                                 this@OverlayController.layoutParams = lp
                                 return true
                             }
                             MotionEvent.ACTION_UP -> {
-                                // ★ドラッグ終了時の位置をコールバック
                                 onPositionChanged?.invoke(lp.x, lp.y)
                                 return true
                             }
@@ -120,7 +107,6 @@ class OverlayController(
                     }
                 })
             } else {
-                // PassThrough の場合はタッチハンドラなし（全て背面へ）
                 setOnTouchListener(null)
             }
         }
@@ -134,14 +120,6 @@ class OverlayController(
         }
     }
 
-
-
-
-
-
-    /**
-     * Timer を非表示にする。
-     */
     fun hideTimer() {
         val view = overlayView ?: return
         try {
