@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.map
 import com.example.refocus.data.db.dao.SessionPauseResumeDao
 import com.example.refocus.data.db.entity.SessionPauseResumeEntity
 import com.example.refocus.core.model.SessionPauseResume
+import com.example.refocus.core.util.TimeSource
 
 interface SessionRepository {
     suspend fun startSession(packageName: String, startedAtMillis: Long): Session
@@ -30,6 +31,7 @@ interface SessionRepository {
 class SessionRepositoryImpl(
     private val sessionDao: SessionDao,
     private val pauseResumeDao: SessionPauseResumeDao,
+    private val timeSource: TimeSource,
 ) : SessionRepository {
 
     companion object {
@@ -163,22 +165,18 @@ class SessionRepositoryImpl(
 
     private suspend fun calculateDurationFromTimestamps(
         session: SessionEntity,
-        nowMillis: Long = System.currentTimeMillis(),
+        nowMillis: Long = timeSource.nowMillis(),
     ): Long {
         val start = session.startedAtMillis
         val end = (session.endedAtMillis ?: nowMillis).coerceAtLeast(start)
-        // 素の差分（壁時計ベース）
         val base = (end - start).coerceAtLeast(0L)
-        // このセッションに紐づく中断イベントを取得
         val events = pauseResumeDao.findBySessionId(session.id)
-        // 中断区間の合計
         val pausedTotal = events.fold(0L) { acc, ev ->
             val pauseStart = ev.pausedAtMillis
             val pauseEnd = (ev.resumedAtMillis ?: end).coerceAtLeast(pauseStart)
             val paused = (pauseEnd - pauseStart).coerceAtLeast(0L)
             acc + paused
         }
-        // 有効時間 = 全体 − 中断
         return (base - pausedTotal).coerceAtLeast(0L)
     }
 

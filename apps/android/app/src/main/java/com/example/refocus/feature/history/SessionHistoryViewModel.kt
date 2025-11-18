@@ -14,12 +14,15 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import com.example.refocus.core.util.TimeSource
+import com.example.refocus.core.util.SystemTimeSource
 
 
 class SessionHistoryViewModel(
     application: Application,
     private val sessionRepository: SessionRepository,
-    private val foregroundAppMonitor: ForegroundAppMonitor
+    private val foregroundAppMonitor: ForegroundAppMonitor,
+    private val timeSource: TimeSource = SystemTimeSource(),
 ) : AndroidViewModel(application) {
 
     enum class SessionStatus {
@@ -132,7 +135,7 @@ class SessionHistoryViewModel(
     ): String {
         val baseDuration = session.durationMillis
             ?: run {
-                val end = session.endedAtMillis ?: System.currentTimeMillis()
+                val end = session.endedAtMillis ?: timeSource.nowMillis()
                 (end - session.startedAtMillis).coerceAtLeast(0L)
             }
         val totalSeconds = TimeUnit.MILLISECONDS.toSeconds(baseDuration)

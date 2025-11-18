@@ -7,9 +7,12 @@ import android.util.Log
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import com.example.refocus.core.util.TimeSource
+import com.example.refocus.core.util.SystemTimeSource
 
 class ForegroundAppMonitor(
-    context: Context
+    context: Context,
+    private val timeSource: TimeSource = SystemTimeSource(),
 ) {
     private val usageStatsManager =
         context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
@@ -19,7 +22,7 @@ class ForegroundAppMonitor(
     ): Flow<String?> = flow {
         var lastPackage: String? = null
         while (true) {
-            val now = System.currentTimeMillis()
+            val now = timeSource.nowMillis()
             val begin = now - 2_000
 
             val topApp: String? = try {

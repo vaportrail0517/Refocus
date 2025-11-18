@@ -9,7 +9,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
-import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
@@ -36,6 +35,8 @@ import kotlin.coroutines.cancellation.CancellationException
 import android.content.IntentFilter
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flatMapLatest
+import com.example.refocus.core.util.TimeSource
+import com.example.refocus.core.util.SystemTimeSource
 
 class OverlayService : LifecycleService() {
 
@@ -47,6 +48,8 @@ class OverlayService : LifecycleService() {
 
     // サービス専用のCoroutineScope
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private val timeSource: TimeSource = SystemTimeSource()
 
     private lateinit var repositoryProvider: RepositoryProvider
     private val targetsRepository: TargetsRepository
@@ -68,7 +71,7 @@ class OverlayService : LifecycleService() {
         val packageName: String,
         var startedAtMillis: Long,
         var elapsedMillis: Long,
-        var lastForegroundElapsedRealtime: Long?, // 前面にいたときの SystemClock.elapsedRealtime()
+        var lastForegroundElapsedRealtime: Long?, // 前面にいたときの timeSource.elapsedRealtime()
         var pendingEndJob: Job?,                  // 猶予中のジョブ（なければ null）
         var lastLeaveAtMillis: Long?,             // 最後に前面から離れた時刻
     )
@@ -298,8 +301,8 @@ class OverlayService : LifecycleService() {
                     val previous = currentForegroundPackage
                     val prevIsTarget = previous != null && previous in targets
                     val nowIsTarget = foregroundPackage != null && foregroundPackage in targets
-                    val nowMillis = System.currentTimeMillis()
-                    val nowElapsed = SystemClock.elapsedRealtime()
+                    val nowMillis = timeSource.nowMillis()
+                    val nowElapsed = timeSource.elapsedRealtime()
                     // currentForegroundPackage を更新
                     currentForegroundPackage = foregroundPackage
                     when {
@@ -357,10 +360,10 @@ class OverlayService : LifecycleService() {
         state.pendingEndJob = serviceScope.launch {
             var ended = false
             try {
-                val leaveAt = state.lastLeaveAtMillis ?: System.currentTimeMillis()
+                val leaveAt = state.lastLeaveAtMillis ?: timeSource.nowMillis()
                 val grace = overlaySettings.gracePeriodMillis
                 val targetEndOfGrace = leaveAt + grace
-                val now = System.currentTimeMillis()
+                val now = timeSource.nowMillis()
                 val delayMillis = (targetEndOfGrace - now).coerceAtLeast(0L)
                 delay(delayMillis)
                 Log.d(TAG, "Grace expired for $packageName, ending session")
@@ -415,8 +418,8 @@ class OverlayService : LifecycleService() {
      */
     private fun handleScreenOff() {
         val pkg = currentForegroundPackage
-        val nowMillis = System.currentTimeMillis()
-        val nowElapsed = SystemClock.elapsedRealtime()
+        val nowMillis = timeSource.nowMillis()
+        val nowElapsed = timeSource.elapsedRealtime()
 
         // 現在オーバーレイを出しているアプリだけ対象にする
         if (pkg != null && pkg == overlayPackage) {

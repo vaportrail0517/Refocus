@@ -1,28 +1,24 @@
 package com.example.refocus.feature.overlay
 
-import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
-//import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
-//import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-//import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-//import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.refocus.core.model.OverlaySettings
 import kotlinx.coroutines.delay
-//import kotlin.math.max
+import com.example.refocus.core.util.SystemTimeSource
+import com.example.refocus.core.util.TimeSource
 
 enum class OverlayColorMode {
     SingleColor,
@@ -36,11 +32,10 @@ fun OverlayTimerBubble(
     initialElapsedMillis: Long = 0L,
     settings: OverlaySettings,
 ) {
-    // 経過時間（ミリ秒）
+    val timeSource: TimeSource = remember { SystemTimeSource() }
     var elapsedMillis by remember { mutableLongStateOf(initialElapsedMillis) }
-    // 前回 tick したときの SystemClock.elapsedRealtime()
     var lastTickElapsedRealtime by remember {
-        mutableLongStateOf(SystemClock.elapsedRealtime())
+        mutableLongStateOf(timeSource.elapsedRealtime())
     }
     val elapsedMinutes = elapsedMillis / 1000f / 60f
     val progress = if (settings.timeToMaxMinutes > 0) {
@@ -54,11 +49,11 @@ fun OverlayTimerBubble(
     LaunchedEffect(initialElapsedMillis) {
         // 初期値をリセット
         elapsedMillis = initialElapsedMillis
-        lastTickElapsedRealtime = SystemClock.elapsedRealtime()
+        lastTickElapsedRealtime = timeSource.elapsedRealtime()
         while (true) {
             // 1 秒待つ
             delay(1000L)
-            val now = SystemClock.elapsedRealtime()
+            val now = timeSource.elapsedRealtime()
             val delta = now - lastTickElapsedRealtime
             if (delta > 0L) {
                 elapsedMillis += delta
