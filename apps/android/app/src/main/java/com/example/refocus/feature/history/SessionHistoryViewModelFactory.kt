@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.example.refocus.data.RepositoryProvider
 import com.example.refocus.feature.monitor.ForegroundAppMonitor
+import com.example.refocus.feature.monitor.ForegroundAppMonitorProvider
 
 class SessionHistoryViewModelFactory(
     private val application: Application
@@ -19,7 +20,7 @@ class SessionHistoryViewModelFactory(
             return SessionHistoryViewModel(
                 application = application,
                 sessionRepository = repositoryProvider.sessionRepository,
-                foregroundAppMonitor = foregroundAppMonitor
+                foregroundAppMonitor = ForegroundAppMonitorProvider.get(application)
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

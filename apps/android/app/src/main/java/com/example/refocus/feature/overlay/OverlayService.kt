@@ -20,6 +20,7 @@ import com.example.refocus.data.repository.TargetsRepository
 import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.feature.monitor.ForegroundAppMonitor
+import com.example.refocus.feature.monitor.ForegroundAppMonitorProvider
 import com.example.refocus.system.permissions.PermissionHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -93,7 +94,7 @@ class OverlayService : LifecycleService() {
         Log.d(TAG, "onCreate")
         val app = application as Application
         repositoryProvider = RepositoryProvider(app)
-        foregroundAppMonitor = ForegroundAppMonitor(this)
+        foregroundAppMonitor = ForegroundAppMonitorProvider.get(this)
         overlayController = OverlayController(
             context = this,
             lifecycleOwner = this,
