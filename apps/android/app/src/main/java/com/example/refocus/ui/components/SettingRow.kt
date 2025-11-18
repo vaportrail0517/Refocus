@@ -17,13 +17,21 @@ fun SettingRow(
     title: String,
     subtitle: String? = null,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit
+    trailing: (@Composable () -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
 ) {
+    val rowModifier = modifier
+        .fillMaxWidth()
+        .then(
+            if (onClick != null) {
+                Modifier.clickable(onClick = onClick)
+            } else {
+                Modifier
+            }
+        )
+        .padding(vertical = 8.dp)
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+        modifier = rowModifier,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
@@ -41,11 +49,18 @@ fun SettingRow(
                 )
             }
         }
-
-        Icon(
-            imageVector = Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-        )
+        when {
+            trailing != null -> {
+                Spacer(modifier = Modifier.width(8.dp))
+                trailing()
+            }
+            onClick != null -> {
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+            }
+        }
     }
 }
