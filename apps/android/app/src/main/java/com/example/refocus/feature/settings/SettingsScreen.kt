@@ -28,7 +28,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.refocus.system.permissions.PermissionHelper
 import com.example.refocus.ui.components.SectionCard
-import com.example.refocus.ui.components.SectionTitle
 import com.example.refocus.ui.components.SettingRow
 import com.example.refocus.core.model.OverlayTouchMode
 import androidx.compose.material3.Slider
@@ -61,7 +60,7 @@ fun SettingsScreen(
     var graceInput by remember { mutableStateOf("") }
     var showPollingDialog by remember { mutableStateOf(false) }
     var selectedPollingMs by remember {
-        mutableStateOf(uiState.overlaySettings.pollingIntervalMillis)
+        mutableLongStateOf(uiState.overlaySettings.pollingIntervalMillis)
     }
     var showFontRangeDialog by remember { mutableStateOf(false) }
     var fontRange by remember {
@@ -119,8 +118,9 @@ fun SettingsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        SectionTitle("権限")
-        SectionCard {
+        SectionCard (
+            title = "権限"
+        ) {
             PermissionRow(
                 title = "使用状況へのアクセス",
                 description = "連続使用時間を計測するために必要です。",
@@ -147,8 +147,9 @@ fun SettingsScreen(
             )
         }
 
-        SectionTitle("アプリ")
-        SectionCard {
+        SectionCard (
+            title = "アプリ"
+        ) {
             SettingRow(
                 title = "対象アプリを設定",
                 subtitle = "時間を計測したいアプリを選択します。",
@@ -156,8 +157,9 @@ fun SettingsScreen(
             )
         }
 
-        SectionTitle("動作")
-        SectionCard {
+        SectionCard (
+            title = "タイマー"
+        ) {
             SettingRow(
                 title = "猶予時間",
                 subtitle = "${formatGraceTimeText(uiState.overlaySettings.gracePeriodMillis)}（この時間以内に戻るとセッションを継続します）",
@@ -236,7 +238,7 @@ fun SettingsScreen(
             val graceMillis = uiState.overlaySettings.gracePeriodMillis
                 .coerceIn(0L, maxGraceMillis)
             var sliderValue by remember(graceMillis) {
-                mutableStateOf(graceMillis.toFloat())
+                mutableFloatStateOf(graceMillis.toFloat())
             }
             val currentLabel = formatGraceTimeText(sliderValue.toLong())
             AlertDialog(
