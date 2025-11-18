@@ -8,16 +8,12 @@ import com.example.refocus.data.db.entity.SessionPauseResumeEntity
 
 @Dao
 interface SessionPauseResumeDao {
-
     @Insert
     suspend fun insert(event: SessionPauseResumeEntity): Long
 
     @Update
     suspend fun update(event: SessionPauseResumeEntity)
 
-    /**
-     * 特定セッションに紐づく全ての中断/再開イベントを古い順に取得。
-     */
     @Query(
         """
         SELECT * FROM session_pause_resume_events
@@ -27,10 +23,15 @@ interface SessionPauseResumeDao {
     )
     suspend fun findBySessionId(sessionId: Long): List<SessionPauseResumeEntity>
 
-    /**
-     * まだ resumedAtMillis が埋まっていない「最後の中断イベント」を取得。
-     * 再開時にここを書き換える想定。
-     */
+    @Query(
+        """
+        SELECT * FROM session_pause_resume_events
+        WHERE sessionId IN (:sessionIds)
+        ORDER BY pausedAtMillis ASC
+        """
+    )
+    suspend fun findBySessionIds(sessionIds: List<Long>): List<SessionPauseResumeEntity>
+
     @Query(
         """
         SELECT * FROM session_pause_resume_events

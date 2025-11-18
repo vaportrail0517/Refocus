@@ -29,7 +29,7 @@ class SessionHistoryViewModel(
     }
     data class PauseResumeUiModel(
         val pausedAtText: String,
-        val resumedAtText: String?, // null の場合は「未再開」などで表示
+        val resumedAtText: String?,
     )
     data class SessionUiModel(
         val id: Long?,
@@ -53,20 +53,20 @@ class SessionHistoryViewModel(
     private fun observeSessions() {
         viewModelScope.launch {
             combine(
-                sessionRepository.observeAllSessions(),                          // DB上の全セッション
+                sessionRepository.observeAllSessions(),                           // DB上の全セッション
                 foregroundAppMonitor.foregroundAppFlow(pollingIntervalMs = 500L) // 現在の前面アプリ
                     .catch { emit(null) }                                        // 取得失敗時は null
-                    .onStart { emit(null) }                                     // 初期値
+                    .onStart { emit(null) }                                      // 初期値
             ) { sessions, foregroundPackage ->
                 sessions to foregroundPackage
             }.collect { (sessions, foregroundPackage) ->
-                val pauseMap = mutableMapOf<Long, List<SessionPauseResume>>()
-                for (session in sessions) {
-                    val id = session.id ?: continue
-                    val events = sessionRepository.getPauseResumeEvents(id)
-                    pauseMap[id] = events
-                }
-
+                val ids = sessions.mapNotNull { it.id }
+                val pauseMap: Map<Long, List<SessionPauseResume>> =
+                    if (ids.isNotEmpty()) {
+                        sessionRepository.getPauseResumeEventsForSessions(ids)
+                    } else {
+                        emptyMap()
+                    }
                 _sessions.value = sessions.map { session ->
                     val events = session.id?.let { pauseMap[it] } ?: emptyList()
                     session.toUiModel(
@@ -130,10 +130,8 @@ class SessionHistoryViewModel(
     private fun formatDuration(
         session: Session
     ): String {
-        // ★ まず、durationMillis を優先して使う
         val baseDuration = session.durationMillis
             ?: run {
-                // 古いデータなど duration が未設定の場合のフォールバック
                 val end = session.endedAtMillis ?: System.currentTimeMillis()
                 (end - session.startedAtMillis).coerceAtLeast(0L)
             }

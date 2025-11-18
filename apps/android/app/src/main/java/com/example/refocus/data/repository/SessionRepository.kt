@@ -10,21 +10,20 @@ import com.example.refocus.data.db.entity.SessionPauseResumeEntity
 import com.example.refocus.core.model.SessionPauseResume
 
 interface SessionRepository {
-
     suspend fun startSession(packageName: String, startedAtMillis: Long): Session
     suspend fun endActiveSession(
         packageName: String,
         endedAtMillis: Long,
         durationMillis: Long? = null,
     )
-
     suspend fun recordPause(packageName: String, pausedAtMillis: Long)
     suspend fun recordResume(packageName: String, resumedAtMillis: Long)
     suspend fun getPauseResumeEvents(sessionId: Long): List<SessionPauseResume>
-
+    suspend fun getPauseResumeEventsForSessions(
+        sessionIds: List<Long>
+    ): Map<Long, List<SessionPauseResume>>
     fun observeAllSessions(): Flow<List<Session>>
     suspend fun getLastFinishedSession(packageName: String): Session?
-
     suspend fun repairStaleSessions(nowMillis: Long = System.currentTimeMillis())
 }
 
@@ -35,21 +34,11 @@ class SessionRepositoryImpl(
 
     companion object {
         /**
-         * 「明らかにおかしい」と判断して強制終了させるアクティブセッションのしきい値。
-         * ここでは 10 分より古いものを「異常」とみなす。
-         *
-         * - 猶予時間は 30 秒なので、本来なら数十秒以内に endedAt が付くはず
-         * - アプリ起動時 / OverlayService 起動時に呼ぶ想定なので、
-         *   10 分以上続いている endedAt=null は「サービスクラッシュなどの残骸」とみなしてよい
-         */
-        private const val STALE_ACTIVE_THRESHOLD_MS: Long = 10 * 60 * 1000L // 10分
-
-        /**
          * デグレ修復で付ける最大の「仮想継続時間」。
          * 例えば 5 時間ぶっ通しで使っていたかもしれないが、それはもう復元できないので、
          * とりあえず最大 1 時間ぶんだけを上限として補正する。
          */
-        private const val MAX_REPAIR_DURATION_MS: Long = 60 * 60 * 1000L // 1時間
+        private const val MAX_REPAIR_DURATION_MS: Long = 60 * 60 * 1000L
     }
 
     override suspend fun startSession(
@@ -153,6 +142,17 @@ class SessionRepositoryImpl(
         val entities = pauseResumeDao.findBySessionId(sessionId)
         return entities.map { it.toDomain() }
     }
+
+    override suspend fun getPauseResumeEventsForSessions(
+        sessionIds: List<Long>
+    ): Map<Long, List<SessionPauseResume>> {
+        if (sessionIds.isEmpty()) return emptyMap()
+        val entities = pauseResumeDao.findBySessionIds(sessionIds)
+        return entities
+            .map { it.toDomain() }
+            .groupBy { it.sessionId }
+    }
+
     private fun SessionPauseResumeEntity.toDomain(): SessionPauseResume =
         SessionPauseResume(
             id = this.id,
@@ -198,7 +198,6 @@ class SessionRepositoryImpl(
     }
 
     // --- Entity <-> Domain 変換 ---
-
     private fun SessionEntity.toDomain(): Session = Session(
         id = this.id,
         packageName = this.packageName,
