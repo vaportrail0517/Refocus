@@ -1,0 +1,27 @@
+# ===== IDE / Editor =====
+.idea/
+*.iml
+.DS_Store
+
+# ===== Gradle / Build outputs =====
+.gradle/
+**/build/
+
+# ===== Local machine specific =====
+local.properties
+
+# ===== NDK / External build =====
+.cxx/
+.externalNativeBuild/
+
+# ===== Android Studio captures =====
+captures/
+
+# ===== Signing keys (必要なら運用に合わせて) =====
+keystore/
+*.jks
+*.keystore
+
+# ===== Logs =====
+*.log
+
