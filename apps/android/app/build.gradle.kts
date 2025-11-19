@@ -1,3 +1,7 @@
+import com.android.build.api.variant.impl.VariantOutputImpl
+import java.text.SimpleDateFormat
+import java.util.Date
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -11,17 +15,14 @@ android {
     compileSdk {
         version = release(36)
     }
-
     defaultConfig {
         applicationId = "com.example.refocus"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
-
+        versionCode = 1       // APK配布時に毎回インクリメント
+        versionName = "0.1.0" // (大きな区切り・互換性のない変更).(後方互換ありの機能追加).(バグ修正など)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -72,4 +73,18 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        val appName = "refocus"
+        val date = SimpleDateFormat("yyyyMMdd").format(Date())
+        variant.outputs.forEach { output ->
+            if (output is VariantOutputImpl) {
+                val vName = output.versionName.get()
+                output.outputFileName =
+                    "${appName}-v${vName}-debug-${date}.apk"
+            }
+        }
+    }
 }
