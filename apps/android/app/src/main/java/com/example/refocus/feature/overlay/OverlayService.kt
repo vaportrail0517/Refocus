@@ -106,34 +106,6 @@ class OverlayService : LifecycleService() {
         Log.d(TAG, "startForeground done")
         serviceScope.launch {
             try {
-                sessionRepository.repairStaleSessions()
-            } catch (e: Exception) {
-                Log.e(TAG, "repairStaleSessions failed", e)
-            }
-        }
-//        serviceScope.launch {
-//            try {
-//                settingsRepository.observeOverlaySettings().collect { settings ->
-//                    overlaySettings = settings
-//                    withContext(Dispatchers.Main) {
-//                        overlayController.overlaySettings = settings
-//                        val currentPkg = overlayPackage
-//                        val state = currentPkg?.let { sessionStates[it] }
-//                        if (state != null) {
-//                            overlayController.hideTimer()
-//                            overlayController.showTimer(
-//                                initialElapsedMillis = state.elapsedMillis,
-//                                onPositionChanged = ::onOverlayPositionChanged
-//                            )
-//                        }
-//                    }
-//                }
-//            } catch (e: Exception) {
-//                Log.e(TAG, "observeOverlaySettings failed", e)
-//            }
-//        }
-        serviceScope.launch {
-            try {
                 settingsRepository.observeOverlaySettings().collect { settings ->
                     // サービス側の設定を更新
                     overlaySettings = settings

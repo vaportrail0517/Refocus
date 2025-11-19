@@ -26,21 +26,11 @@ fun EntryScreen(
     val repositoryProvider = remember { RepositoryProvider(app) }
 
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            try {
-                repositoryProvider.sessionRepository.repairStaleSessions()
-            } catch (e: Exception) {
-                Log.e("EntryScreen", "repairStaleSessions failed", e)
-            }
-        }
-
         val hasUsage = PermissionHelper.hasUsageAccess(context)
         val hasOverlay = PermissionHelper.hasOverlayPermission(context)
         val hasNotif = PermissionHelper.hasNotificationPermission(context)
         val allGranted = hasUsage && hasOverlay && hasNotif
-
         val completed = OnboardingState.isCompleted(context)
-
         if (!completed) {
             onNeedFullOnboarding()
         } else {

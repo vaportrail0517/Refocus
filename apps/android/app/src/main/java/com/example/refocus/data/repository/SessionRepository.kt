@@ -25,7 +25,6 @@ interface SessionRepository {
     ): Map<Long, List<SessionPauseResume>>
     fun observeAllSessions(): Flow<List<Session>>
     suspend fun getLastFinishedSession(packageName: String): Session?
-    suspend fun repairStaleSessions(nowMillis: Long = System.currentTimeMillis())
 }
 
 class SessionRepositoryImpl(
@@ -33,15 +32,6 @@ class SessionRepositoryImpl(
     private val pauseResumeDao: SessionPauseResumeDao,
     private val timeSource: TimeSource,
 ) : SessionRepository {
-
-    companion object {
-        /**
-         * デグレ修復で付ける最大の「仮想継続時間」。
-         * 例えば 5 時間ぶっ通しで使っていたかもしれないが、それはもう復元できないので、
-         * とりあえず最大 1 時間ぶんだけを上限として補正する。
-         */
-        private const val MAX_REPAIR_DURATION_MS: Long = 60 * 60 * 1000L
-    }
 
     override suspend fun startSession(
         packageName: String,
@@ -95,27 +85,6 @@ class SessionRepositoryImpl(
     override suspend fun getLastFinishedSession(packageName: String): Session? {
         val entity = sessionDao.findLastFinishedSession(packageName) ?: return null
         return entity.toDomain()
-    }
-
-    override suspend fun repairStaleSessions(nowMillis: Long) {
-        val activeSessions = sessionDao.findAllActiveSessions()
-        if (activeSessions.isEmpty()) return
-        for (session in activeSessions) {
-            // ここは元のロジックに合わせて修復済みの終了時刻を決める
-            val repairedEnd = calculateRepairedEndMillis(
-                startedAtMillis = session.startedAtMillis,
-                nowMillis = nowMillis
-            )
-            val duration = calculateDurationFromTimestamps(
-                session = session.copy(endedAtMillis = repairedEnd),
-                nowMillis = repairedEnd
-            )
-            val updated = session.copy(
-                endedAtMillis = repairedEnd,
-                durationMillis = duration
-            )
-            sessionDao.updateSession(updated)
-        }
     }
 
     override suspend fun recordPause(packageName: String, pausedAtMillis: Long) {
@@ -178,21 +147,6 @@ class SessionRepositoryImpl(
             acc + paused
         }
         return (base - pausedTotal).coerceAtLeast(0L)
-    }
-
-    /**
-     * デグレ修復用に「妥当そうな endedAtMillis」を計算するヘルパー。
-     */
-    private fun calculateRepairedEndMillis(
-        startedAtMillis: Long,
-        nowMillis: Long
-    ): Long {
-        val rawDuration = nowMillis - startedAtMillis
-        // マイナスは念のため 0 に丸める
-        val clampedDuration = rawDuration.coerceIn(0L, MAX_REPAIR_DURATION_MS)
-        // startedAt + 継続時間（上限付き）
-        return (startedAtMillis + clampedDuration)
-            .coerceAtMost(nowMillis)
     }
 
     // --- Entity <-> Domain 変換 ---
