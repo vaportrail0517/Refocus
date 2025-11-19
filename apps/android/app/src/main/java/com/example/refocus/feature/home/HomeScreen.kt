@@ -7,10 +7,10 @@ import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.example.refocus.feature.history.SessionHistoryScreen
 import com.example.refocus.feature.settings.SettingsScreen
+import com.example.refocus.feature.suggestions.SuggestionsScreen
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -56,7 +56,7 @@ fun HomeScreen(
                 .padding(innerPadding)
         ) { page ->
             when (tabs[page]) {
-                HomeTab.Suggestions -> SuggestionsTab()
+                HomeTab.Suggestions -> SuggestionsScreen()
                 HomeTab.Stats       -> StatsTab()
                 HomeTab.Settings    -> SettingsScreen(onOpenAppSelect = onOpenAppSelect)
             }
@@ -92,15 +92,7 @@ private fun HomeBottomBar(
     }
 }
 
-@Composable
-private fun SuggestionsTab() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("提案タブ（将来ここに提案UIを実装）")
-    }
-}
+
 
 @Composable
 private fun StatsTab() {
