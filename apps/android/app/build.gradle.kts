@@ -83,7 +83,7 @@ androidComponents {
             if (output is VariantOutputImpl) {
                 val vName = output.versionName.get()
                 output.outputFileName =
-                    "${appName}-v${vName}-debug-${date}.apk"
+                    "${appName}-android-v${vName}-debug-${date}.apk"
             }
         }
     }
