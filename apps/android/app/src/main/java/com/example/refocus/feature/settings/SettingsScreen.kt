@@ -18,6 +18,9 @@ import com.example.refocus.system.permissions.PermissionHelper
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
 import com.example.refocus.core.model.OverlayTouchMode
+import com.example.refocus.feature.overlay.OverlayService
+import com.example.refocus.feature.overlay.startOverlayService
+import com.example.refocus.feature.overlay.stopOverlayService
 
 sealed interface SettingsDialog {
     data object Grace : SettingsDialog
@@ -39,7 +42,6 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
-
     var usageGranted by remember { mutableStateOf(PermissionHelper.hasUsageAccess(context)) }
     var overlayGranted by remember { mutableStateOf(PermissionHelper.hasOverlayPermission(context)) }
     var notificationGranted by remember {
@@ -58,6 +60,7 @@ fun SettingsScreen(
             uiState.overlaySettings.minFontSizeSp..uiState.overlaySettings.maxFontSizeSp
         )
     }
+    var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
 
     // 画面復帰時に権限状態を更新
     DisposableEffect(lifecycleOwner) {
@@ -66,6 +69,7 @@ fun SettingsScreen(
                 usageGranted = PermissionHelper.hasUsageAccess(context)
                 overlayGranted = PermissionHelper.hasOverlayPermission(context)
                 notificationGranted = PermissionHelper.hasNotificationPermission(context)
+                isServiceRunning = OverlayService.isRunning
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -128,6 +132,64 @@ fun SettingsScreen(
             )
         }
 
+        SectionCard(
+            title = "起動"
+        ) {
+            SettingRow(
+                title = "Refocus を動かす",
+                subtitle = if (isServiceRunning) {
+                    "現在: 計測中（対象アプリ利用時に連続使用時間を記録します）"
+                } else {
+                    "現在: 停止中（対象アプリの計測は行われていません）"
+                },
+                trailing = {
+                    val checked = uiState.overlaySettings.overlayEnabled && isServiceRunning
+                    Switch(
+                        checked = checked,
+                        onCheckedChange = { newChecked ->
+                            if (newChecked) {
+                                viewModel.updateOverlayEnabled(true)
+                                context.startOverlayService()
+                                isServiceRunning = true
+                            } else {
+                                viewModel.updateOverlayEnabled(false)
+                                context.stopOverlayService()
+                                isServiceRunning = false
+                            }
+                        }
+                    )
+                },
+                onClick = {
+                    val currentlyOn = uiState.overlaySettings.overlayEnabled && isServiceRunning
+                    val turnOn = !currentlyOn
+                    if (turnOn) {
+                        viewModel.updateOverlayEnabled(true)
+                        context.startOverlayService()
+                        isServiceRunning = true
+                    } else {
+                        viewModel.updateOverlayEnabled(false)
+                        context.stopOverlayService()
+                        isServiceRunning = false
+                    }
+                }
+            )
+            SettingRow(
+                title = "端末起動時に自動起動",
+                subtitle = "端末を再起動したときに自動で Refocus を起動します。",
+                trailing = {
+                    Switch(
+                        checked = uiState.overlaySettings.autoStartOnBoot,
+                        onCheckedChange = { enabled ->
+                            viewModel.updateAutoStartOnBoot(enabled)
+                        }
+                    )
+                           },
+                onClick = {
+                    viewModel.updateAutoStartOnBoot(!uiState.overlaySettings.autoStartOnBoot)
+                }
+            )
+        }
+
         SectionCard (
             title = "アプリ"
         ) {
@@ -149,13 +211,13 @@ fun SettingsScreen(
                 }
             )
             val pollingMs = uiState.overlaySettings.pollingIntervalMillis
-            SettingRow(
-                title = "監視間隔",
-                subtitle = "$pollingMs ms（アプリ切り替えの検出頻度）",
-                onClick = {
-                    activeDialog = SettingsDialog.Polling
-                }
-            )
+//            SettingRow(
+//                title = "監視間隔",
+//                subtitle = "$pollingMs ms（アプリ切り替えの検出頻度）",
+//                onClick = {
+//                    activeDialog = SettingsDialog.Polling
+//                }
+//            )
             SettingRow(
                 title = "フォントサイズ",
                 subtitle = "最小 ${uiState.overlaySettings.minFontSizeSp} sp / 最大 ${uiState.overlaySettings.maxFontSizeSp} sp",

@@ -32,6 +32,13 @@ interface SessionDao {
     suspend fun findLastFinishedSession(packageName: String): SessionEntity?
 
     /**
+     * 全パッケージの active セッション一覧。
+     * 再起動時の修復などに使用する。
+     */
+    @Query("SELECT * FROM sessions WHERE endedAtMillis IS NULL")
+    suspend fun findAllActiveSessions(): List<SessionEntity>
+
+    /**
      * 履歴表示用：新しい順に全セッション。
      */
     @Query("SELECT * FROM sessions ORDER BY startedAtMillis DESC")

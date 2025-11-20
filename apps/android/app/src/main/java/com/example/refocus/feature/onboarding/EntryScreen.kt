@@ -10,8 +10,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.refocus.data.RepositoryProvider
+import com.example.refocus.feature.overlay.startOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 
@@ -24,6 +26,7 @@ fun EntryScreen(
     val context = LocalContext.current
     val app = context.applicationContext as Application
     val repositoryProvider = remember { RepositoryProvider(app) }
+    val settingsRepository = repositoryProvider.settingsRepository
 
     LaunchedEffect(Unit) {
         val hasUsage = PermissionHelper.hasUsageAccess(context)
@@ -39,6 +42,12 @@ fun EntryScreen(
             } else {
                 onNeedPermissionFix()
             }
+        }
+        val settings = settingsRepository
+            .observeOverlaySettings()
+            .first()
+        if (settings.overlayEnabled) {
+            context.startOverlayService()
         }
     }
 

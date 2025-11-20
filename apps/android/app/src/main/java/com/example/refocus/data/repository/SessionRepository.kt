@@ -1,5 +1,6 @@
 package com.example.refocus.data.repository
 
+import android.util.Log
 import com.example.refocus.core.model.Session
 import kotlinx.coroutines.flow.Flow
 import com.example.refocus.data.db.dao.SessionDao
@@ -25,6 +26,10 @@ interface SessionRepository {
     ): Map<Long, List<SessionPauseResume>>
     fun observeAllSessions(): Flow<List<Session>>
     suspend fun getLastFinishedSession(packageName: String): Session?
+    suspend fun repairActiveSessionsAfterRestart(
+        gracePeriodMillis: Long,
+        nowMillis: Long,
+        )
 }
 
 class SessionRepositoryImpl(
@@ -147,6 +152,31 @@ class SessionRepositoryImpl(
             acc + paused
         }
         return (base - pausedTotal).coerceAtLeast(0L)
+    }
+
+    override suspend fun repairActiveSessionsAfterRestart(
+        gracePeriodMillis: Long,
+        nowMillis: Long,
+        ) {
+        val activeSessions = sessionDao.findAllActiveSessions()
+        if (activeSessions.isEmpty()) return
+        for (session in activeSessions) {
+            val lastPause = pauseResumeDao.findLastUnresolvedPause(session.id) ?: continue
+            val gap = nowMillis - lastPause.pausedAtMillis
+            if (gap > gracePeriodMillis) {
+                val endAt = lastPause.pausedAtMillis
+                Log.d("SessionRepository", "repair: end stale session " +
+                        "sessionId=${session.id}, pkg=${session.packageName}, endAt=$endAt")
+                endActiveSession(
+                    packageName = session.packageName,
+                    endedAtMillis = endAt,
+                    durationMillis = null, // duration 計算は endActiveSession 内に任せる
+                    )
+            } else {
+                Log.d("SessionRepository", "repair: keep active session " +
+                    "sessionId=${session.id}, pkg=${session.packageName}, gap=$gap ms")
+            }
+        }
     }
 
     // --- Entity <-> Domain 変換 ---

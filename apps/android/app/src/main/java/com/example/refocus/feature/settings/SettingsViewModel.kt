@@ -99,4 +99,14 @@ class SettingsViewModel(
             }
         }
     }
+    fun updateOverlayEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setOverlayEnabled(enabled)
+        }
+    }
+    fun updateAutoStartOnBoot(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setAutoStartOnBoot(enabled)
+        }
+    }
 }

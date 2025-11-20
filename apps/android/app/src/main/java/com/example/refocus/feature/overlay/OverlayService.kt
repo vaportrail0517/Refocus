@@ -44,6 +44,9 @@ class OverlayService : LifecycleService() {
         private const val TAG = "OverlayService"
         private const val NOTIFICATION_CHANNEL_ID = "overlay_service_channel"
         private const val NOTIFICATION_ID = 1
+        @Volatile
+        var isRunning: Boolean = false
+            private set
     }
 
     // サービス専用のCoroutineScope
@@ -87,6 +90,10 @@ class OverlayService : LifecycleService() {
                     Log.d(TAG, "ACTION_SCREEN_OFF received")
                     handleScreenOff()
                 }
+                Intent.ACTION_SHUTDOWN -> {
+                    Log.d(TAG, "ACTION_SHUTDOWN received")
+                    handleScreenOff()
+                }
                 // 必要であれば将来ここで USER_PRESENT なども扱う
             }
         }
@@ -94,6 +101,7 @@ class OverlayService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         Log.d(TAG, "onCreate")
         val app = application as Application
         repositoryProvider = RepositoryProvider(app)
@@ -106,12 +114,22 @@ class OverlayService : LifecycleService() {
         Log.d(TAG, "startForeground done")
         serviceScope.launch {
             try {
+                var first = true
                 settingsRepository.observeOverlaySettings().collect { settings ->
-                    // サービス側の設定を更新
                     overlaySettings = settings
-                    // メインスレッドで OverlayController に設定を渡すだけ
                     withContext(Dispatchers.Main) {
                         overlayController.overlaySettings = settings
+                    }
+                    if (first) {
+                        first = false
+                        try {
+                            sessionRepository.repairActiveSessionsAfterRestart(
+                                gracePeriodMillis = settings.gracePeriodMillis,
+                                nowMillis = timeSource.nowMillis()
+                            )
+                        } catch (e: Exception) {
+                            Log.e(TAG, "repairActiveSessionsAfterRestart failed", e)
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -133,6 +151,7 @@ class OverlayService : LifecycleService() {
     }
 
     override fun onDestroy() {
+        isRunning = false
         serviceScope.cancel()
         overlayController.hideTimer()
         unregisterScreenReceiver()
@@ -380,6 +399,7 @@ class OverlayService : LifecycleService() {
 
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SHUTDOWN)
             // 後々 USER_PRESENT を扱いたくなったらここに addAction(Intent.ACTION_USER_PRESENT)
         }
         registerReceiver(screenReceiver, filter)

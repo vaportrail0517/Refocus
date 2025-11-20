@@ -8,10 +8,15 @@ class SettingsRepository(
     private val dataStore: SettingsDataStore
 ) {
     fun observeOverlaySettings(): Flow<OverlaySettings> = dataStore.settingsFlow
-
     suspend fun updateOverlaySettings(
         transform: (OverlaySettings) -> OverlaySettings
     ) {
         dataStore.update(transform)
+    }
+    suspend fun setOverlayEnabled(enabled: Boolean) {
+        updateOverlaySettings { it.copy(overlayEnabled = enabled) }
+    }
+    suspend fun setAutoStartOnBoot(enabled: Boolean) {
+        updateOverlaySettings { it.copy(autoStartOnBoot = enabled) }
     }
 }

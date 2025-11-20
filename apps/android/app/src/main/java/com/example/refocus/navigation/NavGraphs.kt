@@ -14,6 +14,7 @@ import com.example.refocus.feature.onboarding.OnboardingReadyScreen
 import com.example.refocus.feature.onboarding.OnboardingFinishScreen
 import com.example.refocus.feature.appselect.AppSelectScreen
 import com.example.refocus.feature.home.HomeScreen
+import com.example.refocus.feature.onboarding.OnboardingStartModeScreen
 import com.example.refocus.feature.overlay.startOverlayService
 
 object Destinations {
@@ -24,6 +25,7 @@ object Destinations {
     const val ONBOARDING_READY    = "onboarding_ready"
     const val APP_SELECT          = "app_select"
     const val APP_SELECT_SETTINGS = "app_select_settings"
+    const val ONBOARDING_START_MODE = "onboarding_start_mode"
     const val ONBOARDING_FINISH   = "onboarding_finish"
     const val HOME                = "home"
 }
@@ -51,7 +53,6 @@ fun RefocusNavHost(
                     }
                 },
                 onAllReady = {
-                    context.startOverlayService()
                     navController.navigate(Destinations.HOME) {
                         popUpTo(Destinations.ENTRY) { inclusive = true }
                     }
@@ -98,7 +99,7 @@ fun RefocusNavHost(
         composable(Destinations.APP_SELECT) {
             AppSelectScreen(
                 onFinished = {
-                    navController.navigate(Destinations.ONBOARDING_FINISH) {
+                    navController.navigate(Destinations.ONBOARDING_START_MODE) {
                         popUpTo(Destinations.ONBOARDING_READY) { inclusive = false }
                     }
                 }
@@ -109,6 +110,16 @@ fun RefocusNavHost(
             AppSelectScreen(
                 onFinished = {
                     navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Destinations.ONBOARDING_START_MODE) {
+            OnboardingStartModeScreen(
+                onDecide = {
+                    navController.navigate(Destinations.ONBOARDING_FINISH) {
+                        popUpTo(Destinations.APP_SELECT) { inclusive = true }
+                    }
                 }
             )
         }

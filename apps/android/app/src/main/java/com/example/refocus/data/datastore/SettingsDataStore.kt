@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import com.example.refocus.core.model.OverlaySettings
 import com.example.refocus.core.model.OverlayTouchMode
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +31,9 @@ class SettingsDataStore(
         val MIN_FONT_SIZE_SP     = floatPreferencesKey("min_font_size_sp")
         val MAX_FONT_SIZE_SP     = floatPreferencesKey("max_font_size_sp")
         val TIME_TO_MAX_MINUTES  = intPreferencesKey("time_to_max_minutes")
+
+        val OVERLAY_ENABLED      = booleanPreferencesKey("overlay_enabled")
+        val AUTO_START_ON_BOOT   = booleanPreferencesKey("auto_start_on_boot")
 
         val POSITION_X          = intPreferencesKey("overlay_position_x")
         val POSITION_Y          = intPreferencesKey("overlay_position_y")
@@ -54,8 +58,10 @@ class SettingsDataStore(
                 gracePeriodMillis = prefs[Keys.GRACE_PERIOD_MS] ?: 300_000L,
                 pollingIntervalMillis = prefs[Keys.POLLING_INTERVAL_MS] ?: 500L,
                 minFontSizeSp = prefs[Keys.MIN_FONT_SIZE_SP] ?: 12f,
-                maxFontSizeSp = prefs[Keys.MAX_FONT_SIZE_SP] ?: 28f,
+                maxFontSizeSp = prefs[Keys.MAX_FONT_SIZE_SP] ?: 40f,
                 timeToMaxMinutes = prefs[Keys.TIME_TO_MAX_MINUTES] ?: 30,
+                overlayEnabled      = prefs[Keys.OVERLAY_ENABLED] ?: true,
+                autoStartOnBoot     = prefs[Keys.AUTO_START_ON_BOOT] ?: true,
                 positionX = prefs[Keys.POSITION_X] ?: 24,
                 positionY = prefs[Keys.POSITION_Y] ?: 120,
                 touchMode = touchMode
@@ -71,8 +77,10 @@ class SettingsDataStore(
                 gracePeriodMillis = prefs[Keys.GRACE_PERIOD_MS] ?: 300_000L,
                 pollingIntervalMillis = prefs[Keys.POLLING_INTERVAL_MS] ?: 500L,
                 minFontSizeSp = prefs[Keys.MIN_FONT_SIZE_SP] ?: 12f,
-                maxFontSizeSp = prefs[Keys.MAX_FONT_SIZE_SP] ?: 28f,
+                maxFontSizeSp = prefs[Keys.MAX_FONT_SIZE_SP] ?: 40f,
                 timeToMaxMinutes = prefs[Keys.TIME_TO_MAX_MINUTES] ?: 30,
+                overlayEnabled      = prefs[Keys.OVERLAY_ENABLED] ?: true,
+                autoStartOnBoot     = prefs[Keys.AUTO_START_ON_BOOT] ?: true,
                 positionX = prefs[Keys.POSITION_X] ?: 24,
                 positionY = prefs[Keys.POSITION_Y] ?: 120,
                 touchMode = OverlayTouchMode.entries
@@ -86,6 +94,8 @@ class SettingsDataStore(
             prefs[Keys.MIN_FONT_SIZE_SP]    = updated.minFontSizeSp
             prefs[Keys.MAX_FONT_SIZE_SP]    = updated.maxFontSizeSp
             prefs[Keys.TIME_TO_MAX_MINUTES] = updated.timeToMaxMinutes
+            prefs[Keys.OVERLAY_ENABLED]      = updated.overlayEnabled
+            prefs[Keys.AUTO_START_ON_BOOT]   = updated.autoStartOnBoot
             prefs[Keys.POSITION_X]          = updated.positionX
             prefs[Keys.POSITION_Y]          = updated.positionY
             prefs[Keys.TOUCH_MODE]          = updated.touchMode.ordinal
