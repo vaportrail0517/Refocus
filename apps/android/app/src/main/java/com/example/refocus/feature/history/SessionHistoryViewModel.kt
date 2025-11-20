@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -64,12 +65,15 @@ class SessionHistoryViewModel(
 
     init {
         viewModelScope.launch {
-            // 「セッション＋イベント」と現在の前面アプリを組み合わせて UI 状態を構築
+            // foreground の Flow に初期値 null を付与
+            val foregroundFlow = foregroundAppMonitor
+                .foregroundAppFlow(pollingIntervalMs = 1_000L)
+                .onStart {
+                    emit(null)
+                }
             combine(
                 sessionRepository.observeAllSessionsWithEvents(),
-                foregroundAppMonitor.foregroundAppFlow(
-                    pollingIntervalMs = 1_000L
-                )
+                foregroundFlow
             ) { sessionsWithEvents, foregroundPackage: String? ->
                 Triple(
                     sessionsWithEvents.sessions,
@@ -85,6 +89,7 @@ class SessionHistoryViewModel(
             }
         }
     }
+
 
     private fun buildUiState(
         sessions: List<Session>,
