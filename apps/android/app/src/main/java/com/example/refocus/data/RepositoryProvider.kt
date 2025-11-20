@@ -7,6 +7,7 @@ import com.example.refocus.data.datastore.SettingsDataStore
 import com.example.refocus.data.datastore.SuggestionsDataStore
 import com.example.refocus.data.datastore.TargetsDataStore
 import com.example.refocus.data.db.RefocusDatabase
+import com.example.refocus.data.repository.OnboardingRepository
 import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SessionRepositoryImpl
 import com.example.refocus.data.repository.SettingsRepository
@@ -41,5 +42,8 @@ class RepositoryProvider(
             dataStore = dataStore,
             timeSource = timeSource
         )
+    }
+    val onboardingRepository: OnboardingRepository by lazy {
+        OnboardingRepository(application)
     }
 }

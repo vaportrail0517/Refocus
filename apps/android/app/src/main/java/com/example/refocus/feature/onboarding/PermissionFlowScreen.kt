@@ -80,7 +80,7 @@ fun PermissionFlowScreen(
         }
     }
 
-    var currentIndex by remember { mutableStateOf(0) }
+    var currentIndex by remember { mutableIntStateOf(0) }
     var currentPage by remember { mutableStateOf(PermissionPage.IntroOrSingle) }
 
     val currentStep = steps.getOrNull(currentIndex)
@@ -162,11 +162,10 @@ fun PermissionFlowScreen(
         }
 
         PermissionType.Notifications -> {
-            // 通知は DirectGrant 想定（いきなり許可ボタン）
             NotificationPermissionPage(
                 onRequestPermission = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        // ランチャーに「次のステップへ進む処理」を渡しておく
+                        // 許可ダイアログの結果が granted のときだけ次へ進む
                         requestNotificationPermission = {
                             moveToNextStep(
                                 stepsSize = steps.size,
@@ -177,7 +176,7 @@ fun PermissionFlowScreen(
                         }
                         notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
                     } else {
-                        // 古い端末では実質常に許可扱い
+                        // API 32 以下は許可不要なので即次へ
                         moveToNextStep(
                             stepsSize = steps.size,
                             currentIndex = currentIndex,
@@ -185,6 +184,15 @@ fun PermissionFlowScreen(
                             setPage = { currentPage = it }
                         )
                     }
+                },
+                onSkip = {
+                    // 許可せずに次へ進む（任意）
+                    moveToNextStep(
+                        stepsSize = steps.size,
+                        currentIndex = currentIndex,
+                        setIndex = { currentIndex = it },
+                        setPage = { currentPage = it }
+                    )
                 }
             )
         }
@@ -198,7 +206,7 @@ private fun UsageAccessIntroPage(
     onNext: () -> Unit
 ) {
     OnboardingPage(
-        title = "使用状況へのアクセス",
+        title = "使用状況へのアクセス（必須）",
         description = "どのアプリをどれだけ連続して使っているかを計測するために必要な権限です。",
         primaryButtonText = "次へ",
         onPrimaryClick = onNext,
@@ -228,7 +236,7 @@ private fun OverlayIntroPage(
     onNext: () -> Unit
 ) {
     OnboardingPage(
-        title = "他のアプリの上に重ねて表示",
+        title = "他のアプリの上に重ねて表示（必須）",
         description = "タイマーを他のアプリの上に表示するために必要です。",
         primaryButtonText = "次へ",
         onPrimaryClick = onNext,
@@ -256,23 +264,26 @@ private fun OverlayExplainPage(
 
 @Composable
 private fun NotificationPermissionPage(
-    onRequestPermission: () -> Unit
+    onRequestPermission: () -> Unit,
+    onSkip: () -> Unit,
 ) {
     OnboardingPage(
-        title = "通知",
-        description = "やりたいことの提案などを行うために通知を使います。",
-        primaryButtonText = "許可",
+        title = "通知（任意）",
+        description = "やりたいことの提案などを行うために通知を使います。あとから設定画面でも変更できます。",
+        primaryButtonText = "許可する",
         onPrimaryClick = onRequestPermission,
+        secondaryButtonText = "あとで設定する",
+        onSecondaryClick = onSkip,
         content = {}
     )
 }
+
 
 /* ---------- ヘルパー ---------- */
 
 private fun allPermissionsGranted(context: android.content.Context): Boolean {
     return PermissionHelper.hasUsageAccess(context) &&
-            PermissionHelper.hasOverlayPermission(context) &&
-            PermissionHelper.hasNotificationPermission(context)
+            PermissionHelper.hasOverlayPermission(context)
 }
 
 private fun isGranted(context: android.content.Context, type: PermissionType): Boolean =

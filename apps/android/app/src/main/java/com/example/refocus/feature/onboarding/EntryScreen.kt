@@ -21,33 +21,25 @@ import kotlinx.coroutines.withContext
 fun EntryScreen(
     onNeedFullOnboarding: () -> Unit,
     onNeedPermissionFix: () -> Unit,
-    onAllReady: () -> Unit
+    onAllReady: () -> Unit,
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as Application
     val repositoryProvider = remember { RepositoryProvider(app) }
-    val settingsRepository = repositoryProvider.settingsRepository
-
+    val onboardingRepository = remember { repositoryProvider.onboardingRepository }
     LaunchedEffect(Unit) {
         val hasUsage = PermissionHelper.hasUsageAccess(context)
         val hasOverlay = PermissionHelper.hasOverlayPermission(context)
-        val hasNotif = PermissionHelper.hasNotificationPermission(context)
-        val allGranted = hasUsage && hasOverlay && hasNotif
-        val completed = OnboardingState.isCompleted(context)
+        val requiredGranted = hasUsage && hasOverlay
+        val completed = onboardingRepository.completedFlow.first()
         if (!completed) {
             onNeedFullOnboarding()
         } else {
-            if (allGranted) {
+            if (requiredGranted) {
                 onAllReady()
             } else {
                 onNeedPermissionFix()
             }
-        }
-        val settings = settingsRepository
-            .observeOverlaySettings()
-            .first()
-        if (settings.overlayEnabled) {
-            context.startOverlayService()
         }
     }
 

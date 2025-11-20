@@ -89,7 +89,7 @@ fun SettingsScreen(
             title = "権限"
         ) {
             SettingRow(
-                title = "使用状況へのアクセス",
+                title = "使用状況へのアクセス（必須）",
                 subtitle  = "連続使用時間を計測するために必要です。",
                 trailing = {
                     Switch(
@@ -103,7 +103,7 @@ fun SettingsScreen(
                 }
             )
             SettingRow(
-                title = "他のアプリの上に表示",
+                title = "他のアプリの上に表示（必須）",
                 subtitle = "タイマーを他のアプリの上に表示するために必要です。",
                 trailing = {
                     Switch(
@@ -117,7 +117,7 @@ fun SettingsScreen(
                 }
             )
             SettingRow(
-                title = "通知",
+                title = "通知（任意）",
                 subtitle = "やることの提案やお知らせに利用します。",
                 trailing = {
                     Switch(

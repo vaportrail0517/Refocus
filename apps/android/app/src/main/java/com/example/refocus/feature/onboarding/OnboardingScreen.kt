@@ -197,9 +197,12 @@ fun OnboardingFinishScreen(
     onOpenApp: () -> Unit
 ) {
     val context = LocalContext.current
+    val app = context.applicationContext as Application
+    val repositoryProvider = remember { RepositoryProvider(app) }
+    val onboardingRepository = remember { repositoryProvider.onboardingRepository }
 
     LaunchedEffect(Unit) {
-        OnboardingState.setCompleted(context, true)
+        onboardingRepository.setCompleted(true)
     }
 
     OnboardingPage(
