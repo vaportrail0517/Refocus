@@ -16,7 +16,7 @@ import com.example.refocus.ui.components.OnboardingPage
 enum class PermissionType {
     UsageAccess,
     Overlay,
-    Notifications
+//    Notifications
 }
 
 enum class PermissionUIMode {
@@ -42,17 +42,17 @@ fun PermissionFlowScreen(
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // 通知権限リクエストランチャー
-    var requestNotificationPermission by remember { mutableStateOf<(() -> Unit)?>(null) }
-    val notifLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        // POST_NOTIFICATIONS はダイアログ内で完結するので、
-        // 結果を見て次のステップに進む
-        if (granted) {
-            requestNotificationPermission?.invoke()
-        }
-    }
+//    // 通知権限リクエストランチャー
+//    var requestNotificationPermission by remember { mutableStateOf<(() -> Unit)?>(null) }
+//    val notifLauncher = rememberLauncherForActivityResult(
+//        contract = ActivityResultContracts.RequestPermission()
+//    ) { granted ->
+//        // POST_NOTIFICATIONS はダイアログ内で完結するので、
+//        // 結果を見て次のステップに進む
+//        if (granted) {
+//            requestNotificationPermission?.invoke()
+//        }
+//    }
 
     // 権限定義（ここでは UI 文言は持たせず、タイプとモードだけ持つ）
     val steps = remember {
@@ -69,14 +69,14 @@ fun PermissionFlowScreen(
                     uiMode = PermissionUIMode.TwoStepWithExplain
                 )
             )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                add(
-                    PermissionStep(
-                        type = PermissionType.Notifications,
-                        uiMode = PermissionUIMode.DirectGrant
-                    )
-                )
-            }
+//            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+//                add(
+//                    PermissionStep(
+//                        type = PermissionType.Notifications,
+//                        uiMode = PermissionUIMode.DirectGrant
+//                    )
+//                )
+//            }
         }
     }
 
@@ -161,41 +161,41 @@ fun PermissionFlowScreen(
             }
         }
 
-        PermissionType.Notifications -> {
-            NotificationPermissionPage(
-                onRequestPermission = {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        // 許可ダイアログの結果が granted のときだけ次へ進む
-                        requestNotificationPermission = {
-                            moveToNextStep(
-                                stepsSize = steps.size,
-                                currentIndex = currentIndex,
-                                setIndex = { currentIndex = it },
-                                setPage = { currentPage = it }
-                            )
-                        }
-                        notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        // API 32 以下は許可不要なので即次へ
-                        moveToNextStep(
-                            stepsSize = steps.size,
-                            currentIndex = currentIndex,
-                            setIndex = { currentIndex = it },
-                            setPage = { currentPage = it }
-                        )
-                    }
-                },
-                onSkip = {
-                    // 許可せずに次へ進む（任意）
-                    moveToNextStep(
-                        stepsSize = steps.size,
-                        currentIndex = currentIndex,
-                        setIndex = { currentIndex = it },
-                        setPage = { currentPage = it }
-                    )
-                }
-            )
-        }
+//        PermissionType.Notifications -> {
+//            NotificationPermissionPage(
+//                onRequestPermission = {
+//                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+//                        // 許可ダイアログの結果が granted のときだけ次へ進む
+//                        requestNotificationPermission = {
+//                            moveToNextStep(
+//                                stepsSize = steps.size,
+//                                currentIndex = currentIndex,
+//                                setIndex = { currentIndex = it },
+//                                setPage = { currentPage = it }
+//                            )
+//                        }
+//                        notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+//                    } else {
+//                        // API 32 以下は許可不要なので即次へ
+//                        moveToNextStep(
+//                            stepsSize = steps.size,
+//                            currentIndex = currentIndex,
+//                            setIndex = { currentIndex = it },
+//                            setPage = { currentPage = it }
+//                        )
+//                    }
+//                },
+//                onSkip = {
+//                    // 許可せずに次へ進む（任意）
+//                    moveToNextStep(
+//                        stepsSize = steps.size,
+//                        currentIndex = currentIndex,
+//                        setIndex = { currentIndex = it },
+//                        setPage = { currentPage = it }
+//                    )
+//                }
+//            )
+//        }
     }
 }
 
@@ -262,21 +262,21 @@ private fun OverlayExplainPage(
     )
 }
 
-@Composable
-private fun NotificationPermissionPage(
-    onRequestPermission: () -> Unit,
-    onSkip: () -> Unit,
-) {
-    OnboardingPage(
-        title = "通知（任意）",
-        description = "やりたいことの提案などを行うために通知を使います。あとから設定画面でも変更できます。",
-        primaryButtonText = "許可する",
-        onPrimaryClick = onRequestPermission,
-        secondaryButtonText = "あとで設定する",
-        onSecondaryClick = onSkip,
-        content = {}
-    )
-}
+//@Composable
+//private fun NotificationPermissionPage(
+//    onRequestPermission: () -> Unit,
+//    onSkip: () -> Unit,
+//) {
+//    OnboardingPage(
+//        title = "通知（任意）",
+//        description = "やりたいことの提案などを行うために通知を使います。あとから設定画面でも変更できます。",
+//        primaryButtonText = "許可する",
+//        onPrimaryClick = onRequestPermission,
+//        secondaryButtonText = "あとで設定する",
+//        onSecondaryClick = onSkip,
+//        content = {}
+//    )
+//}
 
 
 /* ---------- ヘルパー ---------- */
@@ -290,7 +290,7 @@ private fun isGranted(context: android.content.Context, type: PermissionType): B
     when (type) {
         PermissionType.UsageAccess   -> PermissionHelper.hasUsageAccess(context)
         PermissionType.Overlay       -> PermissionHelper.hasOverlayPermission(context)
-        PermissionType.Notifications -> PermissionHelper.hasNotificationPermission(context)
+//        PermissionType.Notifications -> PermissionHelper.hasNotificationPermission(context)
     }
 
 private fun moveToNextStep(

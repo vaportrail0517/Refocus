@@ -116,20 +116,20 @@ fun SettingsScreen(
                     activity?.let { PermissionHelper.openOverlaySettings(it) }
                 }
             )
-            SettingRow(
-                title = "通知（任意）",
-                subtitle = "やることの提案やお知らせに利用します。",
-                trailing = {
-                    Switch(
-                        checked = notificationGranted,
-                        onCheckedChange = null,
-                        enabled = true
-                    )
-                },
-                onClick = {
-                    activity?.let { PermissionHelper.openNotificationSettings(it) }
-                }
-            )
+//            SettingRow(
+//                title = "通知（任意）",
+//                subtitle = "やることの提案やお知らせに利用します。",
+//                trailing = {
+//                    Switch(
+//                        checked = notificationGranted,
+//                        onCheckedChange = null,
+//                        enabled = true
+//                    )
+//                },
+//                onClick = {
+//                    activity?.let { PermissionHelper.openNotificationSettings(it) }
+//                }
+//            )
         }
 
         SectionCard(
