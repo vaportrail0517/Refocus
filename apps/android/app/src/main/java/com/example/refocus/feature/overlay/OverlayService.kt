@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 import android.content.IntentFilter
+import com.example.refocus.core.model.SessionEventType
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flatMapLatest
 import com.example.refocus.core.util.TimeSource
@@ -72,11 +73,10 @@ class OverlayService : LifecycleService() {
 
     private data class RunningSessionState(
         val packageName: String,
-        var startedAtMillis: Long,
-        var elapsedMillis: Long,
-        var lastForegroundElapsedRealtime: Long?, // 前面にいたときの timeSource.elapsedRealtime()
-        var pendingEndJob: Job?,                  // 猶予中のジョブ（なければ null）
-        var lastLeaveAtMillis: Long?,             // 最後に前面から離れた時刻
+        var initialElapsedMillis: Long,            // DB から復元した経過時間
+        var lastForegroundElapsedRealtime: Long?,
+        var pendingEndJob: Job?,
+        var lastLeaveAtMillis: Long?,
     )
 
     // packageName → RunningSessionState のマップ
@@ -197,33 +197,18 @@ class OverlayService : LifecycleService() {
         nowMillis: Long,
         nowElapsed: Long
     ) {
-        // すでに状態があればそれを使い、なければ新規作成
-        val state = sessionStates.getOrPut(packageName) {
-            RunningSessionState(
-                packageName = packageName,
-                startedAtMillis = nowMillis,
-                elapsedMillis = 0L,
-                lastForegroundElapsedRealtime = null,
-                pendingEndJob = null,
-                lastLeaveAtMillis = null
-            )
-        }
-        val wasPaused = state.lastLeaveAtMillis != null
-        // このアプリ用の猶予ジョブが動いていたらキャンセル（猶予中に戻ってきた）
-        state.pendingEndJob?.cancel()
-        state.pendingEndJob = null
-        state.lastLeaveAtMillis = null
-        // 前面に復帰したタイミングを覚えておく（leave 時に差分を足す）
-        state.lastForegroundElapsedRealtime = nowElapsed
-        // DB 上のセッションを開始（既に active があればそのまま返る）
-        serviceScope.launch {
-            try {
-                sessionRepository.startSession(
-                    packageName = packageName,
-                    startedAtMillis = state.startedAtMillis
-                )
-                // 中断からの復帰であれば「再開イベント」を記録する
-                if (wasPaused) {
+        // すでにメモリ上に状態がある（＝アプリ切り替えなどで戻ってきた）場合
+        val existingState = sessionStates[packageName]
+        if (existingState != null) {
+            val wasPaused = existingState.lastLeaveAtMillis != null
+            // 猶予中の終了ジョブをキャンセルし、前面復帰扱いに戻す
+            existingState.pendingEndJob?.cancel()
+            existingState.pendingEndJob = null
+            existingState.lastLeaveAtMillis = null
+            existingState.lastForegroundElapsedRealtime = nowElapsed
+            // DB に Pause → Resume イベントを記録
+            if (wasPaused) {
+                serviceScope.launch {
                     try {
                         sessionRepository.recordResume(
                             packageName = packageName,
@@ -233,17 +218,68 @@ class OverlayService : LifecycleService() {
                         Log.e(TAG, "Failed to record resume for $packageName", e)
                     }
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to start session for $packageName", e)
             }
+            // オーバーレイ表示を再開
+            overlayPackage = packageName
+            serviceScope.launch(Dispatchers.Main) {
+                overlayController.showTimer(
+                    initialElapsedMillis = existingState.initialElapsedMillis,
+                    onPositionChanged = ::onOverlayPositionChanged
+                )
+            }
+            return
         }
-        // オーバーレイの表示対象を切り替え
-        overlayPackage = packageName
-        serviceScope.launch(Dispatchers.Main) {
-            overlayController.showTimer(
-                initialElapsedMillis = state.elapsedMillis,
-                onPositionChanged = ::onOverlayPositionChanged
-            )
+        // ここから「新規セッション」または「再起動直後の復元」パス
+        val newState = RunningSessionState(
+            packageName = packageName,
+            initialElapsedMillis = 0L,
+            lastForegroundElapsedRealtime = nowElapsed,
+            pendingEndJob = null,
+            lastLeaveAtMillis = null
+        )
+        sessionStates[packageName] = newState
+        serviceScope.launch {
+            try {
+                // まず active セッションの最後のイベント種別を取得
+                val lastEventType = sessionRepository.getLastEventTypeForActiveSession(packageName)
+                val hadActiveSession = lastEventType != null
+                // active セッションがある場合のみ、DB から経過時間を復元
+                val restoredDuration = if (hadActiveSession) {
+                    sessionRepository.getActiveSessionDuration(
+                        packageName = packageName,
+                        nowMillis = nowMillis
+                    )
+                } else {
+                    null
+                }
+                newState.initialElapsedMillis = restoredDuration ?: 0L
+                // active セッションがなければ新規開始、
+                // あれば startSession 側が既存セッションをそのまま返す想定
+                sessionRepository.startSession(
+                    packageName = packageName,
+                    startedAtMillis = nowMillis
+                )
+                // 「最後のイベントが Pause で止まっていた」場合のみ Resume を打つ
+                if (lastEventType == SessionEventType.Pause) {
+                    try {
+                        sessionRepository.recordResume(
+                            packageName = packageName,
+                            resumedAtMillis = nowMillis
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to record resume(after restore) for $packageName", e)
+                    }
+                }
+                overlayPackage = packageName
+                withContext(Dispatchers.Main) {
+                    overlayController.showTimer(
+                        initialElapsedMillis = newState.initialElapsedMillis,
+                        onPositionChanged = ::onOverlayPositionChanged
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start/restore session for $packageName", e)
+            }
         }
     }
 
@@ -253,16 +289,17 @@ class OverlayService : LifecycleService() {
         nowElapsed: Long
     ) {
         val state = sessionStates[packageName] ?: return
-        // 「前面にいた時間」を累積
+        // 「前面にいた時間」を RunningSessionState に反映
         state.lastForegroundElapsedRealtime?.let { startElapsed ->
             val delta = nowElapsed - startElapsed
             if (delta > 0L) {
-                state.elapsedMillis += delta
+                // ここで initialElapsedMillis に累積する
+                state.initialElapsedMillis += delta
             }
         }
         state.lastForegroundElapsedRealtime = null
         state.lastLeaveAtMillis = nowMillis
-        // ここで「中断イベント」を記録する
+        // 中断イベント
         serviceScope.launch {
             try {
                 sessionRepository.recordPause(
@@ -273,16 +310,17 @@ class OverlayService : LifecycleService() {
                 Log.e(TAG, "Failed to record pause for $packageName", e)
             }
         }
-        // もし今表示中のアプリならオーバーレイを閉じる
+        // オーバーレイ停止
         if (overlayPackage == packageName) {
             overlayPackage = null
             serviceScope.launch(Dispatchers.Main) {
                 overlayController.hideTimer()
             }
         }
-        // このアプリに対して猶予タイマーを開始
+        // 猶予タイマー開始
         startGraceTimerFor(state)
     }
+
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun startMonitoring() {
@@ -372,12 +410,11 @@ class OverlayService : LifecycleService() {
                 val delayMillis = (targetEndOfGrace - now).coerceAtLeast(0L)
                 delay(delayMillis)
                 Log.d(TAG, "Grace expired for $packageName, ending session")
-                val endedAt = leaveAt.coerceAtLeast(state.startedAtMillis)
-                val duration = state.elapsedMillis
+                // 終了時刻は「離脱した瞬間」で OK（startedAtMillis との大小比較も不要）
+                val endedAt = leaveAt
                 sessionRepository.endActiveSession(
                     packageName = packageName,
-                    endedAtMillis = endedAt,
-                    durationMillis = duration
+                    endedAtMillis = endedAt
                 )
                 ended = true
             } catch (_: CancellationException) {
@@ -393,6 +430,7 @@ class OverlayService : LifecycleService() {
             }
         }
     }
+
 
     private fun registerScreenReceiver() {
         if (screenReceiverRegistered) return

@@ -24,10 +24,10 @@ class RepositoryProvider(
     val sessionRepository: SessionRepository by lazy {
         val db = RefocusDatabase.getInstance(application)
         val sessionDao = db.sessionDao()
-        val pauseResumeDao = db.sessionPauseResumeDao()
+        val eventDao = db.sessionEventDao()
         SessionRepositoryImpl(
             sessionDao = sessionDao,
-            pauseResumeDao = pauseResumeDao,
+            eventDao = eventDao,
             timeSource = timeSource,
         )
     }

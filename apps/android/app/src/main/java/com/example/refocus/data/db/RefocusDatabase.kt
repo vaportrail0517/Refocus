@@ -5,26 +5,22 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.refocus.data.db.dao.SessionDao
+import com.example.refocus.data.db.dao.SessionEventDao
 import com.example.refocus.data.db.entity.SessionEntity
-import com.example.refocus.data.db.dao.SessionPauseResumeDao
-import com.example.refocus.data.db.entity.SessionPauseResumeEntity
+import com.example.refocus.data.db.entity.SessionEventEntity
 
-/**
- * Room のメインDB。
- * 今は SessionEntity だけ。将来 SessionPartEntity など追加していく。
- */
 @Database(
     entities = [
         SessionEntity::class,
-        SessionPauseResumeEntity::class,
+        SessionEventEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 abstract class RefocusDatabase : RoomDatabase() {
 
     abstract fun sessionDao(): SessionDao
-    abstract fun sessionPauseResumeDao(): SessionPauseResumeDao
+    abstract fun sessionEventDao(): SessionEventDao
 
     companion object {
         @Volatile
@@ -37,7 +33,7 @@ abstract class RefocusDatabase : RoomDatabase() {
                     RefocusDatabase::class.java,
                     "refocus.db"
                 )
-                    .fallbackToDestructiveMigration() // 最初は楽をして、後で適切にマイグレーション
+                    .fallbackToDestructiveMigration(false)
                     .build()
                     .also { INSTANCE = it }
             }

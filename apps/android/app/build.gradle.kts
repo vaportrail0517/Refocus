@@ -20,7 +20,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 1       // APK配布時に毎回インクリメント
-        versionName = "0.1.0" // (大きな区切り・互換性のない変更).(後方互換ありの機能追加).(バグ修正など)
+        versionName = "0.2.0" // (大きな区切り・互換性のない変更).(後方互換ありの機能追加).(バグ修正など)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -41,6 +41,16 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+}
+
+kapt {
+    arguments {
+        // Room がスキーマJSONを吐き出すディレクトリ
+        arg("room.schemaLocation", "$projectDir/schemas")
+        // お好みで（ビルド高速化系）
+        arg("room.incremental", "true")
+        arg("room.expandProjection", "true")
     }
 }
 
