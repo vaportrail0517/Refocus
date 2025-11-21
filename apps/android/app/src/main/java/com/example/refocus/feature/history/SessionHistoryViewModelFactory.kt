@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.example.refocus.data.RepositoryProvider
-import com.example.refocus.feature.monitor.ForegroundAppMonitorProvider
+import com.example.refocus.system.monitor.ForegroundAppMonitorProvider
 
 class SessionHistoryViewModelFactory(
     private val application: Application

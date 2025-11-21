@@ -8,7 +8,7 @@ import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionEventType
 import com.example.refocus.data.repository.SessionRepository
-import com.example.refocus.feature.monitor.ForegroundAppMonitor
+import com.example.refocus.system.monitor.ForegroundAppMonitor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
