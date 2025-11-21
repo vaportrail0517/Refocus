@@ -38,6 +38,11 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flatMapLatest
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.core.util.SystemTimeSource
+import com.example.refocus.data.repository.SuggestionsRepository
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlinx.coroutines.flow.first
 
 class OverlayService : LifecycleService() {
 
@@ -45,6 +50,8 @@ class OverlayService : LifecycleService() {
         private const val TAG = "OverlayService"
         private const val NOTIFICATION_CHANNEL_ID = "overlay_service_channel"
         private const val NOTIFICATION_ID = 1
+
+
         @Volatile
         var isRunning: Boolean = false
             private set
@@ -62,6 +69,8 @@ class OverlayService : LifecycleService() {
         get() = repositoryProvider.sessionRepository
     private val settingsRepository: SettingsRepository
         get() = repositoryProvider.settingsRepository
+    private val suggestionsRepository: SuggestionsRepository
+        get() = repositoryProvider.suggestionsRepository
 
     private lateinit var foregroundAppMonitor: ForegroundAppMonitor
     private lateinit var overlayController: OverlayController
@@ -70,6 +79,13 @@ class OverlayService : LifecycleService() {
     private var overlayPackage: String? = null
     @Volatile
     private var overlaySettings: OverlaySettings = OverlaySettings()
+
+    // グローバルな提案スヌーズ／当日無効フラグ
+    @Volatile
+    private var suggestionSnoozedUntilMillis: Long? = null
+
+    @Volatile
+    private var suggestionDisabledForYmd: Int? = null
 
     private data class RunningSessionState(
         val packageName: String,
@@ -154,6 +170,7 @@ class OverlayService : LifecycleService() {
         isRunning = false
         serviceScope.cancel()
         overlayController.hideTimer()
+        overlayController.hideSuggestionOverlay()
         unregisterScreenReceiver()
         super.onDestroy()
     }
@@ -315,6 +332,7 @@ class OverlayService : LifecycleService() {
             overlayPackage = null
             serviceScope.launch(Dispatchers.Main) {
                 overlayController.hideTimer()
+                overlayController.hideSuggestionOverlay()
             }
         }
         // 猶予タイマー開始
@@ -381,6 +399,13 @@ class OverlayService : LifecycleService() {
                         else -> {
                             // 非対象→非対象 / 対象→同じ対象 (permissions など) は何もしない
                         }
+                    }
+                    if (nowIsTarget && foregroundPackage != null) {
+                        maybeShowSuggestionIfNeeded(
+                            packageName = foregroundPackage,
+                            nowMillis = nowMillis,
+                            nowElapsedRealtime = nowElapsed
+                        )
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in startMonitoring loop", e)
@@ -488,4 +513,114 @@ class OverlayService : LifecycleService() {
             }
         }
     }
+
+    private fun currentYmd(nowMillis: Long = timeSource.nowMillis()): Int {
+        val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+        return sdf.format(Date(nowMillis)).toInt()
+    }
+
+    // RunningSessionState から「今この瞬間の連続使用時間」を計算
+    private fun computeElapsedForState(
+        state: RunningSessionState,
+        nowElapsedRealtime: Long
+    ): Long {
+        val base = state.initialElapsedMillis
+        val lastStart = state.lastForegroundElapsedRealtime
+        return if (lastStart != null) {
+            base + (nowElapsedRealtime - lastStart).coerceAtLeast(0L)
+        } else {
+            base
+        }
+    }
+
+    private fun suggestionTriggerThresholdMillis(settings: OverlaySettings): Long {
+        val minutes = settings.suggestionTriggerMinutes
+        if (minutes <= 0) {
+            // 0 以下なら「提案しない」とみなす
+            return Long.MAX_VALUE
+        }
+        return minutes.toLong() * 60_000L
+    }
+    private fun suggestionSnoozeLaterMillis(settings: OverlaySettings): Long {
+        val minutes = settings.suggestionSnoozeLaterMinutes.coerceAtLeast(0)
+        return minutes.toLong() * 60_000L
+    }
+    private fun suggestionDismissSnoozeMillis(settings: OverlaySettings): Long {
+        val minutes = settings.suggestionDismissSnoozeMinutes.coerceAtLeast(0)
+        return minutes.toLong() * 60_000L
+    }
+
+    private fun handleSuggestionSnoozeLater() {
+        val now = timeSource.nowMillis()
+        val snoozeMs = suggestionSnoozeLaterMillis(overlaySettings)
+        suggestionSnoozedUntilMillis = now + snoozeMs
+        Log.d(TAG, "Suggestion snoozed until $suggestionSnoozedUntilMillis")
+    }
+
+    private fun handleSuggestionDisableToday() {
+        val now = timeSource.nowMillis()
+        suggestionDisabledForYmd = currentYmd(now)
+        Log.d(TAG, "Suggestion disabled for today: $suggestionDisabledForYmd")
+    }
+
+    private fun handleSuggestionDismissOnly() {
+        val now = timeSource.nowMillis()
+        val snoozeMs = suggestionDismissSnoozeMillis(overlaySettings)
+        suggestionSnoozedUntilMillis = now + snoozeMs
+        Log.d(TAG, "Suggestion dismissed, snoozed until $suggestionSnoozedUntilMillis")
+    }
+
+    private fun maybeShowSuggestionIfNeeded(
+        packageName: String,
+        nowMillis: Long,
+        nowElapsedRealtime: Long
+    ) {
+        val state = sessionStates[packageName] ?: return
+
+        // 今日「出さない」指定になっているなら終了
+        val today = currentYmd(nowMillis)
+        if (suggestionDisabledForYmd == today) {
+            return
+        }
+
+        // スヌーズ中なら終了
+        val snoozedUntil = suggestionSnoozedUntilMillis
+        if (snoozedUntil != null && nowMillis < snoozedUntil) {
+            return
+        }
+
+        // 連続使用時間がしきい値に達していなければ何もしない
+        val elapsed = computeElapsedForState(state, nowElapsedRealtime)
+        val thresholdMs = suggestionTriggerThresholdMillis(overlaySettings)
+        if (thresholdMs == Long.MAX_VALUE) {
+            // 0 分以下なら「提案オフ」とみなす
+            return
+        }
+        if (elapsed < thresholdMs) {
+            return
+        }
+
+        // ここまで来たら提案を出す
+        serviceScope.launch {
+            try {
+                val suggestion = suggestionsRepository.observeSuggestion().first()
+                if (suggestion == null) {
+                    Log.d(TAG, "No suggestion registered, skip overlay")
+                    return@launch
+                }
+                withContext(Dispatchers.Main) {
+                    overlayController.showSuggestionOverlay(
+                        title = suggestion.title,
+                        autoDismissMillis = suggestionDismissSnoozeMillis(overlaySettings),
+                        onSnoozeLater = { handleSuggestionSnoozeLater() },
+                        onDisableToday = { handleSuggestionDisableToday() },
+                        onDismissOnly = { handleSuggestionDismissOnly() }
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to show suggestion overlay for $packageName", e)
+            }
+        }
+    }
+
 }

@@ -38,6 +38,11 @@ class SettingsDataStore(
         val POSITION_X          = intPreferencesKey("overlay_position_x")
         val POSITION_Y          = intPreferencesKey("overlay_position_y")
         val TOUCH_MODE          = intPreferencesKey("overlay_touch_mode")
+
+        val SUGGESTION_TRIGGER_MINUTES       = intPreferencesKey("suggestion_trigger_minutes")
+        val SUGGESTION_SNOOZE_MINUTES        = intPreferencesKey("suggestion_snooze_minutes")
+        val SUGGESTION_DISMISS_SNOOZE_MINUTES =
+            intPreferencesKey("suggestion_dismiss_snooze_minutes")
     }
 
     // 現在の設定を OverlaySettings にマッピングして流す Flow
@@ -64,7 +69,11 @@ class SettingsDataStore(
                 autoStartOnBoot     = prefs[Keys.AUTO_START_ON_BOOT] ?: true,
                 positionX = prefs[Keys.POSITION_X] ?: 24,
                 positionY = prefs[Keys.POSITION_Y] ?: 120,
-                touchMode = touchMode
+                touchMode = touchMode,
+                suggestionTriggerMinutes = prefs[Keys.SUGGESTION_TRIGGER_MINUTES] ?: 1,
+                suggestionSnoozeLaterMinutes = prefs[Keys.SUGGESTION_SNOOZE_MINUTES] ?: 1,
+                suggestionDismissSnoozeMinutes =
+                    prefs[Keys.SUGGESTION_DISMISS_SNOOZE_MINUTES] ?: 1,
             )
         }
 
@@ -85,7 +94,13 @@ class SettingsDataStore(
                 positionY = prefs[Keys.POSITION_Y] ?: 120,
                 touchMode = OverlayTouchMode.entries
                     .getOrNull(prefs[Keys.TOUCH_MODE] ?: 0)
-                    ?: OverlayTouchMode.Drag
+                    ?: OverlayTouchMode.Drag,
+                suggestionTriggerMinutes =
+                    prefs[Keys.SUGGESTION_TRIGGER_MINUTES] ?: 1,
+                suggestionSnoozeLaterMinutes =
+                    prefs[Keys.SUGGESTION_SNOOZE_MINUTES] ?: 1,
+                suggestionDismissSnoozeMinutes =
+                    prefs[Keys.SUGGESTION_DISMISS_SNOOZE_MINUTES] ?: 1,
             )
             val updated = transform(current)
 
@@ -99,6 +114,12 @@ class SettingsDataStore(
             prefs[Keys.POSITION_X]          = updated.positionX
             prefs[Keys.POSITION_Y]          = updated.positionY
             prefs[Keys.TOUCH_MODE]          = updated.touchMode.ordinal
+            prefs[Keys.SUGGESTION_TRIGGER_MINUTES] =
+                updated.suggestionTriggerMinutes
+            prefs[Keys.SUGGESTION_SNOOZE_MINUTES] =
+                updated.suggestionSnoozeLaterMinutes
+            prefs[Keys.SUGGESTION_DISMISS_SNOOZE_MINUTES] =
+                updated.suggestionDismissSnoozeMinutes
         }
     }
 }

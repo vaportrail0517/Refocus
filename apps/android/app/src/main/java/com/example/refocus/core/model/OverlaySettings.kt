@@ -16,5 +16,13 @@ data class OverlaySettings(
     val positionX: Int = 24,
     val positionY: Int = 120,
     val touchMode: OverlayTouchMode = OverlayTouchMode.Drag,
+    // 提案関連の時間設定
+    // 何分連続利用したら提案を出すか（0以下なら「提案オフ」扱い）
+    val suggestionTriggerMinutes: Int = 1,
+    // 「またあとで」を押したときのスヌーズ時間（分）
+    val suggestionSnoozeLaterMinutes: Int = 1,
+    // タイムアウト／フリック等で閉じたときのスヌーズ時間（分）
+    val suggestionDismissSnoozeMinutes: Int = 1,
+    // val colorMode: OverlayColorMode = OverlayColorMode.SingleColor,
     // val colorMode: OverlayColorMode = OverlayColorMode.SingleColor,
 )

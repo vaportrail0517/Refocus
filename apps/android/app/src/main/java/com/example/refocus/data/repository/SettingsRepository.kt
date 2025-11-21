@@ -19,4 +19,16 @@ class SettingsRepository(
     suspend fun setAutoStartOnBoot(enabled: Boolean) {
         updateOverlaySettings { it.copy(autoStartOnBoot = enabled) }
     }
+
+    suspend fun setSuggestionTriggerMinutes(minutes: Int) {
+        updateOverlaySettings { it.copy(suggestionTriggerMinutes = minutes) }
+    }
+
+    suspend fun setSuggestionSnoozeMinutes(minutes: Int) {
+        updateOverlaySettings { it.copy(suggestionSnoozeMinutes = minutes) }
+    }
+
+    suspend fun setSuggestionDismissSnoozeMinutes(minutes: Int) {
+        updateOverlaySettings { it.copy(suggestionDismissSnoozeMinutes = minutes) }
+    }
 }

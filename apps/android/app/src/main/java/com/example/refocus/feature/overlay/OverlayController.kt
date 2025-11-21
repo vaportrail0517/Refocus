@@ -31,6 +31,9 @@ class OverlayController(
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var overlayView: View? = null
     private var layoutParams: WindowManager.LayoutParams? = null
+
+    private var suggestionView: View? = null
+
     // ドラッグで位置を変えたときに呼び出すコールバックを保持しておく
     private var onPositionChangedCallback: ((Int, Int) -> Unit)? = null
     // Compose が監視するステート本体
@@ -184,6 +187,76 @@ class OverlayController(
             layoutParams = null
         }
     }
+
+    fun showSuggestionOverlay(
+        title: String,
+        autoDismissMillis: Long,
+        onSnoozeLater: () -> Unit,
+        onDisableToday: () -> Unit,
+        onDismissOnly: () -> Unit,
+    ) {
+        if (suggestionView != null) {
+            Log.d("OverlayController", "showSuggestionOverlay: already showing")
+            return
+        }
+
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+        }
+
+        val composeView = ComposeView(context).apply {
+            setViewTreeLifecycleOwner(lifecycleOwner)
+            val savedStateOwner = OverlaySavedStateOwner()
+            setViewTreeSavedStateRegistryOwner(savedStateOwner)
+            setContent {
+                RefocusTheme {
+                    SuggestionOverlay(
+                        title = title,
+                        autoDismissMillis = autoDismissMillis,
+                        onSnoozeLater = {
+                            hideSuggestionOverlay()
+                            onSnoozeLater()
+                        },
+                        onDisableToday = {
+                            hideSuggestionOverlay()
+                            onDisableToday()
+                        },
+                        onDismissOnly = {
+                            hideSuggestionOverlay()
+                            onDismissOnly()
+                        }
+                    )
+                }
+            }
+        }
+
+        suggestionView = composeView
+        try {
+            windowManager.addView(composeView, params)
+        } catch (e: Exception) {
+            Log.e("OverlayController", "showSuggestionOverlay: addView failed", e)
+            suggestionView = null
+        }
+    }
+
+    fun hideSuggestionOverlay() {
+        val view = suggestionView ?: return
+        try {
+            windowManager.removeView(view)
+        } catch (e: Exception) {
+            Log.e("OverlayController", "hideSuggestionOverlay: removeView failed", e)
+        } finally {
+            suggestionView = null
+        }
+    }
+
 }
 
 /**
