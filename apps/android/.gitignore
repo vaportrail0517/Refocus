@@ -25,3 +25,5 @@ keystore/
 # ===== Logs =====
 *.log
 
+# ==== Kotlin セッションファイル ====
+.kotlin/

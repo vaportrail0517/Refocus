@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.example.refocus.feature.onboarding.OnboardingState
 import com.example.refocus.feature.overlay.startOverlayService
 import com.example.refocus.data.datastore.SettingsDataStore
 import com.example.refocus.data.repository.OnboardingRepository
