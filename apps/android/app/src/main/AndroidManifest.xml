@@ -9,6 +9,7 @@
 <!--    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />-->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <queries>
         <intent>
@@ -40,8 +41,13 @@
         <service
             android:name=".feature.overlay.OverlayService"
             android:enabled="true"
-            android:exported="false" >
-        </service>
+            android:exported="false"
+            android:foregroundServiceType="specialUse"/>
+
+        <!-- ★ specialUse のサブタイプ: 任意の文字列で OK（Play Console 申請と対応させる） -->
+        <property
+            android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+            android:value="overlay_usage_timer" />
 
         <receiver
             android:name=".system.boot.BootCompletedReceiver"

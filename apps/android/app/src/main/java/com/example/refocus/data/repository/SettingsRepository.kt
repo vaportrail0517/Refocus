@@ -25,7 +25,7 @@ class SettingsRepository(
     }
 
     suspend fun setSuggestionSnoozeMinutes(minutes: Int) {
-        updateOverlaySettings { it.copy(suggestionSnoozeMinutes = minutes) }
+        updateOverlaySettings { it.copy(suggestionSnoozeLaterMinutes = minutes) }
     }
 
     suspend fun setSuggestionDismissSnoozeMinutes(minutes: Int) {

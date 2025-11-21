@@ -11,6 +11,8 @@ import android.content.Intent
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
+import android.content.pm.ServiceInfo
 import androidx.lifecycle.LifecycleService
 import com.example.refocus.R
 import com.example.refocus.core.model.OverlaySettings
@@ -199,7 +201,13 @@ class OverlayService : LifecycleService() {
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setOngoing(true)
                 .build()
-        startForeground(NOTIFICATION_ID, notification)
+//        startForeground
+        ServiceCompat.startForeground(
+            this,
+            NOTIFICATION_ID,
+            notification,
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        )
     }
 
     private fun canRunOverlay(): Boolean {
