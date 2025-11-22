@@ -181,6 +181,9 @@ class OverlayController(
     fun hideTimer() {
         val view = overlayView ?: return
         try {
+            if (view is ComposeView) {
+                view.setContent { } // 空のコンテンツを set → 既存 Composition が dispose される
+            }
             windowManager.removeView(view)
             Log.d("OverlayController", "hideTimer: removeView success")
         } catch (e: Exception) {

@@ -132,7 +132,7 @@ fun SuggestionOverlay(
 
         SuggestionOverlayMode.Rest -> {
             // ヘッダは「休憩のきっかけ」っぽく、タイトルとは別の役割にする
-            headerText = "集中してきたので、ひと休みしませんか？"
+            headerText = "一休みしませんか？"
             labelText = "休憩の提案"
             bodyText =
                 "画面から少し離れて、肩や首を軽く伸ばしたり、水分補給をしてみるのもおすすめです。"

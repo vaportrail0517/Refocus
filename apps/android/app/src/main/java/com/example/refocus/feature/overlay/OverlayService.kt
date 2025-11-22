@@ -90,20 +90,28 @@ class OverlayService : LifecycleService() {
     @Volatile
     private var isSuggestionOverlayShown: Boolean = false
 
+    @Volatile
+    private var isScreenOn: Boolean = true
+
     private var screenReceiverRegistered: Boolean = false
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
-                Intent.ACTION_SCREEN_OFF -> {
-                    Log.d(TAG, "ACTION_SCREEN_OFF received")
+                Intent.ACTION_SCREEN_OFF,
+                Intent.ACTION_SHUTDOWN -> {
+                    Log.d(TAG, "ACTION_SCREEN_OFF / SHUTDOWN received")
+                    // 画面OFFとみなす
+                    isScreenOn = false
+                    // 現在の対象アプリを「前面離脱」として扱う
                     handleScreenOff()
                 }
 
-                Intent.ACTION_SHUTDOWN -> {
-                    Log.d(TAG, "ACTION_SHUTDOWN received")
-                    handleScreenOff()
+                Intent.ACTION_USER_PRESENT,
+                Intent.ACTION_SCREEN_ON -> {
+                    Log.d(TAG, "ACTION_USER_PRESENT / SCREEN_ON received")
+                    // ★ 画面ONに戻ったことを記録
+                    isScreenOn = true
                 }
-                // 必要であれば将来ここで USER_PRESENT なども扱う
             }
         }
     }
@@ -282,8 +290,10 @@ class OverlayService : LifecycleService() {
             combine(
                 targetsFlow,
                 foregroundFlow
-            ) { targets, foregroundPackage ->
-                targets to foregroundPackage
+            ) { targets, foregroundRaw ->
+                // 画面OFF中は「foreground なし」とみなす
+                val foregroundEffective = if (isScreenOn) foregroundRaw else null
+                targets to foregroundEffective
             }.collectLatest { (targets, foregroundPackage) ->
                 Log.d(TAG, "combine: foreground=$foregroundPackage, targets=$targets")
                 try {
@@ -306,7 +316,7 @@ class OverlayService : LifecycleService() {
                         // 対象 → 非対象
                         prevIsTarget && !nowIsTarget -> {
                             onLeaveForeground(
-                                packageName = previous,
+                                packageName = previous!!,
                                 nowMillis = nowMillis,
                                 nowElapsed = nowElapsed
                             )
@@ -314,7 +324,7 @@ class OverlayService : LifecycleService() {
                         // 対象A → 対象B
                         prevIsTarget && previous != foregroundPackage -> {
                             onLeaveForeground(
-                                packageName = previous,
+                                packageName = previous!!,
                                 nowMillis = nowMillis,
                                 nowElapsed = nowElapsed
                             )
@@ -326,7 +336,7 @@ class OverlayService : LifecycleService() {
                         }
 
                         else -> {
-                            // 非対象→非対象 / 対象→同じ対象 (permissions など) は何もしない
+                            // 非対象→非対象 / 対象→同じ対象 は何もしない
                         }
                     }
                     if (nowIsTarget && foregroundPackage != null) {
@@ -338,7 +348,6 @@ class OverlayService : LifecycleService() {
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in startMonitoring loop", e)
-                    // ここで落ちるとサービスごと死ぬので握りつぶす
                     withContext(Dispatchers.Main) {
                         overlayController.hideTimer()
                     }
@@ -354,7 +363,9 @@ class OverlayService : LifecycleService() {
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_SHUTDOWN)
-            // 後々 USER_PRESENT を扱いたくなったらここに addAction(Intent.ACTION_USER_PRESENT)
+            // 画面ON / ユーザ復帰も監視
+            addAction(Intent.ACTION_USER_PRESENT)
+            addAction(Intent.ACTION_SCREEN_ON)
         }
         registerReceiver(screenReceiver, filter)
         screenReceiverRegistered = true
@@ -372,25 +383,22 @@ class OverlayService : LifecycleService() {
     }
 
     /**
-     * 画面OFF時に呼ばれる。
-     * 対象アプリが前面かつオーバーレイ表示中なら、
+     * 画面OFF時に呼ばれる。overlay の有無に関係なく、
      * 強制的に onLeaveForeground と同じ処理を走らせる。
      */
     private fun handleScreenOff() {
-        val pkg = currentForegroundPackage
+        val pkg = currentForegroundPackage ?: return
         val nowMillis = timeSource.nowMillis()
         val nowElapsed = timeSource.elapsedRealtime()
-
-        // 現在オーバーレイを出しているアプリだけ対象にする
-        if (pkg != null && pkg == overlayPackage) {
-            Log.d(TAG, "handleScreenOff: treat $pkg as leave foreground due to screen off")
-            onLeaveForeground(
-                packageName = pkg,
-                nowMillis = nowMillis,
-                nowElapsed = nowElapsed
-            )
-            currentForegroundPackage = null
-        }
+        Log.d(TAG, "handleScreenOff: treat $pkg as leave foreground due to screen off")
+        // とにかく今前面と認識している対象を leave させる
+        onLeaveForeground(
+            packageName = pkg,
+            nowMillis = nowMillis,
+            nowElapsed = nowElapsed
+        )
+        // 「いま foreground にいるアプリ」はいないことにする
+        currentForegroundPackage = null
     }
 
     private fun onOverlayPositionChanged(x: Int, y: Int) {
