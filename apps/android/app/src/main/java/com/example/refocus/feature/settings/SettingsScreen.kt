@@ -116,20 +116,6 @@ fun SettingsScreen(
                     activity?.let { PermissionHelper.openOverlaySettings(it) }
                 }
             )
-//            SettingRow(
-//                title = "通知（任意）",
-//                subtitle = "やることの提案やお知らせに利用します。",
-//                trailing = {
-//                    Switch(
-//                        checked = notificationGranted,
-//                        onCheckedChange = null,
-//                        enabled = true
-//                    )
-//                },
-//                onClick = {
-//                    activity?.let { PermissionHelper.openNotificationSettings(it) }
-//                }
-//            )
         }
 
         SectionCard(
@@ -210,7 +196,7 @@ fun SettingsScreen(
                     activeDialog = SettingsDialog.Grace
                 }
             )
-            val pollingMs = uiState.overlaySettings.pollingIntervalMillis
+//            val pollingMs = uiState.overlaySettings.pollingIntervalMillis
 //            SettingRow(
 //                title = "監視間隔",
 //                subtitle = "$pollingMs ms（アプリ切り替えの検出頻度）",
@@ -263,6 +249,51 @@ fun SettingsScreen(
                         OverlayTouchMode.Drag
                     }
                     viewModel.updateOverlayTouchMode(newMode)
+                }
+            )
+        }
+        SectionCard(
+            title = "提案"
+        ) {
+            val suggestionEnabled = uiState.overlaySettings.suggestionEnabled
+            val restSuggestionEnabled = uiState.overlaySettings.restSuggestionEnabled
+            SettingRow(
+                title = "提案を表示する",
+                subtitle = if (suggestionEnabled) {
+                    "オン：一定時間経過でやりたいことを提案します"
+                } else {
+                    "オフ：提案カードは表示されません"
+                },
+                trailing = {
+                    Switch(
+                        checked = suggestionEnabled,
+                        onCheckedChange = { isOn ->
+                            viewModel.updateSuggestionEnabled(isOn)
+                        }
+                    )
+                },
+                onClick = {
+                    viewModel.updateSuggestionEnabled(!suggestionEnabled)
+                }
+            )
+            SettingRow(
+                title = "やりたいことがないときは休憩を提案",
+                subtitle = if (restSuggestionEnabled) {
+                    "オン：やりたいことが未登録のとき、休憩をやさしく提案します"
+                } else {
+                    "オフ：やりたいことが未登録のときは提案しません"
+                       },
+                trailing = {
+                    Switch(
+                        checked = restSuggestionEnabled,
+                        onCheckedChange = { isOn ->
+                            viewModel.updateRestSuggestionEnabled(isOn)
+                        }
+                    )
+                           },
+                onClick = {
+                    // 行全体タップでもトグルされるようにする
+                    viewModel.updateRestSuggestionEnabled(!restSuggestionEnabled)
                 }
             )
         }

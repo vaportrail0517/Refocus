@@ -82,12 +82,18 @@ class OverlayService : LifecycleService() {
     @Volatile
     private var overlaySettings: OverlaySettings = OverlaySettings()
 
-    // グローバルな提案スヌーズ／当日無効フラグ
     @Volatile
     private var suggestionSnoozedUntilMillis: Long? = null
 
     @Volatile
     private var suggestionDisabledForYmd: Int? = null
+
+    @Volatile
+    private var lastSuggestionShownAtMillis: Long? = null
+
+    @Volatile
+    private var isSuggestionOverlayShown: Boolean = false
+
 
     private data class RunningSessionState(
         val packageName: String,
@@ -95,6 +101,8 @@ class OverlayService : LifecycleService() {
         var lastForegroundElapsedRealtime: Long?,
         var pendingEndJob: Job?,
         var lastLeaveAtMillis: Long?,
+        // 「このセッション中は表示しない」が押されたかどうか
+        var suggestionDisabledForThisSession: Boolean = false,
     )
 
     // packageName → RunningSessionState のマップ
@@ -173,6 +181,7 @@ class OverlayService : LifecycleService() {
         serviceScope.cancel()
         overlayController.hideTimer()
         overlayController.hideSuggestionOverlay()
+        clearSuggestionOverlayState()
         unregisterScreenReceiver()
         super.onDestroy()
     }
@@ -260,7 +269,8 @@ class OverlayService : LifecycleService() {
             initialElapsedMillis = 0L,
             lastForegroundElapsedRealtime = nowElapsed,
             pendingEndJob = null,
-            lastLeaveAtMillis = null
+            lastLeaveAtMillis = null,
+            suggestionDisabledForThisSession = false,
         )
         sessionStates[packageName] = newState
         serviceScope.launch {
@@ -341,6 +351,7 @@ class OverlayService : LifecycleService() {
             serviceScope.launch(Dispatchers.Main) {
                 overlayController.hideTimer()
                 overlayController.hideSuggestionOverlay()
+                clearSuggestionOverlayState()
             }
         }
         // 猶予タイマー開始
@@ -542,93 +553,125 @@ class OverlayService : LifecycleService() {
     }
 
     private fun suggestionTriggerThresholdMillis(settings: OverlaySettings): Long {
-        val minutes = settings.suggestionTriggerMinutes
-        if (minutes <= 0) {
-            // 0 以下なら「提案しない」とみなす
+        if (!settings.suggestionEnabled) {
+            // 提案オフ
             return Long.MAX_VALUE
         }
-        return minutes.toLong() * 60_000L
-    }
-    private fun suggestionSnoozeLaterMillis(settings: OverlaySettings): Long {
-        val minutes = settings.suggestionSnoozeLaterMinutes.coerceAtLeast(0)
-        return minutes.toLong() * 60_000L
-    }
-    private fun suggestionDismissSnoozeMillis(settings: OverlaySettings): Long {
-        val minutes = settings.suggestionDismissSnoozeMinutes.coerceAtLeast(0)
-        return minutes.toLong() * 60_000L
+        val seconds = settings.suggestionTriggerSeconds
+        if (seconds <= 0) {
+            return Long.MAX_VALUE
+        }
+        return seconds.toLong() * 1_000L
     }
 
-    private fun handleSuggestionSnoozeLater() {
+    private fun suggestionForegroundStableThresholdMillis(settings: OverlaySettings): Long {
+        val seconds = settings.suggestionForegroundStableSeconds.coerceAtLeast(0)
+        return seconds.toLong() * 1_000L
+    }
+
+    private fun suggestionTimeoutMillis(settings: OverlaySettings): Long {
+        val seconds = settings.suggestionTimeoutSeconds.coerceAtLeast(0)
+        return seconds.toLong() * 1_000L
+    }
+
+    private fun suggestionCooldownMillis(settings: OverlaySettings): Long {
+        val seconds = settings.suggestionCooldownSeconds.coerceAtLeast(0)
+        return seconds.toLong() * 1_000L
+    }
+
+    private fun suggestionInteractionLockoutMillis(settings: OverlaySettings): Long {
+        // 念のため 0 未満にならないよう補正
+        return settings.suggestionInteractionLockoutMillis.coerceAtLeast(0L)
+    }
+
+    private fun handleSuggestionSnooze() {
+        clearSuggestionOverlayState()
         val now = timeSource.nowMillis()
-        val snoozeMs = suggestionSnoozeLaterMillis(overlaySettings)
-        suggestionSnoozedUntilMillis = now + snoozeMs
+        val cooldownMs = suggestionCooldownMillis(overlaySettings)
+        suggestionSnoozedUntilMillis = now + cooldownMs
         Log.d(TAG, "Suggestion snoozed until $suggestionSnoozedUntilMillis")
     }
-
-    private fun handleSuggestionDisableToday() {
-        val now = timeSource.nowMillis()
-        suggestionDisabledForYmd = currentYmd(now)
-        Log.d(TAG, "Suggestion disabled for today: $suggestionDisabledForYmd")
+    private fun handleSuggestionSnoozeLater() {
+        handleSuggestionSnooze()
     }
 
     private fun handleSuggestionDismissOnly() {
-        val now = timeSource.nowMillis()
-        val snoozeMs = suggestionDismissSnoozeMillis(overlaySettings)
-        suggestionSnoozedUntilMillis = now + snoozeMs
-        Log.d(TAG, "Suggestion dismissed, snoozed until $suggestionSnoozedUntilMillis")
+        // スワイプやタイムアウトから来る。内部的には同じスヌーズロジック。
+        handleSuggestionSnooze()
     }
+
+    private fun handleSuggestionDisableThisSession() {
+        clearSuggestionOverlayState()
+        val packageName = overlayPackage ?: return
+        val state = sessionStates[packageName] ?: return
+        state.suggestionDisabledForThisSession = true
+        Log.d(TAG, "Suggestion disabled for this session: $packageName")
+    }
+
 
     private fun maybeShowSuggestionIfNeeded(
         packageName: String,
         nowMillis: Long,
         nowElapsedRealtime: Long
     ) {
+        // 提案自体が OFF なら何もしない
+        if (!overlaySettings.suggestionEnabled) return
         val state = sessionStates[packageName] ?: return
-
-        // 今日「出さない」指定になっているなら終了
-        val today = currentYmd(nowMillis)
-        if (suggestionDisabledForYmd == today) {
-            return
-        }
-
-        // スヌーズ中なら終了
+        // すでにカードを表示中なら新しいカードは出さない
+        if (isSuggestionOverlayShown) return
+        // このセッションではもう出さない設定なら終了
+        if (state.suggestionDisabledForThisSession) return
+        // グローバルクールダウン中なら終了
         val snoozedUntil = suggestionSnoozedUntilMillis
-        if (snoozedUntil != null && nowMillis < snoozedUntil) {
-            return
-        }
-
-        // 連続使用時間がしきい値に達していなければ何もしない
+        if (snoozedUntil != null && nowMillis < snoozedUntil) return
+        // セッション全体での連続利用時間を算出
         val elapsed = computeElapsedForState(state, nowElapsedRealtime)
-        val thresholdMs = suggestionTriggerThresholdMillis(overlaySettings)
-        if (thresholdMs == Long.MAX_VALUE) {
-            // 0 分以下なら「提案オフ」とみなす
-            return
+        val triggerMs = suggestionTriggerThresholdMillis(overlaySettings)
+        if (triggerMs == Long.MAX_VALUE) return
+        if (elapsed < triggerMs) return
+        // 前面安定時間（復帰直後でないこと）チェック
+        val lastFg = state.lastForegroundElapsedRealtime
+        val sinceForegroundMs = if (lastFg != null) {
+            (nowElapsedRealtime - lastFg).coerceAtLeast(0L)
+        } else {
+            0L
         }
-        if (elapsed < thresholdMs) {
-            return
-        }
-
-        // ここまで来たら提案を出す
+        val stableMs = suggestionForegroundStableThresholdMillis(overlaySettings)
+        if (sinceForegroundMs < stableMs) return
+        // ここまで来たら「何かしら提案してよい条件」は満たしている
         serviceScope.launch {
             try {
                 val suggestion = suggestionsRepository.observeSuggestion().first()
-                if (suggestion == null) {
-                    Log.d(TAG, "No suggestion registered, skip overlay")
+                val hasSuggestion = suggestion != null
+                // やりたいこともなく、休憩提案も OFF の場合は何も表示しない
+                if (!hasSuggestion && !overlaySettings.restSuggestionEnabled) {
+                    Log.d(TAG, "No suggestion and restSuggestion disabled, skip overlay")
                     return@launch
                 }
+                // 表示タイトルを決める
+                val title = suggestion?.title ?: "少し休憩しませんか？"
                 withContext(Dispatchers.Main) {
+                    lastSuggestionShownAtMillis = nowMillis
+                    isSuggestionOverlayShown = true
                     overlayController.showSuggestionOverlay(
-                        title = suggestion.title,
-                        autoDismissMillis = suggestionDismissSnoozeMillis(overlaySettings),
+                        title = title,
+                        autoDismissMillis = suggestionTimeoutMillis(overlaySettings),
+                        interactionLockoutMillis = suggestionInteractionLockoutMillis(overlaySettings),
                         onSnoozeLater = { handleSuggestionSnoozeLater() },
-                        onDisableToday = { handleSuggestionDisableToday() },
-                        onDismissOnly = { handleSuggestionDismissOnly() }
+                        onDisableThisSession = { handleSuggestionDisableThisSession() },
+                        onDismissOnly = { handleSuggestionDismissOnly() },
                     )
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to show suggestion overlay for $packageName", e)
+                isSuggestionOverlayShown = false
             }
         }
     }
 
+    private fun clearSuggestionOverlayState() {
+        isSuggestionOverlayShown = false
+        // suggestionSnoozedUntilMillis はここでは触らない
+        // （スヌーズ状態は handleSuggestionSnooze 系で管理）
+    }
 }

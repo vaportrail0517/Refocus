@@ -26,23 +26,29 @@ class SettingsDataStore(
     private val context: Context
 ) {
     private object Keys {
-        val GRACE_PERIOD_MS      = longPreferencesKey("grace_period_ms")
-        val POLLING_INTERVAL_MS  = longPreferencesKey("polling_interval_ms")
-        val MIN_FONT_SIZE_SP     = floatPreferencesKey("min_font_size_sp")
-        val MAX_FONT_SIZE_SP     = floatPreferencesKey("max_font_size_sp")
-        val TIME_TO_MAX_MINUTES  = intPreferencesKey("time_to_max_minutes")
+        val GRACE_PERIOD_MS = longPreferencesKey("grace_period_ms")
+        val POLLING_INTERVAL_MS = longPreferencesKey("polling_interval_ms")
+        val MIN_FONT_SIZE_SP = floatPreferencesKey("min_font_size_sp")
+        val MAX_FONT_SIZE_SP = floatPreferencesKey("max_font_size_sp")
+        val TIME_TO_MAX_MINUTES = intPreferencesKey("time_to_max_minutes")
 
-        val OVERLAY_ENABLED      = booleanPreferencesKey("overlay_enabled")
-        val AUTO_START_ON_BOOT   = booleanPreferencesKey("auto_start_on_boot")
+        val OVERLAY_ENABLED = booleanPreferencesKey("overlay_enabled")
+        val AUTO_START_ON_BOOT = booleanPreferencesKey("auto_start_on_boot")
 
-        val POSITION_X          = intPreferencesKey("overlay_position_x")
-        val POSITION_Y          = intPreferencesKey("overlay_position_y")
-        val TOUCH_MODE          = intPreferencesKey("overlay_touch_mode")
+        val POSITION_X = intPreferencesKey("overlay_position_x")
+        val POSITION_Y = intPreferencesKey("overlay_position_y")
+        val TOUCH_MODE = intPreferencesKey("overlay_touch_mode")
 
-        val SUGGESTION_TRIGGER_MINUTES       = intPreferencesKey("suggestion_trigger_minutes")
-        val SUGGESTION_SNOOZE_MINUTES        = intPreferencesKey("suggestion_snooze_minutes")
-        val SUGGESTION_DISMISS_SNOOZE_MINUTES =
-            intPreferencesKey("suggestion_dismiss_snooze_minutes")
+        val SUGGESTION_ENABLED        = booleanPreferencesKey("suggestion_enabled")
+        val SUGGESTION_TRIGGER_SECONDS = intPreferencesKey("suggestion_trigger_seconds")
+        val SUGGESTION_TIMEOUT_SECONDS = intPreferencesKey("suggestion_timeout_seconds")
+        // 既存キー名はそのまま使いつつ、意味としては「クールダウン秒数」
+        val SUGGESTION_SNOOZE_SECONDS  = intPreferencesKey("suggestion_snooze_seconds")
+        val SUGGESTION_FOREGROUND_STABLE_SECONDS =
+            intPreferencesKey("suggestion_foreground_stable_seconds")
+        val REST_SUGGESTION_ENABLED    = booleanPreferencesKey("rest_suggestion_enabled")
+        val SUGGESTION_INTERACTION_LOCKOUT_MS =
+            longPreferencesKey("suggestion_interaction_lockout_ms")
     }
 
     // 現在の設定を OverlaySettings にマッピングして流す Flow
@@ -70,10 +76,15 @@ class SettingsDataStore(
                 positionX = prefs[Keys.POSITION_X] ?: 24,
                 positionY = prefs[Keys.POSITION_Y] ?: 120,
                 touchMode = touchMode,
-                suggestionTriggerMinutes = prefs[Keys.SUGGESTION_TRIGGER_MINUTES] ?: 1,
-                suggestionSnoozeLaterMinutes = prefs[Keys.SUGGESTION_SNOOZE_MINUTES] ?: 1,
-                suggestionDismissSnoozeMinutes =
-                    prefs[Keys.SUGGESTION_DISMISS_SNOOZE_MINUTES] ?: 1,
+                suggestionEnabled = prefs[Keys.SUGGESTION_ENABLED] ?: true,
+                suggestionTriggerSeconds = prefs[Keys.SUGGESTION_TRIGGER_SECONDS] ?: 30,
+                suggestionTimeoutSeconds = prefs[Keys.SUGGESTION_TIMEOUT_SECONDS] ?: 10,
+                suggestionCooldownSeconds = prefs[Keys.SUGGESTION_SNOOZE_SECONDS] ?: 30,
+                suggestionForegroundStableSeconds =
+                    prefs[Keys.SUGGESTION_FOREGROUND_STABLE_SECONDS] ?: 20,
+                restSuggestionEnabled = prefs[Keys.REST_SUGGESTION_ENABLED] ?: true,
+                suggestionInteractionLockoutMillis =
+                    prefs[Keys.SUGGESTION_INTERACTION_LOCKOUT_MS] ?: 400L,
             )
         }
 
@@ -95,12 +106,15 @@ class SettingsDataStore(
                 touchMode = OverlayTouchMode.entries
                     .getOrNull(prefs[Keys.TOUCH_MODE] ?: 0)
                     ?: OverlayTouchMode.Drag,
-                suggestionTriggerMinutes =
-                    prefs[Keys.SUGGESTION_TRIGGER_MINUTES] ?: 1,
-                suggestionSnoozeLaterMinutes =
-                    prefs[Keys.SUGGESTION_SNOOZE_MINUTES] ?: 1,
-                suggestionDismissSnoozeMinutes =
-                    prefs[Keys.SUGGESTION_DISMISS_SNOOZE_MINUTES] ?: 1,
+                suggestionEnabled = prefs[Keys.SUGGESTION_ENABLED] ?: true,
+                suggestionTriggerSeconds = prefs[Keys.SUGGESTION_TRIGGER_SECONDS] ?: 30,
+                suggestionTimeoutSeconds = prefs[Keys.SUGGESTION_TIMEOUT_SECONDS] ?: 10,
+                suggestionCooldownSeconds = prefs[Keys.SUGGESTION_SNOOZE_SECONDS] ?: 30,
+                suggestionForegroundStableSeconds =
+                    prefs[Keys.SUGGESTION_FOREGROUND_STABLE_SECONDS] ?: 20,
+                restSuggestionEnabled = prefs[Keys.REST_SUGGESTION_ENABLED] ?: true,
+                suggestionInteractionLockoutMillis =
+                    prefs[Keys.SUGGESTION_INTERACTION_LOCKOUT_MS] ?: 400L,
             )
             val updated = transform(current)
 
@@ -114,12 +128,13 @@ class SettingsDataStore(
             prefs[Keys.POSITION_X]          = updated.positionX
             prefs[Keys.POSITION_Y]          = updated.positionY
             prefs[Keys.TOUCH_MODE]          = updated.touchMode.ordinal
-            prefs[Keys.SUGGESTION_TRIGGER_MINUTES] =
-                updated.suggestionTriggerMinutes
-            prefs[Keys.SUGGESTION_SNOOZE_MINUTES] =
-                updated.suggestionSnoozeLaterMinutes
-            prefs[Keys.SUGGESTION_DISMISS_SNOOZE_MINUTES] =
-                updated.suggestionDismissSnoozeMinutes
+            prefs[Keys.SUGGESTION_ENABLED]        = updated.suggestionEnabled
+            prefs[Keys.SUGGESTION_TRIGGER_SECONDS] = updated.suggestionTriggerSeconds
+            prefs[Keys.SUGGESTION_TIMEOUT_SECONDS] = updated.suggestionTimeoutSeconds
+            prefs[Keys.SUGGESTION_SNOOZE_SECONDS]  = updated.suggestionCooldownSeconds
+            prefs[Keys.SUGGESTION_FOREGROUND_STABLE_SECONDS] = updated.suggestionForegroundStableSeconds
+            prefs[Keys.REST_SUGGESTION_ENABLED]    = updated.restSuggestionEnabled
+            prefs[Keys.SUGGESTION_INTERACTION_LOCKOUT_MS] = updated.suggestionInteractionLockoutMillis
         }
     }
 }

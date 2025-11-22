@@ -109,4 +109,16 @@ class SettingsViewModel(
             settingsRepository.setAutoStartOnBoot(enabled)
         }
     }
+
+    fun updateSuggestionEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setSuggestionEnabled(enabled)
+        }
+    }
+
+    fun updateRestSuggestionEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setRestSuggestionEnabled(enabled)
+        }
+    }
 }

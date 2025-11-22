@@ -20,15 +20,31 @@ class SettingsRepository(
         updateOverlaySettings { it.copy(autoStartOnBoot = enabled) }
     }
 
-    suspend fun setSuggestionTriggerMinutes(minutes: Int) {
-        updateOverlaySettings { it.copy(suggestionTriggerMinutes = minutes) }
+    suspend fun setSuggestionEnabled(enabled: Boolean) {
+        updateOverlaySettings { it.copy(suggestionEnabled = enabled) }
     }
 
-    suspend fun setSuggestionSnoozeMinutes(minutes: Int) {
-        updateOverlaySettings { it.copy(suggestionSnoozeLaterMinutes = minutes) }
+    suspend fun setSuggestionTriggerSeconds(seconds: Int) {
+        updateOverlaySettings { it.copy(suggestionTriggerSeconds = seconds) }
     }
 
-    suspend fun setSuggestionDismissSnoozeMinutes(minutes: Int) {
-        updateOverlaySettings { it.copy(suggestionDismissSnoozeMinutes = minutes) }
+    suspend fun setSuggestionTimeoutSeconds(seconds: Int) {
+        updateOverlaySettings { it.copy(suggestionTimeoutSeconds = seconds) }
+    }
+
+    suspend fun setSuggestionCooldownSeconds(seconds: Int) {
+        updateOverlaySettings { it.copy(suggestionCooldownSeconds = seconds) }
+    }
+
+    suspend fun setSuggestionForegroundStableSeconds(seconds: Int) {
+        updateOverlaySettings {
+            it.copy(suggestionForegroundStableSeconds = seconds.coerceAtLeast(0))
+        }
+    }
+
+    suspend fun setRestSuggestionEnabled(enabled: Boolean) {
+        updateOverlaySettings {
+            it.copy(restSuggestionEnabled = enabled)
+        }
     }
 }

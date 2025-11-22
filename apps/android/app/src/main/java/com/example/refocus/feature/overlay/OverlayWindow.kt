@@ -19,18 +19,17 @@ import com.example.refocus.core.model.OverlaySettings
 import kotlinx.coroutines.delay
 import com.example.refocus.core.util.SystemTimeSource
 import com.example.refocus.core.util.TimeSource
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Button
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import kotlin.math.hypot
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 
 
 enum class OverlayColorMode {
@@ -110,8 +109,9 @@ fun SuggestionOverlay(
     title: String,
     modifier: Modifier = Modifier,
     autoDismissMillis: Long = 8_000L,
+    interactionLockoutMillis: Long = 400L,
     onSnoozeLater: () -> Unit,
-    onDisableToday: () -> Unit,
+    onDisableThisSession: () -> Unit,
     onDismissOnly: () -> Unit,
 ) {
     // 一定時間後に自動で閉じる
@@ -120,29 +120,61 @@ fun SuggestionOverlay(
         onDismissOnly()
     }
 
+    // 表示直後の誤タップ／誤スワイプを防ぐためのロックアウト
+    var interactive by remember { mutableStateOf(false) }
+    LaunchedEffect(interactionLockoutMillis) {
+        delay(interactionLockoutMillis)
+        interactive = true
+    }
+
+    val cardOffset = remember { mutableStateOf(Offset.Zero) }
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.4f))
-            .pointerInput(Unit) {
-                detectDragGestures { change, dragAmount ->
-                    val distance = hypot(
-                        dragAmount.x.toDouble(),
-                        dragAmount.y.toDouble()
-                    )
-                    if (distance > 80f) {
-                        onDismissOnly()
-                        change.consume()
-                    }
-                }
-            },
+            .background(Color.Black.copy(alpha = 0.85f)),
         contentAlignment = Alignment.Center
     ) {
         Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurface
-            )
+            modifier = Modifier
+                .offset {
+                    IntOffset(
+                        cardOffset.value.x.roundToInt(),
+                        cardOffset.value.y.roundToInt()
+                    )
+                }
+                // ★ カードだけがスワイプで消える
+                .pointerInput(interactive) {
+                    // interactive が変わるたびにブロックが再登録される
+                    detectDragGestures(
+                        onDragEnd = {
+                            if (!interactive) {
+                                // ロックアウト中は何もせず、その場に留める
+                                cardOffset.value = Offset.Zero
+                                return@detectDragGestures
+                            }
+                            val distance = cardOffset.value.getDistance()
+                            val threshold = 200f // この距離以上スワイプで消える
+                            if (distance > threshold) {
+                                onDismissOnly()
+                            } else {
+                                cardOffset.value = Offset.Zero
+                            }
+                        },
+                        onDragCancel = {
+                            // キャンセル時は元の位置に戻す
+                            cardOffset.value = Offset.Zero
+                        }
+                    ) { change, dragAmount ->
+                        if (!interactive) {
+                            // ロックアウト中はドラッグを一切反映しない
+                            change.consume()
+                            return@detectDragGestures
+                        }
+                        change.consume()
+                        cardOffset.value += dragAmount
+                    }
+                }
         ) {
             Column(
                 modifier = Modifier
@@ -175,12 +207,26 @@ fun SuggestionOverlay(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    TextButton(onClick = onSnoozeLater) {
-                        Text("またあとで")
+                    TextButton(
+                        onClick = {
+                            if (interactive) {
+                                onSnoozeLater()
+                            }
+                        },
+                        enabled = interactive
+                    ) {
+                        Text("また後で")
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    TextButton(onClick = onDisableToday) {
-                        Text("今日はもう出さない")
+                    TextButton(
+                        onClick = {
+                            if (interactive) {
+                                onDisableThisSession()
+                            }
+                        },
+                        enabled = interactive
+                    ) {
+                        Text("このセッション中は再度提案しない")
                     }
                 }
             }

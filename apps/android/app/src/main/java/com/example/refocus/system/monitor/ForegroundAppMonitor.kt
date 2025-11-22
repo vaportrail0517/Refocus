@@ -42,15 +42,22 @@ class ForegroundAppMonitor(
                 null
             }
 
-            if (topApp != null) {
-                // lastPackage はログの参考程度に残したければ更新だけする
-                if (topApp != lastPackage) {
-                    Log.d("ForegroundAppMonitor", "emit foreground=$topApp (changed from $lastPackage)")
+            // 「新しい topApp が取れればそれを使い、そうでなければ前回の値を使う」
+            val effectiveTop = topApp ?: lastPackage
+            if (effectiveTop != null) {
+                if (effectiveTop != lastPackage) {
+                    Log.d(
+                        "ForegroundAppMonitor",
+                        "emit foreground=$effectiveTop (changed from $lastPackage)"
+                    )
                 } else {
-                    Log.d("ForegroundAppMonitor", "emit foreground=$topApp (same as last)")
+                    Log.d(
+                        "ForegroundAppMonitor",
+                        "emit foreground=$effectiveTop (same as last)"
+                    )
                 }
-                lastPackage = topApp
-                emit(topApp)
+                lastPackage = effectiveTop
+                emit(effectiveTop)
             }
 
             delay(pollingIntervalMs)

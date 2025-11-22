@@ -191,8 +191,9 @@ class OverlayController(
     fun showSuggestionOverlay(
         title: String,
         autoDismissMillis: Long,
+        interactionLockoutMillis: Long,
         onSnoozeLater: () -> Unit,
-        onDisableToday: () -> Unit,
+        onDisableThisSession: () -> Unit,
         onDismissOnly: () -> Unit,
     ) {
         if (suggestionView != null) {
@@ -220,13 +221,14 @@ class OverlayController(
                     SuggestionOverlay(
                         title = title,
                         autoDismissMillis = autoDismissMillis,
+                        interactionLockoutMillis = interactionLockoutMillis,
                         onSnoozeLater = {
                             hideSuggestionOverlay()
                             onSnoozeLater()
                         },
-                        onDisableToday = {
+                        onDisableThisSession = {
                             hideSuggestionOverlay()
-                            onDisableToday()
+                            onDisableThisSession()
                         },
                         onDismissOnly = {
                             hideSuggestionOverlay()
