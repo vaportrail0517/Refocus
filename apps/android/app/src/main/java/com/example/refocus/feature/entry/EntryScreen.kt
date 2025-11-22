@@ -1,21 +1,17 @@
-package com.example.refocus.feature.onboarding
+package com.example.refocus.feature.entry
 
 import android.app.Application
-import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.refocus.data.RepositoryProvider
-import com.example.refocus.feature.overlay.startOverlayService
-import com.example.refocus.system.permissions.PermissionHelper
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withContext
-
 
 @Composable
 fun EntryScreen(
@@ -36,8 +32,8 @@ fun EntryScreen(
     }
 
     Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+        modifier = Modifier.Companion.fillMaxSize(),
+        contentAlignment = Alignment.Companion.Center
     ) {
         CircularProgressIndicator()
     }
