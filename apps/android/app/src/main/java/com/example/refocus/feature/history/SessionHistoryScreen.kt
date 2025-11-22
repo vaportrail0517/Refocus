@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.refocus.domain.stats.SessionStatus
 
 @Composable
 fun SessionHistoryScreen() {
@@ -122,16 +123,16 @@ private fun SessionItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val statusText = when (session.status) {
-                    SessionHistoryViewModel.SessionStatus.RUNNING -> "実行中"
-                    SessionHistoryViewModel.SessionStatus.GRACE   -> "一時離脱中（猶予）"
-                    SessionHistoryViewModel.SessionStatus.FINISHED -> "終了"
+                    SessionStatus.RUNNING -> "実行中"
+                    SessionStatus.GRACE   -> "一時離脱中（猶予）"
+                    SessionStatus.FINISHED -> "終了"
                 }
                 val statusColor = when (session.status) {
-                    SessionHistoryViewModel.SessionStatus.RUNNING ->
+                    SessionStatus.RUNNING ->
                         MaterialTheme.colorScheme.primary
-                    SessionHistoryViewModel.SessionStatus.GRACE ->
+                    SessionStatus.GRACE ->
                         MaterialTheme.colorScheme.tertiary
-                    SessionHistoryViewModel.SessionStatus.FINISHED ->
+                    SessionStatus.FINISHED ->
                         MaterialTheme.colorScheme.onSurfaceVariant
                 }
                 Text(

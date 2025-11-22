@@ -6,7 +6,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
-import com.example.refocus.core.model.SessionEventType
+import com.example.refocus.domain.stats.SessionStatus
+import com.example.refocus.domain.stats.SessionStatsCalculator
 import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,12 +27,6 @@ class SessionHistoryViewModel(
     private val sessionRepository: SessionRepository,
     private val foregroundAppMonitor: ForegroundAppMonitor,
 ) : AndroidViewModel(application) {
-
-    enum class SessionStatus {
-        RUNNING,
-        GRACE,
-        FINISHED
-    }
 
     data class PauseResumeUiModel(
         val pausedAtText: String,
@@ -90,62 +85,55 @@ class SessionHistoryViewModel(
         }
     }
 
-
     private fun buildUiState(
         sessions: List<Session>,
         eventsMap: Map<Long, List<SessionEvent>>,
-        foregroundPackage: String?
-    ) {
+        foregroundPackage: String?,
+        ) {
         if (sessions.isEmpty()) {
             _uiState.value = UiState(
                 sessions = emptyList(),
-                isLoading = false
-            )
+                isLoading = false,
+                )
             return
         }
         val nowMillis = System.currentTimeMillis()
-        val uiModels = sessions
-            .sortedByDescending { session ->
-                val events = eventsMap[session.id] ?: emptyList()
-                events.maxOfOrNull { it.timestampMillis } ?: 0L
+        // まず domain の集計ロジックで SessionStats を作る
+        val statsList = SessionStatsCalculator.buildSessionStats(
+            sessions = sessions,
+            eventsMap = eventsMap,
+            foregroundPackage = foregroundPackage,
+            nowMillis = nowMillis,
+            )
+        // それを UI 用に整形
+        val uiModels = statsList.map { stats ->
+            val durationText = when (stats.status) {
+                SessionStatus.GRACE -> "" // GRACE 中は空でもよい（好みで変えてOK）
+                else -> formatDuration(stats.durationMillis)
             }
-            .mapNotNull { session ->
-                val id = session.id ?: return@mapNotNull null
-                val events = eventsMap[id] ?: emptyList()
-                if (events.isEmpty()) return@mapNotNull null
-                val startedAt = events.firstOrNull {
-                    it.type == SessionEventType.Start
-                }?.timestampMillis ?: events.first().timestampMillis
-                val endedAt = events.lastOrNull {
-                    it.type == SessionEventType.End
-                }?.timestampMillis
-                val status = when {
-                    endedAt != null -> SessionStatus.FINISHED
-                    session.packageName == foregroundPackage -> SessionStatus.RUNNING
-                    else -> SessionStatus.GRACE
-                }
-                val durationMillis =
-                    calculateDurationFromEvents(events, nowMillis)
-                val durationText = when (status) {
-                    SessionStatus.GRACE -> "" // GRACE 中は空でもよい（好みで変えてOK）
-                    else -> formatDuration(durationMillis)
-                }
-                val pauseUiList = buildPauseResumeUiModels(events)
-                SessionUiModel(
-                    id = id,
-                    appName = resolveAppName(session.packageName),
-                    packageName = session.packageName,
-                    startedText = formatDateTime(startedAt),
-                    endedText = endedAt?.let { formatDateTime(it) } ?: "未終了",
-                    durationText = durationText,
-                    status = status,
-                    pauseResumeEvents = pauseUiList
+            val pauseUiList = stats.pauseResumeEvents.map { pauseStats ->
+                PauseResumeUiModel(
+                    pausedAtText = formatDateTime(pauseStats.pausedAtMillis),
+                    resumedAtText = pauseStats.resumedAtMillis?.let { resumed ->
+                        formatDateTime(resumed)
+                    }
                 )
             }
+            SessionUiModel(
+                id = stats.id,
+                appName = resolveAppName(stats.packageName),
+                packageName = stats.packageName,
+                startedText = formatDateTime(stats.startedAtMillis),
+                endedText = stats.endedAtMillis?.let { formatDateTime(it) } ?: "未終了",
+                durationText = durationText,
+                status = stats.status,
+                pauseResumeEvents = pauseUiList,
+                )
+        }
         _uiState.value = UiState(
             sessions = uiModels,
-            isLoading = false
-        )
+            isLoading = false,
+            )
     }
 
     private fun resolveAppName(packageName: String): String {
@@ -162,103 +150,6 @@ class SessionHistoryViewModel(
 
     private fun formatDateTime(millis: Long): String {
         return dateTimeFormat.format(Date(millis))
-    }
-
-    /**
-     * Start / Pause / Resume / End のイベント列から、
-     * 「実際にアプリを使っていた時間」の合計を求める。
-     */
-    private fun calculateDurationFromEvents(
-        events: List<SessionEvent>,
-        nowMillis: Long
-    ): Long {
-        if (events.isEmpty()) return 0L
-        val sorted = events.sortedBy { it.timestampMillis }
-
-        var lastStart: Long? = null
-        var totalActive = 0L
-
-        for (e in sorted) {
-            when (e.type) {
-                SessionEventType.Start -> {
-                    lastStart = e.timestampMillis
-                }
-                SessionEventType.Pause -> {
-                    if (lastStart != null) {
-                        totalActive += (e.timestampMillis - lastStart!!).coerceAtLeast(0L)
-                        lastStart = null
-                    }
-                }
-                SessionEventType.Resume -> {
-                    if (lastStart == null) {
-                        lastStart = e.timestampMillis
-                    }
-                }
-                SessionEventType.End -> {
-                    if (lastStart != null) {
-                        totalActive += (e.timestampMillis - lastStart!!).coerceAtLeast(0L)
-                        lastStart = null
-                    }
-                }
-            }
-        }
-
-        // まだ Start されたまま（End が来ていない）場合は now まで加算
-        if (lastStart != null) {
-            totalActive += (nowMillis - lastStart!!).coerceAtLeast(0L)
-        }
-
-        return totalActive.coerceAtLeast(0L)
-    }
-
-    /**
-     * イベント列から Pause/Resume のペアを UI 用に組み立てる。
-     * - Pause → Resume の順に現れたもののみペアにする
-     * - Resume が無い Pause は「未再開」として resumedAtText = null で残す
-     */
-    private fun buildPauseResumeUiModels(
-        events: List<SessionEvent>
-    ): List<PauseResumeUiModel> {
-        if (events.isEmpty()) return emptyList()
-        val sorted = events.sortedBy { it.timestampMillis }
-
-        val result = mutableListOf<PauseResumeUiModel>()
-        var currentPause: Long? = null
-
-        for (e in sorted) {
-            when (e.type) {
-                SessionEventType.Pause -> {
-                    // すでに Pause 中なら上書き（異常系は雑に潰す）
-                    currentPause = e.timestampMillis
-                }
-                SessionEventType.Resume -> {
-                    if (currentPause != null) {
-                        result.add(
-                            PauseResumeUiModel(
-                                pausedAtText = formatDateTime(currentPause!!),
-                                resumedAtText = formatDateTime(e.timestampMillis)
-                            )
-                        )
-                        currentPause = null
-                    }
-                }
-                else -> {
-                    // Start / End はここでは何もしない
-                }
-            }
-        }
-
-        // Pause されたまま終わっている場合も、未再開として 1 行出しておく
-        if (currentPause != null) {
-            result.add(
-                PauseResumeUiModel(
-                    pausedAtText = formatDateTime(currentPause!!),
-                    resumedAtText = null
-                )
-            )
-        }
-
-        return result
     }
 
     private fun formatDuration(durationMillis: Long): String {
