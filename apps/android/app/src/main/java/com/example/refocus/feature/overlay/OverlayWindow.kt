@@ -1,34 +1,43 @@
 package com.example.refocus.feature.overlay
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.refocus.core.model.OverlaySettings
-import kotlinx.coroutines.delay
-import com.example.refocus.core.util.SystemTimeSource
-import com.example.refocus.core.util.TimeSource
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Card
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.refocus.core.model.OverlaySettings
+import com.example.refocus.core.util.SystemTimeSource
+import com.example.refocus.core.util.TimeSource
+import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 
@@ -41,13 +50,19 @@ enum class OverlayColorMode {
 @Composable
 fun OverlayTimerBubble(
     modifier: Modifier = Modifier,
-    initialElapsedMillis: Long = 0L,
     settings: OverlaySettings,
+    // SessionManager から経過時間をもらうための provider
+    elapsedMillisProvider: (Long) -> Long
 ) {
     val timeSource: TimeSource = remember { SystemTimeSource() }
-    var elapsedMillis by remember { mutableLongStateOf(initialElapsedMillis) }
-    var lastTickElapsedRealtime by remember {
-        mutableLongStateOf(timeSource.elapsedRealtime())
+    var elapsedMillis by remember { mutableLongStateOf(0L) }
+    // 1 秒ごとに SessionManager に「今の経過時間」を問い合わせる
+    LaunchedEffect(Unit) {
+        while (true) {
+            val nowElapsed = timeSource.elapsedRealtime()
+            elapsedMillis = elapsedMillisProvider(nowElapsed)
+            delay(1000L)
+        }
     }
     val elapsedMinutes = elapsedMillis / 1000f / 60f
     val progress = if (settings.timeToMaxMinutes > 0) {
@@ -57,22 +72,6 @@ fun OverlayTimerBubble(
     }
     val fontSizeSp = settings.minFontSizeSp +
             (settings.maxFontSizeSp - settings.minFontSizeSp) * progress
-    // タイマー本体：常に 1 秒ごとに state を更新する
-    LaunchedEffect(initialElapsedMillis) {
-        // 初期値をリセット
-        elapsedMillis = initialElapsedMillis
-        lastTickElapsedRealtime = timeSource.elapsedRealtime()
-        while (true) {
-            // 1 秒待つ
-            delay(1000L)
-            val now = timeSource.elapsedRealtime()
-            val delta = now - lastTickElapsedRealtime
-            if (delta > 0L) {
-                elapsedMillis += delta
-                lastTickElapsedRealtime = now
-            }
-        }
-    }
     Box(
         modifier = modifier
             .alpha(0.9f)
@@ -130,11 +129,13 @@ fun SuggestionOverlay(
             labelText = "やりたいこと"
             bodyText = "このまま続ける前に、一度やりたいことに時間を使ってみるのもおすすめです。"
         }
+
         SuggestionOverlayMode.Rest -> {
             // ヘッダは「休憩のきっかけ」っぽく、タイトルとは別の役割にする
             headerText = "集中してきたので、ひと休みしませんか？"
             labelText = "休憩の提案"
-            bodyText = "画面から少し離れて、肩や首を軽く伸ばしたり、水分補給をしてみるのもおすすめです。"
+            bodyText =
+                "画面から少し離れて、肩や首を軽く伸ばしたり、水分補給をしてみるのもおすすめです。"
         }
     }
 

@@ -221,16 +221,24 @@ class OverlayService : LifecycleService() {
         nowMillis: Long,
         nowElapsed: Long
     ) {
+        // ここで DB 復元込みの初期状態を作る（値は返り値として使わないが、
+        //   ActiveSessionState.initialElapsedMillis がここで確定する）
         val initialElapsed = sessionManager.onEnterForeground(
             packageName = packageName,
             nowMillis = nowMillis,
             nowElapsedRealtime = nowElapsed
         ) ?: return
         overlayPackage = packageName
+        // SessionManager + packageName を閉じ込めた provider
+        val elapsedProvider: (Long) -> Long = { nowElapsedRealtime ->
+            sessionManager.computeElapsedFor(
+                packageName = packageName,
+                nowElapsedRealtime = nowElapsedRealtime
+            ) ?: initialElapsed // 万一 null になっても初期値でフォロー
+        }
         withContext(Dispatchers.Main) {
             overlayController.showTimer(
-                // 後で elapsedProvider に変えるので、ここは一旦仮
-                initialElapsedMillis = initialElapsed,
+                elapsedMillisProvider = elapsedProvider,
                 onPositionChanged = ::onOverlayPositionChanged
             )
         }

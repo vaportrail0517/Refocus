@@ -7,8 +7,10 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
-import com.example.refocus.ui.theme.RefocusTheme
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -19,9 +21,7 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.refocus.core.model.OverlaySettings
 import com.example.refocus.core.model.OverlayTouchMode
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import com.example.refocus.ui.theme.RefocusTheme
 
 class OverlayController(
     private val context: Context,
@@ -36,8 +36,10 @@ class OverlayController(
 
     // ドラッグで位置を変えたときに呼び出すコールバックを保持しておく
     private var onPositionChangedCallback: ((Int, Int) -> Unit)? = null
+
     // Compose が監視するステート本体
     private var overlaySettingsState by mutableStateOf(OverlaySettings())
+
     // 外から触るプロパティ。変更時に onSettingsChanged を呼ぶ
     var overlaySettings: OverlaySettings
         get() = overlaySettingsState
@@ -58,6 +60,7 @@ class OverlayController(
             lp.flags = when (new.touchMode) {
                 OverlayTouchMode.Drag ->
                     baseFlags
+
                 OverlayTouchMode.PassThrough ->
                     baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             }
@@ -90,6 +93,7 @@ class OverlayController(
                             initialTouchY = event.rawY
                             return true
                         }
+
                         MotionEvent.ACTION_MOVE -> {
                             lp.x = initialX + (event.rawX - initialTouchX).toInt()
                             lp.y = initialY + (event.rawY - initialTouchY).toInt()
@@ -98,6 +102,7 @@ class OverlayController(
                             this@OverlayController.layoutParams = lp
                             return true
                         }
+
                         MotionEvent.ACTION_UP -> {
                             // 位置の永続化コールバック
                             onPositionChangedCallback?.invoke(lp.x, lp.y)
@@ -114,14 +119,14 @@ class OverlayController(
     }
 
     fun showTimer(
-        initialElapsedMillis: Long,
+        // initialElapsedMillis の代わりに provider を受け取る
+        elapsedMillisProvider: (Long) -> Long,
         onPositionChanged: ((x: Int, y: Int) -> Unit)? = null,
     ) {
         if (overlayView != null) {
             Log.d("OverlayController", "showTimer: already showing")
             return
         }
-        Log.d("OverlayController", "showTimer: creating overlay view")
         val settings = overlaySettings
         onPositionChangedCallback = onPositionChanged
         val baseFlags =
@@ -130,6 +135,7 @@ class OverlayController(
         val flags = when (settings.touchMode) {
             OverlayTouchMode.Drag ->
                 baseFlags
+
             OverlayTouchMode.PassThrough ->
                 baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         }
@@ -151,17 +157,15 @@ class OverlayController(
             setContent {
                 RefocusTheme {
                     OverlayTimerBubble(
-                        initialElapsedMillis = initialElapsedMillis,
-                        // ここは overlaySettingsState を読むことで、
-                        // setter 経由の更新を Compose に伝える
-                        settings = overlaySettingsState
+                        // ★ここで provider を渡す
+                        settings = overlaySettingsState,
+                        elapsedMillisProvider = elapsedMillisProvider
                     )
                 }
             }
         }
         overlayView = composeView
         layoutParams = params
-        // タッチモードに応じたリスナーを設定
         applyTouchListener(
             view = composeView,
             lp = params,
@@ -169,7 +173,6 @@ class OverlayController(
         )
         try {
             windowManager.addView(composeView, params)
-            Log.d("OverlayController", "showTimer: addView success")
         } catch (e: Exception) {
             Log.e("OverlayController", "showTimer: addView failed", e)
         }
