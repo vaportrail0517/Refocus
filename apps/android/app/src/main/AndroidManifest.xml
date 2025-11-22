@@ -6,7 +6,7 @@
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
-<!--    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />-->
+    sdl
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
@@ -42,7 +42,7 @@
             android:name=".feature.overlay.OverlayService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="specialUse"/>
+            android:foregroundServiceType="specialUse" />
 
         <!-- ★ specialUse のサブタイプ: 任意の文字列で OK（Play Console 申請と対応させる） -->
         <property
@@ -52,7 +52,7 @@
         <receiver
             android:name=".system.boot.BootCompletedReceiver"
             android:enabled="true"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
