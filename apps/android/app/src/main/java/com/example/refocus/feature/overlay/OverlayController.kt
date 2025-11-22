@@ -190,6 +190,7 @@ class OverlayController(
 
     fun showSuggestionOverlay(
         title: String,
+        mode: SuggestionOverlayMode,
         autoDismissMillis: Long,
         interactionLockoutMillis: Long,
         onSnoozeLater: () -> Unit,
@@ -220,6 +221,7 @@ class OverlayController(
                 RefocusTheme {
                     SuggestionOverlay(
                         title = title,
+                        mode = mode,
                         autoDismissMillis = autoDismissMillis,
                         interactionLockoutMillis = interactionLockoutMillis,
                         onSnoozeLater = {

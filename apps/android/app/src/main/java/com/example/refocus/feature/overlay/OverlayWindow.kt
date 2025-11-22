@@ -103,10 +103,15 @@ private fun formatDuration(millis: Long): String {
     }
 }
 
+enum class SuggestionOverlayMode {
+    Goal,   // 「やりたいこと」モード
+    Rest    // 「休憩」モード
+}
 
 @Composable
 fun SuggestionOverlay(
     title: String,
+    mode: SuggestionOverlayMode,
     modifier: Modifier = Modifier,
     autoDismissMillis: Long = 8_000L,
     interactionLockoutMillis: Long = 400L,
@@ -114,6 +119,25 @@ fun SuggestionOverlay(
     onDisableThisSession: () -> Unit,
     onDismissOnly: () -> Unit,
 ) {
+    val headerText: String
+    val labelText: String
+    val bodyText: String
+
+    when (mode) {
+        SuggestionOverlayMode.Goal -> {
+            // 「一息つく」より「これをやってみよう」に寄せる
+            headerText = "そろそろ、これをやってみませんか？"
+            labelText = "やりたいこと"
+            bodyText = "このまま続ける前に、一度やりたいことに時間を使ってみるのもおすすめです。"
+        }
+        SuggestionOverlayMode.Rest -> {
+            // ヘッダは「休憩のきっかけ」っぽく、タイトルとは別の役割にする
+            headerText = "集中してきたので、ひと休みしませんか？"
+            labelText = "休憩の提案"
+            bodyText = "画面から少し離れて、肩や首を軽く伸ばしたり、水分補給をしてみるのもおすすめです。"
+        }
+    }
+
     // 一定時間後に自動で閉じる
     LaunchedEffect(Unit) {
         delay(autoDismissMillis)
@@ -182,12 +206,12 @@ fun SuggestionOverlay(
                     .widthIn(min = 260.dp)
             ) {
                 Text(
-                    text = "ちょっと一息つきませんか？",
+                    text = headerText,
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "やりたいこと",
+                    text = labelText,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -198,7 +222,7 @@ fun SuggestionOverlay(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "このまま続ける前に、少しだけ切り替えてみるのもおすすめです。",
+                    text = bodyText,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

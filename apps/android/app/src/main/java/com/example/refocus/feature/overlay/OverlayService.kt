@@ -489,12 +489,17 @@ class OverlayService : LifecycleService() {
                     Log.d(TAG, "No suggestion and restSuggestion disabled, skip overlay")
                     return@launch
                 }
-                // 表示タイトルを決める
-                val title = suggestion?.title ?: "少し休憩しませんか？"
+                // モードとタイトルを決定
+                val (title, mode) = if (suggestion != null) {
+                    suggestion.title to SuggestionOverlayMode.Goal
+                } else {
+                    "画面から少し離れて休憩する" to SuggestionOverlayMode.Rest
+                }
                 withContext(Dispatchers.Main) {
                     isSuggestionOverlayShown = true
                     overlayController.showSuggestionOverlay(
                         title = title,
+                        mode = mode,
                         autoDismissMillis = suggestionTimeoutMillis(overlaySettings),
                         interactionLockoutMillis = suggestionInteractionLockoutMillis(overlaySettings),
                         onSnoozeLater = { handleSuggestionSnoozeLater() },
