@@ -28,6 +28,7 @@ sealed interface SettingsDialog {
     data object FontRange : SettingsDialog
     data object TimeToMax : SettingsDialog
     data object CorePermission : SettingsDialog
+    data object SuggestionFeature : SettingsDialog
 }
 
 @Composable
@@ -298,8 +299,10 @@ fun SettingsScreen(
                 }
             )
             SettingRow(
-                title = "やりたいことがないときは休憩を提案",
-                subtitle = if (restSuggestionEnabled) {
+                title = "休憩の提案",
+                subtitle = if (!suggestionEnabled) {
+                    "提案が無効になっています"
+                } else if (restSuggestionEnabled) {
                     "オン：やりたいことが未登録のとき、休憩をやさしく提案します"
                 } else {
                     "オフ：やりたいことが未登録のときは提案しません"
@@ -307,12 +310,21 @@ fun SettingsScreen(
                 trailing = {
                     Switch(
                         checked = restSuggestionEnabled,
+                        enabled = suggestionEnabled,
                         onCheckedChange = { isOn ->
+                            if (!suggestionEnabled) {
+                                activeDialog = SettingsDialog.SuggestionFeature
+                                return@Switch
+                            }
                             viewModel.updateRestSuggestionEnabled(isOn)
                         }
                     )
                            },
                 onClick = {
+                    if (!suggestionEnabled) {
+                        activeDialog = SettingsDialog.SuggestionFeature
+                        return@SettingRow
+                    }
                     // 行全体タップでもトグルされるようにする
                     viewModel.updateRestSuggestionEnabled(!restSuggestionEnabled)
                 }
@@ -368,6 +380,11 @@ fun SettingsScreen(
             }
             SettingsDialog.CorePermission -> {
                 CorePermissionRequiredDialog(
+                    onDismiss = { activeDialog = null }
+                )
+            }
+            SettingsDialog.SuggestionFeature -> {
+                SuggestionFeatureRequiredDialog(
                     onDismiss = { activeDialog = null }
                 )
             }

@@ -307,3 +307,26 @@ fun CorePermissionRequiredDialog(
         }
     )
 }
+
+@Composable
+fun SuggestionFeatureRequiredDialog(
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("提案が無効になっています")
+        },
+        text = {
+            Text(
+                "「休憩の提案」を有効にするには「提案を表示する」がオンである必要があります。"
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("OK")
+            }
+        }
+    )
+}
+
