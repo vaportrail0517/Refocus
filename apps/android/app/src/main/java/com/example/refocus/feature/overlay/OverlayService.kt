@@ -8,41 +8,41 @@ import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.ServiceInfo
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
-import android.content.pm.ServiceInfo
 import androidx.lifecycle.LifecycleService
 import com.example.refocus.R
 import com.example.refocus.core.model.OverlaySettings
+import com.example.refocus.core.util.SystemTimeSource
+import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.RepositoryProvider
-import com.example.refocus.data.repository.TargetsRepository
 import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.data.repository.SuggestionsRepository
+import com.example.refocus.data.repository.TargetsRepository
+import com.example.refocus.domain.session.SessionManager
+import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import com.example.refocus.system.monitor.ForegroundAppMonitorProvider
 import com.example.refocus.system.permissions.PermissionHelper
-import com.example.refocus.domain.suggestion.SuggestionEngine
-import com.example.refocus.domain.session.SessionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import android.content.IntentFilter
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.flatMapLatest
-import com.example.refocus.core.util.TimeSource
-import com.example.refocus.core.util.SystemTimeSource
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlinx.coroutines.flow.first
 
 class OverlayService : LifecycleService() {
 
@@ -80,6 +80,7 @@ class OverlayService : LifecycleService() {
 
     private var currentForegroundPackage: String? = null
     private var overlayPackage: String? = null
+
     @Volatile
     private var overlaySettings: OverlaySettings = OverlaySettings()
 
@@ -97,6 +98,7 @@ class OverlayService : LifecycleService() {
                     Log.d(TAG, "ACTION_SCREEN_OFF received")
                     handleScreenOff()
                 }
+
                 Intent.ACTION_SHUTDOWN -> {
                     Log.d(TAG, "ACTION_SHUTDOWN received")
                     handleScreenOff()
@@ -214,7 +216,7 @@ class OverlayService : LifecycleService() {
         return hasUsage && hasOverlay
     }
 
-    private fun onEnterForeground(
+    private suspend fun onEnterForeground(
         packageName: String,
         nowMillis: Long,
         nowElapsed: Long
@@ -225,8 +227,9 @@ class OverlayService : LifecycleService() {
             nowElapsedRealtime = nowElapsed
         ) ?: return
         overlayPackage = packageName
-        serviceScope.launch(Dispatchers.Main) {
+        withContext(Dispatchers.Main) {
             overlayController.showTimer(
+                // 後で elapsedProvider に変えるので、ここは一旦仮
                 initialElapsedMillis = initialElapsed,
                 onPositionChanged = ::onOverlayPositionChanged
             )
@@ -287,7 +290,7 @@ class OverlayService : LifecycleService() {
                         // 非対象 → 対象
                         !prevIsTarget && nowIsTarget -> {
                             onEnterForeground(
-                                packageName = foregroundPackage,
+                                packageName = foregroundPackage!!,
                                 nowMillis = nowMillis,
                                 nowElapsed = nowElapsed
                             )
@@ -313,6 +316,7 @@ class OverlayService : LifecycleService() {
                                 nowElapsed = nowElapsed
                             )
                         }
+
                         else -> {
                             // 非対象→非対象 / 対象→同じ対象 (permissions など) は何もしない
                         }
@@ -437,6 +441,7 @@ class OverlayService : LifecycleService() {
         suggestionSnoozedUntilMillis = now + cooldownMs
         Log.d(TAG, "Suggestion snoozed until $suggestionSnoozedUntilMillis")
     }
+
     private fun handleSuggestionSnoozeLater() {
         handleSuggestionSnooze()
     }
@@ -475,7 +480,7 @@ class OverlayService : LifecycleService() {
             snoozedUntilMillis = suggestionSnoozedUntilMillis,
             isOverlayShown = isSuggestionOverlayShown,
             disabledForThisSession = sessionManager.isSuggestionDisabledForThisSession(packageName),
-            )
+        )
         if (!suggestionEngine.shouldShow(input)) {
             return
         }
@@ -501,7 +506,9 @@ class OverlayService : LifecycleService() {
                         title = title,
                         mode = mode,
                         autoDismissMillis = suggestionTimeoutMillis(overlaySettings),
-                        interactionLockoutMillis = suggestionInteractionLockoutMillis(overlaySettings),
+                        interactionLockoutMillis = suggestionInteractionLockoutMillis(
+                            overlaySettings
+                        ),
                         onSnoozeLater = { handleSuggestionSnoozeLater() },
                         onDisableThisSession = { handleSuggestionDisableThisSession() },
                         onDismissOnly = { handleSuggestionDismissOnly() },

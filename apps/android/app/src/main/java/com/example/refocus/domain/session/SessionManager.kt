@@ -39,12 +39,14 @@ class SessionManager(
     // packageName → ActiveSessionState のマップ
     private val activeSessions = mutableMapOf<String, ActiveSessionState>()
 
+    // SessionManager.kt
+
     /**
      * 前面に入ったときに呼ぶ。
      *
      * @return overlay に渡す initialElapsedMillis（オーバーレイを出さなくて良い場合は null）
      */
-    fun onEnterForeground(
+    suspend fun onEnterForeground(
         packageName: String,
         nowMillis: Long,
         nowElapsedRealtime: Long
@@ -58,22 +60,19 @@ class SessionManager(
             existingState.pendingEndJob = null
             existingState.lastLeaveAtMillis = null
             existingState.lastForegroundElapsedRealtime = nowElapsedRealtime
-            // DB に Pause → Resume を記録
+            // DB に Pause → Resume を記録（ここも suspend で素直に書く）
             if (wasPaused) {
-                scope.launch {
-                    try {
-                        sessionRepository.recordResume(
-                            packageName = packageName,
-                            resumedAtMillis = nowMillis
-                        )
-                    } catch (e: Exception) {
-                        Log.e(logTag, "Failed to record resume for $packageName", e)
-                    }
+                try {
+                    sessionRepository.recordResume(
+                        packageName = packageName,
+                        resumedAtMillis = nowMillis
+                    )
+                } catch (e: Exception) {
+                    Log.e(logTag, "Failed to record resume for $packageName", e)
                 }
             }
             return existingState.initialElapsedMillis
         }
-
         // ここから「新規セッション」または「再起動直後の復元」パス
         val newState = ActiveSessionState(
             packageName = packageName,
@@ -84,44 +83,39 @@ class SessionManager(
             suggestionDisabledForThisSession = false,
         )
         activeSessions[packageName] = newState
-
-        scope.launch {
-            try {
-                // まず active セッションの最後のイベント種別を取得
-                val lastEventType = sessionRepository.getLastEventTypeForActiveSession(packageName)
-                val hadActiveSession = lastEventType != null
-                // active セッションがある場合のみ、DB から経過時間を復元
-                val restoredDuration = if (hadActiveSession) {
-                    sessionRepository.getActiveSessionDuration(
-                        packageName = packageName,
-                        nowMillis = nowMillis
-                    )
-                } else {
-                    null
-                }
-                newState.initialElapsedMillis = restoredDuration ?: 0L
-                // active セッションがなければ新規開始、
-                // あれば startSession 側が既存セッションをそのまま返す想定
-                sessionRepository.startSession(
+        try {
+            // まず active セッションの最後のイベント種別を取得
+            val lastEventType =
+                sessionRepository.getLastEventTypeForActiveSession(packageName)
+            val hadActiveSession = lastEventType != null
+            // 既存セッションがある場合は、そこまでの経過時間を復元
+            val restoredDuration = if (hadActiveSession) {
+                sessionRepository.getActiveSessionDuration(
                     packageName = packageName,
-                    startedAtMillis = nowMillis
+                    nowMillis = nowMillis
                 )
-                // 「最後のイベントが Pause で止まっていた」場合のみ Resume を打つ
-                if (lastEventType == SessionEventType.Pause) {
-                    try {
-                        sessionRepository.recordResume(
-                            packageName = packageName,
-                            resumedAtMillis = nowMillis
-                        )
-                    } catch (e: Exception) {
-                        Log.e(logTag, "Failed to record resume(after restore) for $packageName", e)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(logTag, "Failed to start/restore session for $packageName", e)
+            } else {
+                null
             }
+            // ここまで来た時点で DB 復元は完了している
+            newState.initialElapsedMillis = restoredDuration ?: 0L
+            // active セッションがなければ新規開始、
+            // あれば startSession 側が既存セッションをそのまま返す想定
+            sessionRepository.startSession(
+                packageName = packageName,
+                startedAtMillis = nowMillis
+            )
+            // 「最後のイベントが Pause で止まっていた」場合のみ Resume を打つ
+            if (lastEventType == SessionEventType.Pause) {
+                sessionRepository.recordResume(
+                    packageName = packageName,
+                    resumedAtMillis = nowMillis
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(logTag, "Failed to start/restore session for $packageName", e)
+            // エラー時は initialElapsedMillis = 0 のままでもよい
         }
-
         return newState.initialElapsedMillis
     }
 
