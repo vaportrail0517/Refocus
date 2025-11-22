@@ -1,47 +1,54 @@
 package com.example.refocus.data.repository
 
-import android.util.Log
 import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionEventType
+import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.db.dao.SessionDao
 import com.example.refocus.data.db.dao.SessionEventDao
 import com.example.refocus.data.db.entity.SessionEntity
 import com.example.refocus.data.db.entity.SessionEventEntity
-import com.example.refocus.core.util.TimeSource
+import com.example.refocus.domain.session.SessionDurationCalculator
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 
 data class SessionsWithEvents(
     val sessions: List<Session>,
     val eventsBySessionId: Map<Long, List<SessionEvent>>,
 )
+
 interface SessionRepository {
     suspend fun startSession(packageName: String, startedAtMillis: Long): Session
     suspend fun endActiveSession(
         packageName: String,
         endedAtMillis: Long,
     )
+
     suspend fun recordPause(packageName: String, pausedAtMillis: Long)
     suspend fun recordResume(packageName: String, resumedAtMillis: Long)
+
     /**
      * セッションID → イベント列（時刻昇順）を返す。
      */
     suspend fun getEvents(sessionId: Long): List<SessionEvent>
+
     /**
      * 複数セッション ID → イベント列のマップ。
      */
     suspend fun getEventsForSessions(
         sessionIds: List<Long>
     ): Map<Long, List<SessionEvent>>
+
     /**
      * DB 上の全セッションを観測。
      * 開始／終了時刻や duration は、必要に応じてイベント列から計算する。
      */
     fun observeAllSessions(): Flow<List<Session>>
+
     // セッションとイベントをまとめて監視
     fun observeAllSessionsWithEvents(): Flow<SessionsWithEvents>
+
     /**
      * 指定パッケージの「アクティブな」セッションがあれば、
      * 現在時刻までの有効経過時間(ミリ秒)を返す。
@@ -50,6 +57,7 @@ interface SessionRepository {
         packageName: String,
         nowMillis: Long,
     ): Long?
+
     /**
      * 指定パッケージの「アクティブな」セッションがあれば、
      * その最後のイベント種別（Start / Pause / Resume / End など）を返す。
@@ -58,6 +66,7 @@ interface SessionRepository {
     suspend fun getLastEventTypeForActiveSession(
         packageName: String
     ): SessionEventType?
+
     /**
      * 端末再起動後などに呼び出し、
      * 猶予時間を超えて中断したままのセッションを終了させる。
@@ -76,6 +85,7 @@ class SessionRepositoryImpl(
     companion object {
         private const val TAG = "SessionRepository"
     }
+
     // region public API
     override suspend fun startSession(
         packageName: String,
@@ -96,6 +106,7 @@ class SessionRepositoryImpl(
         )
         return Session(id = id, packageName = packageName)
     }
+
     override suspend fun endActiveSession(
         packageName: String,
         endedAtMillis: Long,
@@ -143,6 +154,7 @@ class SessionRepositoryImpl(
             )
         )
     }
+
     override suspend fun recordResume(packageName: String, resumedAtMillis: Long) {
         val active = findActiveSessionByPackage(packageName) ?: return
         eventDao.insert(
@@ -153,9 +165,11 @@ class SessionRepositoryImpl(
             )
         )
     }
+
     override suspend fun getEvents(sessionId: Long): List<SessionEvent> {
         return eventDao.findBySessionId(sessionId).map { it.toDomain() }
     }
+
     override suspend fun getEventsForSessions(
         sessionIds: List<Long>
     ): Map<Long, List<SessionEvent>> {
@@ -165,10 +179,12 @@ class SessionRepositoryImpl(
             .groupBy { it.sessionId }
             .mapValues { (_, list) -> list.sortedBy { it.timestampMillis }.map { it.toDomain() } }
     }
+
     override fun observeAllSessions(): Flow<List<Session>> {
         return sessionDao.observeAllSessions()
             .map { list -> list.map { it.toDomain() } }
     }
+
     override fun observeAllSessionsWithEvents(): Flow<SessionsWithEvents> {
         // セッションテーブルとイベントテーブルを両方 Flow で監視し、常に最新の組み合わせを返す
         return combine(
@@ -190,6 +206,7 @@ class SessionRepositoryImpl(
             )
         }
     }
+
     override suspend fun getActiveSessionDuration(
         packageName: String,
         nowMillis: Long,
@@ -197,8 +214,11 @@ class SessionRepositoryImpl(
         val active = findActiveSessionByPackage(packageName) ?: return null
         val events = eventDao.findBySessionId(active.id!!)
         if (events.isEmpty()) return null
-        return calculateDurationFromEvents(events, nowMillis)
+        // Entity -> Domain に変換して共通ロジックに渡す
+        val domainEvents = events.map { it.toDomain() }
+        return SessionDurationCalculator.calculateDurationMillis(domainEvents, nowMillis)
     }
+
     override suspend fun getLastEventTypeForActiveSession(
         packageName: String
     ): SessionEventType? {
@@ -206,6 +226,7 @@ class SessionRepositoryImpl(
         val last = eventDao.findLastEvent(active.id!!) ?: return null
         return SessionEventType.valueOf(last.type)
     }
+
     override suspend fun repairActiveSessionsAfterRestart(
         gracePeriodMillis: Long,
         nowMillis: Long,
@@ -230,6 +251,7 @@ class SessionRepositoryImpl(
                         newType = SessionEventType.End.name
                     )
                 }
+
                 SessionEventType.Start,
                 SessionEventType.Resume -> {
                     // ★ Start/Resume のまま放置 → その時刻で End を新規追加
@@ -241,6 +263,7 @@ class SessionRepositoryImpl(
                         )
                     )
                 }
+
                 else -> {}
             }
         }
@@ -267,55 +290,14 @@ class SessionRepositoryImpl(
         }
         return null
     }
-    /**
-     * Start / Pause / Resume / End のイベント列から、
-     * 「実際にアプリを使っていた時間」の合計を求める。
-     */
-    private fun calculateDurationFromEvents(
-        events: List<SessionEventEntity>,
-        nowMillis: Long,
-    ): Long {
-        if (events.isEmpty()) return 0L
-        val sorted = events.sortedBy { it.timestampMillis }
-        var lastStart: Long? = null
-        var totalActive = 0L
-        for (e in sorted) {
-            val type = SessionEventType.valueOf(e.type)
-            when (type) {
-                SessionEventType.Start -> {
-                    lastStart = e.timestampMillis
-                }
-                SessionEventType.Pause -> {
-                    if (lastStart != null) {
-                        totalActive += (e.timestampMillis - lastStart!!).coerceAtLeast(0L)
-                        lastStart = null
-                    }
-                }
-                SessionEventType.Resume -> {
-                    if (lastStart == null) {
-                        lastStart = e.timestampMillis
-                    }
-                }
-                SessionEventType.End -> {
-                    if (lastStart != null) {
-                        totalActive += (e.timestampMillis - lastStart!!).coerceAtLeast(0L)
-                        lastStart = null
-                    }
-                }
-            }
-        }
-        // まだ Start されたまま（End が来ていない）場合は now まで加算
-        if (lastStart != null) {
-            totalActive += (nowMillis - lastStart!!).coerceAtLeast(0L)
-        }
-        return totalActive.coerceAtLeast(0L)
-    }
+    
     // --- Entity <-> Domain 変換 ---
     private fun SessionEntity.toDomain(): Session =
         Session(
             id = this.id,
             packageName = this.packageName,
         )
+
     private fun SessionEventEntity.toDomain(): SessionEvent =
         SessionEvent(
             id = this.id,
