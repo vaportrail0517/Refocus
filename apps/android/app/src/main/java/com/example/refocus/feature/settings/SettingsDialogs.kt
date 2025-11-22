@@ -284,3 +284,26 @@ fun TimeToMaxDialog(
         }
     )
 }
+
+@Composable
+fun CorePermissionRequiredDialog(
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("権限が必要です")
+        },
+        text = {
+            Text(
+                "Refocus を動かすには「使用状況へのアクセス」と「他のアプリの上に表示」の 2 つの権限が必要です。" +
+                        "上の「権限」セクションから、これらの権限を有効にしてください。"
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("OK")
+            }
+        }
+    )
+}

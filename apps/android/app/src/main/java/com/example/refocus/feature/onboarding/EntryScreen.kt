@@ -20,7 +20,6 @@ import kotlinx.coroutines.withContext
 @Composable
 fun EntryScreen(
     onNeedFullOnboarding: () -> Unit,
-    onNeedPermissionFix: () -> Unit,
     onAllReady: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -28,18 +27,11 @@ fun EntryScreen(
     val repositoryProvider = remember { RepositoryProvider(app) }
     val onboardingRepository = remember { repositoryProvider.onboardingRepository }
     LaunchedEffect(Unit) {
-        val hasUsage = PermissionHelper.hasUsageAccess(context)
-        val hasOverlay = PermissionHelper.hasOverlayPermission(context)
-        val requiredGranted = hasUsage && hasOverlay
         val completed = onboardingRepository.completedFlow.first()
         if (!completed) {
             onNeedFullOnboarding()
         } else {
-            if (requiredGranted) {
-                onAllReady()
-            } else {
-                onNeedPermissionFix()
-            }
+            onAllReady()
         }
     }
 

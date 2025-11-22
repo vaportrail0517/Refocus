@@ -27,6 +27,7 @@ sealed interface SettingsDialog {
     data object Polling : SettingsDialog
     data object FontRange : SettingsDialog
     data object TimeToMax : SettingsDialog
+    data object CorePermission : SettingsDialog
 }
 
 @Composable
@@ -54,6 +55,7 @@ fun SettingsScreen(
         )
     }
     var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
+    val hasCorePermissions = usageGranted && overlayGranted
 
     // 画面復帰時に権限状態を更新
     DisposableEffect(lifecycleOwner) {
@@ -62,6 +64,19 @@ fun SettingsScreen(
                 usageGranted = PermissionHelper.hasUsageAccess(context)
                 overlayGranted = PermissionHelper.hasOverlayPermission(context)
                 isServiceRunning = OverlayService.isRunning
+                val hasCorePermissions = usageGranted && overlayGranted
+                if (!hasCorePermissions) {
+                    // 起動設定 or 実行中サービスが残っていたら OFF に揃える
+                    if (uiState.overlaySettings.overlayEnabled || isServiceRunning) {
+                        viewModel.updateOverlayEnabled(false)
+                        context.stopOverlayService()
+                        isServiceRunning = false
+                    }
+                    // 自動起動も OFF に揃える
+                    if (uiState.overlaySettings.autoStartOnBoot) {
+                        viewModel.updateAutoStartOnBoot(false)
+                    }
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -115,7 +130,9 @@ fun SettingsScreen(
         ) {
             SettingRow(
                 title = "Refocus を動かす",
-                subtitle = if (isServiceRunning) {
+                subtitle = if (!hasCorePermissions) {
+                    "権限が足りないため、現在 Refocus を動かすことはできません。上の「権限」から設定を有効にしてください。"
+                } else if (isServiceRunning) {
                     "現在: 計測中（対象アプリ利用時に連続使用時間を記録します）"
                 } else {
                     "現在: 停止中（対象アプリの計測は行われていません）"
@@ -124,7 +141,13 @@ fun SettingsScreen(
                     val checked = uiState.overlaySettings.overlayEnabled && isServiceRunning
                     Switch(
                         checked = checked,
+                        enabled = hasCorePermissions,
                         onCheckedChange = { newChecked ->
+                            if (!hasCorePermissions) {
+                                // 権限不足 → ダイアログを出すだけ
+                                activeDialog = SettingsDialog.CorePermission
+                                return@Switch
+                            }
                             if (newChecked) {
                                 viewModel.updateOverlayEnabled(true)
                                 context.startOverlayService()
@@ -138,6 +161,10 @@ fun SettingsScreen(
                     )
                 },
                 onClick = {
+                    if (!hasCorePermissions) {
+                        activeDialog = SettingsDialog.CorePermission
+                        return@SettingRow
+                    }
                     val currentlyOn = uiState.overlaySettings.overlayEnabled && isServiceRunning
                     val turnOn = !currentlyOn
                     if (turnOn) {
@@ -157,12 +184,22 @@ fun SettingsScreen(
                 trailing = {
                     Switch(
                         checked = uiState.overlaySettings.autoStartOnBoot,
+                        enabled = hasCorePermissions, // 権限不足時はグレーアウト
                         onCheckedChange = { enabled ->
+                            if (!hasCorePermissions) {
+                                // 権限不足 → ダイアログだけ
+                                activeDialog = SettingsDialog.CorePermission
+                                return@Switch
+                            }
                             viewModel.updateAutoStartOnBoot(enabled)
                         }
                     )
                            },
                 onClick = {
+                    if (!hasCorePermissions) {
+                        activeDialog = SettingsDialog.CorePermission
+                        return@SettingRow
+                    }
                     viewModel.updateAutoStartOnBoot(!uiState.overlaySettings.autoStartOnBoot)
                 }
             )
@@ -326,6 +363,11 @@ fun SettingsScreen(
                         viewModel.updateTimeToMaxMinutes(minutes)
                         activeDialog = null
                     },
+                    onDismiss = { activeDialog = null }
+                )
+            }
+            SettingsDialog.CorePermission -> {
+                CorePermissionRequiredDialog(
                     onDismiss = { activeDialog = null }
                 )
             }

@@ -18,10 +18,12 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.refocus.ui.components.RefocusSearchBar
+import com.example.refocus.system.permissions.PermissionHelper
 
 @Composable
 fun AppSelectScreen(
-    onFinished: () -> Unit
+    onFinished: () -> Unit,
+    onFinishedWithoutPermission: () -> Unit
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as Application
@@ -45,7 +47,10 @@ fun AppSelectScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Button(
-                    onClick = { viewModel.save(onFinished) },
+                    onClick = { viewModel.save(
+                        if (PermissionHelper.hasAllCorePermissions(context))
+                            onFinished else onFinishedWithoutPermission)
+                        },
                     modifier = Modifier
                         .fillMaxWidth()
                 ) {

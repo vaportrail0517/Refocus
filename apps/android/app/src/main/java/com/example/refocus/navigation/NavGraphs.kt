@@ -47,11 +47,6 @@ fun RefocusNavHost(
                         popUpTo(Destinations.ENTRY) { inclusive = true }
                     }
                 },
-                onNeedPermissionFix = {
-                    navController.navigate(Destinations.PERMISSION_FLOW_FIX) {
-                        popUpTo(Destinations.ENTRY) { inclusive = true }
-                    }
-                },
                 onAllReady = {
                     navController.navigate(Destinations.HOME) {
                         popUpTo(Destinations.ENTRY) { inclusive = true }
@@ -102,6 +97,11 @@ fun RefocusNavHost(
                     navController.navigate(Destinations.ONBOARDING_START_MODE) {
                         popUpTo(Destinations.ONBOARDING_READY) { inclusive = false }
                     }
+                },
+                onFinishedWithoutPermission = {
+                    navController.navigate(Destinations.ONBOARDING_FINISH) {
+                        popUpTo(Destinations.ONBOARDING_READY) {inclusive = false}
+                    }
                 }
             )
         }
@@ -109,6 +109,9 @@ fun RefocusNavHost(
         composable(Destinations.APP_SELECT_SETTINGS) {
             AppSelectScreen(
                 onFinished = {
+                    navController.popBackStack()
+                },
+                onFinishedWithoutPermission = {
                     navController.popBackStack()
                 }
             )
