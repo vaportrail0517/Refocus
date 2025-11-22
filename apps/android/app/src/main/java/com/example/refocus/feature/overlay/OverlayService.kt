@@ -20,27 +20,25 @@ import com.example.refocus.data.RepositoryProvider
 import com.example.refocus.data.repository.TargetsRepository
 import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SettingsRepository
+import com.example.refocus.data.repository.SuggestionsRepository
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import com.example.refocus.system.monitor.ForegroundAppMonitorProvider
 import com.example.refocus.system.permissions.PermissionHelper
+import com.example.refocus.domain.suggestion.SuggestionEngine
+import com.example.refocus.domain.session.SessionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.coroutines.cancellation.CancellationException
 import android.content.IntentFilter
-import com.example.refocus.core.model.SessionEventType
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flatMapLatest
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.core.util.SystemTimeSource
-import com.example.refocus.data.repository.SuggestionsRepository
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -77,6 +75,9 @@ class OverlayService : LifecycleService() {
     private lateinit var foregroundAppMonitor: ForegroundAppMonitor
     private lateinit var overlayController: OverlayController
 
+    private lateinit var sessionManager: SessionManager
+    private val suggestionEngine = SuggestionEngine()
+
     private var currentForegroundPackage: String? = null
     private var overlayPackage: String? = null
     @Volatile
@@ -86,27 +87,7 @@ class OverlayService : LifecycleService() {
     private var suggestionSnoozedUntilMillis: Long? = null
 
     @Volatile
-    private var suggestionDisabledForYmd: Int? = null
-
-    @Volatile
-    private var lastSuggestionShownAtMillis: Long? = null
-
-    @Volatile
     private var isSuggestionOverlayShown: Boolean = false
-
-
-    private data class RunningSessionState(
-        val packageName: String,
-        var initialElapsedMillis: Long,            // DB から復元した経過時間
-        var lastForegroundElapsedRealtime: Long?,
-        var pendingEndJob: Job?,
-        var lastLeaveAtMillis: Long?,
-        // 「このセッション中は表示しない」が押されたかどうか
-        var suggestionDisabledForThisSession: Boolean = false,
-    )
-
-    // packageName → RunningSessionState のマップ
-    private val sessionStates = mutableMapOf<String, RunningSessionState>()
 
     private var screenReceiverRegistered: Boolean = false
     private val screenReceiver = object : BroadcastReceiver() {
@@ -135,6 +116,12 @@ class OverlayService : LifecycleService() {
         overlayController = OverlayController(
             context = this,
             lifecycleOwner = this,
+        )
+        sessionManager = SessionManager(
+            sessionRepository = sessionRepository,
+            timeSource = timeSource,
+            scope = serviceScope,
+            logTag = TAG
         )
         startForegroundWithNotification()
         Log.d(TAG, "startForeground done")
@@ -178,6 +165,7 @@ class OverlayService : LifecycleService() {
 
     override fun onDestroy() {
         isRunning = false
+        sessionManager.clear()
         serviceScope.cancel()
         overlayController.hideTimer()
         overlayController.hideSuggestionOverlay()
@@ -231,90 +219,17 @@ class OverlayService : LifecycleService() {
         nowMillis: Long,
         nowElapsed: Long
     ) {
-        // すでにメモリ上に状態がある（＝アプリ切り替えなどで戻ってきた）場合
-        val existingState = sessionStates[packageName]
-        if (existingState != null) {
-            val wasPaused = existingState.lastLeaveAtMillis != null
-            // 猶予中の終了ジョブをキャンセルし、前面復帰扱いに戻す
-            existingState.pendingEndJob?.cancel()
-            existingState.pendingEndJob = null
-            existingState.lastLeaveAtMillis = null
-            existingState.lastForegroundElapsedRealtime = nowElapsed
-            // DB に Pause → Resume イベントを記録
-            if (wasPaused) {
-                serviceScope.launch {
-                    try {
-                        sessionRepository.recordResume(
-                            packageName = packageName,
-                            resumedAtMillis = nowMillis
-                        )
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to record resume for $packageName", e)
-                    }
-                }
-            }
-            // オーバーレイ表示を再開
-            overlayPackage = packageName
-            serviceScope.launch(Dispatchers.Main) {
-                overlayController.showTimer(
-                    initialElapsedMillis = existingState.initialElapsedMillis,
-                    onPositionChanged = ::onOverlayPositionChanged
-                )
-            }
-            return
-        }
-        // ここから「新規セッション」または「再起動直後の復元」パス
-        val newState = RunningSessionState(
+        val initialElapsed = sessionManager.onEnterForeground(
             packageName = packageName,
-            initialElapsedMillis = 0L,
-            lastForegroundElapsedRealtime = nowElapsed,
-            pendingEndJob = null,
-            lastLeaveAtMillis = null,
-            suggestionDisabledForThisSession = false,
-        )
-        sessionStates[packageName] = newState
-        serviceScope.launch {
-            try {
-                // まず active セッションの最後のイベント種別を取得
-                val lastEventType = sessionRepository.getLastEventTypeForActiveSession(packageName)
-                val hadActiveSession = lastEventType != null
-                // active セッションがある場合のみ、DB から経過時間を復元
-                val restoredDuration = if (hadActiveSession) {
-                    sessionRepository.getActiveSessionDuration(
-                        packageName = packageName,
-                        nowMillis = nowMillis
-                    )
-                } else {
-                    null
-                }
-                newState.initialElapsedMillis = restoredDuration ?: 0L
-                // active セッションがなければ新規開始、
-                // あれば startSession 側が既存セッションをそのまま返す想定
-                sessionRepository.startSession(
-                    packageName = packageName,
-                    startedAtMillis = nowMillis
-                )
-                // 「最後のイベントが Pause で止まっていた」場合のみ Resume を打つ
-                if (lastEventType == SessionEventType.Pause) {
-                    try {
-                        sessionRepository.recordResume(
-                            packageName = packageName,
-                            resumedAtMillis = nowMillis
-                        )
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to record resume(after restore) for $packageName", e)
-                    }
-                }
-                overlayPackage = packageName
-                withContext(Dispatchers.Main) {
-                    overlayController.showTimer(
-                        initialElapsedMillis = newState.initialElapsedMillis,
-                        onPositionChanged = ::onOverlayPositionChanged
-                    )
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to start/restore session for $packageName", e)
-            }
+            nowMillis = nowMillis,
+            nowElapsedRealtime = nowElapsed
+        ) ?: return
+        overlayPackage = packageName
+        serviceScope.launch(Dispatchers.Main) {
+            overlayController.showTimer(
+                initialElapsedMillis = initialElapsed,
+                onPositionChanged = ::onOverlayPositionChanged
+            )
         }
     }
 
@@ -323,29 +238,7 @@ class OverlayService : LifecycleService() {
         nowMillis: Long,
         nowElapsed: Long
     ) {
-        val state = sessionStates[packageName] ?: return
-        // 「前面にいた時間」を RunningSessionState に反映
-        state.lastForegroundElapsedRealtime?.let { startElapsed ->
-            val delta = nowElapsed - startElapsed
-            if (delta > 0L) {
-                // ここで initialElapsedMillis に累積する
-                state.initialElapsedMillis += delta
-            }
-        }
-        state.lastForegroundElapsedRealtime = null
-        state.lastLeaveAtMillis = nowMillis
-        // 中断イベント
-        serviceScope.launch {
-            try {
-                sessionRepository.recordPause(
-                    packageName = packageName,
-                    pausedAtMillis = nowMillis
-                )
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to record pause for $packageName", e)
-            }
-        }
-        // オーバーレイ停止
+        // 先にオーバーレイを閉じる
         if (overlayPackage == packageName) {
             overlayPackage = null
             serviceScope.launch(Dispatchers.Main) {
@@ -354,10 +247,15 @@ class OverlayService : LifecycleService() {
                 clearSuggestionOverlayState()
             }
         }
-        // 猶予タイマー開始
-        startGraceTimerFor(state)
+        // セッション管理は SessionManager に委譲
+        val grace = overlaySettings.gracePeriodMillis
+        sessionManager.onLeaveForeground(
+            packageName = packageName,
+            nowMillis = nowMillis,
+            nowElapsedRealtime = nowElapsed,
+            gracePeriodMillis = grace
+        )
     }
-
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun startMonitoring() {
@@ -438,44 +336,6 @@ class OverlayService : LifecycleService() {
         }
     }
 
-
-    private fun startGraceTimerFor(
-        state: RunningSessionState
-    ) {
-        state.pendingEndJob?.cancel()
-        val packageName = state.packageName
-        state.pendingEndJob = serviceScope.launch {
-            var ended = false
-            try {
-                val leaveAt = state.lastLeaveAtMillis ?: timeSource.nowMillis()
-                val grace = overlaySettings.gracePeriodMillis
-                val targetEndOfGrace = leaveAt + grace
-                val now = timeSource.nowMillis()
-                val delayMillis = (targetEndOfGrace - now).coerceAtLeast(0L)
-                delay(delayMillis)
-                Log.d(TAG, "Grace expired for $packageName, ending session")
-                // 終了時刻は「離脱した瞬間」で OK（startedAtMillis との大小比較も不要）
-                val endedAt = leaveAt
-                sessionRepository.endActiveSession(
-                    packageName = packageName,
-                    endedAtMillis = endedAt
-                )
-                ended = true
-            } catch (_: CancellationException) {
-                Log.d(TAG, "Grace canceled for $packageName")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error in grace timer for $packageName", e)
-            } finally {
-                state.pendingEndJob = null
-                state.lastLeaveAtMillis = null
-                if (ended) {
-                    sessionStates.remove(packageName)
-                }
-            }
-        }
-    }
-
-
     private fun registerScreenReceiver() {
         if (screenReceiverRegistered) return
 
@@ -538,20 +398,6 @@ class OverlayService : LifecycleService() {
         return sdf.format(Date(nowMillis)).toInt()
     }
 
-    // RunningSessionState から「今この瞬間の連続使用時間」を計算
-    private fun computeElapsedForState(
-        state: RunningSessionState,
-        nowElapsedRealtime: Long
-    ): Long {
-        val base = state.initialElapsedMillis
-        val lastStart = state.lastForegroundElapsedRealtime
-        return if (lastStart != null) {
-            base + (nowElapsedRealtime - lastStart).coerceAtLeast(0L)
-        } else {
-            base
-        }
-    }
-
     private fun suggestionTriggerThresholdMillis(settings: OverlaySettings): Long {
         if (!settings.suggestionEnabled) {
             // 提案オフ
@@ -603,8 +449,7 @@ class OverlayService : LifecycleService() {
     private fun handleSuggestionDisableThisSession() {
         clearSuggestionOverlayState()
         val packageName = overlayPackage ?: return
-        val state = sessionStates[packageName] ?: return
-        state.suggestionDisabledForThisSession = true
+        sessionManager.markSuggestionDisabledForThisSession(packageName)
         Log.d(TAG, "Suggestion disabled for this session: $packageName")
     }
 
@@ -614,30 +459,26 @@ class OverlayService : LifecycleService() {
         nowMillis: Long,
         nowElapsedRealtime: Long
     ) {
-        // 提案自体が OFF なら何もしない
-        if (!overlaySettings.suggestionEnabled) return
-        val state = sessionStates[packageName] ?: return
-        // すでにカードを表示中なら新しいカードは出さない
-        if (isSuggestionOverlayShown) return
-        // このセッションではもう出さない設定なら終了
-        if (state.suggestionDisabledForThisSession) return
-        // グローバルクールダウン中なら終了
-        val snoozedUntil = suggestionSnoozedUntilMillis
-        if (snoozedUntil != null && nowMillis < snoozedUntil) return
-        // セッション全体での連続利用時間を算出
-        val elapsed = computeElapsedForState(state, nowElapsedRealtime)
-        val triggerMs = suggestionTriggerThresholdMillis(overlaySettings)
-        if (triggerMs == Long.MAX_VALUE) return
-        if (elapsed < triggerMs) return
-        // 前面安定時間（復帰直後でないこと）チェック
-        val lastFg = state.lastForegroundElapsedRealtime
-        val sinceForegroundMs = if (lastFg != null) {
-            (nowElapsedRealtime - lastFg).coerceAtLeast(0L)
-        } else {
-            0L
+        val elapsed = sessionManager.computeElapsedFor(
+            packageName = packageName,
+            nowElapsedRealtime = nowElapsedRealtime
+        ) ?: return
+        val sinceForegroundMs = sessionManager.sinceForegroundMillis(
+            packageName = packageName,
+            nowElapsedRealtime = nowElapsedRealtime
+        )
+        val input = SuggestionEngine.Input(
+            elapsedMillis = elapsed,
+            sinceForegroundMillis = sinceForegroundMs,
+            settings = overlaySettings,
+            nowMillis = nowMillis,
+            snoozedUntilMillis = suggestionSnoozedUntilMillis,
+            isOverlayShown = isSuggestionOverlayShown,
+            disabledForThisSession = sessionManager.isSuggestionDisabledForThisSession(packageName),
+            )
+        if (!suggestionEngine.shouldShow(input)) {
+            return
         }
-        val stableMs = suggestionForegroundStableThresholdMillis(overlaySettings)
-        if (sinceForegroundMs < stableMs) return
         // ここまで来たら「何かしら提案してよい条件」は満たしている
         serviceScope.launch {
             try {
@@ -651,7 +492,6 @@ class OverlayService : LifecycleService() {
                 // 表示タイトルを決める
                 val title = suggestion?.title ?: "少し休憩しませんか？"
                 withContext(Dispatchers.Main) {
-                    lastSuggestionShownAtMillis = nowMillis
                     isSuggestionOverlayShown = true
                     overlayController.showSuggestionOverlay(
                         title = title,

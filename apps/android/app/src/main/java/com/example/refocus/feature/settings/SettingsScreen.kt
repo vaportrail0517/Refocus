@@ -44,13 +44,6 @@ fun SettingsScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var usageGranted by remember { mutableStateOf(PermissionHelper.hasUsageAccess(context)) }
     var overlayGranted by remember { mutableStateOf(PermissionHelper.hasOverlayPermission(context)) }
-    var notificationGranted by remember {
-        mutableStateOf(
-            PermissionHelper.hasNotificationPermission(
-                context
-            )
-        )
-    }
     var activeDialog by remember { mutableStateOf<SettingsDialog?>(null) }
     var fontRange by remember(
         uiState.overlaySettings.minFontSizeSp,
@@ -68,7 +61,6 @@ fun SettingsScreen(
             if (event == Lifecycle.Event.ON_RESUME) {
                 usageGranted = PermissionHelper.hasUsageAccess(context)
                 overlayGranted = PermissionHelper.hasOverlayPermission(context)
-                notificationGranted = PermissionHelper.hasNotificationPermission(context)
                 isServiceRunning = OverlayService.isRunning
             }
         }
@@ -196,14 +188,6 @@ fun SettingsScreen(
                     activeDialog = SettingsDialog.Grace
                 }
             )
-//            val pollingMs = uiState.overlaySettings.pollingIntervalMillis
-//            SettingRow(
-//                title = "監視間隔",
-//                subtitle = "$pollingMs ms（アプリ切り替えの検出頻度）",
-//                onClick = {
-//                    activeDialog = SettingsDialog.Polling
-//                }
-//            )
             SettingRow(
                 title = "フォントサイズ",
                 subtitle = "最小 ${uiState.overlaySettings.minFontSizeSp} sp / 最大 ${uiState.overlaySettings.maxFontSizeSp} sp",
