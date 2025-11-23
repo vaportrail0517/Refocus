@@ -27,10 +27,12 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.refocus.core.model.OverlaySettingsConfig.FontPreset
 import com.example.refocus.core.model.OverlaySettingsConfig.GracePreset
+import com.example.refocus.core.model.OverlaySettingsConfig.SuggestionCooldownPreset
 import com.example.refocus.core.model.OverlaySettingsConfig.SuggestionTriggerPreset
 import com.example.refocus.core.model.OverlaySettingsConfig.TimeToMaxPreset
 import com.example.refocus.core.model.OverlaySettingsConfig.fontPresetOrNull
 import com.example.refocus.core.model.OverlaySettingsConfig.gracePresetOrNull
+import com.example.refocus.core.model.OverlaySettingsConfig.suggestionCooldownPresetOrNull
 import com.example.refocus.core.model.OverlaySettingsConfig.suggestionTriggerPresetOrNull
 import com.example.refocus.core.model.OverlaySettingsConfig.timeToMaxPresetOrNull
 import com.example.refocus.core.model.OverlayTouchMode
@@ -365,22 +367,35 @@ private fun BasicSettingsContent(
     // --- タイマー（プリセット） ---
     SectionCard(title = "タイマー") {
         val fontPreset = settings.fontPresetOrNull()
+        val fontSubtitle = buildString {
+            append("現在: 最小 ")
+            append(settings.minFontSizeSp.toInt())
+            append("sp / 最大 ")
+            append(settings.maxFontSizeSp.toInt())
+            append("sp")
+
+            append("（")
+            append(
+                when (fontPreset) {
+                    FontPreset.Small -> "プリセット: 小さめ"
+                    FontPreset.Medium -> "プリセット: 普通"
+                    FontPreset.Large -> "プリセット: 大きめ"
+                    null -> "カスタム"
+                }
+            )
+            append("）")
+        }
         OptionButtonsRow(
-            title = "タイマーの文字サイズ",
-            subtitle = when (fontPreset) {
-                FontPreset.Small -> "小さめ"
-                FontPreset.Medium -> "ふつう"
-                FontPreset.Large -> "大きめ"
-                null -> "カスタム（詳細設定で調整されています）"
-            },
-            optionLabels = listOf("小さめ", "ふつう", "大きめ"),
+            title = "文字サイズ",
+            subtitle = fontSubtitle,
+            optionLabels = listOf("小さめ", "普通", "大きめ"),
             selectedIndex = when (fontPreset) {
                 FontPreset.Small -> 0
                 FontPreset.Medium -> 1
                 FontPreset.Large -> 2
-                null -> null          // ← プリセットに合わない → どれも選ばれない
+                null -> null
             },
-            onSelectIndex = { idx: Int ->
+            onSelectIndex = { idx ->
                 when (idx) {
                     0 -> viewModel.applyFontPreset(FontPreset.Small)
                     1 -> viewModel.applyFontPreset(FontPreset.Medium)
@@ -390,22 +405,33 @@ private fun BasicSettingsContent(
         )
 
         val timePreset = settings.timeToMaxPresetOrNull()
+        val timeSubtitle = buildString {
+            append("現在: ")
+            append(settings.timeToMaxMinutes)
+            append("分で最大サイズになる")
+
+            append("（")
+            append(
+                when (timePreset) {
+                    TimeToMaxPreset.Slow -> "プリセット: 遅め"
+                    TimeToMaxPreset.Normal -> "プリセット: 普通"
+                    TimeToMaxPreset.Fast -> "プリセット: 早め"
+                    null -> "カスタム"
+                }
+            )
+            append("）")
+        }
         OptionButtonsRow(
-            title = "タイマーが最大サイズになるまでの時間",
-            subtitle = when (timePreset) {
-                TimeToMaxPreset.Slow -> "遅め（約45分）"
-                TimeToMaxPreset.Normal -> "ふつう（約30分）"
-                TimeToMaxPreset.Fast -> "早め（約15分）"
-                null -> "カスタム（詳細設定で調整されています）"
-            },
-            optionLabels = listOf("遅め", "ふつう", "早め"),
+            title = "最大サイズになるまでの時間",
+            subtitle = timeSubtitle,
+            optionLabels = listOf("遅め", "普通", "早め"),
             selectedIndex = when (timePreset) {
                 TimeToMaxPreset.Slow -> 0
                 TimeToMaxPreset.Normal -> 1
                 TimeToMaxPreset.Fast -> 2
                 null -> null
             },
-            onSelectIndex = { idx: Int ->
+            onSelectIndex = { idx ->
                 when (idx) {
                     0 -> viewModel.applyTimeToMaxPreset(TimeToMaxPreset.Slow)
                     1 -> viewModel.applyTimeToMaxPreset(TimeToMaxPreset.Normal)
@@ -415,22 +441,32 @@ private fun BasicSettingsContent(
         )
 
         val gracePreset = settings.gracePresetOrNull()
+        val graceSubtitle = buildString {
+            append("現在: ")
+            append(formatDurationMillis(settings.gracePeriodMillis))
+            append("以内の切り替えを同じセッションとして扱う")
+            append("（")
+            append(
+                when (gracePreset) {
+                    GracePreset.Short -> "プリセット: 短め"
+                    GracePreset.Normal -> "プリセット: 普通"
+                    GracePreset.Long -> "プリセット: 長め"
+                    null -> "カスタム"
+                }
+            )
+            append("）")
+        }
         OptionButtonsRow(
             title = "一時的なアプリ切り替え",
-            subtitle = when (gracePreset) {
-                GracePreset.Short -> "短め（約30秒）"
-                GracePreset.Normal -> "ふつう（約60秒）"
-                GracePreset.Long -> "長め（約3分）"
-                null -> "カスタム（詳細設定で調整されています）"
-            },
-            optionLabels = listOf("短め", "ふつう", "長め"),
+            subtitle = graceSubtitle,
+            optionLabels = listOf("短め", "普通", "長め"),
             selectedIndex = when (gracePreset) {
                 GracePreset.Short -> 0
                 GracePreset.Normal -> 1
                 GracePreset.Long -> 2
                 null -> null
             },
-            onSelectIndex = { idx: Int ->
+            onSelectIndex = { idx ->
                 when (idx) {
                     0 -> viewModel.applyGracePreset(GracePreset.Short)
                     1 -> viewModel.applyGracePreset(GracePreset.Normal)
@@ -441,14 +477,14 @@ private fun BasicSettingsContent(
     }
 
     // --- 提案（簡易） ---
-    SectionCard(title = "やりたいこと・休憩の提案") {
+    SectionCard(title = "提案") {
         val suggestionEnabled = settings.suggestionEnabled
         val restSuggestionEnabled = settings.restSuggestionEnabled
 
         SettingRow(
-            title = "「やりたいこと」や休憩の提案",
+            title = "やりたいことの提案",
             subtitle = if (suggestionEnabled) {
-                "オン：一定時間使いすぎているときに、「やりたいこと」や休憩をそっと提案します。"
+                "オン：一定時間使いすぎているときに、「やりたいこと」や休憩を提案します。"
             } else {
                 "オフ：提案カードは表示されません。"
             },
@@ -462,13 +498,13 @@ private fun BasicSettingsContent(
         )
 
         SettingRow(
-            title = "やりたいことが無いときは休憩を提案",
+            title = "休憩を提案",
             subtitle = when {
                 !suggestionEnabled ->
                     "提案が無効になっています。"
 
                 restSuggestionEnabled ->
-                    "オン：やりたいことが未登録のとき、「少し休憩しませんか？」を提案します。"
+                    "オン：やりたいことが未登録のとき、休憩を提案します。"
 
                 else ->
                     "オフ：やりたいことが未登録のときは提案しません。"
@@ -490,29 +526,82 @@ private fun BasicSettingsContent(
         )
 
         val trigPreset = settings.suggestionTriggerPresetOrNull()
+        val trigSubtitle = buildString {
+            append("現在: ")
+            append(formatDurationSeconds(settings.suggestionTriggerSeconds))
+            append("以上経過したら提案を行う")
+            append("（")
+            append(
+                when (trigPreset) {
+                    SuggestionTriggerPreset.TIME1,
+                    SuggestionTriggerPreset.TIME2,
+                    SuggestionTriggerPreset.TIME3,
+                    SuggestionTriggerPreset.TIME4 -> "プリセット"
+
+                    null -> "カスタム"
+                }
+            )
+            append("）")
+        }
         OptionButtonsRow(
-            title = "提案を出し始めるまでの時間",
-            subtitle = when (trigPreset) {
-                SuggestionTriggerPreset.Min10 -> "約10分連続で使ったとき"
-                SuggestionTriggerPreset.Min15 -> "約15分連続で使ったとき"
-                SuggestionTriggerPreset.Min30 -> "約30分連続で使ったとき"
-                SuggestionTriggerPreset.Min60 -> "約60分連続で使ったとき"
-                null -> "カスタム（詳細設定で調整されています）"
+            title = "提案を始める時間",
+            subtitle = trigSubtitle,
+            optionLabels = listOf(
+                SuggestionTriggerPreset.TIME1,
+                SuggestionTriggerPreset.TIME2,
+                SuggestionTriggerPreset.TIME3,
+                SuggestionTriggerPreset.TIME4
+            ).map {
+                formatDurationSeconds(it.seconds)
             },
-            optionLabels = listOf("10分", "15分", "30分", "60分"),
             selectedIndex = when (trigPreset) {
-                SuggestionTriggerPreset.Min10 -> 0
-                SuggestionTriggerPreset.Min15 -> 1
-                SuggestionTriggerPreset.Min30 -> 2
-                SuggestionTriggerPreset.Min60 -> 3
+                SuggestionTriggerPreset.TIME1 -> 0
+                SuggestionTriggerPreset.TIME2 -> 1
+                SuggestionTriggerPreset.TIME3 -> 2
+                SuggestionTriggerPreset.TIME4 -> 3
                 null -> null
             },
             onSelectIndex = { idx: Int ->
                 when (idx) {
-                    0 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.Min10)
-                    1 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.Min15)
-                    2 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.Min30)
-                    3 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.Min60)
+                    0 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.TIME1)
+                    1 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.TIME2)
+                    2 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.TIME3)
+                    3 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.TIME4)
+                }
+            }
+        )
+        val cooldownPreset = settings.suggestionCooldownPresetOrNull()
+        val cooldownSubtitle = buildString {
+            append("現在: ")
+            append(formatDurationSeconds(settings.suggestionCooldownSeconds))
+            append("以上経過したら再び提案を行う")
+
+            append("（")
+            append(
+                when (cooldownPreset) {
+                    SuggestionCooldownPreset.Infrequent -> "プリセット: 低い"
+                    SuggestionCooldownPreset.Normal -> "プリセット: 普通"
+                    SuggestionCooldownPreset.Frequent -> "プリセット: 高い"
+                    null -> "カスタム"
+                }
+            )
+            append("）")
+        }
+        OptionButtonsRow(
+            title = "提案を再び表示する頻度",
+            subtitle = cooldownSubtitle,
+            optionLabels = listOf("低い", "普通", "高い"),
+            selectedIndex = when (cooldownPreset) {
+                SuggestionCooldownPreset.Infrequent -> 0
+                SuggestionCooldownPreset.Normal -> 1
+                SuggestionCooldownPreset.Frequent -> 2
+                null -> null
+            },
+            onSelectIndex = { idx ->
+                when (idx) {
+                    0 -> viewModel.applySuggestionCooldownPreset(SuggestionCooldownPreset.Infrequent)
+                    1 -> viewModel.applySuggestionCooldownPreset(SuggestionCooldownPreset.Normal)
+                    2 -> viewModel.applySuggestionCooldownPreset(SuggestionCooldownPreset.Frequent)
                 }
             }
         )
@@ -631,24 +720,31 @@ private fun AdvancedSettingsContent(
 
     SectionCard(title = "提案の詳細") {
         SettingRow(
+            title = "セッションが開始してから提案を出し始めるまでの時間",
+            subtitle = "${formatDurationSeconds(settings.suggestionTriggerSeconds)} 以上経過してから提案します。",
+            onClick = {
+                // 将来: suggestionTriggerSeconds 用ダイアログを追加する
+            },
+        )
+        SettingRow(
+            title = "提案を出すために必要な対象アプリが連続で開かれている最小時間",
+            subtitle = "${formatDurationSeconds(settings.suggestionForegroundStableSeconds)} 以上経過してから提案します。",
+            onClick = {
+                // 将来: suggestionForegroundStable 用ダイアログを追加する
+            },
+        )
+        SettingRow(
             title = "提案カードを閉じるまでの時間",
-            subtitle = "${settings.suggestionTimeoutSeconds} 秒後に自動で閉じます。",
+            subtitle = "${formatDurationSeconds(settings.suggestionTimeoutSeconds)} 後に自動で閉じます。",
             onClick = {
                 // 将来: suggestionTimeout 用ダイアログを追加する
             },
         )
         SettingRow(
             title = "次の提案までの待ち時間",
-            subtitle = "${settings.suggestionCooldownSeconds} 秒待ってから次の提案を出します。",
+            subtitle = "${formatDurationSeconds(settings.suggestionCooldownSeconds)} 待ってから次の提案を出します。",
             onClick = {
                 // 将来: suggestionCooldown 用ダイアログを追加する
-            },
-        )
-        SettingRow(
-            title = "前面が安定してから提案するまでの時間",
-            subtitle = "${settings.suggestionForegroundStableSeconds} 秒以上経過してから提案します。",
-            onClick = {
-                // 将来: suggestionForegroundStable 用ダイアログを追加する
             },
         )
         SettingRow(

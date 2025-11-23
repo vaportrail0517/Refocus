@@ -26,7 +26,7 @@ object OverlaySettingsConfig {
         const val TIME_TO_MAX_MINUTES: Int = 30
         const val POSITION_X: Int = 24
         const val POSITION_Y: Int = 120
-        val TOUCH_MODE: OverlayTouchMode = OverlayTouchMode.Drag
+        val TOUCH_MODE: OverlayTouchMode = OverlayTouchMode.PassThrough
 
         // --- 起動・有効/無効 ---
         const val OVERLAY_ENABLED: Boolean = true
@@ -34,10 +34,10 @@ object OverlaySettingsConfig {
 
         // --- 提案機能 ---
         const val SUGGESTION_ENABLED: Boolean = true
-        const val SUGGESTION_TRIGGER_SECONDS: Int = 30
+        const val SUGGESTION_TRIGGER_SECONDS: Int = 15 * 60
         const val SUGGESTION_TIMEOUT_SECONDS: Int = 8
-        const val SUGGESTION_COOLDOWN_SECONDS: Int = 30
-        const val SUGGESTION_FOREGROUND_STABLE_SECONDS: Int = 20
+        const val SUGGESTION_COOLDOWN_SECONDS: Int = 20 * 60
+        const val SUGGESTION_FOREGROUND_STABLE_SECONDS: Int = 5 * 60
         const val REST_SUGGESTION_ENABLED: Boolean = true
         const val SUGGESTION_INTERACTION_LOCKOUT_MS: Long = 400L
     }
@@ -71,11 +71,11 @@ object OverlaySettingsConfig {
      * 数値は現状の SettingsPresets.debug から移植。
      */
     val Debug: OverlaySettings = OverlaySettings(
-        gracePeriodMillis = 5_000L,       // 5秒でセッション途切れ判定
-        pollingIntervalMillis = 250L,     // 250ms ごとに前面アプリチェック
-        minFontSizeSp = 14f,
-        maxFontSizeSp = 50f,
-        timeToMaxMinutes = 5,             // 5分で最大サイズに到達
+        gracePeriodMillis = 30_000L,       // 5秒でセッション途切れ判定
+        pollingIntervalMillis = 500L,     // 250ms ごとに前面アプリチェック
+        minFontSizeSp = 32f,
+        maxFontSizeSp = 96f,
+        timeToMaxMinutes = 2,             // 5分で最大サイズに到達
 
         // 起動系はユーザ選好なので Defaults をそのまま使う
         overlayEnabled = Defaults.OVERLAY_ENABLED,
@@ -87,12 +87,12 @@ object OverlaySettingsConfig {
 
         // 提案周りは「体感しやすい値」に寄せる
         suggestionEnabled = true,
-        suggestionTriggerSeconds = 10,    // 10秒で提案発火
-        suggestionTimeoutSeconds = 3,
-        suggestionCooldownSeconds = 5,
-        suggestionForegroundStableSeconds = 3,
+        suggestionTriggerSeconds = 30,    // 10秒で提案発火
+        suggestionTimeoutSeconds = 8,
+        suggestionCooldownSeconds = 30,
+        suggestionForegroundStableSeconds = 20,
         restSuggestionEnabled = true,
-        suggestionInteractionLockoutMillis = 200L,
+        suggestionInteractionLockoutMillis = 400L,
     )
 
     // ----------------------------------------------------------------
@@ -112,29 +112,37 @@ object OverlaySettingsConfig {
     enum class TimeToMaxPreset { Slow, Normal, Fast }
 
     private val TIME_TO_MAX_PRESETS: Map<TimeToMaxPreset, Int> = mapOf(
-        TimeToMaxPreset.Slow to 45,  // 分
-        TimeToMaxPreset.Normal to 30,
         TimeToMaxPreset.Fast to 15,
+        TimeToMaxPreset.Normal to 30,
+        TimeToMaxPreset.Slow to 45,  // 分
     )
 
     // グレース期間プリセット
     enum class GracePreset { Short, Normal, Long }
 
     private val GRACE_PRESETS: Map<GracePreset, Long> = mapOf(
-        GracePreset.Short to 30_000L,
-        GracePreset.Normal to 60_000L,
-        GracePreset.Long to 180_000L,
+        GracePreset.Short to 60_000L,
+        GracePreset.Normal to 300_000L,
+        GracePreset.Long to 600_000L,
     )
 
     // 提案トリガ時間プリセット
-    enum class SuggestionTriggerPreset { Min10, Min15, Min30, Min60 }
+    enum class SuggestionTriggerPreset(val seconds: Int) {
+        TIME1(10 * 60),
+        TIME2(15 * 60),
+        TIME3(30 * 60),
+        TIME4(60 * 60),
+    }
 
-    private val SUGGESTION_TRIGGER_PRESETS: Map<SuggestionTriggerPreset, Int> = mapOf(
-        SuggestionTriggerPreset.Min10 to 10 * 60,
-        SuggestionTriggerPreset.Min15 to 15 * 60,
-        SuggestionTriggerPreset.Min30 to 30 * 60,
-        SuggestionTriggerPreset.Min60 to 60 * 60,
-    )
+    // 提案の「クールダウン」頻度プリセット
+    // Infrequent: あまり出さない（クールダウン長い）
+    // Normal:     ふつう
+    // Frequent:   頻繁に出す（クールダウン短い）
+    enum class SuggestionCooldownPreset(val seconds: Int) {
+        Infrequent(30 * 60), // 30分
+        Normal(20 * 60),     // 20分
+        Frequent(10 * 60),    // 10分
+    }
 
     // ----------------------------------------------------------
     // 3. OverlaySettings に対するプリセット適用 / 判定 helper
@@ -177,13 +185,22 @@ object OverlaySettingsConfig {
     }
 
     fun OverlaySettings.withSuggestionTriggerPreset(preset: SuggestionTriggerPreset): OverlaySettings {
-        val seconds = SUGGESTION_TRIGGER_PRESETS[preset]!!
-        return copy(suggestionTriggerSeconds = seconds)
+        return copy(suggestionTriggerSeconds = preset.seconds)
     }
 
     fun OverlaySettings.suggestionTriggerPresetOrNull(): SuggestionTriggerPreset? {
-        return SUGGESTION_TRIGGER_PRESETS.entries.firstOrNull { (_, seconds) ->
-            suggestionTriggerSeconds == seconds
-        }?.key
+        return SuggestionTriggerPreset.entries.firstOrNull { preset ->
+            preset.seconds == suggestionTriggerSeconds
+        }
+    }
+
+    fun OverlaySettings.withSuggestionCooldownPreset(preset: SuggestionCooldownPreset): OverlaySettings {
+        return copy(suggestionCooldownSeconds = preset.seconds)
+    }
+
+    fun OverlaySettings.suggestionCooldownPresetOrNull(): SuggestionCooldownPreset? {
+        return SuggestionCooldownPreset.entries.firstOrNull { preset ->
+            preset.seconds == suggestionCooldownSeconds
+        }
     }
 }

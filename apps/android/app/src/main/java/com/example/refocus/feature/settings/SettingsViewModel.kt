@@ -6,10 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.OverlaySettings
 import com.example.refocus.core.model.OverlaySettingsConfig.FontPreset
 import com.example.refocus.core.model.OverlaySettingsConfig.GracePreset
+import com.example.refocus.core.model.OverlaySettingsConfig.SuggestionCooldownPreset
 import com.example.refocus.core.model.OverlaySettingsConfig.SuggestionTriggerPreset
 import com.example.refocus.core.model.OverlaySettingsConfig.TimeToMaxPreset
 import com.example.refocus.core.model.OverlaySettingsConfig.withFontPreset
 import com.example.refocus.core.model.OverlaySettingsConfig.withGracePreset
+import com.example.refocus.core.model.OverlaySettingsConfig.withSuggestionCooldownPreset
 import com.example.refocus.core.model.OverlaySettingsConfig.withSuggestionTriggerPreset
 import com.example.refocus.core.model.OverlaySettingsConfig.withTimeToMaxPreset
 import com.example.refocus.core.model.OverlayTouchMode
@@ -187,6 +189,16 @@ class SettingsViewModel(
         viewModelScope.launch {
             settingsRepository.updateOverlaySettings { current ->
                 current.withSuggestionTriggerPreset(preset)
+            }
+            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
+        }
+    }
+
+    /** 次の提案までの待ち時間プリセットを適用（低い / 普通 / 高い） */
+    fun applySuggestionCooldownPreset(preset: SuggestionCooldownPreset) {
+        viewModelScope.launch {
+            settingsRepository.updateOverlaySettings { current ->
+                current.withSuggestionCooldownPreset(preset)
             }
             settingsRepository.setSettingsPreset(SettingsPreset.Custom)
         }

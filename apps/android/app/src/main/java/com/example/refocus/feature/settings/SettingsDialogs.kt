@@ -42,7 +42,7 @@ fun GraceTimeDialog(
     var sliderValue by remember(initialMillis) {
         mutableFloatStateOf(initialMillis.toFloat())
     }
-    val currentLabel = formatGraceTimeText(sliderValue.toLong())
+    val currentLabel = formatDurationMillis(sliderValue.toLong())
 
     AlertDialog(
         onDismissRequest = onDismiss,
