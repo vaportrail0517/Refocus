@@ -4,6 +4,14 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.OverlaySettings
+import com.example.refocus.core.model.OverlaySettingsConfig.FontPreset
+import com.example.refocus.core.model.OverlaySettingsConfig.GracePreset
+import com.example.refocus.core.model.OverlaySettingsConfig.SuggestionTriggerPreset
+import com.example.refocus.core.model.OverlaySettingsConfig.TimeToMaxPreset
+import com.example.refocus.core.model.OverlaySettingsConfig.withFontPreset
+import com.example.refocus.core.model.OverlaySettingsConfig.withGracePreset
+import com.example.refocus.core.model.OverlaySettingsConfig.withSuggestionTriggerPreset
+import com.example.refocus.core.model.OverlaySettingsConfig.withTimeToMaxPreset
 import com.example.refocus.core.model.OverlayTouchMode
 import com.example.refocus.core.model.SettingsPreset
 import com.example.refocus.data.repository.SettingsRepository
@@ -12,52 +20,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-
-// 基本設定用のプリセット種別（1項目ごとのプリセット状態）
-enum class FontPreset { Small, Medium, Large }
-enum class TimeToMaxPreset { Slow, Normal, Fast }
-enum class GracePreset { Short, Normal, Long }
-enum class SuggestionTriggerPreset { Min10, Min15, Min30, Min60 }
-
-// OverlaySettings から「どのプリセットにハマるか」を逆算する
-fun OverlaySettings.fontPresetOrNull(): FontPreset? {
-    val min = minFontSizeSp
-    val max = maxFontSizeSp
-    return when (min) {
-        10f if max == 30f -> FontPreset.Small
-        12f if max == 40f -> FontPreset.Medium
-        14f if max == 50f -> FontPreset.Large
-        else -> null
-    }
-}
-
-fun OverlaySettings.timeToMaxPresetOrNull(): TimeToMaxPreset? {
-    return when (timeToMaxMinutes) {
-        45 -> TimeToMaxPreset.Slow
-        30 -> TimeToMaxPreset.Normal
-        15 -> TimeToMaxPreset.Fast
-        else -> null
-    }
-}
-
-fun OverlaySettings.gracePresetOrNull(): GracePreset? {
-    return when (gracePeriodMillis) {
-        30_000L -> GracePreset.Short
-        60_000L -> GracePreset.Normal
-        180_000L -> GracePreset.Long
-        else -> null
-    }
-}
-
-fun OverlaySettings.suggestionTriggerPresetOrNull(): SuggestionTriggerPreset? {
-    return when (suggestionTriggerSeconds) {
-        10 * 60 -> SuggestionTriggerPreset.Min10
-        15 * 60 -> SuggestionTriggerPreset.Min15
-        30 * 60 -> SuggestionTriggerPreset.Min30
-        60 * 60 -> SuggestionTriggerPreset.Min60
-        else -> null
-    }
-}
 
 class SettingsViewModel(
     application: Application,
@@ -188,20 +150,13 @@ class SettingsViewModel(
         }
     }
 
-    // --- ここからプリセット用の helper ---
+    // --- ここからプリセット用の helper（数字は OverlaySettingsConfig に集約） ---
+
     /** タイマーの文字サイズプリセットを適用（Small / Medium / Large） */
     fun applyFontPreset(preset: FontPreset) {
         viewModelScope.launch {
             settingsRepository.updateOverlaySettings { current ->
-                val (min, max) = when (preset) {
-                    FontPreset.Small -> 10f to 30f
-                    FontPreset.Medium -> 12f to 40f
-                    FontPreset.Large -> 14f to 50f
-                }
-                current.copy(
-                    minFontSizeSp = min,
-                    maxFontSizeSp = max,
-                )
+                current.withFontPreset(preset)
             }
             settingsRepository.setSettingsPreset(SettingsPreset.Custom)
         }
@@ -210,13 +165,8 @@ class SettingsViewModel(
     /** タイマーが最大サイズになるまでの時間プリセットを適用（遅め / ふつう / 早め） */
     fun applyTimeToMaxPreset(preset: TimeToMaxPreset) {
         viewModelScope.launch {
-            val minutes = when (preset) {
-                TimeToMaxPreset.Slow -> 45
-                TimeToMaxPreset.Normal -> 30
-                TimeToMaxPreset.Fast -> 15
-            }
             settingsRepository.updateOverlaySettings { current ->
-                current.copy(timeToMaxMinutes = minutes)
+                current.withTimeToMaxPreset(preset)
             }
             settingsRepository.setSettingsPreset(SettingsPreset.Custom)
         }
@@ -225,13 +175,8 @@ class SettingsViewModel(
     /** グレース期間プリセットを適用（短め / ふつう / 長め） */
     fun applyGracePreset(preset: GracePreset) {
         viewModelScope.launch {
-            val millis = when (preset) {
-                GracePreset.Short -> 30_000L
-                GracePreset.Normal -> 60_000L
-                GracePreset.Long -> 180_000L
-            }
             settingsRepository.updateOverlaySettings { current ->
-                current.copy(gracePeriodMillis = millis)
+                current.withGracePreset(preset)
             }
             settingsRepository.setSettingsPreset(SettingsPreset.Custom)
         }
@@ -240,14 +185,8 @@ class SettingsViewModel(
     /** 提案トリガ時間プリセットを適用（10/15/30/60分） */
     fun applySuggestionTriggerPreset(preset: SuggestionTriggerPreset) {
         viewModelScope.launch {
-            val seconds = when (preset) {
-                SuggestionTriggerPreset.Min10 -> 10 * 60
-                SuggestionTriggerPreset.Min15 -> 15 * 60
-                SuggestionTriggerPreset.Min30 -> 30 * 60
-                SuggestionTriggerPreset.Min60 -> 60 * 60
-            }
             settingsRepository.updateOverlaySettings { current ->
-                current.copy(suggestionTriggerSeconds = seconds)
+                current.withSuggestionTriggerPreset(preset)
             }
             settingsRepository.setSettingsPreset(SettingsPreset.Custom)
         }

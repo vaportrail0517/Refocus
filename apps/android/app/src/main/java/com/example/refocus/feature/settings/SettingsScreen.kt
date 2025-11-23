@@ -25,6 +25,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.refocus.core.model.OverlaySettingsConfig.FontPreset
+import com.example.refocus.core.model.OverlaySettingsConfig.GracePreset
+import com.example.refocus.core.model.OverlaySettingsConfig.SuggestionTriggerPreset
+import com.example.refocus.core.model.OverlaySettingsConfig.TimeToMaxPreset
+import com.example.refocus.core.model.OverlaySettingsConfig.fontPresetOrNull
+import com.example.refocus.core.model.OverlaySettingsConfig.gracePresetOrNull
+import com.example.refocus.core.model.OverlaySettingsConfig.suggestionTriggerPresetOrNull
+import com.example.refocus.core.model.OverlaySettingsConfig.timeToMaxPresetOrNull
 import com.example.refocus.core.model.OverlayTouchMode
 import com.example.refocus.core.model.SettingsPreset
 import com.example.refocus.feature.overlay.OverlayService

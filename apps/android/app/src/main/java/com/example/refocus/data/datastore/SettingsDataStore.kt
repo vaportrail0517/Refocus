@@ -128,49 +128,52 @@ class SettingsDataStore(
 
     /**
      * Preferences -> OverlaySettings の変換を 1 箇所に集約。
-     * fallback はすべて OverlaySettings のデフォルトを見る。
+     * fallback はすべて OverlaySettings() のデフォルトを見る。
      */
     private fun Preferences.toOverlaySettings(): OverlaySettings {
-        val touchModeOrdinal = this[Keys.TOUCH_MODE] ?: 0
+        // OverlaySettings() のデフォルトは OverlaySettingsConfig.Defaults を参照している
+        val base = OverlaySettings()
+
+        val touchModeOrdinal = this[Keys.TOUCH_MODE] ?: base.touchMode.ordinal
         val touchMode = OverlayTouchMode.entries.getOrNull(touchModeOrdinal)
             ?: OverlayTouchMode.Drag
 
-        return OverlaySettings(
+        return base.copy(
             gracePeriodMillis = this[Keys.GRACE_PERIOD_MS]
-                ?: OverlaySettings.DEFAULT_GRACE_PERIOD_MILLIS,
+                ?: base.gracePeriodMillis,
             pollingIntervalMillis = this[Keys.POLLING_INTERVAL_MS]
-                ?: OverlaySettings.DEFAULT_POLLING_INTERVAL_MILLIS,
+                ?: base.pollingIntervalMillis,
             minFontSizeSp = this[Keys.MIN_FONT_SIZE_SP]
-                ?: OverlaySettings.DEFAULT_MIN_FONT_SIZE_SP,
+                ?: base.minFontSizeSp,
             maxFontSizeSp = this[Keys.MAX_FONT_SIZE_SP]
-                ?: OverlaySettings.DEFAULT_MAX_FONT_SIZE_SP,
+                ?: base.maxFontSizeSp,
             timeToMaxMinutes = this[Keys.TIME_TO_MAX_MINUTES]
-                ?: OverlaySettings.DEFAULT_TIME_TO_MAX_MINUTES,
+                ?: base.timeToMaxMinutes,
             overlayEnabled = this[Keys.OVERLAY_ENABLED]
-                ?: OverlaySettings.DEFAULT_OVERLAY_ENABLED,
+                ?: base.overlayEnabled,
             autoStartOnBoot = this[Keys.AUTO_START_ON_BOOT]
-                ?: OverlaySettings.DEFAULT_AUTO_START_ON_BOOT,
+                ?: base.autoStartOnBoot,
             positionX = this[Keys.POSITION_X]
-                ?: OverlaySettings.DEFAULT_POSITION_X,
+                ?: base.positionX,
             positionY = this[Keys.POSITION_Y]
-                ?: OverlaySettings.DEFAULT_POSITION_Y,
+                ?: base.positionY,
             touchMode = touchMode,
             suggestionEnabled = this[Keys.SUGGESTION_ENABLED]
-                ?: OverlaySettings.DEFAULT_SUGGESTION_ENABLED,
+                ?: base.suggestionEnabled,
             suggestionTriggerSeconds = this[Keys.SUGGESTION_TRIGGER_SECONDS]
-                ?: OverlaySettings.DEFAULT_SUGGESTION_TRIGGER_SECONDS,
+                ?: base.suggestionTriggerSeconds,
             suggestionTimeoutSeconds = this[Keys.SUGGESTION_TIMEOUT_SECONDS]
-                ?: OverlaySettings.DEFAULT_SUGGESTION_TIMEOUT_SECONDS,
+                ?: base.suggestionTimeoutSeconds,
             suggestionCooldownSeconds = this[Keys.SUGGESTION_SNOOZE_SECONDS]
-                ?: OverlaySettings.DEFAULT_SUGGESTION_COOLDOWN_SECONDS,
+                ?: base.suggestionCooldownSeconds,
             suggestionForegroundStableSeconds =
                 this[Keys.SUGGESTION_FOREGROUND_STABLE_SECONDS]
-                    ?: OverlaySettings.DEFAULT_SUGGESTION_FOREGROUND_STABLE_SECONDS,
+                    ?: base.suggestionForegroundStableSeconds,
             restSuggestionEnabled = this[Keys.REST_SUGGESTION_ENABLED]
-                ?: OverlaySettings.DEFAULT_REST_SUGGESTION_ENABLED,
+                ?: base.restSuggestionEnabled,
             suggestionInteractionLockoutMillis =
                 this[Keys.SUGGESTION_INTERACTION_LOCKOUT_MS]
-                    ?: OverlaySettings.DEFAULT_SUGGESTION_INTERACTION_LOCKOUT_MS,
+                    ?: base.suggestionInteractionLockoutMillis,
         )
     }
 }
