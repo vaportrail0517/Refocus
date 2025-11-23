@@ -1,4 +1,4 @@
-package com.example.refocus.feature.settings
+package com.example.refocus.core.util
 
 fun formatDurationMillis(millis: Long): String {
     if (millis <= 0L) return "なし"

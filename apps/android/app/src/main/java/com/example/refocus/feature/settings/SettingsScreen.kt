@@ -38,6 +38,8 @@ import com.example.refocus.core.model.OverlaySettingsConfig.suggestionTriggerPre
 import com.example.refocus.core.model.OverlaySettingsConfig.timeToMaxPresetOrNull
 import com.example.refocus.core.model.OverlayTouchMode
 import com.example.refocus.core.model.SettingsPreset
+import com.example.refocus.core.util.formatDurationMillis
+import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.feature.overlay.OverlayService
 import com.example.refocus.feature.overlay.startOverlayService
 import com.example.refocus.feature.overlay.stopOverlayService
