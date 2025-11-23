@@ -196,7 +196,7 @@ class OverlayController(
 
     fun showSuggestionOverlay(
         title: String,
-        mode: SuggestionOverlayMode,
+        mode: OverlaySuggestionMode,
         autoDismissMillis: Long,
         interactionLockoutMillis: Long,
         onSnoozeLater: () -> Unit,
@@ -225,7 +225,7 @@ class OverlayController(
             setViewTreeSavedStateRegistryOwner(savedStateOwner)
             setContent {
                 RefocusTheme {
-                    SuggestionOverlay(
+                    OverlaySuggestion(
                         title = title,
                         mode = mode,
                         autoDismissMillis = autoDismissMillis,

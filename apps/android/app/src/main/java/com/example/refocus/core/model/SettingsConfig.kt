@@ -87,10 +87,10 @@ object SettingsConfig {
 
         // 提案周りは「体感しやすい値」に寄せる
         suggestionEnabled = true,
-        suggestionTriggerSeconds = 30,    // 10秒で提案発火
+        suggestionTriggerSeconds = 20,
         suggestionTimeoutSeconds = 8,
-        suggestionCooldownSeconds = 30,
-        suggestionForegroundStableSeconds = 20,
+        suggestionCooldownSeconds = 50,
+        suggestionForegroundStableSeconds = 10,
         restSuggestionEnabled = true,
         suggestionInteractionLockoutMillis = 400L,
     )

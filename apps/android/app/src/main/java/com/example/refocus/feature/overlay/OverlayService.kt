@@ -512,9 +512,9 @@ class OverlayService : LifecycleService() {
                 }
                 // モードとタイトルを決定
                 val (title, mode) = if (suggestion != null) {
-                    suggestion.title to SuggestionOverlayMode.Goal
+                    suggestion.title to OverlaySuggestionMode.Goal
                 } else {
-                    "画面から少し離れて休憩する" to SuggestionOverlayMode.Rest
+                    "画面から少し離れて休憩する" to OverlaySuggestionMode.Rest
                 }
                 withContext(Dispatchers.Main) {
                     isSuggestionOverlayShown = true
