@@ -71,11 +71,11 @@ object OverlaySettingsConfig {
      * 数値は現状の SettingsPresets.debug から移植。
      */
     val Debug: OverlaySettings = OverlaySettings(
-        gracePeriodMillis = 30_000L,       // 5秒でセッション途切れ判定
-        pollingIntervalMillis = 500L,     // 250ms ごとに前面アプリチェック
+        gracePeriodMillis = 30_000L,
+        pollingIntervalMillis = 500L,
         minFontSizeSp = 32f,
         maxFontSizeSp = 96f,
-        timeToMaxMinutes = 2,             // 5分で最大サイズに到達
+        timeToMaxMinutes = 2,
 
         // 起動系はユーザ選好なので Defaults をそのまま使う
         overlayEnabled = Defaults.OVERLAY_ENABLED,
@@ -114,7 +114,7 @@ object OverlaySettingsConfig {
     private val TIME_TO_MAX_PRESETS: Map<TimeToMaxPreset, Int> = mapOf(
         TimeToMaxPreset.Fast to 15,
         TimeToMaxPreset.Normal to 30,
-        TimeToMaxPreset.Slow to 45,  // 分
+        TimeToMaxPreset.Slow to 45,
     )
 
     // グレース期間プリセット
@@ -128,10 +128,9 @@ object OverlaySettingsConfig {
 
     // 提案トリガ時間プリセット
     enum class SuggestionTriggerPreset(val seconds: Int) {
-        TIME1(10 * 60),
-        TIME2(15 * 60),
-        TIME3(30 * 60),
-        TIME4(60 * 60),
+        Short(10 * 60),
+        Normal(15 * 60),
+        Long(30 * 60),
     }
 
     // 提案の「クールダウン」頻度プリセット
@@ -139,9 +138,9 @@ object OverlaySettingsConfig {
     // Normal:     ふつう
     // Frequent:   頻繁に出す（クールダウン短い）
     enum class SuggestionCooldownPreset(val seconds: Int) {
-        Infrequent(30 * 60), // 30分
-        Normal(20 * 60),     // 20分
-        Frequent(10 * 60),    // 10分
+        Frequent(10 * 60),
+        Normal(20 * 60),
+        Infrequent(30 * 60),
     }
 
     // ----------------------------------------------------------

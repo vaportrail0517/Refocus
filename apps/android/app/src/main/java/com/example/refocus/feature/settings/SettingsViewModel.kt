@@ -184,7 +184,7 @@ class SettingsViewModel(
         }
     }
 
-    /** 提案トリガ時間プリセットを適用（10/15/30/60分） */
+    /** 提案トリガ時間プリセットを適用（10/15/30） */
     fun applySuggestionTriggerPreset(preset: SuggestionTriggerPreset) {
         viewModelScope.launch {
             settingsRepository.updateOverlaySettings { current ->

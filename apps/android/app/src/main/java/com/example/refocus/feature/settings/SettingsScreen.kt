@@ -407,9 +407,9 @@ private fun BasicSettingsContent(
             append("（")
             append(
                 when (fontPreset) {
-                    FontPreset.Small -> "プリセット: 小さめ"
+                    FontPreset.Small -> "プリセット: 小さい"
                     FontPreset.Medium -> "プリセット: 普通"
-                    FontPreset.Large -> "プリセット: 大きめ"
+                    FontPreset.Large -> "プリセット: 大きい"
                     null -> "カスタム"
                 }
             )
@@ -418,7 +418,7 @@ private fun BasicSettingsContent(
         OptionButtonsRow(
             title = "文字サイズ",
             subtitle = fontSubtitle,
-            optionLabels = listOf("小さめ", "普通", "大きめ"),
+            optionLabels = listOf("小さい", "普通", "大きい"),
             selectedIndex = when (fontPreset) {
                 FontPreset.Small -> 0
                 FontPreset.Medium -> 1
@@ -443,9 +443,9 @@ private fun BasicSettingsContent(
             append("（")
             append(
                 when (timePreset) {
-                    TimeToMaxPreset.Fast -> "プリセット: 早め"
+                    TimeToMaxPreset.Fast -> "プリセット: 早い"
                     TimeToMaxPreset.Normal -> "プリセット: 普通"
-                    TimeToMaxPreset.Slow -> "プリセット: 遅め"
+                    TimeToMaxPreset.Slow -> "プリセット: 遅い"
                     null -> "カスタム"
                 }
             )
@@ -454,7 +454,7 @@ private fun BasicSettingsContent(
         OptionButtonsRow(
             title = "最大サイズになるまでの時間",
             subtitle = timeSubtitle,
-            optionLabels = listOf("早め", "普通", "遅め"),
+            optionLabels = listOf("早い", "普通", "遅い"),
             selectedIndex = when (timePreset) {
                 TimeToMaxPreset.Fast -> 0
                 TimeToMaxPreset.Normal -> 1
@@ -478,9 +478,9 @@ private fun BasicSettingsContent(
             append("（")
             append(
                 when (gracePreset) {
-                    GracePreset.Short -> "プリセット: 短め"
+                    GracePreset.Short -> "プリセット: 短い"
                     GracePreset.Normal -> "プリセット: 普通"
-                    GracePreset.Long -> "プリセット: 長め"
+                    GracePreset.Long -> "プリセット: 長い"
                     null -> "カスタム"
                 }
             )
@@ -489,7 +489,7 @@ private fun BasicSettingsContent(
         OptionButtonsRow(
             title = "一時的なアプリ切り替え",
             subtitle = graceSubtitle,
-            optionLabels = listOf("短め", "普通", "長め"),
+            optionLabels = listOf("短い", "普通", "長い"),
             selectedIndex = when (gracePreset) {
                 GracePreset.Short -> 0
                 GracePreset.Normal -> 1
@@ -563,40 +563,29 @@ private fun BasicSettingsContent(
             append("（")
             append(
                 when (trigPreset) {
-                    SuggestionTriggerPreset.TIME1,
-                    SuggestionTriggerPreset.TIME2,
-                    SuggestionTriggerPreset.TIME3,
-                    SuggestionTriggerPreset.TIME4 -> "プリセット"
-
+                    SuggestionTriggerPreset.Short -> "プリセット: 短い"
+                    SuggestionTriggerPreset.Normal -> "プリセット: 普通"
+                    SuggestionTriggerPreset.Long -> "プリセット: 長い"
                     null -> "カスタム"
                 }
             )
             append("）")
         }
         OptionButtonsRow(
-            title = "提案を始める時間",
+            title = "初めに提案するまでの時間",
             subtitle = trigSubtitle,
-            optionLabels = listOf(
-                SuggestionTriggerPreset.TIME1,
-                SuggestionTriggerPreset.TIME2,
-                SuggestionTriggerPreset.TIME3,
-                SuggestionTriggerPreset.TIME4
-            ).map {
-                formatDurationSeconds(it.seconds)
-            },
+            optionLabels = listOf("短い", "普通", "長い"),
             selectedIndex = when (trigPreset) {
-                SuggestionTriggerPreset.TIME1 -> 0
-                SuggestionTriggerPreset.TIME2 -> 1
-                SuggestionTriggerPreset.TIME3 -> 2
-                SuggestionTriggerPreset.TIME4 -> 3
+                SuggestionTriggerPreset.Short -> 0
+                SuggestionTriggerPreset.Normal -> 1
+                SuggestionTriggerPreset.Long -> 2
                 null -> null
             },
             onSelectIndex = { idx: Int ->
                 when (idx) {
-                    0 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.TIME1)
-                    1 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.TIME2)
-                    2 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.TIME3)
-                    3 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.TIME4)
+                    0 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.Short)
+                    1 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.Normal)
+                    2 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.Long)
                 }
             }
         )
