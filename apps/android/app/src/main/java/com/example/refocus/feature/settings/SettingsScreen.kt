@@ -13,7 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.refocus.core.model.OverlaySettingsConfig.FontPreset
 import com.example.refocus.core.model.OverlaySettingsConfig.GracePreset
@@ -64,7 +65,7 @@ fun SettingsScreen(
     val viewModel: SettingsViewModel = viewModel(
         factory = SettingsViewModelFactory(app)
     )
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
     var usageGranted by remember { mutableStateOf(PermissionHelper.hasUsageAccess(context)) }
@@ -81,6 +82,16 @@ fun SettingsScreen(
     }
     var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
     val hasCorePermissions = usageGranted && overlayGranted
+
+    BackHandler(enabled = isAdvancedMode) {
+        isAdvancedMode = false
+    }
+
+    val scrollState = rememberScrollState()
+
+    LaunchedEffect(isAdvancedMode) {
+        scrollState.scrollTo(0)
+    }
 
     // 画面復帰時に権限状態を更新
     DisposableEffect(lifecycleOwner) {
@@ -110,14 +121,10 @@ fun SettingsScreen(
         }
     }
 
-    BackHandler(enabled = isAdvancedMode) {
-        isAdvancedMode = false
-    }
-
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -681,7 +688,7 @@ private fun AdvancedSettingsContent(
     val settings = uiState.overlaySettings
 
     // 一番上に「基本設定に戻る」行を置いておく（＋将来 AppBar を載せてもよい）
-    SectionCard(title = "詳細設定") {
+    SectionCard(title = "基本設定") {
         SettingRow(
             title = "基本設定にもどる",
             subtitle = "ふだん使い向けのシンプルな設定に戻ります。",
