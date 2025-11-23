@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.refocus.core.model.OverlaySettings
 import com.example.refocus.core.model.OverlayTouchMode
+import com.example.refocus.core.model.SettingsPreset
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -48,6 +49,9 @@ class SettingsDataStore(
         val REST_SUGGESTION_ENABLED = booleanPreferencesKey("rest_suggestion_enabled")
         val SUGGESTION_INTERACTION_LOCKOUT_MS =
             longPreferencesKey("suggestion_interaction_lockout_ms")
+
+        // --- 設定全体のプリセット種別 ---
+        val SETTINGS_PRESET = intPreferencesKey("settings_preset")
     }
 
     val settingsFlow: Flow<OverlaySettings> =
@@ -62,6 +66,23 @@ class SettingsDataStore(
             .map { prefs ->
                 prefs.toOverlaySettings()
             }
+
+    /**
+     * 現在のプリセット種別を流す Flow。
+     * 保存されていない場合は Default 扱いとする。
+     */
+    val presetFlow: Flow<SettingsPreset> = context.settingsDataStore.data
+        .catch { e ->
+            if (e is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw e
+            }
+        }
+        .map { prefs ->
+            val ordinal = prefs[Keys.SETTINGS_PRESET] ?: SettingsPreset.Default.ordinal
+            SettingsPreset.entries.getOrNull(ordinal) ?: SettingsPreset.Default
+        }
 
     suspend fun update(
         transform: (OverlaySettings) -> OverlaySettings
@@ -93,6 +114,15 @@ class SettingsDataStore(
             prefs[Keys.REST_SUGGESTION_ENABLED] = updated.restSuggestionEnabled
             prefs[Keys.SUGGESTION_INTERACTION_LOCKOUT_MS] =
                 updated.suggestionInteractionLockoutMillis
+        }
+    }
+
+    /**
+     * プリセット種別だけを更新する。
+     */
+    suspend fun setPreset(preset: SettingsPreset) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.SETTINGS_PRESET] = preset.ordinal
         }
     }
 
