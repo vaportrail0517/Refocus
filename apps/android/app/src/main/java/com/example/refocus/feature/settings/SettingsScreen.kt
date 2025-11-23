@@ -366,6 +366,29 @@ private fun BasicSettingsContent(
 
     // --- タイマー（プリセット） ---
     SectionCard(title = "タイマー") {
+        val dragEnabled = settings.touchMode == OverlayTouchMode.Drag
+        SettingRow(
+            title = "タイマーのタッチ操作",
+            subtitle = if (dragEnabled) {
+                "ドラッグで移動：タイマーをドラッグして位置を変えられます。"
+            } else {
+                "タップを透過：タイマーは固定され、タップは背面アプリに届きます。"
+            },
+            trailing = {
+                Switch(
+                    checked = dragEnabled,
+                    onCheckedChange = { isOn ->
+                        val mode = if (isOn) OverlayTouchMode.Drag else OverlayTouchMode.PassThrough
+                        viewModel.updateOverlayTouchMode(mode)
+                    }
+                )
+            },
+            onClick = {
+                val newMode =
+                    if (dragEnabled) OverlayTouchMode.PassThrough else OverlayTouchMode.Drag
+                viewModel.updateOverlayTouchMode(newMode)
+            },
+        )
         val fontPreset = settings.fontPresetOrNull()
         val fontSubtitle = buildString {
             append("現在: 最小 ")
@@ -413,9 +436,9 @@ private fun BasicSettingsContent(
             append("（")
             append(
                 when (timePreset) {
-                    TimeToMaxPreset.Slow -> "プリセット: 遅め"
-                    TimeToMaxPreset.Normal -> "プリセット: 普通"
                     TimeToMaxPreset.Fast -> "プリセット: 早め"
+                    TimeToMaxPreset.Normal -> "プリセット: 普通"
+                    TimeToMaxPreset.Slow -> "プリセット: 遅め"
                     null -> "カスタム"
                 }
             )
@@ -424,18 +447,18 @@ private fun BasicSettingsContent(
         OptionButtonsRow(
             title = "最大サイズになるまでの時間",
             subtitle = timeSubtitle,
-            optionLabels = listOf("遅め", "普通", "早め"),
+            optionLabels = listOf("早め", "普通", "遅め"),
             selectedIndex = when (timePreset) {
-                TimeToMaxPreset.Slow -> 0
+                TimeToMaxPreset.Fast -> 0
                 TimeToMaxPreset.Normal -> 1
-                TimeToMaxPreset.Fast -> 2
+                TimeToMaxPreset.Slow -> 2
                 null -> null
             },
             onSelectIndex = { idx ->
                 when (idx) {
-                    0 -> viewModel.applyTimeToMaxPreset(TimeToMaxPreset.Slow)
+                    0 -> viewModel.applyTimeToMaxPreset(TimeToMaxPreset.Fast)
                     1 -> viewModel.applyTimeToMaxPreset(TimeToMaxPreset.Normal)
-                    2 -> viewModel.applyTimeToMaxPreset(TimeToMaxPreset.Fast)
+                    2 -> viewModel.applyTimeToMaxPreset(TimeToMaxPreset.Slow)
                 }
             }
         )
@@ -689,32 +712,6 @@ private fun AdvancedSettingsContent(
             title = "最大サイズになるまでの時間",
             subtitle = "${settings.timeToMaxMinutes} 分",
             onClick = onOpenTimeToMaxDialog,
-        )
-    }
-
-    SectionCard(title = "タイマーのタッチ操作") {
-        val dragEnabled = settings.touchMode == OverlayTouchMode.Drag
-        SettingRow(
-            title = "タイマーのタッチ操作",
-            subtitle = if (dragEnabled) {
-                "ドラッグで移動：タイマーをドラッグして位置を変えられます。"
-            } else {
-                "タップを透過：タイマーは固定され、タップは背面アプリに届きます。"
-            },
-            trailing = {
-                Switch(
-                    checked = dragEnabled,
-                    onCheckedChange = { isOn ->
-                        val mode = if (isOn) OverlayTouchMode.Drag else OverlayTouchMode.PassThrough
-                        viewModel.updateOverlayTouchMode(mode)
-                    }
-                )
-            },
-            onClick = {
-                val newMode =
-                    if (dragEnabled) OverlayTouchMode.PassThrough else OverlayTouchMode.Drag
-                viewModel.updateOverlayTouchMode(newMode)
-            },
         )
     }
 
