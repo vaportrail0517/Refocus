@@ -170,7 +170,7 @@ class SessionManager(
                 val now = timeSource.nowMillis()
                 val delayMillis = (targetEndOfGrace - now).coerceAtLeast(0L)
                 delay(delayMillis)
-                Log.d(logTag, "Grace expired for $packageName, ending session")
+                Log.d(logTag, "GraceTime expired for $packageName, ending session")
                 // 終了時刻は「離脱した瞬間」で OK
                 val endedAt = leaveAt
                 sessionRepository.endActiveSession(
@@ -179,7 +179,7 @@ class SessionManager(
                 )
                 ended = true
             } catch (_: CancellationException) {
-                Log.d(logTag, "Grace canceled for $packageName")
+                Log.d(logTag, "GraceTime canceled for $packageName")
             } catch (e: Exception) {
                 Log.e(logTag, "Error in grace timer for $packageName", e)
             } finally {

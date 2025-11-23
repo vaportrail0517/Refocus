@@ -34,7 +34,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.refocus.core.model.OverlaySettings
+import com.example.refocus.core.model.Settings
 import com.example.refocus.core.util.SystemTimeSource
 import com.example.refocus.core.util.TimeSource
 import kotlinx.coroutines.delay
@@ -50,7 +50,7 @@ enum class OverlayColorMode {
 @Composable
 fun OverlayTimerBubble(
     modifier: Modifier = Modifier,
-    settings: OverlaySettings,
+    settings: Settings,
     // SessionManager から経過時間をもらうための provider
     elapsedMillisProvider: (Long) -> Long
 ) {

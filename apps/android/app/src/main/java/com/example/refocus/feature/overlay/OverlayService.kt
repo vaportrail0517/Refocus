@@ -16,7 +16,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import com.example.refocus.R
-import com.example.refocus.core.model.OverlaySettings
+import com.example.refocus.core.model.Settings
 import com.example.refocus.core.util.SystemTimeSource
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.RepositoryProvider
@@ -82,7 +82,7 @@ class OverlayService : LifecycleService() {
     private var overlayPackage: String? = null
 
     @Volatile
-    private var overlaySettings: OverlaySettings = OverlaySettings()
+    private var overlaySettings: Settings = Settings()
 
     @Volatile
     private var suggestionSnoozedUntilMillis: Long? = null
@@ -418,7 +418,7 @@ class OverlayService : LifecycleService() {
         return sdf.format(Date(nowMillis)).toInt()
     }
 
-    private fun suggestionTriggerThresholdMillis(settings: OverlaySettings): Long {
+    private fun suggestionTriggerThresholdMillis(settings: Settings): Long {
         if (!settings.suggestionEnabled) {
             // 提案オフ
             return Long.MAX_VALUE
@@ -430,22 +430,22 @@ class OverlayService : LifecycleService() {
         return seconds.toLong() * 1_000L
     }
 
-    private fun suggestionForegroundStableThresholdMillis(settings: OverlaySettings): Long {
+    private fun suggestionForegroundStableThresholdMillis(settings: Settings): Long {
         val seconds = settings.suggestionForegroundStableSeconds.coerceAtLeast(0)
         return seconds.toLong() * 1_000L
     }
 
-    private fun suggestionTimeoutMillis(settings: OverlaySettings): Long {
+    private fun suggestionTimeoutMillis(settings: Settings): Long {
         val seconds = settings.suggestionTimeoutSeconds.coerceAtLeast(0)
         return seconds.toLong() * 1_000L
     }
 
-    private fun suggestionCooldownMillis(settings: OverlaySettings): Long {
+    private fun suggestionCooldownMillis(settings: Settings): Long {
         val seconds = settings.suggestionCooldownSeconds.coerceAtLeast(0)
         return seconds.toLong() * 1_000L
     }
 
-    private fun suggestionInteractionLockoutMillis(settings: OverlaySettings): Long {
+    private fun suggestionInteractionLockoutMillis(settings: Settings): Long {
         // 念のため 0 未満にならないよう補正
         return settings.suggestionInteractionLockoutMillis.coerceAtLeast(0L)
     }

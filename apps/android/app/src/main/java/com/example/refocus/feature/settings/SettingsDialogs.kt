@@ -1,35 +1,32 @@
 package com.example.refocus.feature.settings
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RangeSlider
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import com.example.refocus.core.util.formatDurationMillis
-import com.example.refocus.ui.components.SettingsDialog
+import com.example.refocus.core.util.formatDurationSeconds
+import com.example.refocus.ui.components.InfoDialog
+import com.example.refocus.ui.components.IntInputDialog
+import com.example.refocus.ui.components.LongSliderDialog
+import com.example.refocus.ui.components.RangeSliderDialog
+import com.example.refocus.ui.components.SingleChoiceDialog
 
+sealed interface SettingsDialog {
+    data object GraceTime : SettingsDialog
+    data object PollingInterval : SettingsDialog
+    data object FontRange : SettingsDialog
+    data object TimeToMax : SettingsDialog
+    data object CorePermissionRequired : SettingsDialog
+    data object SuggestionFeatureRequired : SettingsDialog
+    data object SuggestionTriggerTime : SettingsDialog
+    data object SuggestionForegroundStable : SettingsDialog
+    data object SuggestionCooldown : SettingsDialog
+    data object SuggestionTimeout : SettingsDialog
+    data object SuggestionInteractionLockout : SettingsDialog
+}
+
+/**
+ * 猶予時間（gracePeriodMillis）のダイアログ。
+ */
 @Composable
 fun GraceTimeDialog(
     currentMillis: Long,
@@ -38,52 +35,24 @@ fun GraceTimeDialog(
 ) {
     val maxGraceMillis = 10 * 60_000L
     val stepMillis = 30_000L
-    val initialMillis = currentMillis.coerceIn(0L, maxGraceMillis)
-    var sliderValue by remember(initialMillis) {
-        mutableFloatStateOf(initialMillis.toFloat())
-    }
-    val currentLabel = formatDurationMillis(sliderValue.toLong())
 
-    SettingsDialog(
+    LongSliderDialog(
         title = "猶予時間",
         description = "対象アプリから離れてから、何秒以内に戻れば同じセッションとみなすかを指定します。",
-        confirmLabel = "保存",
-        dismissLabel = "キャンセル",
-        onConfirm = { onConfirm(sliderValue.toLong()) },
+        min = 0L,
+        max = maxGraceMillis,
+        step = stepMillis,
+        initial = currentMillis,
+        valueLabel = { value -> formatDurationMillis(value) },
+        hintLabel = "0〜10分 / 30秒刻み",
+        onConfirm = onConfirm,
         onDismiss = onDismiss,
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "現在: $currentLabel",
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Text(
-                text = "0〜10分 / 30秒刻み",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Slider(
-            value = sliderValue,
-            onValueChange = { raw ->
-                val steps = (maxGraceMillis / stepMillis).toInt()
-                val index = (raw / stepMillis)
-                    .toInt()
-                    .coerceIn(0, steps)
-                val snapped = index * stepMillis
-                sliderValue = snapped.toFloat()
-            },
-            valueRange = 0f..maxGraceMillis.toFloat(),
-            steps = (maxGraceMillis / stepMillis).toInt() - 1,
-        )
-    }
+    )
 }
 
+/**
+ * 前面アプリ監視間隔（pollingIntervalMillis）のダイアログ。
+ */
 @Composable
 fun PollingIntervalDialog(
     currentMillis: Long,
@@ -105,47 +74,26 @@ fun PollingIntervalDialog(
             PollingOption(2000L, "最も省エネ。反応はゆっくりになる。"),
         )
     }
-    var selectedPollingMs by remember(currentMillis) {
-        mutableLongStateOf(currentMillis)
-    }
 
-    SettingsDialog(
+    val initialOption = pollingOptions.minByOrNull { option ->
+        kotlin.math.abs(option.ms - currentMillis)
+    } ?: pollingOptions[1]
+
+    SingleChoiceDialog(
         title = "監視間隔",
         description = "前面アプリをどれくらいの間隔でチェックするかを選びます。",
-        confirmLabel = "保存",
-        dismissLabel = "キャンセル",
-        onConfirm = { onConfirm(selectedPollingMs) },
+        options = pollingOptions,
+        initialSelection = initialOption,
+        optionLabel = { it.label },
+        optionDescription = { it.description },
+        onConfirm = { selected -> onConfirm(selected.ms) },
         onDismiss = onDismiss,
-    ) {
-        pollingOptions.forEach { option ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { selectedPollingMs = option.ms }
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
-                    selected = selectedPollingMs == option.ms,
-                    onClick = { selectedPollingMs = option.ms }
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                    Text(
-                        text = option.label,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = option.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-                }
-            }
-        }
-    }
+    )
 }
 
+/**
+ * タイマーのフォントサイズ範囲のダイアログ。
+ */
 @Composable
 fun FontRangeDialog(
     initialRange: ClosedFloatingPointRange<Float>,
@@ -154,106 +102,182 @@ fun FontRangeDialog(
 ) {
     val minFontSpLimit = 8f
     val maxFontSpLimit = 96f
-    var fontRange by remember(initialRange) {
-        mutableStateOf(
-            initialRange.start.coerceIn(
-                minFontSpLimit,
-                maxFontSpLimit
-            )..initialRange.endInclusive.coerceIn(
-                minFontSpLimit,
-                maxFontSpLimit
-            )
-        )
-    }
+    val clampedInitial = initialRange.start.coerceIn(minFontSpLimit, maxFontSpLimit)..
+            initialRange.endInclusive.coerceIn(minFontSpLimit, maxFontSpLimit)
 
-    SettingsDialog(
+    RangeSliderDialog(
         title = "フォントサイズ",
         description = "タイマーのフォントサイズ範囲を指定します。",
-        confirmLabel = "保存",
-        dismissLabel = "キャンセル",
-        onConfirm = { onConfirm(fontRange) },
-        onDismiss = onDismiss,
-    ) {
-        RangeSlider(
-            value = fontRange,
-            onValueChange = { range -> fontRange = range },
-            valueRange = minFontSpLimit..maxFontSpLimit,
-            steps = (maxFontSpLimit - minFontSpLimit).toInt() - 1,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "最小: ${"%.1f".format(fontRange.start)} sp / 最大: ${
+        valueRange = minFontSpLimit..maxFontSpLimit,
+        initialRange = clampedInitial,
+        steps = (maxFontSpLimit - minFontSpLimit).toInt() - 1,
+        labelFormatter = { range ->
+            "最小: ${"%.1f".format(range.start)} sp / 最大: ${
                 "%.1f".format(
-                    fontRange.endInclusive
+                    range.endInclusive
                 )
-            } sp",
-            style = MaterialTheme.typography.bodySmall
-        )
-    }
+            } sp"
+        },
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+    )
 }
 
+/**
+ * タイマーが最大サイズになるまでの時間（分）のダイアログ。
+ */
 @Composable
 fun TimeToMaxDialog(
     currentMinutes: Int,
     onConfirm: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var timeToMaxInput by remember(currentMinutes) {
-        mutableStateOf(currentMinutes.toString())
-    }
-
-    SettingsDialog(
+    IntInputDialog(
         title = "最大サイズになるまでの時間",
         description = "フォントが最大サイズになるまでの時間（分）を指定します。",
-        confirmLabel = "保存",
-        dismissLabel = "キャンセル",
-        onConfirm = {
-            val value = timeToMaxInput.toIntOrNull()
-            if (value != null) {
-                val clamped = value.coerceIn(1, 720)
-                onConfirm(clamped)
-            }
-        },
+        label = "時間（分）",
+        initialValue = currentMinutes,
+        minValue = 1,
+        maxValue = 720,
+        onConfirm = onConfirm,
         onDismiss = onDismiss,
-    ) {
-        OutlinedTextField(
-            value = timeToMaxInput,
-            onValueChange = { timeToMaxInput = it },
-            label = { Text("時間（分）") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Number
-            ),
-        )
-    }
+    )
 }
 
+/**
+ * コア権限が不足しているときのダイアログ。
+ */
 @Composable
 fun CorePermissionRequiredDialog(
     onDismiss: () -> Unit
 ) {
-    SettingsDialog(
+    InfoDialog(
         title = "権限が必要です",
         description = "Refocus を動かすには「使用状況へのアクセス」と「他のアプリの上に表示」の 2 つの権限が必要です。上の「権限」セクションから、これらの権限を有効にしてください。",
-        confirmLabel = "OK",
-        dismissLabel = "",
-        showDismissButton = false,
-        onConfirm = onDismiss,
+        onDismiss = onDismiss,
+    )
+}
+
+/**
+ * 提案機能の依存関係を満たしていないときのダイアログ。
+ */
+@Composable
+fun SuggestionFeatureRequiredDialog(
+    onDismiss: () -> Unit
+) {
+    InfoDialog(
+        title = "提案が無効になっています",
+        description = "「休憩の提案」を有効にするには「提案を表示する」がオンである必要があります。",
         onDismiss = onDismiss,
     )
 }
 
 @Composable
-fun SuggestionFeatureRequiredDialog(
+fun SuggestionTriggerTimeDialog(
+    currentSeconds: Int,
+    onConfirm: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    SettingsDialog(
-        title = "提案が無効になっています",
-        description = "「休憩の提案」を有効にするには「提案を表示する」がオンである必要があります。",
-        confirmLabel = "OK",
-        dismissLabel = "",
-        showDismissButton = false,
-        onConfirm = onDismiss,
+    LongSliderDialog(
+        title = "提案を出すまでのセッション継続時間",
+        description = "対象アプリを連続して使い始めてから、どれくらい経過したら提案を行うかを設定します。",
+        min = 60L,
+        max = 60L * 60L,
+        step = 60L,
+        initial = currentSeconds.coerceIn(60, 60 * 60).toLong(),
+        valueLabel = { seconds -> formatDurationSeconds(seconds.toInt()) },
+        hintLabel = "1〜60分 / 1分刻み",
+        onConfirm = { selectedSeconds ->
+            onConfirm(selectedSeconds.toInt())
+        },
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+fun SuggestionForegroundStableDialog(
+    currentSeconds: Int,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    LongSliderDialog(
+        title = "前面アプリの安定時間",
+        description = "対象アプリが連続して前面に表示されてから、どれくらい安定していたら提案を行うかを設定します。",
+        min = 5L * 60L,
+        max = 20L * 60L,
+        step = 60L, // 1分刻み
+        initial = currentSeconds.coerceIn(5 * 60, 20 * 60).toLong(),
+        valueLabel = { seconds -> formatDurationSeconds(seconds.toInt()) },
+        hintLabel = "5〜20分 / 1分刻み",
+        onConfirm = { selectedSeconds ->
+            onConfirm(selectedSeconds.toInt())
+        },
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+fun SuggestionCooldownDialog(
+    currentSeconds: Int,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    LongSliderDialog(
+        title = "次の提案までの間隔",
+        description = "一度提案を出してから、次の提案を行うまでどれくらい間隔を空けるかを設定します。",
+        min = 60L,
+        max = 60L * 60L,
+        step = 60L,
+        initial = currentSeconds.coerceIn(60, 60 * 60).toLong(),
+        valueLabel = { seconds -> formatDurationSeconds(seconds.toInt()) },
+        hintLabel = "1〜60分 / 1分刻み",
+        onConfirm = { selectedSeconds ->
+            onConfirm(selectedSeconds.toInt())
+        },
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+fun SuggestionTimeoutDialog(
+    currentSeconds: Int,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    LongSliderDialog(
+        title = "提案カードを自動で閉じるまでの時間",
+        description = "提案カードを表示してから自動で閉じるまでの時間を設定します。",
+        min = 5L,
+        max = 30L,
+        step = 1L,
+        initial = currentSeconds.coerceIn(5, 30).toLong(),
+        valueLabel = { seconds -> formatDurationSeconds(seconds.toInt()) },
+        hintLabel = "5〜30秒 / 1秒刻み",
+        onConfirm = { selectedSeconds ->
+            onConfirm(selectedSeconds.toInt())
+        },
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+fun SuggestionInteractionLockoutDialog(
+    currentMillis: Long,
+    onConfirm: (Long) -> Unit,
+    onDismiss: () -> Unit
+) {
+    LongSliderDialog(
+        title = "提案表示直後の誤タップ防止時間",
+        description = "提案カードを表示してから、誤タップで直ちに閉じてしまわないようにするためのロック時間を設定します。",
+        min = 0L,
+        max = 2000L,
+        step = 100L,
+        initial = currentMillis.coerceIn(0L, 2000L),
+        valueLabel = { millis -> "${millis} ms" },
+        hintLabel = "0〜2000ms / 100ms刻み",
+        onConfirm = { selectedMillis ->
+            onConfirm(selectedMillis)
+        },
         onDismiss = onDismiss,
     )
 }

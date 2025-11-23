@@ -1,6 +1,6 @@
 package com.example.refocus.data.repository
 
-import com.example.refocus.core.model.OverlaySettings
+import com.example.refocus.core.model.Settings
 import com.example.refocus.core.model.SettingsPreset
 import com.example.refocus.core.model.SettingsPresets
 import com.example.refocus.data.datastore.SettingsDataStore
@@ -9,10 +9,10 @@ import kotlinx.coroutines.flow.Flow
 class SettingsRepository(
     private val dataStore: SettingsDataStore
 ) {
-    fun observeOverlaySettings(): Flow<OverlaySettings> = dataStore.settingsFlow
+    fun observeOverlaySettings(): Flow<Settings> = dataStore.settingsFlow
     fun observeSettingsPreset(): Flow<SettingsPreset> = dataStore.presetFlow
     suspend fun updateOverlaySettings(
-        transform: (OverlaySettings) -> OverlaySettings
+        transform: (Settings) -> Settings
     ) {
         dataStore.update(transform)
     }
@@ -24,7 +24,7 @@ class SettingsRepository(
     /**
      * プリセットを適用する。
      *
-     * - Default / Debug: OverlaySettings の値をプリセット値で上書き
+     * - Default / Debug: Settings の値をプリセット値で上書き
      * - Custom: 値は変更せず、種別だけ変更
      *
      * 位置や overlayEnabled / autoStartOnBoot など

@@ -15,16 +15,16 @@ enum class SettingsPreset {
 }
 
 /**
- * 各プリセットに対応する OverlaySettings の値セット。
+ * 各プリセットに対応する Settings の値セット。
  *
- * 実際の数値は OverlaySettingsConfig に集約し、
+ * 実際の数値は SettingsConfig に集約し、
  * ここは「種類 → 設定値」の入口だけを提供する。
  */
 object SettingsPresets {
 
     // 標準プリセット
-    val default: OverlaySettings = OverlaySettingsConfig.Default
+    val default: Settings = SettingsConfig.Default
 
     // デバッグ用プリセット
-    val debug: OverlaySettings = OverlaySettingsConfig.Debug
+    val debug: Settings = SettingsConfig.Debug
 }

@@ -19,8 +19,8 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.example.refocus.core.model.OverlaySettings
 import com.example.refocus.core.model.OverlayTouchMode
+import com.example.refocus.core.model.Settings
 import com.example.refocus.ui.theme.RefocusTheme
 
 class OverlayController(
@@ -38,10 +38,10 @@ class OverlayController(
     private var onPositionChangedCallback: ((Int, Int) -> Unit)? = null
 
     // Compose が監視するステート本体
-    private var overlaySettingsState by mutableStateOf(OverlaySettings())
+    private var overlaySettingsState by mutableStateOf(Settings())
 
     // 外から触るプロパティ。変更時に onSettingsChanged を呼ぶ
-    var overlaySettings: OverlaySettings
+    var overlaySettings: Settings
         get() = overlaySettingsState
         set(value) {
             val old = overlaySettingsState
@@ -49,7 +49,7 @@ class OverlayController(
             onSettingsChanged(old, value)
         }
 
-    private fun onSettingsChanged(old: OverlaySettings, new: OverlaySettings) {
+    private fun onSettingsChanged(old: Settings, new: Settings) {
         val view = overlayView ?: return
         val lp = layoutParams ?: return
         // タッチモードが変わった場合のみ、flag とリスナーを差し替える

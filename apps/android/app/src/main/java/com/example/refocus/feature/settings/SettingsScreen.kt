@@ -26,17 +26,17 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.refocus.core.model.OverlaySettingsConfig.FontPreset
-import com.example.refocus.core.model.OverlaySettingsConfig.GracePreset
-import com.example.refocus.core.model.OverlaySettingsConfig.SuggestionCooldownPreset
-import com.example.refocus.core.model.OverlaySettingsConfig.SuggestionTriggerPreset
-import com.example.refocus.core.model.OverlaySettingsConfig.TimeToMaxPreset
-import com.example.refocus.core.model.OverlaySettingsConfig.fontPresetOrNull
-import com.example.refocus.core.model.OverlaySettingsConfig.gracePresetOrNull
-import com.example.refocus.core.model.OverlaySettingsConfig.suggestionCooldownPresetOrNull
-import com.example.refocus.core.model.OverlaySettingsConfig.suggestionTriggerPresetOrNull
-import com.example.refocus.core.model.OverlaySettingsConfig.timeToMaxPresetOrNull
 import com.example.refocus.core.model.OverlayTouchMode
+import com.example.refocus.core.model.SettingsConfig.FontPreset
+import com.example.refocus.core.model.SettingsConfig.GracePreset
+import com.example.refocus.core.model.SettingsConfig.SuggestionCooldownPreset
+import com.example.refocus.core.model.SettingsConfig.SuggestionTriggerPreset
+import com.example.refocus.core.model.SettingsConfig.TimeToMaxPreset
+import com.example.refocus.core.model.SettingsConfig.fontPresetOrNull
+import com.example.refocus.core.model.SettingsConfig.gracePresetOrNull
+import com.example.refocus.core.model.SettingsConfig.suggestionCooldownPresetOrNull
+import com.example.refocus.core.model.SettingsConfig.suggestionTriggerPresetOrNull
+import com.example.refocus.core.model.SettingsConfig.timeToMaxPresetOrNull
 import com.example.refocus.core.model.SettingsPreset
 import com.example.refocus.core.util.formatDurationMillis
 import com.example.refocus.core.util.formatDurationSeconds
@@ -47,15 +47,6 @@ import com.example.refocus.system.permissions.PermissionHelper
 import com.example.refocus.ui.components.OptionButtonsRow
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
-
-sealed interface SettingsDialog {
-    data object Grace : SettingsDialog
-    data object Polling : SettingsDialog
-    data object FontRange : SettingsDialog
-    data object TimeToMax : SettingsDialog
-    data object CorePermission : SettingsDialog
-    data object SuggestionFeature : SettingsDialog
-}
 
 @Composable
 fun SettingsScreen(
@@ -75,11 +66,11 @@ fun SettingsScreen(
     var activeDialog by remember { mutableStateOf<SettingsDialog?>(null) }
     var isAdvancedMode by remember { mutableStateOf(false) }
     var fontRange by remember(
-        uiState.overlaySettings.minFontSizeSp,
-        uiState.overlaySettings.maxFontSizeSp
+        uiState.settings.minFontSizeSp,
+        uiState.settings.maxFontSizeSp
     ) {
         mutableStateOf(
-            uiState.overlaySettings.minFontSizeSp..uiState.overlaySettings.maxFontSizeSp
+            uiState.settings.minFontSizeSp..uiState.settings.maxFontSizeSp
         )
     }
     var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
@@ -105,13 +96,13 @@ fun SettingsScreen(
                 val hasCorePermissions = usageGranted && overlayGranted
                 if (!hasCorePermissions) {
                     // 起動設定 or 実行中サービスが残っていたら OFF に揃える
-                    if (uiState.overlaySettings.overlayEnabled || isServiceRunning) {
+                    if (uiState.settings.overlayEnabled || isServiceRunning) {
                         viewModel.updateOverlayEnabled(false)
                         context.stopOverlayService()
                         isServiceRunning = false
                     }
                     // 自動起動も OFF に揃える
-                    if (uiState.overlaySettings.autoStartOnBoot) {
+                    if (uiState.settings.autoStartOnBoot) {
                         viewModel.updateAutoStartOnBoot(false)
                     }
                 }
@@ -140,7 +131,7 @@ fun SettingsScreen(
                 isServiceRunning = isServiceRunning,
                 onServiceRunningChange = { isServiceRunning = it },
                 onOpenAppSelect = onOpenAppSelect,
-                onRequireCorePermission = { activeDialog = SettingsDialog.CorePermission },
+                onRequireCorePermission = { activeDialog = SettingsDialog.CorePermissionRequired },
                 onOpenAdvanced = { isAdvancedMode = true },
                 viewModel = viewModel,
                 context = context,
@@ -151,22 +142,35 @@ fun SettingsScreen(
             AdvancedSettingsContent(
                 uiState = uiState,
                 onBackToBasic = { isAdvancedMode = false },
-                onOpenGraceDialog = { activeDialog = SettingsDialog.Grace },
-                onOpenPollingDialog = { activeDialog = SettingsDialog.Polling },
+                onOpenGraceDialog = { activeDialog = SettingsDialog.GraceTime },
+                onOpenPollingDialog = { activeDialog = SettingsDialog.PollingInterval },
                 onOpenFontDialog = {
-                    fontRange = uiState.overlaySettings.minFontSizeSp..
-                            uiState.overlaySettings.maxFontSizeSp
+                    fontRange = uiState.settings.minFontSizeSp..
+                            uiState.settings.maxFontSizeSp
                     activeDialog = SettingsDialog.FontRange
                 },
                 onOpenTimeToMaxDialog = { activeDialog = SettingsDialog.TimeToMax },
+                onOpenSuggestionTriggerDialog = {
+                    activeDialog = SettingsDialog.SuggestionTriggerTime
+                },
+                onOpenSuggestionForegroundStableDialog = {
+                    activeDialog = SettingsDialog.SuggestionForegroundStable
+                },
+                onOpenSuggestionCooldownDialog = {
+                    activeDialog = SettingsDialog.SuggestionCooldown
+                },
+                onOpenSuggestionTimeoutDialog = { activeDialog = SettingsDialog.SuggestionTimeout },
+                onOpenSuggestionInteractionLockoutDialog = {
+                    activeDialog = SettingsDialog.SuggestionInteractionLockout
+                },
                 viewModel = viewModel,
             )
         }
 
         when (activeDialog) {
-            SettingsDialog.Grace -> {
+            SettingsDialog.GraceTime -> {
                 GraceTimeDialog(
-                    currentMillis = uiState.overlaySettings.gracePeriodMillis,
+                    currentMillis = uiState.settings.gracePeriodMillis,
                     onConfirm = { newMillis ->
                         viewModel.updateGracePeriodMillis(newMillis)
                         activeDialog = null
@@ -175,9 +179,9 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsDialog.Polling -> {
+            SettingsDialog.PollingInterval -> {
                 PollingIntervalDialog(
-                    currentMillis = uiState.overlaySettings.pollingIntervalMillis,
+                    currentMillis = uiState.settings.pollingIntervalMillis,
                     onConfirm = { newMs ->
                         viewModel.updatePollingIntervalMillis(newMs)
                         activeDialog = null
@@ -206,7 +210,7 @@ fun SettingsScreen(
 
             SettingsDialog.TimeToMax -> {
                 TimeToMaxDialog(
-                    currentMinutes = uiState.overlaySettings.timeToMaxMinutes,
+                    currentMinutes = uiState.settings.timeToMaxMinutes,
                     onConfirm = { minutes ->
                         viewModel.updateTimeToMaxMinutes(minutes)
                         activeDialog = null
@@ -215,15 +219,70 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsDialog.CorePermission -> {
+            SettingsDialog.CorePermissionRequired -> {
                 CorePermissionRequiredDialog(
                     onDismiss = { activeDialog = null }
                 )
             }
 
-            SettingsDialog.SuggestionFeature -> {
+            SettingsDialog.SuggestionFeatureRequired -> {
                 SuggestionFeatureRequiredDialog(
                     onDismiss = { activeDialog = null }
+                )
+            }
+
+            SettingsDialog.SuggestionTriggerTime -> {
+                SuggestionTriggerTimeDialog(
+                    currentSeconds = uiState.settings.suggestionTriggerSeconds,
+                    onConfirm = { seconds ->
+                        viewModel.updateSuggestionTriggerSeconds(seconds)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialog.SuggestionForegroundStable -> {
+                SuggestionForegroundStableDialog(
+                    currentSeconds = uiState.settings.suggestionForegroundStableSeconds,
+                    onConfirm = { seconds ->
+                        viewModel.updateSuggestionForegroundStableSeconds(seconds)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialog.SuggestionCooldown -> {
+                SuggestionCooldownDialog(
+                    currentSeconds = uiState.settings.suggestionCooldownSeconds,
+                    onConfirm = { seconds ->
+                        viewModel.updateSuggestionCooldownSeconds(seconds)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialog.SuggestionTimeout -> {
+                SuggestionTimeoutDialog(
+                    currentSeconds = uiState.settings.suggestionTimeoutSeconds,
+                    onConfirm = { seconds ->
+                        viewModel.updateSuggestionTimeoutSeconds(seconds)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialog.SuggestionInteractionLockout -> {
+                SuggestionInteractionLockoutDialog(
+                    currentMillis = uiState.settings.suggestionInteractionLockoutMillis,
+                    onConfirm = { millis ->
+                        viewModel.updateSuggestionInteractionLockoutMillis(millis)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
                 )
             }
 
@@ -247,7 +306,7 @@ private fun BasicSettingsContent(
     context: Context,
     activity: Activity?,
 ) {
-    val settings = uiState.overlaySettings
+    val settings = uiState.settings
 
     // --- 権限 ---
     SectionCard(
@@ -297,7 +356,7 @@ private fun BasicSettingsContent(
                 "現在: 停止中（対象アプリの計測は行われていません）"
             },
             trailing = {
-                val checked = uiState.overlaySettings.overlayEnabled && isServiceRunning
+                val checked = uiState.settings.overlayEnabled && isServiceRunning
                 Switch(
                     checked = checked,
                     enabled = hasCorePermissions,
@@ -324,7 +383,7 @@ private fun BasicSettingsContent(
                     onRequireCorePermission()
                     return@SettingRow
                 }
-                val currentlyOn = uiState.overlaySettings.overlayEnabled && isServiceRunning
+                val currentlyOn = uiState.settings.overlayEnabled && isServiceRunning
                 val turnOn = !currentlyOn
                 if (turnOn) {
                     viewModel.updateOverlayEnabled(true)
@@ -342,7 +401,7 @@ private fun BasicSettingsContent(
             subtitle = "端末を再起動したときに自動で Refocus を起動します。※起動には少し時間がかかります。",
             trailing = {
                 Switch(
-                    checked = uiState.overlaySettings.autoStartOnBoot,
+                    checked = uiState.settings.autoStartOnBoot,
                     enabled = hasCorePermissions, // 権限不足時はグレーアウト
                     onCheckedChange = { enabled ->
                         if (!hasCorePermissions) {
@@ -359,7 +418,7 @@ private fun BasicSettingsContent(
                     onRequireCorePermission()
                     return@SettingRow
                 }
-                viewModel.updateAutoStartOnBoot(!uiState.overlaySettings.autoStartOnBoot)
+                viewModel.updateAutoStartOnBoot(!uiState.settings.autoStartOnBoot)
             }
         )
     }
@@ -674,9 +733,14 @@ private fun AdvancedSettingsContent(
     onOpenPollingDialog: () -> Unit,
     onOpenFontDialog: () -> Unit,
     onOpenTimeToMaxDialog: () -> Unit,
+    onOpenSuggestionTriggerDialog: () -> Unit,
+    onOpenSuggestionForegroundStableDialog: () -> Unit,
+    onOpenSuggestionCooldownDialog: () -> Unit,
+    onOpenSuggestionTimeoutDialog: () -> Unit,
+    onOpenSuggestionInteractionLockoutDialog: () -> Unit,
     viewModel: SettingsViewModel,
 ) {
-    val settings = uiState.overlaySettings
+    val settings = uiState.settings
 
     // 一番上に「基本設定に戻る」行を置いておく（＋将来 AppBar を載せてもよい）
     SectionCard(title = "基本設定") {
@@ -717,37 +781,27 @@ private fun AdvancedSettingsContent(
         SettingRow(
             title = "提案を出すために必要なセッションの継続時間",
             subtitle = "現在: ${formatDurationSeconds(settings.suggestionTriggerSeconds)}以上経過してから提案します。",
-            onClick = {
-                // 将来: suggestionTriggerSeconds 用ダイアログを追加する
-            },
+            onClick = onOpenSuggestionTriggerDialog,
         )
         SettingRow(
             title = "提案を出すために必要な対象アプリが連続して前面にいる時間",
             subtitle = "現在: ${formatDurationSeconds(settings.suggestionForegroundStableSeconds)}以上経過してから提案します。",
-            onClick = {
-                // 将来: suggestionForegroundStable 用ダイアログを追加する
-            },
+            onClick = onOpenSuggestionForegroundStableDialog,
         )
         SettingRow(
             title = "次の提案までの間隔",
             subtitle = "現在: ${formatDurationSeconds(settings.suggestionCooldownSeconds)}待ってから再び提案をします。",
-            onClick = {
-                // 将来: suggestionCooldown 用ダイアログを追加する
-            },
+            onClick = onOpenSuggestionCooldownDialog,
         )
         SettingRow(
             title = "提案カードを自動で閉じるまでの時間",
             subtitle = "現在: ${formatDurationSeconds(settings.suggestionTimeoutSeconds)}後に自動で閉じます。",
-            onClick = {
-                // 将来: suggestionTimeout 用ダイアログを追加する
-            },
+            onClick = onOpenSuggestionTimeoutDialog,
         )
         SettingRow(
             title = "提案表示直後の誤タップ防止時間",
             subtitle = "現在: 表示してから${settings.suggestionInteractionLockoutMillis} ms の間、提案カードを消せなくします。",
-            onClick = {
-                // 将来: suggestionInteractionLockout 用ダイアログを追加する
-            },
+            onClick = onOpenSuggestionInteractionLockoutDialog,
         )
     }
 }

@@ -9,8 +9,8 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.example.refocus.core.model.OverlaySettings
 import com.example.refocus.core.model.OverlayTouchMode
+import com.example.refocus.core.model.Settings
 import com.example.refocus.core.model.SettingsPreset
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -54,7 +54,7 @@ class SettingsDataStore(
         val SETTINGS_PRESET = intPreferencesKey("settings_preset")
     }
 
-    val settingsFlow: Flow<OverlaySettings> =
+    val settingsFlow: Flow<Settings> =
         context.settingsDataStore.data
             .catch { e ->
                 if (e is IOException) {
@@ -85,15 +85,15 @@ class SettingsDataStore(
         }
 
     suspend fun update(
-        transform: (OverlaySettings) -> OverlaySettings
+        transform: (Settings) -> Settings
     ) {
         context.settingsDataStore.edit { prefs ->
-            // まず現在値（保存値＋デフォルト）を OverlaySettings にデコード
+            // まず現在値（保存値＋デフォルト）を Settings にデコード
             val current = prefs.toOverlaySettings()
             // ViewModel から渡された変換を当てる
             val updated = transform(current)
 
-            // OverlaySettings -> Preferences へ書き戻す
+            // Settings -> Preferences へ書き戻す
             prefs[Keys.GRACE_PERIOD_MS] = updated.gracePeriodMillis
             prefs[Keys.POLLING_INTERVAL_MS] = updated.pollingIntervalMillis
             prefs[Keys.MIN_FONT_SIZE_SP] = updated.minFontSizeSp
@@ -127,12 +127,12 @@ class SettingsDataStore(
     }
 
     /**
-     * Preferences -> OverlaySettings の変換を 1 箇所に集約。
-     * fallback はすべて OverlaySettings() のデフォルトを見る。
+     * Preferences -> Settings の変換を 1 箇所に集約。
+     * fallback はすべて Settings() のデフォルトを見る。
      */
-    private fun Preferences.toOverlaySettings(): OverlaySettings {
-        // OverlaySettings() のデフォルトは OverlaySettingsConfig.Defaults を参照している
-        val base = OverlaySettings()
+    private fun Preferences.toOverlaySettings(): Settings {
+        // Settings() のデフォルトは SettingsConfig.Defaults を参照している
+        val base = Settings()
 
         val touchModeOrdinal = this[Keys.TOUCH_MODE] ?: base.touchMode.ordinal
         val touchMode = OverlayTouchMode.entries.getOrNull(touchModeOrdinal)

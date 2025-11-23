@@ -1,6 +1,6 @@
 package com.example.refocus.domain.suggestion
 
-import com.example.refocus.core.model.OverlaySettings
+import com.example.refocus.core.model.Settings
 
 /**
  * 「今、提案カードを出すべきかどうか」を判定する純粋ロジック。
@@ -13,7 +13,7 @@ class SuggestionEngine {
     data class Input(
         val elapsedMillis: Long,
         val sinceForegroundMillis: Long,
-        val settings: OverlaySettings,
+        val settings: Settings,
         val nowMillis: Long,
         val snoozedUntilMillis: Long?,
         val isOverlayShown: Boolean,
@@ -52,7 +52,7 @@ class SuggestionEngine {
         return true
     }
 
-    private fun suggestionTriggerThresholdMillis(settings: OverlaySettings): Long {
+    private fun suggestionTriggerThresholdMillis(settings: Settings): Long {
         if (!settings.suggestionEnabled) {
             return Long.MAX_VALUE
         }
@@ -63,7 +63,7 @@ class SuggestionEngine {
         return seconds.toLong() * 1_000L
     }
 
-    private fun suggestionForegroundStableThresholdMillis(settings: OverlaySettings): Long {
+    private fun suggestionForegroundStableThresholdMillis(settings: Settings): Long {
         val seconds = settings.suggestionForegroundStableSeconds.coerceAtLeast(0)
         return seconds.toLong() * 1_000L
     }

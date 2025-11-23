@@ -1,7 +1,7 @@
 package com.example.refocus.core.model
 
 /**
- * OverlaySettings / 設定プリセット / 基本設定用プリセットの
+ * Settings / 設定プリセット / 基本設定用プリセットの
  * 「数字」を一か所に集約するためのコンフィグ。
  *
  * ここを変えれば:
@@ -10,10 +10,10 @@ package com.example.refocus.core.model
  * - 基本設定プリセット (Small / Medium / Large など)
  * がすべて一括で変わる。
  */
-object OverlaySettingsConfig {
+object SettingsConfig {
 
     // ----------------------------------------
-    // 1. デフォルト値（OverlaySettings() の基準）
+    // 1. デフォルト値（Settings() の基準）
     // ----------------------------------------
     object Defaults {
         // --- セッション・監視 ---
@@ -43,10 +43,10 @@ object OverlaySettingsConfig {
     }
 
     /**
-     * 「全体プリセット：Default」の OverlaySettings 一括値。
+     * 「全体プリセット：Default」の Settings 一括値。
      * SettingsPresets.default などから参照される。
      */
-    val Default: OverlaySettings = OverlaySettings(
+    val Default: Settings = Settings(
         gracePeriodMillis = Defaults.GRACE_PERIOD_MILLIS,
         pollingIntervalMillis = Defaults.POLLING_INTERVAL_MILLIS,
         minFontSizeSp = Defaults.MIN_FONT_SIZE_SP,
@@ -67,10 +67,10 @@ object OverlaySettingsConfig {
     )
 
     /**
-     * 「全体プリセット：Debug」の OverlaySettings 一括値。
+     * 「全体プリセット：Debug」の Settings 一括値。
      * 数値は現状の SettingsPresets.debug から移植。
      */
-    val Debug: OverlaySettings = OverlaySettings(
+    val Debug: Settings = Settings(
         gracePeriodMillis = 30_000L,
         pollingIntervalMillis = 500L,
         minFontSizeSp = 32f,
@@ -144,10 +144,10 @@ object OverlaySettingsConfig {
     }
 
     // ----------------------------------------------------------
-    // 3. OverlaySettings に対するプリセット適用 / 判定 helper
+    // 3. Settings に対するプリセット適用 / 判定 helper
     // ----------------------------------------------------------
 
-    fun OverlaySettings.withFontPreset(preset: FontPreset): OverlaySettings {
+    fun Settings.withFontPreset(preset: FontPreset): Settings {
         val (min, max) = FONT_PRESETS[preset]!!
         return copy(
             minFontSizeSp = min,
@@ -155,49 +155,49 @@ object OverlaySettingsConfig {
         )
     }
 
-    fun OverlaySettings.fontPresetOrNull(): FontPreset? {
+    fun Settings.fontPresetOrNull(): FontPreset? {
         return FONT_PRESETS.entries.firstOrNull { (preset, range) ->
             minFontSizeSp == range.first && maxFontSizeSp == range.second
         }?.key
     }
 
-    fun OverlaySettings.withTimeToMaxPreset(preset: TimeToMaxPreset): OverlaySettings {
+    fun Settings.withTimeToMaxPreset(preset: TimeToMaxPreset): Settings {
         val minutes = TIME_TO_MAX_PRESETS[preset]!!
         return copy(timeToMaxMinutes = minutes)
     }
 
-    fun OverlaySettings.timeToMaxPresetOrNull(): TimeToMaxPreset? {
+    fun Settings.timeToMaxPresetOrNull(): TimeToMaxPreset? {
         return TIME_TO_MAX_PRESETS.entries.firstOrNull { (_, minutes) ->
             timeToMaxMinutes == minutes
         }?.key
     }
 
-    fun OverlaySettings.withGracePreset(preset: GracePreset): OverlaySettings {
+    fun Settings.withGracePreset(preset: GracePreset): Settings {
         val millis = GRACE_PRESETS[preset]!!
         return copy(gracePeriodMillis = millis)
     }
 
-    fun OverlaySettings.gracePresetOrNull(): GracePreset? {
+    fun Settings.gracePresetOrNull(): GracePreset? {
         return GRACE_PRESETS.entries.firstOrNull { (_, millis) ->
             gracePeriodMillis == millis
         }?.key
     }
 
-    fun OverlaySettings.withSuggestionTriggerPreset(preset: SuggestionTriggerPreset): OverlaySettings {
+    fun Settings.withSuggestionTriggerPreset(preset: SuggestionTriggerPreset): Settings {
         return copy(suggestionTriggerSeconds = preset.seconds)
     }
 
-    fun OverlaySettings.suggestionTriggerPresetOrNull(): SuggestionTriggerPreset? {
+    fun Settings.suggestionTriggerPresetOrNull(): SuggestionTriggerPreset? {
         return SuggestionTriggerPreset.entries.firstOrNull { preset ->
             preset.seconds == suggestionTriggerSeconds
         }
     }
 
-    fun OverlaySettings.withSuggestionCooldownPreset(preset: SuggestionCooldownPreset): OverlaySettings {
+    fun Settings.withSuggestionCooldownPreset(preset: SuggestionCooldownPreset): Settings {
         return copy(suggestionCooldownSeconds = preset.seconds)
     }
 
-    fun OverlaySettings.suggestionCooldownPresetOrNull(): SuggestionCooldownPreset? {
+    fun Settings.suggestionCooldownPresetOrNull(): SuggestionCooldownPreset? {
         return SuggestionCooldownPreset.entries.firstOrNull { preset ->
             preset.seconds == suggestionCooldownSeconds
         }
