@@ -252,8 +252,8 @@ private fun BasicSettingsContent(
         title = "権限"
     ) {
         SettingRow(
-            title = "使用状況へのアクセス（必須）",
-            subtitle = "連続使用時間を計測するために必要です。",
+            title = "使用状況へのアクセス",
+            subtitle = "（必須）連続使用時間を計測するために必要です。",
             trailing = {
                 Switch(
                     checked = usageGranted,
@@ -266,8 +266,8 @@ private fun BasicSettingsContent(
             }
         )
         SettingRow(
-            title = "他のアプリの上に表示（必須）",
-            subtitle = "タイマーを他のアプリの上に表示するために必要です。",
+            title = "他のアプリの上に表示",
+            subtitle = "（必須）タイマーを他のアプリの上に表示するために必要です。",
             trailing = {
                 Switch(
                     checked = overlayGranted,
@@ -337,7 +337,7 @@ private fun BasicSettingsContent(
         )
         SettingRow(
             title = "端末起動時に自動起動",
-            subtitle = "端末を再起動したときに自動で Refocus を起動します。",
+            subtitle = "端末を再起動したときに自動で Refocus を起動します。※起動には少し時間がかかります。",
             trailing = {
                 Switch(
                     checked = uiState.overlaySettings.autoStartOnBoot,
@@ -438,7 +438,7 @@ private fun BasicSettingsContent(
         val timeSubtitle = buildString {
             append("現在: ")
             append(settings.timeToMaxMinutes)
-            append("分で最大サイズになる")
+            append("分")
 
             append("（")
             append(
@@ -474,7 +474,7 @@ private fun BasicSettingsContent(
         val graceSubtitle = buildString {
             append("現在: ")
             append(formatDurationMillis(settings.gracePeriodMillis))
-            append("以内の切り替えを同じセッションとして扱う")
+            append("以内に対象アプリを再開すると同じセッションとして扱います。")
             append("（")
             append(
                 when (gracePreset) {
@@ -514,9 +514,9 @@ private fun BasicSettingsContent(
         SettingRow(
             title = "やりたいことの提案",
             subtitle = if (suggestionEnabled) {
-                "オン：一定時間使いすぎているときに、「やりたいこと」や休憩を提案します。"
+                "オン：一定時間経過すると、やりたいことを提案します。"
             } else {
-                "オフ：提案カードは表示されません。"
+                "オフ：提案カードを表示しません。"
             },
             trailing = {
                 Switch(
@@ -528,7 +528,7 @@ private fun BasicSettingsContent(
         )
 
         SettingRow(
-            title = "休憩を提案",
+            title = "休憩の提案",
             subtitle = when {
                 !suggestionEnabled ->
                     "提案が無効になっています。"
@@ -537,7 +537,7 @@ private fun BasicSettingsContent(
                     "オン：やりたいことが未登録のとき、休憩を提案します。"
 
                 else ->
-                    "オフ：やりたいことが未登録のときは提案しません。"
+                    "オフ：休憩を提案しません。"
             },
             trailing = {
                 Switch(
@@ -557,9 +557,9 @@ private fun BasicSettingsContent(
 
         val trigPreset = settings.suggestionTriggerPresetOrNull()
         val trigSubtitle = buildString {
-            append("現在: ")
+            append("現在: 対象アプリの利用を開始してから")
             append(formatDurationSeconds(settings.suggestionTriggerSeconds))
-            append("以上経過したら提案を行う")
+            append("以上経過したら提案を行います。")
             append("（")
             append(
                 when (trigPreset) {
@@ -593,7 +593,7 @@ private fun BasicSettingsContent(
         val cooldownSubtitle = buildString {
             append("現在: ")
             append(formatDurationSeconds(settings.suggestionCooldownSeconds))
-            append("以上経過したら再び提案を行う")
+            append("以上経過したら再び提案を行います。")
 
             append("（")
             append(
@@ -658,7 +658,7 @@ private fun BasicSettingsContent(
     SectionCard(title = "詳細設定") {
         SettingRow(
             title = "詳細設定を開く",
-            subtitle = "監視間隔やタイマー表示、提案の細かいタイミングを調整します。",
+            subtitle = "タイマー表示や提案などの詳細な設定が行えます。",
             onClick = onOpenAdvanced,
         )
     }
@@ -679,8 +679,8 @@ private fun AdvancedSettingsContent(
     // 一番上に「基本設定に戻る」行を置いておく（＋将来 AppBar を載せてもよい）
     SectionCard(title = "基本設定") {
         SettingRow(
-            title = "基本設定にもどる",
-            subtitle = "ふだん使い向けのシンプルな設定に戻ります。",
+            title = "基本設定に戻る",
+            subtitle = "普段使い向けのシンプルな設定に戻ります。",
             onClick = onBackToBasic,
         )
     }
@@ -688,12 +688,12 @@ private fun AdvancedSettingsContent(
     SectionCard(title = "監視・セッション") {
         SettingRow(
             title = "前面アプリをチェックする間隔",
-            subtitle = "${settings.pollingIntervalMillis} ms ごとに対象アプリかどうか確認します。",
+            subtitle = "現在: ${settings.pollingIntervalMillis} ms 毎に対象アプリかどうか確認します。",
             onClick = onOpenPollingDialog,
         )
         SettingRow(
             title = "セッション継続の猶予時間",
-            subtitle = "${settings.gracePeriodMillis / 1000} 秒以内に戻れば同じセッションとみなします。",
+            subtitle = "現在: 対象アプリを離れてから${formatDurationMillis(settings.gracePeriodMillis)}以内に戻れば同じセッションとみなします。",
             onClick = onOpenGraceDialog,
         )
     }
@@ -701,48 +701,48 @@ private fun AdvancedSettingsContent(
     SectionCard(title = "タイマーの表示") {
         SettingRow(
             title = "フォントサイズの範囲",
-            subtitle = "最小 ${settings.minFontSizeSp} sp / 最大 ${settings.maxFontSizeSp} sp",
+            subtitle = "現在: 最小 ${settings.minFontSizeSp} sp / 最大 ${settings.maxFontSizeSp} sp",
             onClick = onOpenFontDialog,
         )
         SettingRow(
             title = "最大サイズになるまでの時間",
-            subtitle = "${settings.timeToMaxMinutes} 分",
+            subtitle = "現在: ${settings.timeToMaxMinutes}分",
             onClick = onOpenTimeToMaxDialog,
         )
     }
 
     SectionCard(title = "提案の詳細") {
         SettingRow(
-            title = "セッションが開始してから提案を出し始めるまでの時間",
-            subtitle = "${formatDurationSeconds(settings.suggestionTriggerSeconds)} 以上経過してから提案します。",
+            title = "提案を出すために必要なセッションの継続時間",
+            subtitle = "現在: ${formatDurationSeconds(settings.suggestionTriggerSeconds)}以上経過してから提案します。",
             onClick = {
                 // 将来: suggestionTriggerSeconds 用ダイアログを追加する
             },
         )
         SettingRow(
-            title = "提案を出すために必要な対象アプリが連続で開かれている最小時間",
-            subtitle = "${formatDurationSeconds(settings.suggestionForegroundStableSeconds)} 以上経過してから提案します。",
+            title = "提案を出すために必要な対象アプリが連続して前面にいる時間",
+            subtitle = "現在: ${formatDurationSeconds(settings.suggestionForegroundStableSeconds)}以上経過してから提案します。",
             onClick = {
                 // 将来: suggestionForegroundStable 用ダイアログを追加する
             },
         )
         SettingRow(
-            title = "提案カードを閉じるまでの時間",
-            subtitle = "${formatDurationSeconds(settings.suggestionTimeoutSeconds)} 後に自動で閉じます。",
-            onClick = {
-                // 将来: suggestionTimeout 用ダイアログを追加する
-            },
-        )
-        SettingRow(
-            title = "次の提案までの待ち時間",
-            subtitle = "${formatDurationSeconds(settings.suggestionCooldownSeconds)} 待ってから次の提案を出します。",
+            title = "次の提案までの間隔",
+            subtitle = "現在: ${formatDurationSeconds(settings.suggestionCooldownSeconds)}待ってから再び提案をします。",
             onClick = {
                 // 将来: suggestionCooldown 用ダイアログを追加する
             },
         )
         SettingRow(
+            title = "提案カードを自動で閉じるまでの時間",
+            subtitle = "現在: ${formatDurationSeconds(settings.suggestionTimeoutSeconds)}後に自動で閉じます。",
+            onClick = {
+                // 将来: suggestionTimeout 用ダイアログを追加する
+            },
+        )
+        SettingRow(
             title = "提案表示直後の誤タップ防止時間",
-            subtitle = "${settings.suggestionInteractionLockoutMillis} ms のあいだボタンを押せなくします。",
+            subtitle = "現在: 表示してから${settings.suggestionInteractionLockoutMillis} ms の間、提案カードを消せなくします。",
             onClick = {
                 // 将来: suggestionInteractionLockout 用ダイアログを追加する
             },
