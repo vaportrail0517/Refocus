@@ -29,7 +29,7 @@ enum class OverlayColorMode {
 }
 
 @Composable
-fun OverlayTimerBubble(
+fun TimerOverlay(
     modifier: Modifier = Modifier,
     settings: Settings,
     // SessionManager から経過時間をもらうための provider

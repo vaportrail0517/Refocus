@@ -149,7 +149,7 @@ class TimerOverlayController(
             setViewTreeSavedStateRegistryOwner(savedStateOwner)
             setContent {
                 RefocusTheme {
-                    OverlayTimerBubble(
+                    TimerOverlay(
                         // ここで provider を渡す
                         settings = overlaySettingsState,
                         elapsedMillisProvider = elapsedMillisProvider

@@ -41,7 +41,7 @@ enum class OverlaySuggestionMode {
 }
 
 @Composable
-fun OverlaySuggestion(
+fun SuggestionOverlay(
     title: String,
     mode: OverlaySuggestionMode,
     modifier: Modifier = Modifier,

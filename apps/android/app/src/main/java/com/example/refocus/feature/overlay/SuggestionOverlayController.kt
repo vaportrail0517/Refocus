@@ -51,7 +51,7 @@ class SuggestionOverlayController(
             setViewTreeSavedStateRegistryOwner(savedStateOwner)
             setContent {
                 RefocusTheme {
-                    OverlaySuggestion(
+                    SuggestionOverlay(
                         title = title,
                         mode = mode,
                         autoDismissMillis = autoDismissMillis,
