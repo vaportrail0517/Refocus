@@ -1,7 +1,7 @@
 package com.example.refocus.feature.settings
 
 import androidx.compose.runtime.Composable
-import com.example.refocus.core.util.formatDurationMillis
+import com.example.refocus.core.util.formatDurationMillisOrNull
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
@@ -38,9 +38,14 @@ fun AdvancedSettingsContent(
             subtitle = "現在: ${settings.pollingIntervalMillis} ms 毎に対象アプリかどうか確認します。",
             onClick = onOpenPollingDialog,
         )
+        val formattedGraceTime = formatDurationMillisOrNull(settings.gracePeriodMillis)
         SettingRow(
             title = "セッション継続の猶予時間",
-            subtitle = "現在: 対象アプリを離れてから${formatDurationMillis(settings.gracePeriodMillis)}以内に戻れば同じセッションとみなします。",
+            subtitle = if (formattedGraceTime.isNullOrEmpty()) {
+                "現在: アプリの画面を閉じると猶予なしでセッションを終了します。"
+            } else {
+                "現在: 対象アプリを離れてから${formattedGraceTime}以内に戻れば同じセッションとみなします。"
+            },
             onClick = onOpenGraceDialog,
         )
     }

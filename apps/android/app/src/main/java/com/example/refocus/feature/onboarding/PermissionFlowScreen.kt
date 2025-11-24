@@ -3,15 +3,20 @@ package com.example.refocus.feature.onboarding
 import android.app.Activity
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.refocus.system.permissions.PermissionHelper
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.example.refocus.ui.components.OnboardingPage
 
 enum class PermissionType {
     UsageAccess,
@@ -172,7 +177,6 @@ private fun OverlayPermissionPage(
 }
 
 
-
 /* ---------- ヘルパー ---------- */
 
 private fun allPermissionsGranted(context: android.content.Context): Boolean {
@@ -182,8 +186,8 @@ private fun allPermissionsGranted(context: android.content.Context): Boolean {
 
 private fun isGranted(context: android.content.Context, type: PermissionType): Boolean =
     when (type) {
-        PermissionType.UsageAccess   -> PermissionHelper.hasUsageAccess(context)
-        PermissionType.Overlay       -> PermissionHelper.hasOverlayPermission(context)
+        PermissionType.UsageAccess -> PermissionHelper.hasUsageAccess(context)
+        PermissionType.Overlay -> PermissionHelper.hasOverlayPermission(context)
     }
 
 private fun moveToNextStep(

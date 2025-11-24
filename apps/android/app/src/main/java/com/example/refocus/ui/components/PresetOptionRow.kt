@@ -113,3 +113,54 @@ fun OptionButtonsRow(
         }
     }
 }
+
+
+data class PresetOption<P>(
+    val value: P,
+    val label: String,
+)
+
+@Composable
+fun <P> PresetOptionRow(
+    title: String,
+    currentPreset: P?,
+    options: List<PresetOption<P>>,
+    currentValueDescription: String,
+    onPresetSelected: (P) -> Unit,
+) {
+    val selectedIndex = options.indexOfFirst { it.value == currentPreset }
+        .takeIf { it >= 0 }
+
+    val subtitle = buildString {
+        append("現在: ")
+        append(currentValueDescription)
+        append("（")
+        append(
+            if (currentPreset == null) {
+                "カスタム"
+            } else {
+                val option = options.firstOrNull { it.value == currentPreset }
+                if (option != null) {
+                    "プリセット: ${option.label}"
+                } else {
+                    "カスタム"
+                }
+            }
+        )
+        append("）")
+    }
+
+    val labels = options.map { it.label }
+
+    OptionButtonsRow(
+        title = title,
+        subtitle = subtitle,
+        optionLabels = labels,
+        selectedIndex = selectedIndex,
+        onSelectIndex = { idx ->
+            val option = options.getOrNull(idx) ?: return@OptionButtonsRow
+            onPresetSelected(option.value)
+        }
+    )
+}
+

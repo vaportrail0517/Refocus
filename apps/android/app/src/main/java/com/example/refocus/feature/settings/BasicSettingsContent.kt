@@ -12,12 +12,13 @@ import com.example.refocus.core.model.SettingsPreset
 import com.example.refocus.core.model.SuggestionCooldownPreset
 import com.example.refocus.core.model.SuggestionTriggerPreset
 import com.example.refocus.core.model.TimeToMaxPreset
-import com.example.refocus.core.util.formatDurationMillis
+import com.example.refocus.core.util.formatDurationMillisOrNull
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.feature.overlay.startOverlayService
 import com.example.refocus.feature.overlay.stopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
-import com.example.refocus.ui.components.OptionButtonsRow
+import com.example.refocus.ui.components.PresetOption
+import com.example.refocus.ui.components.PresetOptionRow
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
 
@@ -187,113 +188,58 @@ fun BasicSettingsContent(
                 viewModel.updateOverlayTouchMode(newMode)
             },
         )
-        val fontPreset = SettingsBasicPresets.fontPresetOrNull(settings)
-        val fontSubtitle = buildString {
-            append("現在: 最小 ")
-            append(settings.minFontSizeSp.toInt())
-            append("sp / 最大 ")
-            append(settings.maxFontSizeSp.toInt())
-            append("sp")
 
-            append("（")
-            append(
-                when (fontPreset) {
-                    FontPreset.Small -> "プリセット: 小さい"
-                    FontPreset.Medium -> "プリセット: 普通"
-                    FontPreset.Large -> "プリセット: 大きい"
-                    null -> "カスタム"
-                }
-            )
-            append("）")
-        }
-        OptionButtonsRow(
+        val fontPreset = SettingsBasicPresets.fontPresetOrNull(settings)
+        PresetOptionRow(
             title = "文字サイズ",
-            subtitle = fontSubtitle,
-            optionLabels = listOf("小さい", "普通", "大きい"),
-            selectedIndex = when (fontPreset) {
-                FontPreset.Small -> 0
-                FontPreset.Medium -> 1
-                FontPreset.Large -> 2
-                null -> null
+            currentPreset = fontPreset,
+            options = listOf(
+                PresetOption(FontPreset.Small, "小さい"),
+                PresetOption(FontPreset.Medium, "普通"),
+                PresetOption(FontPreset.Large, "大きい"),
+            ),
+            currentValueDescription = "最小 ${settings.minFontSizeSp.toInt()}sp / 最大 ${settings.maxFontSizeSp.toInt()}sp",
+            onPresetSelected = { preset ->
+                viewModel.applyFontPreset(preset)
             },
-            onSelectIndex = { idx ->
-                when (idx) {
-                    0 -> viewModel.applyFontPreset(FontPreset.Small)
-                    1 -> viewModel.applyFontPreset(FontPreset.Medium)
-                    2 -> viewModel.applyFontPreset(FontPreset.Large)
-                }
-            }
         )
 
         val timePreset = SettingsBasicPresets.timeToMaxPresetOrNull(settings)
-        val timeSubtitle = buildString {
-            append("現在: ")
-            append(settings.timeToMaxMinutes)
-            append("分")
-
-            append("（")
-            append(
-                when (timePreset) {
-                    TimeToMaxPreset.Fast -> "プリセット: 早い"
-                    TimeToMaxPreset.Normal -> "プリセット: 普通"
-                    TimeToMaxPreset.Slow -> "プリセット: 遅い"
-                    null -> "カスタム"
-                }
-            )
-            append("）")
-        }
-        OptionButtonsRow(
+        PresetOptionRow(
             title = "最大サイズになるまでの時間",
-            subtitle = timeSubtitle,
-            optionLabels = listOf("早い", "普通", "遅い"),
-            selectedIndex = when (timePreset) {
-                TimeToMaxPreset.Fast -> 0
-                TimeToMaxPreset.Normal -> 1
-                TimeToMaxPreset.Slow -> 2
-                null -> null
+            currentPreset = timePreset,
+            options = listOf(
+                PresetOption(TimeToMaxPreset.Fast, "早い"),
+                PresetOption(TimeToMaxPreset.Normal, "普通"),
+                PresetOption(TimeToMaxPreset.Slow, "遅い"),
+            ),
+            currentValueDescription = "${settings.timeToMaxMinutes}分",
+            onPresetSelected = { preset ->
+                viewModel.applyTimeToMaxPreset(preset)
             },
-            onSelectIndex = { idx ->
-                when (idx) {
-                    0 -> viewModel.applyTimeToMaxPreset(TimeToMaxPreset.Fast)
-                    1 -> viewModel.applyTimeToMaxPreset(TimeToMaxPreset.Normal)
-                    2 -> viewModel.applyTimeToMaxPreset(TimeToMaxPreset.Slow)
-                }
-            }
         )
 
         val gracePreset = SettingsBasicPresets.gracePresetOrNull(settings)
-        val graceSubtitle = buildString {
-            append("現在: ")
-            append(formatDurationMillis(settings.gracePeriodMillis))
-            append("以内に対象アプリを再開すると同じセッションとして扱います。")
-            append("（")
-            append(
-                when (gracePreset) {
-                    GracePreset.Short -> "プリセット: 短い"
-                    GracePreset.Normal -> "プリセット: 普通"
-                    GracePreset.Long -> "プリセット: 長い"
-                    null -> "カスタム"
-                }
-            )
-            append("）")
-        }
-        OptionButtonsRow(
+        val formattedGraceTime = formatDurationMillisOrNull(settings.gracePeriodMillis)
+        PresetOptionRow(
             title = "一時的なアプリ切り替え",
-            subtitle = graceSubtitle,
-            optionLabels = listOf("短い", "普通", "長い"),
-            selectedIndex = when (gracePreset) {
-                GracePreset.Short -> 0
-                GracePreset.Normal -> 1
-                GracePreset.Long -> 2
-                null -> null
-            },
-            onSelectIndex = { idx ->
-                when (idx) {
-                    0 -> viewModel.applyGracePreset(GracePreset.Short)
-                    1 -> viewModel.applyGracePreset(GracePreset.Normal)
-                    2 -> viewModel.applyGracePreset(GracePreset.Long)
+            currentPreset = gracePreset,
+            options = listOf(
+                PresetOption(GracePreset.Short, "短い"),
+                PresetOption(GracePreset.Normal, "普通"),
+                PresetOption(GracePreset.Long, "長い"),
+            ),
+            currentValueDescription = buildString {
+                if (formattedGraceTime.isNullOrEmpty()) {
+                    append("アプリの画面を閉じると猶予なしでセッションを終了します。")
+                } else {
+                    append(formattedGraceTime)
+                    append("以内に対象アプリを再開すると同じセッションとして扱います。")
                 }
-            }
+            },
+            onPresetSelected = { preset ->
+                viewModel.applyGracePreset(preset)
+            },
         )
     }
 
@@ -347,103 +293,67 @@ fun BasicSettingsContent(
         )
 
         val trigPreset = SettingsBasicPresets.suggestionTriggerPresetOrNull(settings)
-        val trigSubtitle = buildString {
-            append("現在: 対象アプリの利用を開始してから")
-            append(formatDurationSeconds(settings.suggestionTriggerSeconds))
-            append("以上経過したら提案を行います。")
-            append("（")
-            append(
-                when (trigPreset) {
-                    SuggestionTriggerPreset.Short -> "プリセット: 短い"
-                    SuggestionTriggerPreset.Normal -> "プリセット: 普通"
-                    SuggestionTriggerPreset.Long -> "プリセット: 長い"
-                    null -> "カスタム"
-                }
-            )
-            append("）")
-        }
-        OptionButtonsRow(
+        PresetOptionRow(
             title = "初めに提案するまでの時間",
-            subtitle = trigSubtitle,
-            optionLabels = listOf("短い", "普通", "長い"),
-            selectedIndex = when (trigPreset) {
-                SuggestionTriggerPreset.Short -> 0
-                SuggestionTriggerPreset.Normal -> 1
-                SuggestionTriggerPreset.Long -> 2
-                null -> null
+            currentPreset = trigPreset,
+            options = listOf(
+                PresetOption(SuggestionTriggerPreset.Short, "短い"),
+                PresetOption(SuggestionTriggerPreset.Normal, "普通"),
+                PresetOption(SuggestionTriggerPreset.Long, "長い"),
+            ),
+            currentValueDescription = buildString {
+                append("対象アプリの利用を開始してから")
+                append(formatDurationSeconds(settings.suggestionTriggerSeconds))
+                append("以上経過したら提案を行います。")
             },
-            onSelectIndex = { idx: Int ->
-                when (idx) {
-                    0 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.Short)
-                    1 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.Normal)
-                    2 -> viewModel.applySuggestionTriggerPreset(SuggestionTriggerPreset.Long)
-                }
-            }
+            onPresetSelected = { preset ->
+                viewModel.applySuggestionTriggerPreset(preset)
+            },
         )
-        val cooldownPreset = SettingsBasicPresets.suggestionCooldownPresetOrNull(settings)
-        val cooldownSubtitle = buildString {
-            append("現在: ")
-            append(formatDurationSeconds(settings.suggestionCooldownSeconds))
-            append("以上経過したら再び提案を行います。")
 
-            append("（")
-            append(
-                when (cooldownPreset) {
-                    SuggestionCooldownPreset.Short -> "プリセット: 短い"
-                    SuggestionCooldownPreset.Normal -> "プリセット: 普通"
-                    SuggestionCooldownPreset.Long -> "プリセット: 長い"
-                    null -> "カスタム"
-                }
-            )
-            append("）")
-        }
-        OptionButtonsRow(
-            title = "提案を再び表示する頻度",
-            subtitle = cooldownSubtitle,
-            optionLabels = listOf("短い", "普通", "長い"),
-            selectedIndex = when (cooldownPreset) {
-                SuggestionCooldownPreset.Short -> 0
-                SuggestionCooldownPreset.Normal -> 1
-                SuggestionCooldownPreset.Long -> 2
-                null -> null
+        val cooldownPreset = SettingsBasicPresets.suggestionCooldownPresetOrNull(settings)
+        PresetOptionRow(
+            title = "提案を再び表示するまでの時間",
+            currentPreset = cooldownPreset,
+            options = listOf(
+                PresetOption(SuggestionCooldownPreset.Short, "短い"),
+                PresetOption(SuggestionCooldownPreset.Normal, "普通"),
+                PresetOption(SuggestionCooldownPreset.Long, "長い"),
+            ),
+            currentValueDescription = buildString {
+                append(formatDurationSeconds(settings.suggestionCooldownSeconds))
+                append("以上経過したら再び提案を行います。")
             },
-            onSelectIndex = { idx ->
-                when (idx) {
-                    0 -> viewModel.applySuggestionCooldownPreset(SuggestionCooldownPreset.Short)
-                    1 -> viewModel.applySuggestionCooldownPreset(SuggestionCooldownPreset.Normal)
-                    2 -> viewModel.applySuggestionCooldownPreset(SuggestionCooldownPreset.Long)
-                }
-            }
+            onPresetSelected = { preset ->
+                viewModel.applySuggestionCooldownPreset(preset)
+            },
         )
     }
 
     // --- 設定プリセット（全体） ---
-    SectionCard(title = "設定プリセット") {
-        val preset = uiState.preset
-        val subtitle = when (preset) {
-            SettingsPreset.Default -> "標準的なバランスの設定です。"
-            SettingsPreset.Debug -> "動作確認やデバッグに便利な設定です。"
-            SettingsPreset.Custom -> "一部の値がプリセットから変更されています。"
-        }
-
-        OptionButtonsRow(
-            title = "現在のプリセット",
-            subtitle = subtitle,
-            optionLabels = listOf("Default", "Custom", "Debug"),
-            selectedIndex = when (preset) {
-                SettingsPreset.Default -> 0
-                SettingsPreset.Custom -> 1
-                SettingsPreset.Debug -> 2
-            },
-            onSelectIndex = { idx: Int ->
-                when (idx) {
-                    0 -> viewModel.applyPreset(SettingsPreset.Default)
-                    1 -> viewModel.setPresetCustom()
-                    2 -> viewModel.applyPreset(SettingsPreset.Debug)
-                }
-            }
-        )
+    val presetOptions = listOf(
+        PresetOption(SettingsPreset.Default, "Default"),
+        PresetOption(SettingsPreset.Custom, "Custom"),
+        PresetOption(SettingsPreset.Debug, "Debug"),
+    )
+    val subtitleDescription = when (uiState.preset) {
+        SettingsPreset.Default -> "標準的なバランスの設定です。"
+        SettingsPreset.Debug -> "動作確認やデバッグに便利な設定です。"
+        SettingsPreset.Custom -> "一部の値がプリセットから変更されています。"
     }
+    PresetOptionRow(
+        title = "現在のプリセット",
+        currentPreset = uiState.preset,
+        options = presetOptions,
+        currentValueDescription = subtitleDescription,
+        onPresetSelected = { preset ->
+            when (preset) {
+                SettingsPreset.Default -> viewModel.applyPreset(SettingsPreset.Default)
+                SettingsPreset.Debug -> viewModel.applyPreset(SettingsPreset.Debug)
+                SettingsPreset.Custom -> viewModel.setPresetCustom()
+            }
+        },
+    )
 
     // --- 詳細設定への入口 ---
     SectionCard(title = "詳細設定") {

@@ -25,7 +25,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.example.refocus.data.RepositoryProvider
 import com.example.refocus.feature.overlay.startOverlayService
-import com.example.refocus.ui.components.OnboardingPage
 import kotlinx.coroutines.launch
 
 @Composable
@@ -57,6 +56,7 @@ private enum class StartMode {
     NowOnly,
     Off
 }
+
 @Composable
 fun OnboardingStartModeScreen(
     onDecide: () -> Unit
@@ -84,6 +84,7 @@ fun OnboardingStartModeScreen(
                         }
                         context.startOverlayService()
                     }
+
                     StartMode.NowOnly -> {
                         settingsRepository.updateOverlaySettings { current ->
                             current.copy(
@@ -93,6 +94,7 @@ fun OnboardingStartModeScreen(
                         }
                         context.startOverlayService()
                     }
+
                     StartMode.Off -> {
                         settingsRepository.updateOverlaySettings { current ->
                             current.copy(
@@ -136,6 +138,7 @@ fun OnboardingStartModeScreen(
         }
     }
 }
+
 @Composable
 private fun StartModeOptionCard(
     title: String,

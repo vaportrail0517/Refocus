@@ -61,7 +61,7 @@ fun SettingsBaseDialog(
                         text = description,
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.Companion.height(8.dp))
                 }
                 content()
             }
@@ -113,9 +113,9 @@ fun LongSliderDialog(
     ) {
         // 現在値＋ヒント
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.Companion.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Companion.CenterVertically
         ) {
             Text(
                 text = "現在: ${valueLabel(currentValue)}",
@@ -129,7 +129,7 @@ fun LongSliderDialog(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.Companion.height(8.dp))
         Slider(
             value = sliderValue,
             onValueChange = { raw ->
@@ -177,17 +177,17 @@ fun <T> SingleChoiceDialog(
     ) {
         options.forEach { option ->
             Row(
-                modifier = Modifier
+                modifier = Modifier.Companion
                     .fillMaxWidth()
                     .clickable { selected = option }
                     .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Companion.CenterVertically
             ) {
                 RadioButton(
                     selected = selected == option,
                     onClick = { selected = option }
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.Companion.width(8.dp))
                 Column {
                     Text(
                         text = optionLabel(option),
@@ -240,7 +240,7 @@ fun RangeSliderDialog(
             valueRange = valueRange,
             steps = steps,
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.Companion.height(8.dp))
         Text(
             text = labelFormatter(range),
             style = MaterialTheme.typography.bodySmall
@@ -288,7 +288,7 @@ fun IntInputDialog(
             label = { Text(label) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Number
+                keyboardType = KeyboardType.Companion.Number
             ),
         )
     }

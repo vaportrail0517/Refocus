@@ -1,4 +1,4 @@
-package com.example.refocus.ui.components
+package com.example.refocus.feature.onboarding
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,13 +29,13 @@ fun OnboardingPage(
     content: @Composable ColumnScope.() -> Unit = {}
 ) {
     Box(
-        modifier = Modifier
+        modifier = Modifier.Companion
             .fillMaxSize()
             .systemBarsPadding()
     ) {
         Column(
-            modifier = Modifier
-                .align(Alignment.Center)
+            modifier = Modifier.Companion
+                .align(Alignment.Companion.Center)
                 .padding(horizontal = 24.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -54,12 +54,12 @@ fun OnboardingPage(
             // 任意の説明コンテンツ（箇条書きとかイラスト置き場）
             content()
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.Companion.weight(1f))
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = onPrimaryClick,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.Companion.fillMaxWidth()
                 ) {
                     Text(primaryButtonText)
                 }
@@ -67,7 +67,7 @@ fun OnboardingPage(
                 if (secondaryButtonText != null && onSecondaryClick != null) {
                     OutlinedButton(
                         onClick = onSecondaryClick,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.Companion.fillMaxWidth()
                     ) {
                         Text(secondaryButtonText)
                     }
