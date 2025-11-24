@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
  * を一括で扱う。
  */
 @Composable
-fun SettingsDialog(
+fun SettingsBaseDialog(
     title: String,
     description: String? = null,
     confirmLabel: String = "保存",
@@ -103,7 +103,7 @@ fun LongSliderDialog(
     val currentValue = sliderValue.toLong()
     val stepsCount = ((max - min) / step).toInt().coerceAtLeast(0)
 
-    SettingsDialog(
+    SettingsBaseDialog(
         title = title,
         description = description,
         confirmLabel = confirmLabel,
@@ -167,7 +167,7 @@ fun <T> SingleChoiceDialog(
 ) {
     var selected by remember(initialSelection) { mutableStateOf(initialSelection) }
 
-    SettingsDialog(
+    SettingsBaseDialog(
         title = title,
         description = description,
         confirmLabel = confirmLabel,
@@ -226,7 +226,7 @@ fun RangeSliderDialog(
 ) {
     var range by remember(initialRange) { mutableStateOf(initialRange) }
 
-    SettingsDialog(
+    SettingsBaseDialog(
         title = title,
         description = description,
         confirmLabel = confirmLabel,
@@ -268,7 +268,7 @@ fun IntInputDialog(
 ) {
     var textValue by remember(initialValue) { mutableStateOf(initialValue.toString()) }
 
-    SettingsDialog(
+    SettingsBaseDialog(
         title = title,
         description = description,
         confirmLabel = confirmLabel,
@@ -304,7 +304,7 @@ fun InfoDialog(
     confirmLabel: String = "OK",
     onDismiss: () -> Unit,
 ) {
-    SettingsDialog(
+    SettingsBaseDialog(
         title = title,
         description = description,
         confirmLabel = confirmLabel,

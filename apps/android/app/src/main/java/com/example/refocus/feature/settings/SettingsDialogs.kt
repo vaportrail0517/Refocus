@@ -10,18 +10,18 @@ import com.example.refocus.ui.components.LongSliderDialog
 import com.example.refocus.ui.components.RangeSliderDialog
 import com.example.refocus.ui.components.SingleChoiceDialog
 
-sealed interface SettingsDialog {
-    data object GraceTime : SettingsDialog
-    data object PollingInterval : SettingsDialog
-    data object FontRange : SettingsDialog
-    data object TimeToMax : SettingsDialog
-    data object CorePermissionRequired : SettingsDialog
-    data object SuggestionFeatureRequired : SettingsDialog
-    data object SuggestionTriggerTime : SettingsDialog
-    data object SuggestionForegroundStable : SettingsDialog
-    data object SuggestionCooldown : SettingsDialog
-    data object SuggestionTimeout : SettingsDialog
-    data object SuggestionInteractionLockout : SettingsDialog
+sealed interface SettingsDialogType {
+    data object GraceTime : SettingsDialogType
+    data object PollingInterval : SettingsDialogType
+    data object FontRange : SettingsDialogType
+    data object TimeToMax : SettingsDialogType
+    data object CorePermissionRequired : SettingsDialogType
+    data object SuggestionFeatureRequired : SettingsDialogType
+    data object SuggestionTriggerTime : SettingsDialogType
+    data object SuggestionForegroundStable : SettingsDialogType
+    data object SuggestionCooldown : SettingsDialogType
+    data object SuggestionTimeout : SettingsDialogType
+    data object SuggestionInteractionLockout : SettingsDialogType
 }
 
 /**
