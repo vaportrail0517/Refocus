@@ -43,7 +43,7 @@ class SettingsDataStore(
         val SUGGESTION_ENABLED = booleanPreferencesKey("suggestion_enabled")
         val SUGGESTION_TRIGGER_SECONDS = intPreferencesKey("suggestion_trigger_seconds")
         val SUGGESTION_TIMEOUT_SECONDS = intPreferencesKey("suggestion_timeout_seconds")
-        val SUGGESTION_SNOOZE_SECONDS = intPreferencesKey("suggestion_snooze_seconds")
+        val SUGGESTION_COOLDOWN_SECONDS = intPreferencesKey("suggestion_cooldown_seconds")
         val SUGGESTION_FOREGROUND_STABLE_SECONDS =
             intPreferencesKey("suggestion_foreground_stable_seconds")
         val REST_SUGGESTION_ENABLED = booleanPreferencesKey("rest_suggestion_enabled")
@@ -108,7 +108,7 @@ class SettingsDataStore(
             prefs[Keys.SUGGESTION_ENABLED] = updated.suggestionEnabled
             prefs[Keys.SUGGESTION_TRIGGER_SECONDS] = updated.suggestionTriggerSeconds
             prefs[Keys.SUGGESTION_TIMEOUT_SECONDS] = updated.suggestionTimeoutSeconds
-            prefs[Keys.SUGGESTION_SNOOZE_SECONDS] = updated.suggestionCooldownSeconds
+            prefs[Keys.SUGGESTION_COOLDOWN_SECONDS] = updated.suggestionCooldownSeconds
             prefs[Keys.SUGGESTION_FOREGROUND_STABLE_SECONDS] =
                 updated.suggestionForegroundStableSeconds
             prefs[Keys.REST_SUGGESTION_ENABLED] = updated.restSuggestionEnabled
@@ -164,7 +164,7 @@ class SettingsDataStore(
                 ?: base.suggestionTriggerSeconds,
             suggestionTimeoutSeconds = this[Keys.SUGGESTION_TIMEOUT_SECONDS]
                 ?: base.suggestionTimeoutSeconds,
-            suggestionCooldownSeconds = this[Keys.SUGGESTION_SNOOZE_SECONDS]
+            suggestionCooldownSeconds = this[Keys.SUGGESTION_COOLDOWN_SECONDS]
                 ?: base.suggestionCooldownSeconds,
             suggestionForegroundStableSeconds =
                 this[Keys.SUGGESTION_FOREGROUND_STABLE_SECONDS]
