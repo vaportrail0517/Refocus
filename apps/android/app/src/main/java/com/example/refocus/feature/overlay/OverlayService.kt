@@ -73,7 +73,8 @@ class OverlayService : LifecycleService() {
         get() = repositoryProvider.suggestionsRepository
 
     private lateinit var foregroundAppMonitor: ForegroundAppMonitor
-    private lateinit var overlayController: OverlayController
+    private lateinit var timerOverlayController: TimerOverlayController
+    private lateinit var suggestionOverlayController: SuggestionOverlayController
 
     private lateinit var sessionManager: SessionManager
     private val suggestionEngine = SuggestionEngine()
@@ -123,9 +124,13 @@ class OverlayService : LifecycleService() {
         val app = application as Application
         repositoryProvider = RepositoryProvider(app)
         foregroundAppMonitor = ForegroundAppMonitorProvider.get(this)
-        overlayController = OverlayController(
+        timerOverlayController = TimerOverlayController(
             context = this,
             lifecycleOwner = this,
+        )
+        suggestionOverlayController = SuggestionOverlayController(
+            context = this,
+            lifecycleOwner = this
         )
         sessionManager = SessionManager(
             sessionRepository = sessionRepository,
@@ -141,7 +146,7 @@ class OverlayService : LifecycleService() {
                 settingsRepository.observeOverlaySettings().collect { settings ->
                     overlaySettings = settings
                     withContext(Dispatchers.Main) {
-                        overlayController.overlaySettings = settings
+                        timerOverlayController.overlaySettings = settings
                     }
                     if (first) {
                         first = false
@@ -177,8 +182,8 @@ class OverlayService : LifecycleService() {
         isRunning = false
         sessionManager.clear()
         serviceScope.cancel()
-        overlayController.hideTimer()
-        overlayController.hideSuggestionOverlay()
+        timerOverlayController.hideTimer()
+        suggestionOverlayController.hideSuggestionOverlay()
         clearSuggestionOverlayState()
         unregisterScreenReceiver()
         super.onDestroy()
@@ -187,6 +192,58 @@ class OverlayService : LifecycleService() {
     override fun onBind(intent: Intent): IBinder? {
         super.onBind(intent)
         return null
+    }
+
+    private suspend fun onEnterForeground(
+        packageName: String,
+        nowMillis: Long,
+        nowElapsed: Long
+    ) {
+        // ここで DB 復元込みの初期状態を作る（値は返り値として使わないが、
+        //   ActiveSessionState.initialElapsedMillis がここで確定する）
+        val initialElapsed = sessionManager.onEnterForeground(
+            packageName = packageName,
+            nowMillis = nowMillis,
+            nowElapsedRealtime = nowElapsed
+        ) ?: return
+        overlayPackage = packageName
+        // SessionManager + packageName を閉じ込めた provider
+        val elapsedProvider: (Long) -> Long = { nowElapsedRealtime ->
+            sessionManager.computeElapsedFor(
+                packageName = packageName,
+                nowElapsedRealtime = nowElapsedRealtime
+            ) ?: initialElapsed // 万一 null になっても初期値でフォロー
+        }
+        withContext(Dispatchers.Main) {
+            timerOverlayController.showTimer(
+                elapsedMillisProvider = elapsedProvider,
+                onPositionChanged = ::onOverlayPositionChanged
+            )
+        }
+    }
+
+    private fun onLeaveForeground(
+        packageName: String,
+        nowMillis: Long,
+        nowElapsed: Long
+    ) {
+        // 先にオーバーレイを閉じる
+        if (overlayPackage == packageName) {
+            overlayPackage = null
+            serviceScope.launch(Dispatchers.Main) {
+                timerOverlayController.hideTimer()
+                suggestionOverlayController.hideSuggestionOverlay()
+                clearSuggestionOverlayState()
+            }
+        }
+        // セッション管理は SessionManager に委譲
+        val grace = overlaySettings.gracePeriodMillis
+        sessionManager.onLeaveForeground(
+            packageName = packageName,
+            nowMillis = nowMillis,
+            nowElapsedRealtime = nowElapsed,
+            gracePeriodMillis = grace
+        )
     }
 
     @SuppressLint("ForegroundServiceType")
@@ -224,57 +281,6 @@ class OverlayService : LifecycleService() {
         return hasUsage && hasOverlay
     }
 
-    private suspend fun onEnterForeground(
-        packageName: String,
-        nowMillis: Long,
-        nowElapsed: Long
-    ) {
-        // ここで DB 復元込みの初期状態を作る（値は返り値として使わないが、
-        //   ActiveSessionState.initialElapsedMillis がここで確定する）
-        val initialElapsed = sessionManager.onEnterForeground(
-            packageName = packageName,
-            nowMillis = nowMillis,
-            nowElapsedRealtime = nowElapsed
-        ) ?: return
-        overlayPackage = packageName
-        // SessionManager + packageName を閉じ込めた provider
-        val elapsedProvider: (Long) -> Long = { nowElapsedRealtime ->
-            sessionManager.computeElapsedFor(
-                packageName = packageName,
-                nowElapsedRealtime = nowElapsedRealtime
-            ) ?: initialElapsed // 万一 null になっても初期値でフォロー
-        }
-        withContext(Dispatchers.Main) {
-            overlayController.showTimer(
-                elapsedMillisProvider = elapsedProvider,
-                onPositionChanged = ::onOverlayPositionChanged
-            )
-        }
-    }
-
-    private fun onLeaveForeground(
-        packageName: String,
-        nowMillis: Long,
-        nowElapsed: Long
-    ) {
-        // 先にオーバーレイを閉じる
-        if (overlayPackage == packageName) {
-            overlayPackage = null
-            serviceScope.launch(Dispatchers.Main) {
-                overlayController.hideTimer()
-                overlayController.hideSuggestionOverlay()
-                clearSuggestionOverlayState()
-            }
-        }
-        // セッション管理は SessionManager に委譲
-        val grace = overlaySettings.gracePeriodMillis
-        sessionManager.onLeaveForeground(
-            packageName = packageName,
-            nowMillis = nowMillis,
-            nowElapsedRealtime = nowElapsed,
-            gracePeriodMillis = grace
-        )
-    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun startMonitoring() {
@@ -349,7 +355,7 @@ class OverlayService : LifecycleService() {
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in startMonitoring loop", e)
                     withContext(Dispatchers.Main) {
-                        overlayController.hideTimer()
+                        timerOverlayController.hideTimer()
                     }
                     overlayPackage = null
                 }
@@ -518,7 +524,7 @@ class OverlayService : LifecycleService() {
                 }
                 withContext(Dispatchers.Main) {
                     isSuggestionOverlayShown = true
-                    overlayController.showSuggestionOverlay(
+                    suggestionOverlayController.showSuggestionOverlay(
                         title = title,
                         mode = mode,
                         autoDismissMillis = suggestionTimeoutMillis(overlaySettings),

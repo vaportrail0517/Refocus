@@ -11,19 +11,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.setViewTreeLifecycleOwner
-import androidx.savedstate.SavedStateRegistry
-import androidx.savedstate.SavedStateRegistryController
-import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.refocus.core.model.OverlayTouchMode
 import com.example.refocus.core.model.Settings
 import com.example.refocus.ui.theme.RefocusTheme
 
-class OverlayController(
+class TimerOverlayController(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner,
 ) {
@@ -31,8 +26,6 @@ class OverlayController(
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var overlayView: View? = null
     private var layoutParams: WindowManager.LayoutParams? = null
-
-    private var suggestionView: View? = null
 
     // ドラッグで位置を変えたときに呼び出すコールバックを保持しておく
     private var onPositionChangedCallback: ((Int, Int) -> Unit)? = null
@@ -99,7 +92,7 @@ class OverlayController(
                             lp.y = initialY + (event.rawY - initialTouchY).toInt()
                             windowManager.updateViewLayout(v, lp)
                             // 状態としても保持しておく
-                            this@OverlayController.layoutParams = lp
+                            this@TimerOverlayController.layoutParams = lp
                             return true
                         }
 
@@ -124,7 +117,7 @@ class OverlayController(
         onPositionChanged: ((x: Int, y: Int) -> Unit)? = null,
     ) {
         if (overlayView != null) {
-            Log.d("OverlayController", "showTimer: already showing")
+            Log.d("TimerOverlayController", "showTimer: already showing")
             return
         }
         val settings = overlaySettings
@@ -157,7 +150,7 @@ class OverlayController(
             setContent {
                 RefocusTheme {
                     OverlayTimerBubble(
-                        // ★ここで provider を渡す
+                        // ここで provider を渡す
                         settings = overlaySettingsState,
                         elapsedMillisProvider = elapsedMillisProvider
                     )
@@ -174,7 +167,7 @@ class OverlayController(
         try {
             windowManager.addView(composeView, params)
         } catch (e: Exception) {
-            Log.e("OverlayController", "showTimer: addView failed", e)
+            Log.e("TimerOverlayController", "showTimer: addView failed", e)
         }
     }
 
@@ -185,115 +178,12 @@ class OverlayController(
                 view.setContent { } // 空のコンテンツを set → 既存 Composition が dispose される
             }
             windowManager.removeView(view)
-            Log.d("OverlayController", "hideTimer: removeView success")
+            Log.d("TimerOverlayController", "hideTimer: removeView success")
         } catch (e: Exception) {
-            Log.e("OverlayController", "hideTimer: removeView failed", e)
+            Log.e("TimerOverlayController", "hideTimer: removeView failed", e)
         } finally {
             overlayView = null
             layoutParams = null
         }
-    }
-
-    fun showSuggestionOverlay(
-        title: String,
-        mode: OverlaySuggestionMode,
-        autoDismissMillis: Long,
-        interactionLockoutMillis: Long,
-        onSnoozeLater: () -> Unit,
-        onDisableThisSession: () -> Unit,
-        onDismissOnly: () -> Unit,
-    ) {
-        if (suggestionView != null) {
-            Log.d("OverlayController", "showSuggestionOverlay: already showing")
-            return
-        }
-
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-        }
-
-        val composeView = ComposeView(context).apply {
-            setViewTreeLifecycleOwner(lifecycleOwner)
-            val savedStateOwner = OverlaySavedStateOwner()
-            setViewTreeSavedStateRegistryOwner(savedStateOwner)
-            setContent {
-                RefocusTheme {
-                    OverlaySuggestion(
-                        title = title,
-                        mode = mode,
-                        autoDismissMillis = autoDismissMillis,
-                        interactionLockoutMillis = interactionLockoutMillis,
-                        onSnoozeLater = {
-                            hideSuggestionOverlay()
-                            onSnoozeLater()
-                        },
-                        onDisableThisSession = {
-                            hideSuggestionOverlay()
-                            onDisableThisSession()
-                        },
-                        onDismissOnly = {
-                            hideSuggestionOverlay()
-                            onDismissOnly()
-                        }
-                    )
-                }
-            }
-        }
-
-        suggestionView = composeView
-        try {
-            windowManager.addView(composeView, params)
-        } catch (e: Exception) {
-            Log.e("OverlayController", "showSuggestionOverlay: addView failed", e)
-            suggestionView = null
-        }
-    }
-
-    fun hideSuggestionOverlay() {
-        val view = suggestionView ?: return
-        try {
-            windowManager.removeView(view)
-        } catch (e: Exception) {
-            Log.e("OverlayController", "hideSuggestionOverlay: removeView failed", e)
-        } finally {
-            suggestionView = null
-        }
-    }
-
-}
-
-/**
- * Service とは独立した Lifecycle を持つ、SavedStateRegistryOwner のダミー実装。
- *
- * - Compose 側は ViewTreeSavedStateRegistryOwner が存在することだけを要求する
- * - 実際の状態保存/復元は行わない（Bundle は常に null）
- */
-private class OverlaySavedStateOwner : SavedStateRegistryOwner {
-
-    // 自前の LifecycleRegistry を持つ
-    private val lifecycleRegistry = LifecycleRegistry(this)
-
-    // SavedStateRegistryController を自前の Lifecycle 上に構成
-    private val controller = SavedStateRegistryController.create(this)
-
-    override val lifecycle: Lifecycle
-        get() = lifecycleRegistry
-
-    override val savedStateRegistry: SavedStateRegistry
-        get() = controller.savedStateRegistry
-
-    init {
-        // INITIALIZED の状態で attach/restore を実行する
-        lifecycleRegistry.currentState = Lifecycle.State.INITIALIZED
-        controller.performRestore(null)
-        // 最低限 CREATED に遷移させておく（以降は特に進めなくても問題なし）
-        lifecycleRegistry.currentState = Lifecycle.State.CREATED
     }
 }
