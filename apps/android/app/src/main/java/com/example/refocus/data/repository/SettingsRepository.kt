@@ -1,8 +1,8 @@
 package com.example.refocus.data.repository
 
+import com.example.refocus.config.SettingsPresetValues
 import com.example.refocus.core.model.Settings
 import com.example.refocus.core.model.SettingsPreset
-import com.example.refocus.core.model.SettingsPresets
 import com.example.refocus.data.datastore.SettingsDataStore
 import kotlinx.coroutines.flow.Flow
 
@@ -34,7 +34,7 @@ class SettingsRepository(
         when (preset) {
             SettingsPreset.Default -> {
                 dataStore.update { current ->
-                    SettingsPresets.default.copy(
+                    SettingsPresetValues.Default.copy(
                         // 「状態」に近い値は引き継ぐ
                         overlayEnabled = current.overlayEnabled,
                         autoStartOnBoot = current.autoStartOnBoot,
@@ -48,7 +48,7 @@ class SettingsRepository(
 
             SettingsPreset.Debug -> {
                 dataStore.update { current ->
-                    SettingsPresets.debug.copy(
+                    SettingsPresetValues.Debug.copy(
                         overlayEnabled = current.overlayEnabled,
                         autoStartOnBoot = current.autoStartOnBoot,
                         positionX = current.positionX,

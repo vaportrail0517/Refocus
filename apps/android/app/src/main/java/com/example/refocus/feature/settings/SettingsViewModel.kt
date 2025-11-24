@@ -3,19 +3,19 @@ package com.example.refocus.feature.settings
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.refocus.config.SettingsBasicPresets.withFontPreset
+import com.example.refocus.config.SettingsBasicPresets.withGracePreset
+import com.example.refocus.config.SettingsBasicPresets.withSuggestionCooldownPreset
+import com.example.refocus.config.SettingsBasicPresets.withSuggestionTriggerPreset
+import com.example.refocus.config.SettingsBasicPresets.withTimeToMaxPreset
+import com.example.refocus.core.model.FontPreset
+import com.example.refocus.core.model.GracePreset
 import com.example.refocus.core.model.OverlayTouchMode
 import com.example.refocus.core.model.Settings
-import com.example.refocus.core.model.SettingsConfig.FontPreset
-import com.example.refocus.core.model.SettingsConfig.GracePreset
-import com.example.refocus.core.model.SettingsConfig.SuggestionCooldownPreset
-import com.example.refocus.core.model.SettingsConfig.SuggestionTriggerPreset
-import com.example.refocus.core.model.SettingsConfig.TimeToMaxPreset
-import com.example.refocus.core.model.SettingsConfig.withFontPreset
-import com.example.refocus.core.model.SettingsConfig.withGracePreset
-import com.example.refocus.core.model.SettingsConfig.withSuggestionCooldownPreset
-import com.example.refocus.core.model.SettingsConfig.withSuggestionTriggerPreset
-import com.example.refocus.core.model.SettingsConfig.withTimeToMaxPreset
 import com.example.refocus.core.model.SettingsPreset
+import com.example.refocus.core.model.SuggestionCooldownPreset
+import com.example.refocus.core.model.SuggestionTriggerPreset
+import com.example.refocus.core.model.TimeToMaxPreset
 import com.example.refocus.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,14 +31,14 @@ class SettingsViewModel(
     data class UiState(
         val settings: Settings,
         val preset: SettingsPreset = SettingsPreset.Default,
-        val isLoading: Boolean = true
+        val isLoading: Boolean = true,
     )
 
     private val _uiState = MutableStateFlow(
         UiState(
             settings = Settings(),
             preset = SettingsPreset.Default,
-            isLoading = true
+            isLoading = true,
         )
     )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -60,73 +60,51 @@ class SettingsViewModel(
         }
     }
 
-    fun updateGracePeriodMillis(ms: Long) {
+    /**
+     * 「プリセット = Custom」として設定値を更新する共通ヘルパ。
+     * 同じパターンの関数を大量に書かなくてよくなる。
+     */
+    private fun updateSettingsAsCustom(transform: Settings.() -> Settings) {
         viewModelScope.launch {
             settingsRepository.updateOverlaySettings { current ->
-                current.copy(gracePeriodMillis = ms)
+                current.transform()
             }
             settingsRepository.setSettingsPreset(SettingsPreset.Custom)
         }
     }
 
-    fun updatePollingIntervalMillis(ms: Long) {
-        viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.copy(pollingIntervalMillis = ms)
-            }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
-        }
-    }
+    // --- セッション / 監視設定 ---
 
-    fun updateMinFontSizeSp(minSp: Float) {
-        viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.copy(
-                    minFontSizeSp = minSp
-                )
-            }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
-        }
-    }
+    fun updateGracePeriodMillis(ms: Long) =
+        updateSettingsAsCustom { copy(gracePeriodMillis = ms) }
 
-    fun updateMaxFontSizeSp(maxSp: Float) {
-        viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.copy(
-                    maxFontSizeSp = maxSp
-                )
-            }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
-        }
-    }
+    fun updatePollingIntervalMillis(ms: Long) =
+        updateSettingsAsCustom { copy(pollingIntervalMillis = ms) }
 
-    fun updateTimeToMaxMinutes(minutes: Int) {
-        viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.copy(
-                    timeToMaxMinutes = minutes
-                )
-            }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
-        }
-    }
+    // --- オーバーレイ見た目 ---
 
-    fun updateOverlayTouchMode(mode: OverlayTouchMode) {
-        viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.copy(touchMode = mode)
-            }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
-        }
-    }
+    fun updateMinFontSizeSp(minSp: Float) =
+        updateSettingsAsCustom { copy(minFontSizeSp = minSp) }
+
+    fun updateMaxFontSizeSp(maxSp: Float) =
+        updateSettingsAsCustom { copy(maxFontSizeSp = maxSp) }
+
+    fun updateTimeToMaxMinutes(minutes: Int) =
+        updateSettingsAsCustom { copy(timeToMaxMinutes = minutes) }
+
+    fun updateOverlayTouchMode(mode: OverlayTouchMode) =
+        updateSettingsAsCustom { copy(touchMode = mode) }
 
     fun updateOverlayPosition(x: Int, y: Int) {
+        // 位置変更はプリセット種別を変えなくてよいなら、あえて Custom にしない。
         viewModelScope.launch {
             settingsRepository.updateOverlaySettings { current ->
                 current.copy(positionX = x, positionY = y)
             }
         }
     }
+
+    // --- 有効/無効・起動関連 ---
 
     fun updateOverlayEnabled(enabled: Boolean) {
         viewModelScope.launch {
@@ -140,6 +118,8 @@ class SettingsViewModel(
         }
     }
 
+    // --- 提案機能（Suggestion） ---
+
     fun updateSuggestionEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setSuggestionEnabled(enabled)
@@ -152,54 +132,24 @@ class SettingsViewModel(
         }
     }
 
-    fun updateSuggestionTriggerSeconds(seconds: Int) {
-        viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.copy(suggestionTriggerSeconds = seconds)
-            }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
-        }
-    }
+    fun updateSuggestionTriggerSeconds(seconds: Int) =
+        updateSettingsAsCustom { copy(suggestionTriggerSeconds = seconds) }
 
-    fun updateSuggestionForegroundStableSeconds(seconds: Int) {
-        viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.copy(suggestionForegroundStableSeconds = seconds)
-            }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
-        }
-    }
+    fun updateSuggestionForegroundStableSeconds(seconds: Int) =
+        updateSettingsAsCustom { copy(suggestionForegroundStableSeconds = seconds) }
 
-    fun updateSuggestionCooldownSeconds(seconds: Int) {
-        viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.copy(suggestionCooldownSeconds = seconds)
-            }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
-        }
-    }
+    fun updateSuggestionCooldownSeconds(seconds: Int) =
+        updateSettingsAsCustom { copy(suggestionCooldownSeconds = seconds) }
 
-    fun updateSuggestionTimeoutSeconds(seconds: Int) {
-        viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.copy(suggestionTimeoutSeconds = seconds)
-            }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
-        }
-    }
+    fun updateSuggestionTimeoutSeconds(seconds: Int) =
+        updateSettingsAsCustom { copy(suggestionTimeoutSeconds = seconds) }
 
-    fun updateSuggestionInteractionLockoutMillis(millis: Long) {
-        viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.copy(suggestionInteractionLockoutMillis = millis)
-            }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
-        }
-    }
+    fun updateSuggestionInteractionLockoutMillis(millis: Long) =
+        updateSettingsAsCustom { copy(suggestionInteractionLockoutMillis = millis) }
 
-    // --- ここからプリセット用の helper（数字は SettingsConfig に集約） ---
+    // --- プリセット適用（部分プリセット） ---
 
-    /** タイマーの文字サイズプリセットを適用（Small / Medium / Large） */
+    /** フォントサイズのプリセットを適用（小さめ / ふつう / 大きめ） */
     fun applyFontPreset(preset: FontPreset) {
         viewModelScope.launch {
             settingsRepository.updateOverlaySettings { current ->
@@ -209,7 +159,7 @@ class SettingsViewModel(
         }
     }
 
-    /** タイマーが最大サイズになるまでの時間プリセットを適用（遅め / ふつう / 早め） */
+    /** 最大サイズまでの時間プリセットを適用（速い / 普通 / ゆっくり） */
     fun applyTimeToMaxPreset(preset: TimeToMaxPreset) {
         viewModelScope.launch {
             settingsRepository.updateOverlaySettings { current ->
@@ -229,7 +179,7 @@ class SettingsViewModel(
         }
     }
 
-    /** 提案トリガ時間プリセットを適用（10/15/30） */
+    /** 提案トリガ時間プリセットを適用（短/中/長） */
     fun applySuggestionTriggerPreset(preset: SuggestionTriggerPreset) {
         viewModelScope.launch {
             settingsRepository.updateOverlaySettings { current ->
@@ -249,9 +199,12 @@ class SettingsViewModel(
         }
     }
 
+    // --- 全体プリセット（Default / Debug / Custom） ---
+
     /**
      * 設定プリセットを適用する。
-     * Default / Debug は値を一括リセット、Custom は種別だけ変更。
+     * - Default / Debug: SettingsPresetValues 由来の値に置き換え
+     * - Custom: 現在の値は維持しつつ、preset 種別だけ Custom にする
      */
     fun applyPreset(preset: SettingsPreset) {
         viewModelScope.launch {
@@ -261,6 +214,7 @@ class SettingsViewModel(
 
     /**
      * 値は変えずにプリセット種別だけ Custom にしたい場合。
+     * （ユーザーが個別項目を変更した直後に呼ぶなど）
      */
     fun setPresetCustom() {
         viewModelScope.launch {

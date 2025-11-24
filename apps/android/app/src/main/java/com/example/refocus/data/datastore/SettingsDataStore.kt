@@ -131,7 +131,7 @@ class SettingsDataStore(
      * fallback はすべて Settings() のデフォルトを見る。
      */
     private fun Preferences.toOverlaySettings(): Settings {
-        // Settings() のデフォルトは SettingsConfig.Defaults を参照している
+        // Settings() のデフォルトは SettingsConfig.SettingsDefaults を参照している
         val base = Settings()
 
         val touchModeOrdinal = this[Keys.TOUCH_MODE] ?: base.touchMode.ordinal

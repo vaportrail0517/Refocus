@@ -26,18 +26,18 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.refocus.config.SettingsBasicPresets.fontPresetOrNull
+import com.example.refocus.config.SettingsBasicPresets.gracePresetOrNull
+import com.example.refocus.config.SettingsBasicPresets.suggestionCooldownPresetOrNull
+import com.example.refocus.config.SettingsBasicPresets.suggestionTriggerPresetOrNull
+import com.example.refocus.config.SettingsBasicPresets.timeToMaxPresetOrNull
+import com.example.refocus.core.model.FontPreset
+import com.example.refocus.core.model.GracePreset
 import com.example.refocus.core.model.OverlayTouchMode
-import com.example.refocus.core.model.SettingsConfig.FontPreset
-import com.example.refocus.core.model.SettingsConfig.GracePreset
-import com.example.refocus.core.model.SettingsConfig.SuggestionCooldownPreset
-import com.example.refocus.core.model.SettingsConfig.SuggestionTriggerPreset
-import com.example.refocus.core.model.SettingsConfig.TimeToMaxPreset
-import com.example.refocus.core.model.SettingsConfig.fontPresetOrNull
-import com.example.refocus.core.model.SettingsConfig.gracePresetOrNull
-import com.example.refocus.core.model.SettingsConfig.suggestionCooldownPresetOrNull
-import com.example.refocus.core.model.SettingsConfig.suggestionTriggerPresetOrNull
-import com.example.refocus.core.model.SettingsConfig.timeToMaxPresetOrNull
 import com.example.refocus.core.model.SettingsPreset
+import com.example.refocus.core.model.SuggestionCooldownPreset
+import com.example.refocus.core.model.SuggestionTriggerPreset
+import com.example.refocus.core.model.TimeToMaxPreset
 import com.example.refocus.core.util.formatDurationMillis
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.feature.overlay.OverlayService
@@ -47,6 +47,7 @@ import com.example.refocus.system.permissions.PermissionHelper
 import com.example.refocus.ui.components.OptionButtonsRow
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
+
 
 @Composable
 fun SettingsScreen(
@@ -457,7 +458,7 @@ private fun BasicSettingsContent(
                 viewModel.updateOverlayTouchMode(newMode)
             },
         )
-        val fontPreset = settings.fontPresetOrNull()
+        val fontPreset = fontPresetOrNull(settings)
         val fontSubtitle = buildString {
             append("現在: 最小 ")
             append(settings.minFontSizeSp.toInt())
@@ -495,7 +496,7 @@ private fun BasicSettingsContent(
             }
         )
 
-        val timePreset = settings.timeToMaxPresetOrNull()
+        val timePreset = timeToMaxPresetOrNull(settings)
         val timeSubtitle = buildString {
             append("現在: ")
             append(settings.timeToMaxMinutes)
@@ -531,7 +532,7 @@ private fun BasicSettingsContent(
             }
         )
 
-        val gracePreset = settings.gracePresetOrNull()
+        val gracePreset = gracePresetOrNull(settings)
         val graceSubtitle = buildString {
             append("現在: ")
             append(formatDurationMillis(settings.gracePeriodMillis))
@@ -616,7 +617,7 @@ private fun BasicSettingsContent(
             },
         )
 
-        val trigPreset = settings.suggestionTriggerPresetOrNull()
+        val trigPreset = suggestionTriggerPresetOrNull(settings)
         val trigSubtitle = buildString {
             append("現在: 対象アプリの利用を開始してから")
             append(formatDurationSeconds(settings.suggestionTriggerSeconds))
@@ -650,7 +651,7 @@ private fun BasicSettingsContent(
                 }
             }
         )
-        val cooldownPreset = settings.suggestionCooldownPresetOrNull()
+        val cooldownPreset = suggestionCooldownPresetOrNull(settings)
         val cooldownSubtitle = buildString {
             append("現在: ")
             append(formatDurationSeconds(settings.suggestionCooldownSeconds))
@@ -659,9 +660,9 @@ private fun BasicSettingsContent(
             append("（")
             append(
                 when (cooldownPreset) {
-                    SuggestionCooldownPreset.Infrequent -> "プリセット: 低い"
+                    SuggestionCooldownPreset.Short -> "プリセット: 短い"
                     SuggestionCooldownPreset.Normal -> "プリセット: 普通"
-                    SuggestionCooldownPreset.Frequent -> "プリセット: 高い"
+                    SuggestionCooldownPreset.Long -> "プリセット: 長い"
                     null -> "カスタム"
                 }
             )
@@ -670,18 +671,18 @@ private fun BasicSettingsContent(
         OptionButtonsRow(
             title = "提案を再び表示する頻度",
             subtitle = cooldownSubtitle,
-            optionLabels = listOf("低い", "普通", "高い"),
+            optionLabels = listOf("短い", "普通", "長い"),
             selectedIndex = when (cooldownPreset) {
-                SuggestionCooldownPreset.Infrequent -> 0
+                SuggestionCooldownPreset.Short -> 0
                 SuggestionCooldownPreset.Normal -> 1
-                SuggestionCooldownPreset.Frequent -> 2
+                SuggestionCooldownPreset.Long -> 2
                 null -> null
             },
             onSelectIndex = { idx ->
                 when (idx) {
-                    0 -> viewModel.applySuggestionCooldownPreset(SuggestionCooldownPreset.Infrequent)
+                    0 -> viewModel.applySuggestionCooldownPreset(SuggestionCooldownPreset.Short)
                     1 -> viewModel.applySuggestionCooldownPreset(SuggestionCooldownPreset.Normal)
-                    2 -> viewModel.applySuggestionCooldownPreset(SuggestionCooldownPreset.Frequent)
+                    2 -> viewModel.applySuggestionCooldownPreset(SuggestionCooldownPreset.Long)
                 }
             }
         )

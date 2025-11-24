@@ -8,23 +8,14 @@ package com.example.refocus.core.model
  * - Debug:   動作確認・デバッグ用の値
  * - Custom:  プリセットから変更された状態
  */
-enum class SettingsPreset {
-    Default,
-    Debug,
-    Custom,
-}
+enum class SettingsPreset { Default, Debug, Custom }
 
-/**
- * 各プリセットに対応する Settings の値セット。
- *
- * 実際の数値は SettingsConfig に集約し、
- * ここは「種類 → 設定値」の入口だけを提供する。
- */
-object SettingsPresets {
+enum class FontPreset { Small, Medium, Large }
 
-    // 標準プリセット
-    val default: Settings = SettingsConfig.Default
+enum class TimeToMaxPreset { Slow, Normal, Fast }
 
-    // デバッグ用プリセット
-    val debug: Settings = SettingsConfig.Debug
-}
+enum class GracePreset { Short, Normal, Long }
+
+enum class SuggestionTriggerPreset { Short, Normal, Long }
+
+enum class SuggestionCooldownPreset { Short, Normal, Long }
