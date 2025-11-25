@@ -1,6 +1,5 @@
 package com.example.refocus.feature.history
 
-import android.app.Application
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,19 +22,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.example.refocus.domain.stats.SessionStatus
 
 @Composable
 fun SessionHistoryScreen() {
-    val context = LocalContext.current
-    val app = context.applicationContext as Application
-    val viewModel: SessionHistoryViewModel = viewModel(
-        factory = SessionHistoryViewModelFactory(app)
-    )
+    val viewModel: SessionHistoryViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
 
     Column(
@@ -124,14 +118,16 @@ private fun SessionItem(
             ) {
                 val statusText = when (session.status) {
                     SessionStatus.RUNNING -> "実行中"
-                    SessionStatus.GRACE   -> "一時離脱中（猶予）"
+                    SessionStatus.GRACE -> "一時離脱中（猶予）"
                     SessionStatus.FINISHED -> "終了"
                 }
                 val statusColor = when (session.status) {
                     SessionStatus.RUNNING ->
                         MaterialTheme.colorScheme.primary
+
                     SessionStatus.GRACE ->
                         MaterialTheme.colorScheme.tertiary
+
                     SessionStatus.FINISHED ->
                         MaterialTheme.colorScheme.onSurfaceVariant
                 }

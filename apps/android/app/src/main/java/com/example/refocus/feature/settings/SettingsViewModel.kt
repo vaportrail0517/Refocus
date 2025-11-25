@@ -17,13 +17,16 @@ import com.example.refocus.core.model.SuggestionCooldownPreset
 import com.example.refocus.core.model.SuggestionTriggerPreset
 import com.example.refocus.core.model.TimeToMaxPreset
 import com.example.refocus.data.repository.SettingsRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class SettingsViewModel(
+@HiltViewModel
+class SettingsViewModel @Inject constructor(
     application: Application,
     private val settingsRepository: SettingsRepository
 ) : AndroidViewModel(application) {

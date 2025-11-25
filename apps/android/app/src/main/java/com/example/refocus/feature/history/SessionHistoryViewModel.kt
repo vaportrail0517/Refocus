@@ -6,10 +6,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
-import com.example.refocus.domain.stats.SessionStatus
-import com.example.refocus.domain.stats.SessionStatsCalculator
 import com.example.refocus.data.repository.SessionRepository
+import com.example.refocus.domain.stats.SessionStatsCalculator
+import com.example.refocus.domain.stats.SessionStatus
 import com.example.refocus.system.monitor.ForegroundAppMonitor
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,11 +22,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
 
-class SessionHistoryViewModel(
+@HiltViewModel
+class SessionHistoryViewModel @Inject constructor(
     application: Application,
     private val sessionRepository: SessionRepository,
-    private val foregroundAppMonitor: ForegroundAppMonitor,
+    private val foregroundAppMonitor: ForegroundAppMonitor
 ) : AndroidViewModel(application) {
 
     data class PauseResumeUiModel(
@@ -89,12 +92,12 @@ class SessionHistoryViewModel(
         sessions: List<Session>,
         eventsMap: Map<Long, List<SessionEvent>>,
         foregroundPackage: String?,
-        ) {
+    ) {
         if (sessions.isEmpty()) {
             _uiState.value = UiState(
                 sessions = emptyList(),
                 isLoading = false,
-                )
+            )
             return
         }
         val nowMillis = System.currentTimeMillis()
@@ -104,7 +107,7 @@ class SessionHistoryViewModel(
             eventsMap = eventsMap,
             foregroundPackage = foregroundPackage,
             nowMillis = nowMillis,
-            )
+        )
         // それを UI 用に整形
         val uiModels = statsList.map { stats ->
             val durationText = when (stats.status) {
@@ -128,12 +131,12 @@ class SessionHistoryViewModel(
                 durationText = durationText,
                 status = stats.status,
                 pauseResumeEvents = pauseUiList,
-                )
+            )
         }
         _uiState.value = UiState(
             sessions = uiModels,
             isLoading = false,
-            )
+        )
     }
 
     private fun resolveAppName(packageName: String): String {

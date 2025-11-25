@@ -1,7 +1,6 @@
 package com.example.refocus.feature.overlay
 
 import android.annotation.SuppressLint
-import android.app.Application
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -17,9 +16,7 @@ import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import com.example.refocus.R
 import com.example.refocus.core.model.Settings
-import com.example.refocus.core.util.SystemTimeSource
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.data.RepositoryProvider
 import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.data.repository.SuggestionsRepository
@@ -27,8 +24,8 @@ import com.example.refocus.data.repository.TargetsRepository
 import com.example.refocus.domain.session.SessionManager
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.system.monitor.ForegroundAppMonitor
-import com.example.refocus.system.monitor.ForegroundAppMonitorProvider
 import com.example.refocus.system.permissions.PermissionHelper
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -43,7 +40,9 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class OverlayService : LifecycleService() {
 
     companion object {
@@ -60,24 +59,32 @@ class OverlayService : LifecycleService() {
     // サービス専用のCoroutineScope
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    private val timeSource: TimeSource = SystemTimeSource()
+    @Inject
+    lateinit var timeSource: TimeSource
 
-    private lateinit var repositoryProvider: RepositoryProvider
-    private val targetsRepository: TargetsRepository
-        get() = repositoryProvider.targetsRepository
-    private val sessionRepository: SessionRepository
-        get() = repositoryProvider.sessionRepository
-    private val settingsRepository: SettingsRepository
-        get() = repositoryProvider.settingsRepository
-    private val suggestionsRepository: SuggestionsRepository
-        get() = repositoryProvider.suggestionsRepository
+    @Inject
+    lateinit var targetsRepository: TargetsRepository
 
-    private lateinit var foregroundAppMonitor: ForegroundAppMonitor
+    @Inject
+    lateinit var sessionRepository: SessionRepository
+
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+
+    @Inject
+    lateinit var suggestionsRepository: SuggestionsRepository
+
+    @Inject
+    lateinit var foregroundAppMonitor: ForegroundAppMonitor
+
+    @Inject
+    lateinit var suggestionEngine: SuggestionEngine
+
+
     private lateinit var timerOverlayController: TimerOverlayController
     private lateinit var suggestionOverlayController: SuggestionOverlayController
 
     private lateinit var sessionManager: SessionManager
-    private val suggestionEngine = SuggestionEngine()
 
     private var currentForegroundPackage: String? = null
     private var overlayPackage: String? = null
@@ -121,9 +128,6 @@ class OverlayService : LifecycleService() {
         super.onCreate()
         isRunning = true
         Log.d(TAG, "onCreate")
-        val app = application as Application
-        repositoryProvider = RepositoryProvider(app)
-        foregroundAppMonitor = ForegroundAppMonitorProvider.get(this)
         timerOverlayController = TimerOverlayController(
             context = this,
             lifecycleOwner = this,

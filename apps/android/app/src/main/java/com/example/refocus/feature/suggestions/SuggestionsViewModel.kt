@@ -5,12 +5,15 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.Suggestion
 import com.example.refocus.data.repository.SuggestionsRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class SuggestionsViewModel(
+@HiltViewModel
+class SuggestionsViewModel @Inject constructor(
     application: Application,
     private val suggestionsRepository: SuggestionsRepository
 ) : AndroidViewModel(application) {

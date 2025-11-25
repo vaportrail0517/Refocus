@@ -1,7 +1,6 @@
 package com.example.refocus.feature.settings
 
 import android.app.Activity
-import android.app.Application
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,11 +18,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.refocus.feature.overlay.OverlayService
 import com.example.refocus.feature.overlay.stopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
@@ -35,10 +34,8 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val app = context.applicationContext as Application
-    val viewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModelFactory(app)
-    )
+    val viewModel: SettingsViewModel = hiltViewModel()
+
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current

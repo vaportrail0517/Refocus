@@ -1,6 +1,5 @@
 package com.example.refocus.feature.appselect
 
-import android.app.Application
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -32,7 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.example.refocus.system.permissions.PermissionHelper
 import com.example.refocus.ui.components.SearchBar
 
@@ -42,11 +41,7 @@ fun AppSelectScreen(
     onFinishedWithoutPermission: () -> Unit
 ) {
     val context = LocalContext.current
-    val app = context.applicationContext as Application
-
-    val viewModel: AppListViewModel = viewModel(
-        factory = AppListViewModelFactory(app)
-    )
+    val viewModel: AppListViewModel = hiltViewModel()
     val apps by viewModel.apps.collectAsState()
     var query by remember { mutableStateOf(TextFieldValue("")) }
     val filtered = remember(apps, query) {

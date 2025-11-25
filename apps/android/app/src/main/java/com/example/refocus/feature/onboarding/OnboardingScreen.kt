@@ -1,6 +1,5 @@
 package com.example.refocus.feature.onboarding
 
-import android.app.Application
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -13,19 +12,14 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import com.example.refocus.data.RepositoryProvider
-import com.example.refocus.feature.overlay.startOverlayService
-import kotlinx.coroutines.launch
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 @Composable
 fun OnboardingIntroScreen(
@@ -51,61 +45,20 @@ fun OnboardingReadyScreen(
     )
 }
 
-private enum class StartMode {
-    AutoAndNow,
-    NowOnly,
-    Off
-}
-
 @Composable
 fun OnboardingStartModeScreen(
     onDecide: () -> Unit
 ) {
-    val context = LocalContext.current
-    val app = context.applicationContext as Application
-    val repositoryProvider = remember { RepositoryProvider(app) }
-    val settingsRepository = repositoryProvider.settingsRepository
-    val scope = rememberCoroutineScope()
+    val viewModel: OnboardingStartModeViewModel = hiltViewModel()
     var selected by remember { mutableStateOf<StartMode?>(StartMode.AutoAndNow) }
     OnboardingPage(
-        title = "Refocus の起動方法をえらぶ",
+        title = "Refocus の起動方法を選ぶ",
         description = "Refocus はバックグラウンドで起動している間だけ、対象アプリの連続使用時間を記録します。\nあとから設定画面でいつでも変更できます。",
         primaryButtonText = "この設定で始める",
         onPrimaryClick = {
             val mode = selected ?: return@OnboardingPage
-            scope.launch {
-                when (mode) {
-                    StartMode.AutoAndNow -> {
-                        settingsRepository.updateOverlaySettings { current ->
-                            current.copy(
-                                overlayEnabled = true,
-                                autoStartOnBoot = true
-                            )
-                        }
-                        context.startOverlayService()
-                    }
-
-                    StartMode.NowOnly -> {
-                        settingsRepository.updateOverlaySettings { current ->
-                            current.copy(
-                                overlayEnabled = true,
-                                autoStartOnBoot = false
-                            )
-                        }
-                        context.startOverlayService()
-                    }
-
-                    StartMode.Off -> {
-                        settingsRepository.updateOverlaySettings { current ->
-                            current.copy(
-                                overlayEnabled = false,
-                                autoStartOnBoot = false
-                            )
-                        }
-                    }
-                }
-                onDecide()
-            }
+            viewModel.applyStartMode(mode)
+            onDecide()
         },
         secondaryButtonText = null,
         onSecondaryClick = null,
@@ -199,15 +152,7 @@ fun OnboardingFinishScreen(
     onCloseApp: () -> Unit,
     onOpenApp: () -> Unit
 ) {
-    val context = LocalContext.current
-    val app = context.applicationContext as Application
-    val repositoryProvider = remember { RepositoryProvider(app) }
-    val onboardingRepository = remember { repositoryProvider.onboardingRepository }
-
-    LaunchedEffect(Unit) {
-        onboardingRepository.setCompleted(true)
-    }
-
+    val viewModel: OnboardingFinishViewModel = hiltViewModel()
     OnboardingPage(
         title = "設定が完了しました",
         description = "このままアプリを閉じるか、Refocus のホーム画面を開いて設定を確認できます。",

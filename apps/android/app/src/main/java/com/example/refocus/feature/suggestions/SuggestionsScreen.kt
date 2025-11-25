@@ -1,6 +1,5 @@
 package com.example.refocus.feature.suggestions
 
-import android.app.Application
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,19 +29,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SuggestionsScreen() {
-    val context = LocalContext.current
-    val app = context.applicationContext as Application
-    val viewModel: SuggestionsViewModel = viewModel(
-        factory = SuggestionsViewModelFactory(app)
-    )
+    val viewModel: SuggestionsViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     var isSheetOpen by rememberSaveable { mutableStateOf(false) }
     var inputText by rememberSaveable { mutableStateOf("") }
