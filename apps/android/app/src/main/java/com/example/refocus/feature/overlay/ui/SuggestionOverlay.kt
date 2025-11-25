@@ -1,4 +1,4 @@
-package com.example.refocus.feature.overlay
+package com.example.refocus.feature.overlay.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -31,20 +31,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.example.refocus.core.model.OverlaySuggestionMode
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
-
-
-enum class OverlaySuggestionMode {
-    Goal,   // 「やりたいこと」モード
-    Rest    // 「休憩」モード
-}
 
 @Composable
 fun SuggestionOverlay(
     title: String,
     mode: OverlaySuggestionMode,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier.Companion,
     autoDismissMillis: Long = 8_000L,
     interactionLockoutMillis: Long = 400L,
     onSnoozeLater: () -> Unit,
@@ -85,16 +80,16 @@ fun SuggestionOverlay(
         interactive = true
     }
 
-    val cardOffset = remember { mutableStateOf(Offset.Zero) }
+    val cardOffset = remember { mutableStateOf(Offset.Companion.Zero) }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.85f)),
-        contentAlignment = Alignment.Center
+            .background(Color.Companion.Black.copy(alpha = 0.85f)),
+        contentAlignment = Alignment.Companion.Center
     ) {
         Card(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .offset {
                     IntOffset(
                         cardOffset.value.x.roundToInt(),
@@ -108,7 +103,7 @@ fun SuggestionOverlay(
                         onDragEnd = {
                             if (!interactive) {
                                 // ロックアウト中は何もせず、その場に留める
-                                cardOffset.value = Offset.Zero
+                                cardOffset.value = Offset.Companion.Zero
                                 return@detectDragGestures
                             }
                             val distance = cardOffset.value.getDistance()
@@ -116,12 +111,12 @@ fun SuggestionOverlay(
                             if (distance > threshold) {
                                 onDismissOnly()
                             } else {
-                                cardOffset.value = Offset.Zero
+                                cardOffset.value = Offset.Companion.Zero
                             }
                         },
                         onDragCancel = {
                             // キャンセル時は元の位置に戻す
-                            cardOffset.value = Offset.Zero
+                            cardOffset.value = Offset.Companion.Zero
                         }
                     ) { change, dragAmount ->
                         if (!interactive) {
@@ -135,7 +130,7 @@ fun SuggestionOverlay(
                 }
         ) {
             Column(
-                modifier = Modifier
+                modifier = Modifier.Companion
                     .padding(horizontal = 24.dp, vertical = 16.dp)
                     .widthIn(min = 260.dp)
             ) {
@@ -143,26 +138,26 @@ fun SuggestionOverlay(
                     text = headerText,
                     style = MaterialTheme.typography.titleMedium
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.Companion.height(8.dp))
                 Text(
                     text = labelText,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.Companion.height(4.dp))
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.Companion.height(12.dp))
                 Text(
                     text = bodyText,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.Companion.height(16.dp))
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.Companion.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(
@@ -175,7 +170,7 @@ fun SuggestionOverlay(
                     ) {
                         Text("また後で")
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.Companion.width(8.dp))
                     TextButton(
                         onClick = {
                             if (interactive) {

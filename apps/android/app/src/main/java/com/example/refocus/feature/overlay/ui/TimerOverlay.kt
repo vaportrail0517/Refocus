@@ -1,4 +1,4 @@
-package com.example.refocus.feature.overlay
+package com.example.refocus.feature.overlay.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -21,16 +21,9 @@ import com.example.refocus.core.util.TimeSource
 import com.example.refocus.core.util.formatDurationForTimerBubble
 import kotlinx.coroutines.delay
 
-
-enum class OverlayColorMode {
-    SingleColor,
-    Threshold,
-    Gradient
-}
-
 @Composable
 fun TimerOverlay(
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier.Companion,
     settings: Settings,
     // SessionManager から経過時間をもらうための provider
     elapsedMillisProvider: (Long) -> Long

@@ -1,4 +1,4 @@
-package com.example.refocus.feature.overlay
+package com.example.refocus.feature.overlay.service
 
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -22,6 +22,9 @@ import com.example.refocus.data.repository.SuggestionsRepository
 import com.example.refocus.data.repository.TargetsRepository
 import com.example.refocus.domain.session.SessionManager
 import com.example.refocus.domain.suggestion.SuggestionEngine
+import com.example.refocus.feature.overlay.controller.SuggestionOverlayController
+import com.example.refocus.feature.overlay.controller.TimerOverlayController
+import com.example.refocus.feature.overlay.logic.OverlayOrchestrator
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import com.example.refocus.system.permissions.PermissionHelper
 import dagger.hilt.android.AndroidEntryPoint
@@ -156,7 +159,7 @@ class OverlayService : LifecycleService() {
 
     @SuppressLint("ForegroundServiceType")
     private fun startForegroundWithNotification() {
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val channel = NotificationChannel(
             NOTIFICATION_CHANNEL_ID,
             "Refocus timer",

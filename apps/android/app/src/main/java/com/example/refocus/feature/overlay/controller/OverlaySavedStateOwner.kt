@@ -1,4 +1,4 @@
-package com.example.refocus.feature.overlay
+package com.example.refocus.feature.overlay.controller
 
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleRegistry

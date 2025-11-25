@@ -1,6 +1,7 @@
-package com.example.refocus.feature.overlay
+package com.example.refocus.feature.overlay.logic
 
 import android.util.Log
+import com.example.refocus.core.model.OverlaySuggestionMode
 import com.example.refocus.core.model.Settings
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.repository.SessionRepository
@@ -9,15 +10,17 @@ import com.example.refocus.data.repository.SuggestionsRepository
 import com.example.refocus.data.repository.TargetsRepository
 import com.example.refocus.domain.session.SessionManager
 import com.example.refocus.domain.suggestion.SuggestionEngine
+import com.example.refocus.feature.overlay.controller.SuggestionOverlayController
+import com.example.refocus.feature.overlay.controller.TimerOverlayController
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.NonCancellable.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -408,16 +411,5 @@ class OverlayOrchestrator(
         isSuggestionOverlayShown = false
         // suggestionSnoozedUntilMillis はここでは触らない
         // （スヌーズ状態は handleSuggestionSnooze 系で管理）
-    }
-
-    // kotlinx.coroutines.flow.firstOrNull をローカルに定義してもよいが、
-    // 標準ライブラリに依存している場合は import を追加する。
-    private suspend fun <T> kotlinx.coroutines.flow.Flow<T>.firstOrNull(): T? {
-        var result: T? = null
-        this.collect {
-            result = it
-            cancel()
-        }
-        return result
     }
 }

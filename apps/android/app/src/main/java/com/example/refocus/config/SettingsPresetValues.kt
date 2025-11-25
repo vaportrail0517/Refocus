@@ -32,7 +32,7 @@ object SettingsPresetValues {
         pollingIntervalMillis = 500L,
         minFontSizeSp = 32f,
         maxFontSizeSp = 96f,
-        timeToMaxMinutes = 2,
+        timeToMaxMinutes = 1,
 
         // 起動系はユーザ選好なので SettingsDefaults をそのまま使う
         overlayEnabled = SettingsDefaults.OVERLAY_ENABLED,
@@ -46,7 +46,7 @@ object SettingsPresetValues {
         suggestionEnabled = true,
         suggestionTriggerSeconds = 20,
         suggestionTimeoutSeconds = 8,
-        suggestionCooldownSeconds = 50,
+        suggestionCooldownSeconds = 40,
         suggestionForegroundStableSeconds = 10,
         restSuggestionEnabled = true,
         suggestionInteractionLockoutMillis = 400L,

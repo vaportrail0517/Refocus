@@ -1,4 +1,4 @@
-package com.example.refocus.feature.overlay
+package com.example.refocus.feature.overlay.controller
 
 import android.content.Context
 import android.graphics.PixelFormat
@@ -16,6 +16,7 @@ import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.refocus.core.model.OverlayTouchMode
 import com.example.refocus.core.model.Settings
+import com.example.refocus.feature.overlay.ui.TimerOverlay
 import com.example.refocus.ui.theme.RefocusTheme
 
 class TimerOverlayController(

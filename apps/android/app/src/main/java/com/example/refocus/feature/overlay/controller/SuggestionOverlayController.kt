@@ -1,4 +1,4 @@
-package com.example.refocus.feature.overlay
+package com.example.refocus.feature.overlay.controller
 
 import android.content.Context
 import android.graphics.PixelFormat
@@ -10,6 +10,8 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.example.refocus.core.model.OverlaySuggestionMode
+import com.example.refocus.feature.overlay.ui.SuggestionOverlay
 import com.example.refocus.ui.theme.RefocusTheme
 
 class SuggestionOverlayController(
@@ -30,7 +32,7 @@ class SuggestionOverlayController(
         onDismissOnly: () -> Unit,
     ) {
         if (suggestionView != null) {
-            Log.d("TimerOverlayController", "showSuggestionOverlay: already showing")
+            Log.d("SuggestionOverlayController", "showSuggestionOverlay: already showing")
             return
         }
 
@@ -77,7 +79,7 @@ class SuggestionOverlayController(
         try {
             windowManager.addView(composeView, params)
         } catch (e: Exception) {
-            Log.e("TimerOverlayController", "showSuggestionOverlay: addView failed", e)
+            Log.e("SuggestionOverlayController", "showSuggestionOverlay: addView failed", e)
             suggestionView = null
         }
     }
@@ -87,7 +89,7 @@ class SuggestionOverlayController(
         try {
             windowManager.removeView(view)
         } catch (e: Exception) {
-            Log.e("TimerOverlayController", "hideSuggestionOverlay: removeView failed", e)
+            Log.e("SuggestionOverlayController", "hideSuggestionOverlay: removeView failed", e)
         } finally {
             suggestionView = null
         }

@@ -23,8 +23,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.refocus.feature.overlay.OverlayService
-import com.example.refocus.feature.overlay.stopOverlayService
+import com.example.refocus.feature.overlay.service.OverlayService
+import com.example.refocus.feature.overlay.service.stopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
 
 

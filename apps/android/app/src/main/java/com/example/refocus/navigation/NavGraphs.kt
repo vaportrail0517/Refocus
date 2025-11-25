@@ -15,7 +15,7 @@ import com.example.refocus.feature.onboarding.OnboardingIntroScreen
 import com.example.refocus.feature.onboarding.OnboardingReadyScreen
 import com.example.refocus.feature.onboarding.OnboardingStartModeScreen
 import com.example.refocus.feature.onboarding.PermissionFlowScreen
-import com.example.refocus.feature.overlay.startOverlayService
+import com.example.refocus.feature.overlay.service.startOverlayService
 
 object Destinations {
     const val ENTRY = "entry"
