@@ -9,6 +9,8 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.refocus.core.model.OverlayColorMode
+import com.example.refocus.core.model.OverlayGrowthMode
 import com.example.refocus.core.model.OverlayTouchMode
 import com.example.refocus.core.model.Settings
 import com.example.refocus.core.model.SettingsPreset
@@ -34,6 +36,13 @@ class SettingsDataStore(
         val POSITION_X = intPreferencesKey("overlay_position_x")
         val POSITION_Y = intPreferencesKey("overlay_position_y")
         val TOUCH_MODE = intPreferencesKey("overlay_touch_mode")
+
+        val GROWTH_MODE = intPreferencesKey("growth_mode")
+        val COLOR_MODE = intPreferencesKey("color_mode")
+        val FIXED_COLOR_ARGB = intPreferencesKey("fixed_color_argb")
+        val GRADIENT_START_COLOR_ARGB = intPreferencesKey("gradient_start_color_argb")
+        val GRADIENT_MIDDLE_COLOR_ARGB = intPreferencesKey("gradient_middle_color_argb")
+        val GRADIENT_END_COLOR_ARGB = intPreferencesKey("gradient_end_color_argb")
 
         // --- 起動・有効/無効 ---
         val OVERLAY_ENABLED = booleanPreferencesKey("overlay_enabled")
@@ -105,6 +114,13 @@ class SettingsDataStore(
             prefs[Keys.POSITION_Y] = updated.positionY
             prefs[Keys.TOUCH_MODE] = updated.touchMode.ordinal
 
+            prefs[Keys.GROWTH_MODE] = updated.growthMode.ordinal
+            prefs[Keys.COLOR_MODE] = updated.colorMode.ordinal
+            prefs[Keys.FIXED_COLOR_ARGB] = updated.fixedColorArgb
+            prefs[Keys.GRADIENT_START_COLOR_ARGB] = updated.gradientStartColorArgb
+            prefs[Keys.GRADIENT_MIDDLE_COLOR_ARGB] = updated.gradientMiddleColorArgb
+            prefs[Keys.GRADIENT_END_COLOR_ARGB] = updated.gradientEndColorArgb
+
             prefs[Keys.SUGGESTION_ENABLED] = updated.suggestionEnabled
             prefs[Keys.SUGGESTION_TRIGGER_SECONDS] = updated.suggestionTriggerSeconds
             prefs[Keys.SUGGESTION_TIMEOUT_SECONDS] = updated.suggestionTimeoutSeconds
@@ -158,6 +174,18 @@ class SettingsDataStore(
             positionY = this[Keys.POSITION_Y]
                 ?: base.positionY,
             touchMode = touchMode,
+            growthMode = this[Keys.GROWTH_MODE]
+                ?.let { OverlayGrowthMode.values().getOrNull(it) }
+                ?: base.growthMode,
+            colorMode = this[Keys.COLOR_MODE]
+                ?.let { OverlayColorMode.values().getOrNull(it) }
+                ?: base.colorMode,
+            fixedColorArgb = this[Keys.FIXED_COLOR_ARGB] ?: base.fixedColorArgb,
+            gradientStartColorArgb = this[Keys.GRADIENT_START_COLOR_ARGB]
+                ?: base.gradientStartColorArgb,
+            gradientMiddleColorArgb = this[Keys.GRADIENT_MIDDLE_COLOR_ARGB]
+                ?: base.gradientMiddleColorArgb,
+            gradientEndColorArgb = this[Keys.GRADIENT_END_COLOR_ARGB] ?: base.gradientEndColorArgb,
             suggestionEnabled = this[Keys.SUGGESTION_ENABLED]
                 ?: base.suggestionEnabled,
             suggestionTriggerSeconds = this[Keys.SUGGESTION_TRIGGER_SECONDS]

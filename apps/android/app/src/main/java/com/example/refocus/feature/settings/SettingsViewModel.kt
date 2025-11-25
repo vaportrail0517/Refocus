@@ -10,6 +10,8 @@ import com.example.refocus.config.SettingsBasicPresets.withSuggestionTriggerPres
 import com.example.refocus.config.SettingsBasicPresets.withTimeToMaxPreset
 import com.example.refocus.core.model.FontPreset
 import com.example.refocus.core.model.GracePreset
+import com.example.refocus.core.model.OverlayColorMode
+import com.example.refocus.core.model.OverlayGrowthMode
 import com.example.refocus.core.model.OverlayTouchMode
 import com.example.refocus.core.model.Settings
 import com.example.refocus.core.model.SettingsPreset
@@ -97,6 +99,24 @@ class SettingsViewModel @Inject constructor(
 
     fun updateOverlayTouchMode(mode: OverlayTouchMode) =
         updateSettingsAsCustom { copy(touchMode = mode) }
+
+    fun updateGrowthMode(mode: OverlayGrowthMode) =
+        updateSettingsAsCustom { copy(growthMode = mode) }
+
+    fun updateColorMode(mode: OverlayColorMode) =
+        updateSettingsAsCustom { copy(colorMode = mode) }
+
+    fun updateFixedColorArgb(argb: Int) =
+        updateSettingsAsCustom { copy(fixedColorArgb = argb) }
+
+    fun updateGradientStartColorArgb(argb: Int) =
+        updateSettingsAsCustom { copy(gradientStartColorArgb = argb) }
+
+    fun updateGradientMiddleColorArgb(argb: Int) =
+        updateSettingsAsCustom { copy(gradientMiddleColorArgb = argb) }
+
+    fun updateGradientEndColorArgb(argb: Int) =
+        updateSettingsAsCustom { copy(gradientEndColorArgb = argb) }
 
     fun updateOverlayPosition(x: Int, y: Int) {
         // 位置変更はプリセット種別を変えなくてよいなら、あえて Custom にしない。

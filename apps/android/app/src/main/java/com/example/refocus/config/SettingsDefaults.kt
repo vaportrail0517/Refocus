@@ -1,5 +1,7 @@
 package com.example.refocus.config
 
+import com.example.refocus.core.model.OverlayColorMode
+import com.example.refocus.core.model.OverlayGrowthMode
 import com.example.refocus.core.model.OverlayTouchMode
 
 object SettingsDefaults {
@@ -14,6 +16,19 @@ object SettingsDefaults {
     const val POSITION_X: Int = 24
     const val POSITION_Y: Int = 120
     val TOUCH_MODE: OverlayTouchMode = OverlayTouchMode.PassThrough
+
+    val GROWTH_MODE: OverlayGrowthMode = OverlayGrowthMode.SlowToFast
+    val COLOR_MODE: OverlayColorMode = OverlayColorMode.GradientThree
+
+    /**
+     * 色のデフォルト値。
+     * 0 は「未設定」を表すセンチネルとして扱い、
+     * TimerOverlay 側で null 的に扱ってテーマカラーにフォールバックする。
+     */
+    const val FIXED_COLOR_ARGB: Int = 0xFF222222.toInt()
+    const val GRADIENT_START_COLOR_ARGB: Int = 0xFF4CAF50.toInt()
+    const val GRADIENT_MIDDLE_COLOR_ARGB: Int = 0xFFFFC107.toInt()
+    const val GRADIENT_END_COLOR_ARGB: Int = 0xFFF44336.toInt()
 
     // --- 起動・有効/無効 ---
     const val OVERLAY_ENABLED: Boolean = true

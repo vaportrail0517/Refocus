@@ -1,6 +1,8 @@
 package com.example.refocus.feature.settings
 
 import androidx.compose.runtime.Composable
+import com.example.refocus.core.model.OverlayColorMode
+import com.example.refocus.core.model.OverlayGrowthMode
 import com.example.refocus.core.util.formatDurationMillisOrNull
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.ui.components.SectionCard
@@ -19,6 +21,12 @@ fun AdvancedSettingsContent(
     onOpenSuggestionCooldownDialog: () -> Unit,
     onOpenSuggestionTimeoutDialog: () -> Unit,
     onOpenSuggestionInteractionLockoutDialog: () -> Unit,
+    onOpenGrowthModeDialog: () -> Unit,
+    onOpenColorModeDialog: () -> Unit,
+    onOpenFixedColorDialog: () -> Unit,
+    onOpenGradientStartColorDialog: () -> Unit,
+    onOpenGradientMiddleColorDialog: () -> Unit,
+    onOpenGradientEndColorDialog: () -> Unit,
     viewModel: SettingsViewModel,
 ) {
     val settings = uiState.settings
@@ -61,6 +69,93 @@ fun AdvancedSettingsContent(
             subtitle = "現在: ${settings.timeToMaxMinutes}分",
             onClick = onOpenTimeToMaxDialog,
         )
+        SettingRow(
+            title = "タイマーの成長モード",
+            subtitle = when (settings.growthMode) {
+                OverlayGrowthMode.Linear ->
+                    "線形：時間に比例して一定のペースで大きくなります。"
+
+                OverlayGrowthMode.FastToSlow ->
+                    "スローイン：序盤でぐっと大きくなり、その後はゆっくり変化します。"
+
+                OverlayGrowthMode.SlowToFast ->
+                    "スローアウト：最初は控えめで、長く使うほど目立つようになります。"
+
+                OverlayGrowthMode.SlowFastSlow ->
+                    "スローインアウト：真ん中あたりで一番ペースが速くなります。"
+            },
+            onClick = onOpenGrowthModeDialog,
+        )
+        SettingRow(
+            title = "タイマーの色モード",
+            subtitle = when (settings.colorMode) {
+                OverlayColorMode.Fixed ->
+                    "単色：背景色を一色で固定します。"
+
+                OverlayColorMode.GradientTwo ->
+                    "2色グラデーション：開始色から終了色へ変化します。"
+
+                OverlayColorMode.GradientThree ->
+                    "3色グラデーション：開始・中間・終了の3色で変化します。"
+            },
+            onClick = onOpenColorModeDialog,
+        )
+        // --- 色の詳細設定（モードに応じて表示） ---
+        when (settings.colorMode) {
+            OverlayColorMode.Fixed -> {
+                SettingRow(
+                    title = "単色の色を選ぶ",
+                    subtitle = colorSubtitle(settings.fixedColorArgb, "デフォルトの色を使用中"),
+                    onClick = onOpenFixedColorDialog,
+                )
+            }
+
+            OverlayColorMode.GradientTwo -> {
+                SettingRow(
+                    title = "開始色（短時間側）",
+                    subtitle = colorSubtitle(
+                        settings.gradientStartColorArgb,
+                        "デフォルトの開始色を使用中"
+                    ),
+                    onClick = onOpenGradientStartColorDialog,
+                )
+                SettingRow(
+                    title = "終了色（長時間側）",
+                    subtitle = colorSubtitle(
+                        settings.gradientEndColorArgb,
+                        "デフォルトの終了色を使用中"
+                    ),
+                    onClick = onOpenGradientEndColorDialog,
+                )
+            }
+
+            OverlayColorMode.GradientThree -> {
+                SettingRow(
+                    title = "開始色",
+                    subtitle = colorSubtitle(
+                        settings.gradientStartColorArgb,
+                        "デフォルトの開始色を使用中"
+                    ),
+                    onClick = onOpenGradientStartColorDialog,
+                )
+                SettingRow(
+                    title = "中間色",
+                    subtitle = colorSubtitle(
+                        settings.gradientMiddleColorArgb,
+                        "デフォルトの中間色を使用中"
+                    ),
+                    onClick = onOpenGradientMiddleColorDialog,
+                )
+                SettingRow(
+                    title = "終了色",
+                    subtitle = colorSubtitle(
+                        settings.gradientEndColorArgb,
+                        "デフォルトの終了色を使用中"
+                    ),
+                    onClick = onOpenGradientEndColorDialog,
+                )
+            }
+        }
     }
 
     SectionCard(title = "提案の詳細") {
@@ -90,4 +185,13 @@ fun AdvancedSettingsContent(
             onClick = onOpenSuggestionInteractionLockoutDialog,
         )
     }
+}
+
+private fun colorSubtitle(argb: Int, fallback: String): String {
+    if (argb == 0) return fallback
+    val r = (argb shr 16) and 0xFF
+    val g = (argb shr 8) and 0xFF
+    val b = argb and 0xFF
+    val hex = "#%02X%02X%02X".format(r, g, b)
+    return "現在: $hex"
 }

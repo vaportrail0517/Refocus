@@ -2,11 +2,6 @@ package com.example.refocus.core.model
 
 import com.example.refocus.config.SettingsDefaults
 
-enum class OverlayTouchMode {
-    Drag,        // タイマーをドラッグして動かす
-    PassThrough, // タップは背面の UI にそのまま渡す
-}
-
 data class Settings(
     // --- セッション・監視まわり ---
     val gracePeriodMillis: Long = SettingsDefaults.GRACE_PERIOD_MILLIS,
@@ -19,6 +14,13 @@ data class Settings(
     val positionX: Int = SettingsDefaults.POSITION_X,
     val positionY: Int = SettingsDefaults.POSITION_Y,
     val touchMode: OverlayTouchMode = SettingsDefaults.TOUCH_MODE,
+
+    val growthMode: OverlayGrowthMode = SettingsDefaults.GROWTH_MODE,
+    val colorMode: OverlayColorMode = SettingsDefaults.COLOR_MODE,
+    val fixedColorArgb: Int = SettingsDefaults.FIXED_COLOR_ARGB,
+    val gradientStartColorArgb: Int = SettingsDefaults.GRADIENT_START_COLOR_ARGB,
+    val gradientMiddleColorArgb: Int = SettingsDefaults.GRADIENT_MIDDLE_COLOR_ARGB,
+    val gradientEndColorArgb: Int = SettingsDefaults.GRADIENT_END_COLOR_ARGB,
 
     // --- 起動・有効/無効 ---
     val overlayEnabled: Boolean = SettingsDefaults.OVERLAY_ENABLED,

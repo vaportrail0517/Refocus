@@ -73,14 +73,15 @@ fun SettingsScreen(
                 isServiceRunning = OverlayService.isRunning
                 val hasCorePermissions = usageGranted && overlayGranted
                 if (!hasCorePermissions) {
+                    val latestState = viewModel.uiState.value
                     // 起動設定 or 実行中サービスが残っていたら OFF に揃える
-                    if (uiState.settings.overlayEnabled || isServiceRunning) {
+                    if (latestState.settings.overlayEnabled || isServiceRunning) {
                         viewModel.updateOverlayEnabled(false)
                         context.stopOverlayService()
                         isServiceRunning = false
                     }
                     // 自動起動も OFF に揃える
-                    if (uiState.settings.autoStartOnBoot) {
+                    if (latestState.settings.autoStartOnBoot) {
                         viewModel.updateAutoStartOnBoot(false)
                     }
                 }
@@ -144,6 +145,18 @@ fun SettingsScreen(
                 },
                 onOpenSuggestionInteractionLockoutDialog = {
                     activeDialog = SettingsDialogType.SuggestionInteractionLockout
+                },
+                onOpenGrowthModeDialog = { activeDialog = SettingsDialogType.GrowthMode },
+                onOpenColorModeDialog = { activeDialog = SettingsDialogType.ColorMode },
+                onOpenFixedColorDialog = { activeDialog = SettingsDialogType.FixedColor },
+                onOpenGradientStartColorDialog = {
+                    activeDialog = SettingsDialogType.GradientStartColor
+                },
+                onOpenGradientMiddleColorDialog = {
+                    activeDialog = SettingsDialogType.GradientMiddleColor
+                },
+                onOpenGradientEndColorDialog = {
+                    activeDialog = SettingsDialogType.GradientEndColor
                 },
                 viewModel = viewModel,
             )
@@ -262,6 +275,72 @@ fun SettingsScreen(
                     currentMillis = uiState.settings.suggestionInteractionLockoutMillis,
                     onConfirm = { millis ->
                         viewModel.updateSuggestionInteractionLockoutMillis(millis)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.GrowthMode -> {
+                GrowthModeDialog(
+                    current = uiState.settings.growthMode,
+                    onConfirm = { mode ->
+                        viewModel.updateGrowthMode(mode)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.ColorMode -> {
+                ColorModeDialog(
+                    current = uiState.settings.colorMode,
+                    onConfirm = { mode ->
+                        viewModel.updateColorMode(mode)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.FixedColor -> {
+                FixedColorDialog(
+                    currentColorArgb = uiState.settings.fixedColorArgb,
+                    onConfirm = { argb ->
+                        viewModel.updateFixedColorArgb(argb)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.GradientStartColor -> {
+                GradientStartColorDialog(
+                    currentColorArgb = uiState.settings.gradientStartColorArgb,
+                    onConfirm = { argb ->
+                        viewModel.updateGradientStartColorArgb(argb)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.GradientMiddleColor -> {
+                GradientMiddleColorDialog(
+                    currentColorArgb = uiState.settings.gradientMiddleColorArgb,
+                    onConfirm = { argb ->
+                        viewModel.updateGradientMiddleColorArgb(argb)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.GradientEndColor -> {
+                GradientEndColorDialog(
+                    currentColorArgb = uiState.settings.gradientEndColorArgb,
+                    onConfirm = { argb ->
+                        viewModel.updateGradientEndColorArgb(argb)
                         activeDialog = null
                     },
                     onDismiss = { activeDialog = null },

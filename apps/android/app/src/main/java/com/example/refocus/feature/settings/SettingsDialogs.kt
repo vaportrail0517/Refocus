@@ -2,8 +2,11 @@ package com.example.refocus.feature.settings
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import com.example.refocus.core.model.OverlayColorMode
+import com.example.refocus.core.model.OverlayGrowthMode
 import com.example.refocus.core.util.formatDurationMillis
 import com.example.refocus.core.util.formatDurationSeconds
+import com.example.refocus.ui.components.ColorPickerDialog
 import com.example.refocus.ui.components.InfoDialog
 import com.example.refocus.ui.components.IntInputDialog
 import com.example.refocus.ui.components.LongSliderDialog
@@ -22,6 +25,12 @@ sealed interface SettingsDialogType {
     data object SuggestionCooldown : SettingsDialogType
     data object SuggestionTimeout : SettingsDialogType
     data object SuggestionInteractionLockout : SettingsDialogType
+    data object GrowthMode : SettingsDialogType
+    data object ColorMode : SettingsDialogType
+    data object FixedColor : SettingsDialogType
+    data object GradientStartColor : SettingsDialogType
+    data object GradientMiddleColor : SettingsDialogType
+    data object GradientEndColor : SettingsDialogType
 }
 
 /**
@@ -278,6 +287,163 @@ fun SuggestionInteractionLockoutDialog(
         onConfirm = { selectedMillis ->
             onConfirm(selectedMillis)
         },
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+fun GrowthModeDialog(
+    current: OverlayGrowthMode,
+    onConfirm: (OverlayGrowthMode) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    data class GrowthOption(
+        val mode: OverlayGrowthMode,
+        val label: String,
+        val description: String,
+    )
+
+    val options = remember {
+        listOf(
+            GrowthOption(
+                OverlayGrowthMode.Linear,
+                "線形",
+                "時間に比例して一定のペースで大きくなります。"
+            ),
+            GrowthOption(
+                OverlayGrowthMode.FastToSlow,
+                "スローイン（初め速く→だんだん遅く）",
+                "序盤でぐっと大きくなり、その後はゆっくり変化します。"
+            ),
+            GrowthOption(
+                OverlayGrowthMode.SlowToFast,
+                "スローアウト（初め遅く→だんだん速く）",
+                "最初は控えめで、長く使うほど目立つようになります。"
+            ),
+            GrowthOption(
+                OverlayGrowthMode.SlowFastSlow,
+                "スローインアウト",
+                "真ん中の時間帯で一番ペースが速くなります。"
+            ),
+        )
+    }
+
+    val initial = options.firstOrNull { it.mode == current } ?: options.first()
+
+    SingleChoiceDialog(
+        title = "タイマーの成長モード",
+        description = "タイマーの文字サイズが時間に応じてどのように変化するかを選びます。",
+        options = options,
+        initialSelection = initial,
+        optionLabel = { it.label },
+        optionDescription = { it.description },
+        onConfirm = { onConfirm(it.mode) },
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+fun ColorModeDialog(
+    current: OverlayColorMode,
+    onConfirm: (OverlayColorMode) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    data class ColorModeOption(
+        val mode: OverlayColorMode,
+        val label: String,
+        val description: String,
+    )
+
+    val options = remember {
+        listOf(
+            ColorModeOption(
+                OverlayColorMode.Fixed,
+                "単色",
+                "タイマーの背景色を一色で固定します。"
+            ),
+            ColorModeOption(
+                OverlayColorMode.GradientTwo,
+                "2色グラデーション",
+                "開始色から終了色へ、時間に応じて滑らかに変化します。"
+            ),
+            ColorModeOption(
+                OverlayColorMode.GradientThree,
+                "3色グラデーション",
+                "開始色 → 中間色 → 終了色と、時間に応じて変化します。"
+            ),
+        )
+    }
+
+    val initial = options.firstOrNull { it.mode == current } ?: options.first()
+
+    SingleChoiceDialog(
+        title = "タイマーの色モード",
+        description = "時間に応じたタイマー背景色の変化方法を選びます。",
+        options = options,
+        initialSelection = initial,
+        optionLabel = { it.label },
+        optionDescription = { it.description },
+        onConfirm = { onConfirm(it.mode) },
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+fun FixedColorDialog(
+    currentColorArgb: Int,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ColorPickerDialog(
+        title = "単色モードの色",
+        description = "タイマー背景に使う単色を選びます。",
+        initialColorArgb = currentColorArgb.takeIf { it != 0 },
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+fun GradientStartColorDialog(
+    currentColorArgb: Int,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ColorPickerDialog(
+        title = "グラデーション開始色",
+        description = "タイマー利用開始直後に使う色を選びます。",
+        initialColorArgb = currentColorArgb.takeIf { it != 0 },
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+fun GradientMiddleColorDialog(
+    currentColorArgb: Int,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ColorPickerDialog(
+        title = "グラデーション中間色",
+        description = "タイマーのフォントサイズが中間のときに使う色を選びます。",
+        initialColorArgb = currentColorArgb.takeIf { it != 0 },
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+fun GradientEndColorDialog(
+    currentColorArgb: Int,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ColorPickerDialog(
+        title = "グラデーション終了色",
+        description = "タイマーが最大サイズになったときに使う色を選びます。",
+        initialColorArgb = currentColorArgb.takeIf { it != 0 },
+        onConfirm = onConfirm,
         onDismiss = onDismiss,
     )
 }
