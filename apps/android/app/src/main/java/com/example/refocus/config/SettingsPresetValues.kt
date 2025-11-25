@@ -1,5 +1,7 @@
 package com.example.refocus.config
 
+import com.example.refocus.core.model.OverlayColorMode
+import com.example.refocus.core.model.OverlayGrowthMode
 import com.example.refocus.core.model.Settings
 import com.example.refocus.core.model.SettingsPreset
 
@@ -15,6 +17,12 @@ object SettingsPresetValues {
         positionX = SettingsDefaults.POSITION_X,
         positionY = SettingsDefaults.POSITION_Y,
         touchMode = SettingsDefaults.TOUCH_MODE,
+        growthMode = SettingsDefaults.GROWTH_MODE,
+        colorMode = SettingsDefaults.COLOR_MODE,
+        fixedColorArgb = SettingsDefaults.FIXED_COLOR_ARGB,
+        gradientStartColorArgb = SettingsDefaults.GRADIENT_START_COLOR_ARGB,
+        gradientMiddleColorArgb = SettingsDefaults.GRADIENT_MIDDLE_COLOR_ARGB,
+        gradientEndColorArgb = SettingsDefaults.GRADIENT_END_COLOR_ARGB,
         overlayEnabled = SettingsDefaults.OVERLAY_ENABLED,
         autoStartOnBoot = SettingsDefaults.AUTO_START_ON_BOOT,
         suggestionEnabled = SettingsDefaults.SUGGESTION_ENABLED,
@@ -41,6 +49,13 @@ object SettingsPresetValues {
         // 位置・タッチモードも「その時の状態」だが、基準値として SettingsDefaults を踏襲
         positionX = SettingsDefaults.POSITION_X,
         positionY = SettingsDefaults.POSITION_Y,
+
+        growthMode = OverlayGrowthMode.SlowFastSlow,
+        colorMode = OverlayColorMode.GradientThree,
+        fixedColorArgb = SettingsDefaults.FIXED_COLOR_ARGB,
+        gradientStartColorArgb = SettingsDefaults.GRADIENT_START_COLOR_ARGB,
+        gradientMiddleColorArgb = SettingsDefaults.GRADIENT_MIDDLE_COLOR_ARGB,
+        gradientEndColorArgb = SettingsDefaults.GRADIENT_END_COLOR_ARGB,
 
         // 提案周りは「体感しやすい値」に寄せる
         suggestionEnabled = true,

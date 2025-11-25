@@ -1,5 +1,7 @@
 package com.example.refocus.feature.overlay.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -34,17 +36,16 @@ fun TimerOverlay(
     val timeSource: TimeSource = remember { SystemTimeSource() }
     var elapsedMillis by remember { mutableLongStateOf(0L) }
 
-    // 1 秒ごとに SessionManager に「今の経過時間」を問い合わせる
+    // 200msごとに SessionManager に「今の経過時間」を問い合わせる
     LaunchedEffect(Unit) {
         while (true) {
             val nowElapsed = timeSource.elapsedRealtime()
             elapsedMillis = elapsedMillisProvider(nowElapsed)
-            delay(1000L)
+            delay(200L)
         }
     }
 
     val elapsedMinutes = elapsedMillis / 1000f / 60f
-    val colorScheme = MaterialTheme.colorScheme
 
     // 0〜1 の進行度（timeToMaxMinutes に対する割合）
     val p = if (settings.timeToMaxMinutes > 0) {
@@ -53,8 +54,15 @@ fun TimerOverlay(
         1f
     }
 
+    // 見た目用に滑らかに補間された進行度
+    val animatedProgress by animateFloatAsState(
+        targetValue = p,
+        animationSpec = tween(durationMillis = 200),
+        label = "timerProgress"
+    )
+
     // 成長モードに応じて変形された進行度 g
-    val g = growthProgress(p, settings.growthMode)
+    val g = growthProgress(animatedProgress, settings.growthMode)
 
     // フォントサイズ計算
     val fontSizeSp = computeTimerFontSizeSp(

@@ -20,11 +20,6 @@ object SettingsDefaults {
     val GROWTH_MODE: OverlayGrowthMode = OverlayGrowthMode.SlowToFast
     val COLOR_MODE: OverlayColorMode = OverlayColorMode.GradientThree
 
-    /**
-     * 色のデフォルト値。
-     * 0 は「未設定」を表すセンチネルとして扱い、
-     * TimerOverlay 側で null 的に扱ってテーマカラーにフォールバックする。
-     */
     const val FIXED_COLOR_ARGB: Int = 0xFF222222.toInt()
     const val GRADIENT_START_COLOR_ARGB: Int = 0xFF4CAF50.toInt()
     const val GRADIENT_MIDDLE_COLOR_ARGB: Int = 0xFFFFC107.toInt()

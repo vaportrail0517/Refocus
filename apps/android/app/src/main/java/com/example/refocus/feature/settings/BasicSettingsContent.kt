@@ -9,7 +9,6 @@ import com.example.refocus.core.model.FontPreset
 import com.example.refocus.core.model.GracePreset
 import com.example.refocus.core.model.OverlayTouchMode
 import com.example.refocus.core.model.SettingsPreset
-import com.example.refocus.core.model.SuggestionCooldownPreset
 import com.example.refocus.core.model.SuggestionTriggerPreset
 import com.example.refocus.core.model.TimeToMaxPreset
 import com.example.refocus.core.util.formatDurationMillisOrNull
@@ -294,7 +293,7 @@ fun BasicSettingsContent(
 
         val trigPreset = SettingsBasicPresets.suggestionTriggerPresetOrNull(settings)
         PresetOptionRow(
-            title = "初めに提案するまでの時間",
+            title = "提案するまでの時間",
             currentPreset = trigPreset,
             options = listOf(
                 PresetOption(SuggestionTriggerPreset.Short, "短い"),
@@ -308,24 +307,6 @@ fun BasicSettingsContent(
             },
             onPresetSelected = { preset ->
                 viewModel.applySuggestionTriggerPreset(preset)
-            },
-        )
-
-        val cooldownPreset = SettingsBasicPresets.suggestionCooldownPresetOrNull(settings)
-        PresetOptionRow(
-            title = "提案を再び表示するまでの時間",
-            currentPreset = cooldownPreset,
-            options = listOf(
-                PresetOption(SuggestionCooldownPreset.Short, "短い"),
-                PresetOption(SuggestionCooldownPreset.Normal, "普通"),
-                PresetOption(SuggestionCooldownPreset.Long, "長い"),
-            ),
-            currentValueDescription = buildString {
-                append(formatDurationSeconds(settings.suggestionCooldownSeconds))
-                append("以上経過したら再び提案を行います。")
-            },
-            onPresetSelected = { preset ->
-                viewModel.applySuggestionCooldownPreset(preset)
             },
         )
     }
