@@ -119,12 +119,10 @@ class ForegroundAppMonitor(
                 else -> rawTop
             }
 
-            // ログ用に「変化したかどうか」は見ても良い
             if (effectiveTop != lastEmittedPackage) {
                 Log.d(TAG, "foreground changed: $lastEmittedPackage -> $effectiveTop")
             }
 
-            // ★ ここで前回値を更新しつつ、毎回 emit する
             lastEmittedPackage = effectiveTop
             emit(effectiveTop)
 

@@ -14,6 +14,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -64,15 +66,16 @@ class OverlayOrchestrator(
     @Volatile
     private var isSuggestionOverlayShown: Boolean = false
 
-    @Volatile
-    private var isScreenOn: Boolean = true
+    private val screenOnState = MutableStateFlow(true)
+
+    val screenOnFlow: StateFlow<Boolean> get() = screenOnState
 
     /**
      * 外側から「画面ON/OFF」を伝えるためのメソッド。
      * BroadcastReceiver 側から呼ばれる。
      */
     fun setScreenOn(isOn: Boolean) {
-        isScreenOn = isOn
+        screenOnState.value = isOn
     }
 
     /**
@@ -150,16 +153,22 @@ class OverlayOrchestrator(
                         pollingIntervalMs = settings.pollingIntervalMillis
                     )
                 }
+            val screenOnFlow = screenOnState
 
             combine(
                 targetsFlow,
-                foregroundFlow
-            ) { targets, foregroundRaw ->
+                foregroundFlow,
+                screenOnFlow
+            ) { targets, foregroundRaw, isScreenOn ->
+                // ここではまだ foregroundRaw を捨てないで一緒に返す
+                Triple(targets, foregroundRaw, isScreenOn)
+            }.collectLatest { (targets, foregroundRaw, isScreenOn) ->
                 // 画面OFF中は「foreground なし」とみなす
-                val foregroundEffective = if (isScreenOn) foregroundRaw else null
-                targets to foregroundEffective
-            }.collectLatest { (targets, foregroundPackage) ->
-                Log.d(TAG, "combine: foreground=$foregroundPackage, targets=$targets")
+                val foregroundPackage = if (isScreenOn) foregroundRaw else null
+                Log.d(
+                    TAG,
+                    "combine: raw=$foregroundRaw, screenOn=$isScreenOn, effective=$foregroundPackage, targets=$targets"
+                )
                 try {
                     val previous = currentForegroundPackage
                     val prevIsTarget = previous != null && previous in targets
