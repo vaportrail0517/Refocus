@@ -37,9 +37,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -421,28 +418,6 @@ class OverlayService : LifecycleService() {
                 Log.e(TAG, "Failed to save overlay position", e)
             }
         }
-    }
-
-    private fun currentYmd(nowMillis: Long = timeSource.nowMillis()): Int {
-        val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
-        return sdf.format(Date(nowMillis)).toInt()
-    }
-
-    private fun suggestionTriggerThresholdMillis(settings: Settings): Long {
-        if (!settings.suggestionEnabled) {
-            // 提案オフ
-            return Long.MAX_VALUE
-        }
-        val seconds = settings.suggestionTriggerSeconds
-        if (seconds <= 0) {
-            return Long.MAX_VALUE
-        }
-        return seconds.toLong() * 1_000L
-    }
-
-    private fun suggestionForegroundStableThresholdMillis(settings: Settings): Long {
-        val seconds = settings.suggestionForegroundStableSeconds.coerceAtLeast(0)
-        return seconds.toLong() * 1_000L
     }
 
     private fun suggestionTimeoutMillis(settings: Settings): Long {

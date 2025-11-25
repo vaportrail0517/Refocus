@@ -7,6 +7,7 @@ import android.util.Log
 import com.example.refocus.data.repository.OnboardingRepository
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.feature.overlay.startOverlayService
+import com.example.refocus.system.permissions.PermissionHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,7 +42,18 @@ class BootCompletedReceiver : BroadcastReceiver() {
                     return@launch
                 }
 
-                // 再起動時自動起動が ON の場合は、overlayEnabled も true にして起動
+                // コア権限が揃っていない場合は自動起動しない
+                val hasCorePermissions = PermissionHelper.hasAllCorePermissions(context)
+                if (!hasCorePermissions) {
+                    Log.d(
+                        "BootCompletedReceiver",
+                        "missing core permissions (usage/overlay) → skip auto start"
+                    )
+                    // overlayEnabled を無理に true にしない
+                    return@launch
+                }
+
+                // 再起動時自動起動が ON かつ 権限も揃っている場合のみ起動
                 settingsRepository.setOverlayEnabled(true)
                 Log.d("BootCompletedReceiver", "BOOT_COMPLETED → start OverlayService")
                 context.startOverlayService()
