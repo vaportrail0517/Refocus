@@ -15,7 +15,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import com.example.refocus.R
-import com.example.refocus.core.model.Settings
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SettingsRepository
@@ -28,15 +27,8 @@ import com.example.refocus.system.permissions.PermissionHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -47,13 +39,11 @@ class OverlayService : LifecycleService() {
         private const val NOTIFICATION_CHANNEL_ID = "overlay_service_channel"
         private const val NOTIFICATION_ID = 1
 
-
         @Volatile
         var isRunning: Boolean = false
             private set
     }
 
-    // サービス専用のCoroutineScope
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     @Inject
@@ -77,27 +67,12 @@ class OverlayService : LifecycleService() {
     @Inject
     lateinit var suggestionEngine: SuggestionEngine
 
-
     private lateinit var timerOverlayController: TimerOverlayController
     private lateinit var suggestionOverlayController: SuggestionOverlayController
-
     private lateinit var sessionManager: SessionManager
+    private lateinit var overlayOrchestrator: OverlayOrchestrator
 
-    private var currentForegroundPackage: String? = null
-    private var overlayPackage: String? = null
-
-    @Volatile
-    private var overlaySettings: Settings = Settings()
-
-    @Volatile
-    private var suggestionSnoozedUntilMillis: Long? = null
-
-    @Volatile
-    private var isSuggestionOverlayShown: Boolean = false
-
-    @Volatile
-    private var isScreenOn: Boolean = true
-
+    // BroadcastReceiver はそのまま残す（後で中身を少し変更）
     private var screenReceiverRegistered: Boolean = false
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -105,17 +80,14 @@ class OverlayService : LifecycleService() {
                 Intent.ACTION_SCREEN_OFF,
                 Intent.ACTION_SHUTDOWN -> {
                     Log.d(TAG, "ACTION_SCREEN_OFF / SHUTDOWN received")
-                    // 画面OFFとみなす
-                    isScreenOn = false
-                    // 現在の対象アプリを「前面離脱」として扱う
-                    handleScreenOff()
+                    overlayOrchestrator.setScreenOn(false)
+                    overlayOrchestrator.onScreenOff()
                 }
 
                 Intent.ACTION_USER_PRESENT,
                 Intent.ACTION_SCREEN_ON -> {
                     Log.d(TAG, "ACTION_USER_PRESENT / SCREEN_ON received")
-                    // ★ 画面ONに戻ったことを記録
-                    isScreenOn = true
+                    overlayOrchestrator.setScreenOn(true)
                 }
             }
         }
@@ -125,9 +97,10 @@ class OverlayService : LifecycleService() {
         super.onCreate()
         isRunning = true
         Log.d(TAG, "onCreate")
+
         timerOverlayController = TimerOverlayController(
             context = this,
-            lifecycleOwner = this,
+            lifecycleOwner = this
         )
         suggestionOverlayController = SuggestionOverlayController(
             context = this,
@@ -139,53 +112,39 @@ class OverlayService : LifecycleService() {
             scope = serviceScope,
             logTag = TAG
         )
+
+        overlayOrchestrator = OverlayOrchestrator(
+            scope = serviceScope,
+            timeSource = timeSource,
+            targetsRepository = targetsRepository,
+            sessionRepository = sessionRepository,
+            settingsRepository = settingsRepository,
+            suggestionsRepository = suggestionsRepository,
+            foregroundAppMonitor = foregroundAppMonitor,
+            suggestionEngine = suggestionEngine,
+            timerOverlayController = timerOverlayController,
+            suggestionOverlayController = suggestionOverlayController,
+            sessionManager = sessionManager
+        )
+
         startForegroundWithNotification()
         Log.d(TAG, "startForeground done")
-        serviceScope.launch {
-            try {
-                var first = true
-                settingsRepository.observeOverlaySettings().collect { settings ->
-                    overlaySettings = settings
-                    withContext(Dispatchers.Main) {
-                        timerOverlayController.overlaySettings = settings
-                    }
-                    if (first) {
-                        first = false
-                        try {
-                            sessionRepository.repairActiveSessionsAfterRestart(
-                                gracePeriodMillis = settings.gracePeriodMillis,
-                                nowMillis = timeSource.nowMillis()
-                            )
-                        } catch (e: Exception) {
-                            Log.e(TAG, "repairActiveSessionsAfterRestart failed", e)
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "observeOverlaySettings failed", e)
-            }
-        }
+
         // 権限が揃っていなければ即終了
         if (!canRunOverlay()) {
             Log.w(TAG, "canRunOverlay = false. stopSelf()")
             stopSelf()
             return
         }
-        registerScreenReceiver()
-        startMonitoring()
-    }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        return super.onStartCommand(intent, flags, startId)
+        registerScreenReceiver()
+        overlayOrchestrator.start()
     }
 
     override fun onDestroy() {
         isRunning = false
-        sessionManager.clear()
+        overlayOrchestrator.stop()
         serviceScope.cancel()
-        timerOverlayController.hideTimer()
-        suggestionOverlayController.hideSuggestionOverlay()
-        clearSuggestionOverlayState()
         unregisterScreenReceiver()
         super.onDestroy()
     }
@@ -193,58 +152,6 @@ class OverlayService : LifecycleService() {
     override fun onBind(intent: Intent): IBinder? {
         super.onBind(intent)
         return null
-    }
-
-    private suspend fun onEnterForeground(
-        packageName: String,
-        nowMillis: Long,
-        nowElapsed: Long
-    ) {
-        // ここで DB 復元込みの初期状態を作る（値は返り値として使わないが、
-        //   ActiveSessionState.initialElapsedMillis がここで確定する）
-        val initialElapsed = sessionManager.onEnterForeground(
-            packageName = packageName,
-            nowMillis = nowMillis,
-            nowElapsedRealtime = nowElapsed
-        ) ?: return
-        overlayPackage = packageName
-        // SessionManager + packageName を閉じ込めた provider
-        val elapsedProvider: (Long) -> Long = { nowElapsedRealtime ->
-            sessionManager.computeElapsedFor(
-                packageName = packageName,
-                nowElapsedRealtime = nowElapsedRealtime
-            ) ?: initialElapsed // 万一 null になっても初期値でフォロー
-        }
-        withContext(Dispatchers.Main) {
-            timerOverlayController.showTimer(
-                elapsedMillisProvider = elapsedProvider,
-                onPositionChanged = ::onOverlayPositionChanged
-            )
-        }
-    }
-
-    private fun onLeaveForeground(
-        packageName: String,
-        nowMillis: Long,
-        nowElapsed: Long
-    ) {
-        // 先にオーバーレイを閉じる
-        if (overlayPackage == packageName) {
-            overlayPackage = null
-            serviceScope.launch(Dispatchers.Main) {
-                timerOverlayController.hideTimer()
-                suggestionOverlayController.hideSuggestionOverlay()
-                clearSuggestionOverlayState()
-            }
-        }
-        // セッション管理は SessionManager に委譲
-        val grace = overlaySettings.gracePeriodMillis
-        sessionManager.onLeaveForeground(
-            packageName = packageName,
-            nowMillis = nowMillis,
-            nowElapsedRealtime = nowElapsed,
-            gracePeriodMillis = grace
-        )
     }
 
     @SuppressLint("ForegroundServiceType")
@@ -282,88 +189,6 @@ class OverlayService : LifecycleService() {
         return hasUsage && hasOverlay
     }
 
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private fun startMonitoring() {
-        serviceScope.launch {
-            val targetsFlow = targetsRepository.observeTargets()
-            val foregroundFlow = settingsRepository
-                .observeOverlaySettings()
-                .flatMapLatest { settings ->
-                    foregroundAppMonitor.foregroundAppFlow(
-                        pollingIntervalMs = settings.pollingIntervalMillis
-                    )
-                }
-            combine(
-                targetsFlow,
-                foregroundFlow
-            ) { targets, foregroundRaw ->
-                // 画面OFF中は「foreground なし」とみなす
-                val foregroundEffective = if (isScreenOn) foregroundRaw else null
-                targets to foregroundEffective
-            }.collectLatest { (targets, foregroundPackage) ->
-                Log.d(TAG, "combine: foreground=$foregroundPackage, targets=$targets")
-                try {
-                    val previous = currentForegroundPackage
-                    val prevIsTarget = previous != null && previous in targets
-                    val nowIsTarget = foregroundPackage != null && foregroundPackage in targets
-                    val nowMillis = timeSource.nowMillis()
-                    val nowElapsed = timeSource.elapsedRealtime()
-                    // currentForegroundPackage を更新
-                    currentForegroundPackage = foregroundPackage
-                    when {
-                        // 非対象 → 対象
-                        !prevIsTarget && nowIsTarget -> {
-                            onEnterForeground(
-                                packageName = foregroundPackage!!,
-                                nowMillis = nowMillis,
-                                nowElapsed = nowElapsed
-                            )
-                        }
-                        // 対象 → 非対象
-                        prevIsTarget && !nowIsTarget -> {
-                            onLeaveForeground(
-                                packageName = previous!!,
-                                nowMillis = nowMillis,
-                                nowElapsed = nowElapsed
-                            )
-                        }
-                        // 対象A → 対象B
-                        prevIsTarget && previous != foregroundPackage -> {
-                            onLeaveForeground(
-                                packageName = previous!!,
-                                nowMillis = nowMillis,
-                                nowElapsed = nowElapsed
-                            )
-                            onEnterForeground(
-                                packageName = foregroundPackage!!,
-                                nowMillis = nowMillis,
-                                nowElapsed = nowElapsed
-                            )
-                        }
-
-                        else -> {
-                            // 非対象→非対象 / 対象→同じ対象 は何もしない
-                        }
-                    }
-                    if (nowIsTarget && foregroundPackage != null) {
-                        maybeShowSuggestionIfNeeded(
-                            packageName = foregroundPackage,
-                            nowMillis = nowMillis,
-                            nowElapsedRealtime = nowElapsed
-                        )
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error in startMonitoring loop", e)
-                    withContext(Dispatchers.Main) {
-                        timerOverlayController.hideTimer()
-                    }
-                    overlayPackage = null
-                }
-            }
-        }
-    }
-
     private fun registerScreenReceiver() {
         if (screenReceiverRegistered) return
 
@@ -387,144 +212,5 @@ class OverlayService : LifecycleService() {
             Log.w(TAG, "unregisterScreenReceiver failed", e)
         }
         screenReceiverRegistered = false
-    }
-
-    /**
-     * 画面OFF時に呼ばれる。overlay の有無に関係なく、
-     * 強制的に onLeaveForeground と同じ処理を走らせる。
-     */
-    private fun handleScreenOff() {
-        val pkg = currentForegroundPackage ?: return
-        val nowMillis = timeSource.nowMillis()
-        val nowElapsed = timeSource.elapsedRealtime()
-        Log.d(TAG, "handleScreenOff: treat $pkg as leave foreground due to screen off")
-        // とにかく今前面と認識している対象を leave させる
-        onLeaveForeground(
-            packageName = pkg,
-            nowMillis = nowMillis,
-            nowElapsed = nowElapsed
-        )
-        // 「いま foreground にいるアプリ」はいないことにする
-        currentForegroundPackage = null
-    }
-
-    private fun onOverlayPositionChanged(x: Int, y: Int) {
-        serviceScope.launch {
-            try {
-                settingsRepository.updateOverlaySettings { current ->
-                    current.copy(positionX = x, positionY = y)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to save overlay position", e)
-            }
-        }
-    }
-
-    private fun suggestionTimeoutMillis(settings: Settings): Long {
-        val seconds = settings.suggestionTimeoutSeconds.coerceAtLeast(0)
-        return seconds.toLong() * 1_000L
-    }
-
-    private fun suggestionCooldownMillis(settings: Settings): Long {
-        val seconds = settings.suggestionCooldownSeconds.coerceAtLeast(0)
-        return seconds.toLong() * 1_000L
-    }
-
-    private fun suggestionInteractionLockoutMillis(settings: Settings): Long {
-        // 念のため 0 未満にならないよう補正
-        return settings.suggestionInteractionLockoutMillis.coerceAtLeast(0L)
-    }
-
-    private fun handleSuggestionSnooze() {
-        clearSuggestionOverlayState()
-        val now = timeSource.nowMillis()
-        val cooldownMs = suggestionCooldownMillis(overlaySettings)
-        suggestionSnoozedUntilMillis = now + cooldownMs
-        Log.d(TAG, "Suggestion snoozed until $suggestionSnoozedUntilMillis")
-    }
-
-    private fun handleSuggestionSnoozeLater() {
-        handleSuggestionSnooze()
-    }
-
-    private fun handleSuggestionDismissOnly() {
-        // スワイプやタイムアウトから来る。内部的には同じスヌーズロジック。
-        handleSuggestionSnooze()
-    }
-
-    private fun handleSuggestionDisableThisSession() {
-        clearSuggestionOverlayState()
-        val packageName = overlayPackage ?: return
-        sessionManager.markSuggestionDisabledForThisSession(packageName)
-        Log.d(TAG, "Suggestion disabled for this session: $packageName")
-    }
-
-
-    private fun maybeShowSuggestionIfNeeded(
-        packageName: String,
-        nowMillis: Long,
-        nowElapsedRealtime: Long
-    ) {
-        val elapsed = sessionManager.computeElapsedFor(
-            packageName = packageName,
-            nowElapsedRealtime = nowElapsedRealtime
-        ) ?: return
-        val sinceForegroundMs = sessionManager.sinceForegroundMillis(
-            packageName = packageName,
-            nowElapsedRealtime = nowElapsedRealtime
-        )
-        val input = SuggestionEngine.Input(
-            elapsedMillis = elapsed,
-            sinceForegroundMillis = sinceForegroundMs,
-            settings = overlaySettings,
-            nowMillis = nowMillis,
-            snoozedUntilMillis = suggestionSnoozedUntilMillis,
-            isOverlayShown = isSuggestionOverlayShown,
-            disabledForThisSession = sessionManager.isSuggestionDisabledForThisSession(packageName),
-        )
-        if (!suggestionEngine.shouldShow(input)) {
-            return
-        }
-        // ここまで来たら「何かしら提案してよい条件」は満たしている
-        serviceScope.launch {
-            try {
-                val suggestion = suggestionsRepository.observeSuggestion().first()
-                val hasSuggestion = suggestion != null
-                // やりたいこともなく、休憩提案も OFF の場合は何も表示しない
-                if (!hasSuggestion && !overlaySettings.restSuggestionEnabled) {
-                    Log.d(TAG, "No suggestion and restSuggestion disabled, skip overlay")
-                    return@launch
-                }
-                // モードとタイトルを決定
-                val (title, mode) = if (suggestion != null) {
-                    suggestion.title to OverlaySuggestionMode.Goal
-                } else {
-                    "画面から少し離れて休憩する" to OverlaySuggestionMode.Rest
-                }
-                withContext(Dispatchers.Main) {
-                    isSuggestionOverlayShown = true
-                    suggestionOverlayController.showSuggestionOverlay(
-                        title = title,
-                        mode = mode,
-                        autoDismissMillis = suggestionTimeoutMillis(overlaySettings),
-                        interactionLockoutMillis = suggestionInteractionLockoutMillis(
-                            overlaySettings
-                        ),
-                        onSnoozeLater = { handleSuggestionSnoozeLater() },
-                        onDisableThisSession = { handleSuggestionDisableThisSession() },
-                        onDismissOnly = { handleSuggestionDismissOnly() },
-                    )
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to show suggestion overlay for $packageName", e)
-                isSuggestionOverlayShown = false
-            }
-        }
-    }
-
-    private fun clearSuggestionOverlayState() {
-        isSuggestionOverlayShown = false
-        // suggestionSnoozedUntilMillis はここでは触らない
-        // （スヌーズ状態は handleSuggestionSnooze 系で管理）
     }
 }
