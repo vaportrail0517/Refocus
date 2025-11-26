@@ -3,7 +3,6 @@ package com.example.refocus.config
 import com.example.refocus.core.model.FontPreset
 import com.example.refocus.core.model.GracePreset
 import com.example.refocus.core.model.Settings
-import com.example.refocus.core.model.SuggestionCooldownPreset
 import com.example.refocus.core.model.SuggestionTriggerPreset
 import com.example.refocus.core.model.TimeToMaxPreset
 
@@ -13,9 +12,9 @@ import com.example.refocus.core.model.TimeToMaxPreset
  */
 object SettingsBasicPresets {
     private val fontPresetMap: Map<FontPreset, Pair<Float, Float>> = mapOf(
-        FontPreset.Small to (10f to 30f),
-        FontPreset.Medium to (12f to 40f),
-        FontPreset.Large to (14f to 50f),
+        FontPreset.Small to (12f to 36f),
+        FontPreset.Medium to (16f to 48f),
+        FontPreset.Large to (20f to 60f),
     )
 
     fun Settings.withFontPreset(preset: FontPreset): Settings {
@@ -33,9 +32,9 @@ object SettingsBasicPresets {
         }?.key
 
     private val timeToMaxPresetMap: Map<TimeToMaxPreset, Int> = mapOf(
-        TimeToMaxPreset.Fast to 15,
-        TimeToMaxPreset.Normal to 30,
-        TimeToMaxPreset.Slow to 45,
+        TimeToMaxPreset.Fast to 10,
+        TimeToMaxPreset.Normal to 15,
+        TimeToMaxPreset.Slow to 30,
     )
 
     fun Settings.withTimeToMaxPreset(preset: TimeToMaxPreset): Settings {
@@ -78,21 +77,5 @@ object SettingsBasicPresets {
     fun suggestionTriggerPresetOrNull(settings: Settings): SuggestionTriggerPreset? =
         suggestionTriggerPresetMap.entries.firstOrNull {
             it.value == settings.suggestionTriggerSeconds
-        }?.key
-
-    private val suggestionCooldownPresetMap: Map<SuggestionCooldownPreset, Int> = mapOf(
-        SuggestionCooldownPreset.Short to 10 * 60,
-        SuggestionCooldownPreset.Normal to 20 * 60,
-        SuggestionCooldownPreset.Long to 30 * 60,
-    )
-
-    fun Settings.withSuggestionCooldownPreset(preset: SuggestionCooldownPreset): Settings {
-        val seconds = suggestionCooldownPresetMap[preset] ?: return this
-        return copy(suggestionCooldownSeconds = seconds)
-    }
-
-    fun suggestionCooldownPresetOrNull(settings: Settings): SuggestionCooldownPreset? =
-        suggestionCooldownPresetMap.entries.firstOrNull {
-            it.value == settings.suggestionCooldownSeconds
         }?.key
 }

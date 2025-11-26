@@ -5,7 +5,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.config.SettingsBasicPresets.withFontPreset
 import com.example.refocus.config.SettingsBasicPresets.withGracePreset
-import com.example.refocus.config.SettingsBasicPresets.withSuggestionCooldownPreset
 import com.example.refocus.config.SettingsBasicPresets.withSuggestionTriggerPreset
 import com.example.refocus.config.SettingsBasicPresets.withTimeToMaxPreset
 import com.example.refocus.core.model.FontPreset
@@ -15,7 +14,6 @@ import com.example.refocus.core.model.OverlayGrowthMode
 import com.example.refocus.core.model.OverlayTouchMode
 import com.example.refocus.core.model.Settings
 import com.example.refocus.core.model.SettingsPreset
-import com.example.refocus.core.model.SuggestionCooldownPreset
 import com.example.refocus.core.model.SuggestionTriggerPreset
 import com.example.refocus.core.model.TimeToMaxPreset
 import com.example.refocus.data.repository.SettingsRepository
@@ -207,16 +205,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.updateOverlaySettings { current ->
                 current.withSuggestionTriggerPreset(preset)
-            }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
-        }
-    }
-
-    /** 次の提案までの待ち時間プリセットを適用（低い / 普通 / 高い） */
-    fun applySuggestionCooldownPreset(preset: SuggestionCooldownPreset) {
-        viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.withSuggestionCooldownPreset(preset)
             }
             settingsRepository.setSettingsPreset(SettingsPreset.Custom)
         }

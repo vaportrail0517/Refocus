@@ -40,12 +40,7 @@ fun AdvancedSettingsContent(
         )
     }
 
-    SectionCard(title = "監視・セッション") {
-        SettingRow(
-            title = "前面アプリをチェックする間隔",
-            subtitle = "現在: ${settings.pollingIntervalMillis} ms 毎に対象アプリかどうか確認します。",
-            onClick = onOpenPollingDialog,
-        )
+    SectionCard(title = "セッション") {
         val formattedGraceTime = formatDurationMillisOrNull(settings.gracePeriodMillis)
         SettingRow(
             title = "セッション継続の猶予時間",
@@ -58,16 +53,16 @@ fun AdvancedSettingsContent(
         )
     }
 
-    SectionCard(title = "タイマーの表示") {
-        SettingRow(
-            title = "フォントサイズの範囲",
-            subtitle = "現在: 最小 ${settings.minFontSizeSp} sp / 最大 ${settings.maxFontSizeSp} sp",
-            onClick = onOpenFontDialog,
-        )
+    SectionCard(title = "タイマーのサイズ") {
         SettingRow(
             title = "最大サイズになるまでの時間",
             subtitle = "現在: ${settings.timeToMaxMinutes}分",
             onClick = onOpenTimeToMaxDialog,
+        )
+        SettingRow(
+            title = "フォントサイズの範囲",
+            subtitle = "現在: 最小 ${settings.minFontSizeSp} sp / 最大 ${settings.maxFontSizeSp} sp",
+            onClick = onOpenFontDialog,
         )
         SettingRow(
             title = "タイマーの成長モード",
@@ -86,6 +81,8 @@ fun AdvancedSettingsContent(
             },
             onClick = onOpenGrowthModeDialog,
         )
+    }
+    SectionCard(title = "タイマーの色") {
         SettingRow(
             title = "タイマーの色モード",
             subtitle = when (settings.colorMode) {
