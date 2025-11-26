@@ -187,10 +187,9 @@ class OverlayService : LifecycleService() {
     }
 
     private fun canRunOverlay(): Boolean {
-        val hasUsage = PermissionHelper.hasUsageAccess(this)
-        val hasOverlay = PermissionHelper.hasOverlayPermission(this)
-        Log.d(TAG, "hasUsage=$hasUsage, hasOverlay=$hasOverlay")
-        return hasUsage && hasOverlay
+        val hasCore = PermissionHelper.hasAllCorePermissions(this)
+        Log.d(TAG, "canRunOverlay: hasCore=$hasCore")
+        return hasCore
     }
 
     private fun registerScreenReceiver() {

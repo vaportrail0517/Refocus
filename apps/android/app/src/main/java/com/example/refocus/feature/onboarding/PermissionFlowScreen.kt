@@ -180,8 +180,7 @@ private fun OverlayPermissionPage(
 /* ---------- ヘルパー ---------- */
 
 private fun allPermissionsGranted(context: android.content.Context): Boolean {
-    return PermissionHelper.hasUsageAccess(context) &&
-            PermissionHelper.hasOverlayPermission(context)
+    return PermissionHelper.hasAllCorePermissions(context)
 }
 
 private fun isGranted(context: android.content.Context, type: PermissionType): Boolean =

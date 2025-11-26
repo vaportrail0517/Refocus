@@ -52,7 +52,7 @@ fun SettingsScreen(
         )
     }
     var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
-    val hasCorePermissions = usageGranted && overlayGranted
+    val hasCorePermissions = PermissionHelper.hasAllCorePermissions(context)
 
     BackHandler(enabled = isAdvancedMode) {
         isAdvancedMode = false
