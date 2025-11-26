@@ -5,10 +5,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import kotlinx.coroutines.flow.first
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun EntryScreen(
@@ -16,13 +17,13 @@ fun EntryScreen(
     onAllReady: () -> Unit,
 ) {
     val viewModel: EntryViewModel = hiltViewModel()
-    val onboardingRepository = viewModel.onboardingRepository
-    LaunchedEffect(Unit) {
-        val completed = onboardingRepository.completedFlow.first()
-        if (!completed) {
-            onNeedFullOnboarding()
-        } else {
-            onAllReady()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(uiState.completed) {
+        when (uiState.completed) {
+            true -> onAllReady()
+            false -> onNeedFullOnboarding()
+            null -> {}
         }
     }
 
