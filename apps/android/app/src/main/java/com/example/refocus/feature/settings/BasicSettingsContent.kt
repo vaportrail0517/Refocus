@@ -160,6 +160,28 @@ fun BasicSettingsContent(
             subtitle = "時間を計測したいアプリを選びます。",
             onClick = onOpenAppSelect,
         )
+        val gracePreset = SettingsBasicPresets.gracePresetOrNull(settings)
+        val formattedGraceTime = formatDurationMillisOrNull(settings.gracePeriodMillis)
+        PresetOptionRow(
+            title = "一時的なアプリ切り替え",
+            currentPreset = gracePreset,
+            options = listOf(
+                PresetOption(GracePreset.Short, "短い"),
+                PresetOption(GracePreset.Normal, "普通"),
+                PresetOption(GracePreset.Long, "長い"),
+            ),
+            currentValueDescription = buildString {
+                if (formattedGraceTime.isNullOrEmpty()) {
+                    append("アプリの画面を閉じると猶予なしでセッションを終了します。")
+                } else {
+                    append(formattedGraceTime)
+                    append("以内に対象アプリを再開すると同じセッションとして扱います。")
+                }
+            },
+            onPresetSelected = { preset ->
+                viewModel.applyGracePreset(preset)
+            },
+        )
     }
 
     // --- タイマー（プリセット） ---
@@ -215,29 +237,6 @@ fun BasicSettingsContent(
             currentValueDescription = "${settings.timeToMaxMinutes}分",
             onPresetSelected = { preset ->
                 viewModel.applyTimeToMaxPreset(preset)
-            },
-        )
-
-        val gracePreset = SettingsBasicPresets.gracePresetOrNull(settings)
-        val formattedGraceTime = formatDurationMillisOrNull(settings.gracePeriodMillis)
-        PresetOptionRow(
-            title = "一時的なアプリ切り替え",
-            currentPreset = gracePreset,
-            options = listOf(
-                PresetOption(GracePreset.Short, "短い"),
-                PresetOption(GracePreset.Normal, "普通"),
-                PresetOption(GracePreset.Long, "長い"),
-            ),
-            currentValueDescription = buildString {
-                if (formattedGraceTime.isNullOrEmpty()) {
-                    append("アプリの画面を閉じると猶予なしでセッションを終了します。")
-                } else {
-                    append(formattedGraceTime)
-                    append("以内に対象アプリを再開すると同じセッションとして扱います。")
-                }
-            },
-            onPresetSelected = { preset ->
-                viewModel.applyGracePreset(preset)
             },
         )
     }

@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -77,7 +77,7 @@ private fun SessionItem(
     // ★ このカードの「中断履歴を開いているかどうか」を覚えておくローカル状態
     var expanded by remember { mutableStateOf(false) }
     Card(
-        // ★ Card 全体をタップ可能にして、タップで展開状態をトグル
+        // Card 全体をタップ可能にして、タップで展開状態をトグル
         onClick = {
             if (session.pauseResumeEvents.isNotEmpty()) {
                 expanded = !expanded
@@ -147,7 +147,7 @@ private fun SessionItem(
             // ★ 中断履歴がある & expanded=true のときだけ表示する
             if (session.pauseResumeEvents.isNotEmpty() && expanded) {
                 Spacer(modifier = Modifier.height(4.dp))
-                Divider()
+                HorizontalDivider()
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(

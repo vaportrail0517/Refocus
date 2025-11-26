@@ -10,9 +10,9 @@ object SettingsDefaults {
     const val POLLING_INTERVAL_MILLIS: Long = 500L
 
     // --- オーバーレイ見た目 ---
-    const val MIN_FONT_SIZE_SP: Float = 12f
-    const val MAX_FONT_SIZE_SP: Float = 40f
-    const val TIME_TO_MAX_MINUTES: Int = 30
+    const val MIN_FONT_SIZE_SP: Float = 16f
+    const val MAX_FONT_SIZE_SP: Float = 64f
+    const val TIME_TO_MAX_MINUTES: Int = 15
     const val POSITION_X: Int = 24
     const val POSITION_Y: Int = 120
     val TOUCH_MODE: OverlayTouchMode = OverlayTouchMode.PassThrough
@@ -33,7 +33,7 @@ object SettingsDefaults {
     const val SUGGESTION_ENABLED: Boolean = true
     const val SUGGESTION_TRIGGER_SECONDS: Int = 15 * 60
     const val SUGGESTION_TIMEOUT_SECONDS: Int = 8
-    const val SUGGESTION_COOLDOWN_SECONDS: Int = 20 * 60
+    const val SUGGESTION_COOLDOWN_SECONDS: Int = 10 * 60
     const val SUGGESTION_FOREGROUND_STABLE_SECONDS: Int = 5 * 60
     const val REST_SUGGESTION_ENABLED: Boolean = true
     const val SUGGESTION_INTERACTION_LOCKOUT_MS: Long = 400L

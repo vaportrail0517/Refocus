@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.example.refocus.data.db.RefocusDatabase
 import com.example.refocus.data.db.dao.SessionDao
 import com.example.refocus.data.db.dao.SessionEventDao
+import com.example.refocus.data.db.dao.SuggestionDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,11 +25,16 @@ object DatabaseModule {
         context,
         RefocusDatabase::class.java,
         "refocus.db"
-    ).build()
+    )
+        .fallbackToDestructiveMigration(true)  // デバッグ用，前バージョンのDBを上書き
+        .build()
 
     @Provides
     fun provideSessionDao(db: RefocusDatabase): SessionDao = db.sessionDao()
 
     @Provides
     fun provideSessionEventDao(db: RefocusDatabase): SessionEventDao = db.sessionEventDao()
+
+    @Provides
+    fun provideSuggestionDao(db: RefocusDatabase): SuggestionDao = db.suggestionDao()
 }
