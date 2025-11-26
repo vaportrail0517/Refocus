@@ -11,7 +11,7 @@ object SettingsDefaults {
 
     // --- オーバーレイ見た目 ---
     const val MIN_FONT_SIZE_SP: Float = 16f
-    const val MAX_FONT_SIZE_SP: Float = 48f
+    const val MAX_FONT_SIZE_SP: Float = 64f
     const val TIME_TO_MAX_MINUTES: Int = 15
     const val POSITION_X: Int = 24
     const val POSITION_Y: Int = 120

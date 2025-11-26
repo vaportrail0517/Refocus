@@ -12,9 +12,9 @@ import com.example.refocus.core.model.TimeToMaxPreset
  */
 object SettingsBasicPresets {
     private val fontPresetMap: Map<FontPreset, Pair<Float, Float>> = mapOf(
-        FontPreset.Small to (12f to 36f),
-        FontPreset.Medium to (16f to 48f),
-        FontPreset.Large to (20f to 60f),
+        FontPreset.Small to (12f to 48f),
+        FontPreset.Medium to (16f to 64f),
+        FontPreset.Large to (20f to 80f),
     )
 
     fun Settings.withFontPreset(preset: FontPreset): Settings {

@@ -1,20 +1,25 @@
 package com.example.refocus.feature.home
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.example.refocus.feature.history.SessionHistoryScreen
 import com.example.refocus.feature.settings.SettingsScreen
-import com.example.refocus.feature.suggestions.SuggestionsScreen
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.runtime.rememberCoroutineScope
+import com.example.refocus.feature.suggestions.SuggestionsRoute
 import kotlinx.coroutines.launch
 
 enum class HomeTab {
@@ -51,14 +56,15 @@ fun HomeScreen(
     ) { innerPadding ->
         HorizontalPager(
             state = pagerState,
+            userScrollEnabled = false,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) { page ->
             when (tabs[page]) {
-                HomeTab.Suggestions -> SuggestionsScreen()
-                HomeTab.Stats       -> StatsTab()
-                HomeTab.Settings    -> SettingsScreen(onOpenAppSelect = onOpenAppSelect)
+                HomeTab.Suggestions -> SuggestionsRoute()
+                HomeTab.Stats -> SessionHistoryScreen()
+                HomeTab.Settings -> SettingsScreen(onOpenAppSelect = onOpenAppSelect)
             }
         }
     }
@@ -90,11 +96,4 @@ private fun HomeBottomBar(
             label = { Text("設定") }
         )
     }
-}
-
-
-
-@Composable
-private fun StatsTab() {
-    SessionHistoryScreen()
 }

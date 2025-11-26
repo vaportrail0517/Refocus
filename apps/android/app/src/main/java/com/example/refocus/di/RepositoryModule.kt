@@ -3,10 +3,10 @@ package com.example.refocus.di
 import android.content.Context
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.datastore.SettingsDataStore
-import com.example.refocus.data.datastore.SuggestionsDataStore
 import com.example.refocus.data.datastore.TargetsDataStore
 import com.example.refocus.data.db.dao.SessionDao
 import com.example.refocus.data.db.dao.SessionEventDao
+import com.example.refocus.data.db.dao.SuggestionDao
 import com.example.refocus.data.repository.OnboardingRepository
 import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SessionRepositoryImpl
@@ -45,11 +45,11 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideSuggestionsRepository(
-        dataStore: SuggestionsDataStore,
-        timeSource: TimeSource
+        suggestionDao: SuggestionDao,
+        timeSource: TimeSource,
     ): SuggestionsRepository = SuggestionsRepository(
-        dataStore = dataStore,
-        timeSource = timeSource
+        suggestionDao = suggestionDao,
+        timeSource = timeSource,
     )
 
     @Provides
