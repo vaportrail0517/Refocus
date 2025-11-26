@@ -16,12 +16,14 @@ import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.refocus.core.model.OverlayTouchMode
 import com.example.refocus.core.model.Settings
+import com.example.refocus.core.util.TimeSource
 import com.example.refocus.feature.overlay.ui.TimerOverlay
 import com.example.refocus.ui.theme.RefocusTheme
 
 class TimerOverlayController(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner,
+    private val timeSource: TimeSource,
 ) {
     private val windowManager =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -153,6 +155,7 @@ class TimerOverlayController(
                     TimerOverlay(
                         // ここで provider を渡す
                         settings = overlaySettingsState,
+                        timeSource = timeSource,
                         elapsedMillisProvider = elapsedMillisProvider
                     )
                 }

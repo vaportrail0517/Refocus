@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.sp
 import com.example.refocus.core.model.OverlayColorMode
 import com.example.refocus.core.model.OverlayGrowthMode
 import com.example.refocus.core.model.Settings
-import com.example.refocus.core.util.SystemTimeSource
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.core.util.formatDurationForTimerBubble
 import kotlinx.coroutines.delay
@@ -30,10 +29,10 @@ import kotlinx.coroutines.delay
 fun TimerOverlay(
     modifier: Modifier = Modifier,
     settings: Settings,
+    timeSource: TimeSource,
     // SessionManager から経過時間をもらうための provider
     elapsedMillisProvider: (Long) -> Long
 ) {
-    val timeSource: TimeSource = remember { SystemTimeSource() }
     var elapsedMillis by remember { mutableLongStateOf(0L) }
 
     // 200msごとに SessionManager に「今の経過時間」を問い合わせる

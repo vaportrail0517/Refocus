@@ -103,7 +103,8 @@ class OverlayService : LifecycleService() {
 
         timerOverlayController = TimerOverlayController(
             context = this,
-            lifecycleOwner = this
+            lifecycleOwner = this,
+            timeSource = timeSource
         )
         suggestionOverlayController = SuggestionOverlayController(
             context = this,
