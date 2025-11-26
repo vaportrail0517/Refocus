@@ -17,11 +17,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -69,6 +72,14 @@ class OverlayOrchestrator(
     @Volatile
     private var isSuggestionOverlayShown: Boolean = false
 
+    // SettingsDataStore からの設定 Flow を shareIn して共有する
+    private val settingsFlow: SharedFlow<Settings> =
+        settingsRepository.observeOverlaySettings()
+            .shareIn(
+                scope = scope,
+                started = SharingStarted.Eagerly,
+                replay = 1
+            )
     private val screenOnState = MutableStateFlow(true)
 
     val screenOnFlow: StateFlow<Boolean> get() = screenOnState
@@ -122,7 +133,7 @@ class OverlayOrchestrator(
         scope.launch {
             try {
                 var first = true
-                settingsRepository.observeOverlaySettings().collect { settings ->
+                settingsFlow.collect { settings ->
                     overlaySettings = settings
                     withContext(Dispatchers.Main) {
                         timerOverlayController.overlaySettings = settings
@@ -149,8 +160,7 @@ class OverlayOrchestrator(
     private fun startMonitoringForeground() {
         scope.launch {
             val targetsFlow = targetsRepository.observeTargets()
-            val foregroundFlow = settingsRepository
-                .observeOverlaySettings()
+            val foregroundFlow = settingsFlow
                 .flatMapLatest { settings ->
                     foregroundAppMonitor.foregroundAppFlow(
                         pollingIntervalMs = settings.pollingIntervalMillis
@@ -228,8 +238,10 @@ class OverlayOrchestrator(
                     Log.e(TAG, "Error in startMonitoring loop", e)
                     withContext(Dispatchers.Main) {
                         timerOverlayController.hideTimer()
+                        suggestionOverlayController.hideSuggestionOverlay()
                     }
                     overlayPackage = null
+                    clearSuggestionOverlayState()
                 }
             }
         }

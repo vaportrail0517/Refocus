@@ -79,21 +79,37 @@ class ForegroundAppMonitor(
 
         var lastEmittedPackage: String? = null
         var lastCheckedTime: Long = timeSource.nowMillis()
-
         val events = UsageEvents.Event()
-
+        var currentTop: String? = null
         while (true) {
             val now = timeSource.nowMillis()
             val usm = usageStatsManager
-
-            var rawTop: String? = null
             if (usm != null) {
                 try {
                     val usageEvents: UsageEvents = usm.queryEvents(lastCheckedTime, now)
                     while (usageEvents.hasNextEvent()) {
                         usageEvents.getNextEvent(events)
-                        if (events.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                            rawTop = events.packageName
+                        val pkg = events.packageName ?: continue
+                        when (events.eventType) {
+                            UsageEvents.Event.MOVE_TO_FOREGROUND -> {
+                                currentTop = if (isHomeLikePackage(pkg)) {
+                                    // ホーム / SystemUI に来たら「前面なし」
+                                    null
+                                } else {
+                                    pkg
+                                }
+                            }
+
+                            UsageEvents.Event.MOVE_TO_BACKGROUND -> {
+                                // いま前面扱いしているアプリが BACKGROUND に落ちたら前面なし
+                                if (pkg == currentTop) {
+                                    currentTop = null
+                                }
+                            }
+
+                            else -> {
+                                // それ以外のイベントは無視
+                            }
                         }
                     }
                 } catch (e: SecurityException) {
@@ -102,22 +118,8 @@ class ForegroundAppMonitor(
                     Log.e(TAG, "queryEvents failed", e)
                 }
             }
-
             lastCheckedTime = now
-
-            val effectiveTop: String? = when {
-                rawTop == null -> {
-                    // 今回新しい MOVE_TO_FOREGROUND がなければ前回値を維持
-                    lastEmittedPackage
-                }
-
-                isHomeLikePackage(rawTop) -> {
-                    // ホームに遷移したとみなして null を emit
-                    null
-                }
-
-                else -> rawTop
-            }
+            val effectiveTop: String? = currentTop
 
             if (effectiveTop != lastEmittedPackage) {
                 Log.d(TAG, "foreground changed: $lastEmittedPackage -> $effectiveTop")
