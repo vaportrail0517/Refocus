@@ -1,4 +1,4 @@
-package com.example.refocus.feature.overlay.controller
+package com.example.refocus.system.overlay.window
 
 import android.content.Context
 import android.graphics.PixelFormat
@@ -11,7 +11,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.refocus.core.model.OverlaySuggestionMode
-import com.example.refocus.feature.overlay.ui.SuggestionOverlay
+import com.example.refocus.ui.overlay.SuggestionOverlay
 import com.example.refocus.ui.theme.RefocusTheme
 
 class SuggestionOverlayController(

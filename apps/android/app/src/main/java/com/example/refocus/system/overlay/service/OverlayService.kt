@@ -1,4 +1,4 @@
-package com.example.refocus.feature.overlay.service
+package com.example.refocus.system.overlay.service
 
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -20,12 +20,13 @@ import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.data.repository.SuggestionsRepository
 import com.example.refocus.data.repository.TargetsRepository
+import com.example.refocus.domain.overlay.OverlayCoordinator
 import com.example.refocus.domain.session.SessionManager
 import com.example.refocus.domain.suggestion.SuggestionEngine
-import com.example.refocus.feature.overlay.controller.SuggestionOverlayController
-import com.example.refocus.feature.overlay.controller.TimerOverlayController
-import com.example.refocus.feature.overlay.logic.OverlayOrchestrator
 import com.example.refocus.system.monitor.ForegroundAppMonitor
+import com.example.refocus.system.overlay.window.SuggestionOverlayController
+import com.example.refocus.system.overlay.window.TimerOverlayController
+import com.example.refocus.system.overlay.window.WindowOverlayUiController
 import com.example.refocus.system.permissions.PermissionHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -73,7 +74,8 @@ class OverlayService : LifecycleService() {
     private lateinit var timerOverlayController: TimerOverlayController
     private lateinit var suggestionOverlayController: SuggestionOverlayController
     private lateinit var sessionManager: SessionManager
-    private lateinit var overlayOrchestrator: OverlayOrchestrator
+    private lateinit var overlayUiController: WindowOverlayUiController
+    private lateinit var overlayCoordinator: OverlayCoordinator
 
     // BroadcastReceiver はそのまま残す（後で中身を少し変更）
     private var screenReceiverRegistered: Boolean = false
@@ -83,14 +85,14 @@ class OverlayService : LifecycleService() {
                 Intent.ACTION_SCREEN_OFF,
                 Intent.ACTION_SHUTDOWN -> {
                     Log.d(TAG, "ACTION_SCREEN_OFF / SHUTDOWN received")
-                    overlayOrchestrator.setScreenOn(false)
-                    overlayOrchestrator.onScreenOff()
+                    overlayCoordinator.setScreenOn(false)
+                    overlayCoordinator.onScreenOff()
                 }
 
                 Intent.ACTION_USER_PRESENT,
                 Intent.ACTION_SCREEN_ON -> {
                     Log.d(TAG, "ACTION_USER_PRESENT / SCREEN_ON received")
-                    overlayOrchestrator.setScreenOn(true)
+                    overlayCoordinator.setScreenOn(true)
                 }
             }
         }
@@ -104,7 +106,8 @@ class OverlayService : LifecycleService() {
         timerOverlayController = TimerOverlayController(
             context = this,
             lifecycleOwner = this,
-            timeSource = timeSource
+            timeSource = timeSource,
+            scope = serviceScope,
         )
         suggestionOverlayController = SuggestionOverlayController(
             context = this,
@@ -117,7 +120,13 @@ class OverlayService : LifecycleService() {
             logTag = TAG
         )
 
-        overlayOrchestrator = OverlayOrchestrator(
+        overlayUiController = WindowOverlayUiController(
+            scope = serviceScope,
+            timerOverlayController = timerOverlayController,
+            suggestionOverlayController = suggestionOverlayController,
+        )
+
+        overlayCoordinator = OverlayCoordinator(
             scope = serviceScope,
             timeSource = timeSource,
             targetsRepository = targetsRepository,
@@ -126,15 +135,13 @@ class OverlayService : LifecycleService() {
             suggestionsRepository = suggestionsRepository,
             foregroundAppMonitor = foregroundAppMonitor,
             suggestionEngine = suggestionEngine,
-            timerOverlayController = timerOverlayController,
-            suggestionOverlayController = suggestionOverlayController,
-            sessionManager = sessionManager
+            sessionManager = sessionManager,
+            uiController = overlayUiController,
         )
 
         startForegroundWithNotification()
         Log.d(TAG, "startForeground done")
 
-        // 権限が揃っていなければ即終了
         if (!canRunOverlay()) {
             Log.w(TAG, "canRunOverlay = false. stopSelf()")
             stopSelf()
@@ -142,12 +149,12 @@ class OverlayService : LifecycleService() {
         }
 
         registerScreenReceiver()
-        overlayOrchestrator.start()
+        overlayCoordinator.start()
     }
 
     override fun onDestroy() {
         isRunning = false
-        overlayOrchestrator.stop()
+        overlayCoordinator.stop()
         serviceScope.cancel()
         unregisterScreenReceiver()
         super.onDestroy()

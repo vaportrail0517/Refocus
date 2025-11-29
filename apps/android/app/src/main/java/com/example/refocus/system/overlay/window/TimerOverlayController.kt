@@ -1,4 +1,4 @@
-package com.example.refocus.feature.overlay.controller
+package com.example.refocus.system.overlay.window
 
 import android.content.Context
 import android.graphics.PixelFormat
@@ -17,13 +17,19 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.refocus.core.model.OverlayTouchMode
 import com.example.refocus.core.model.Settings
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.feature.overlay.ui.TimerOverlay
+import com.example.refocus.ui.overlay.TimerOverlay
 import com.example.refocus.ui.theme.RefocusTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable.isActive
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class TimerOverlayController(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner,
     private val timeSource: TimeSource,
+    private val scope: CoroutineScope,
 ) {
     private val windowManager =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -35,6 +41,12 @@ class TimerOverlayController(
 
     // Compose が監視するステート本体
     private var overlaySettingsState by mutableStateOf(Settings())
+
+    // Compose が監視する経過時間（TimerOverlay にそのまま渡す）
+    private var elapsedMillis by mutableStateOf(0L)
+
+    // 経過時間を更新するためのジョブ
+    private var timerJob: Job? = null
 
     // 外から触るプロパティ。変更時に onSettingsChanged を呼ぶ
     var overlaySettings: Settings
@@ -115,16 +127,33 @@ class TimerOverlayController(
     }
 
     fun showTimer(
-        // initialElapsedMillis の代わりに provider を受け取る
+        // SessionManager から経過時間をもらうための provider
         elapsedMillisProvider: (Long) -> Long,
-        onPositionChanged: ((x: Int, y: Int) -> Unit)? = null,
+        onPositionChanged: ((Int, Int) -> Unit)? = null
     ) {
         if (overlayView != null) {
             Log.d("TimerOverlayController", "showTimer: already showing")
             return
         }
+
         val settings = overlaySettings
         onPositionChangedCallback = onPositionChanged
+
+        // 表示開始時に経過時間をリセット
+        elapsedMillis = 0L
+
+        // 既存のジョブがあれば止める
+        timerJob?.cancel()
+
+        // コルーチンで 200ms ごとに elapsedMillis を更新
+        timerJob = scope.launch {
+            while (isActive) {
+                val nowElapsed = timeSource.elapsedRealtime()
+                elapsedMillis = elapsedMillisProvider(nowElapsed)
+                delay(200L)
+            }
+        }
+
         val baseFlags =
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
@@ -135,6 +164,7 @@ class TimerOverlayController(
             OverlayTouchMode.PassThrough ->
                 baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         }
+
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -146,6 +176,7 @@ class TimerOverlayController(
             x = settings.positionX
             y = settings.positionY
         }
+
         val composeView = ComposeView(context).apply {
             setViewTreeLifecycleOwner(lifecycleOwner)
             val savedStateOwner = OverlaySavedStateOwner()
@@ -153,14 +184,13 @@ class TimerOverlayController(
             setContent {
                 RefocusTheme {
                     TimerOverlay(
-                        // ここで provider を渡す
                         settings = overlaySettingsState,
-                        timeSource = timeSource,
-                        elapsedMillisProvider = elapsedMillisProvider
+                        elapsedMillis = elapsedMillis,
                     )
                 }
             }
         }
+
         overlayView = composeView
         layoutParams = params
         applyTouchListener(
@@ -176,6 +206,11 @@ class TimerOverlayController(
     }
 
     fun hideTimer() {
+        // 経過時間更新ジョブを停止
+        timerJob?.cancel()
+        timerJob = null
+        elapsedMillis = 0L
+
         val view = overlayView ?: return
         try {
             if (view is ComposeView) {
@@ -190,4 +225,5 @@ class TimerOverlayController(
             layoutParams = null
         }
     }
+
 }

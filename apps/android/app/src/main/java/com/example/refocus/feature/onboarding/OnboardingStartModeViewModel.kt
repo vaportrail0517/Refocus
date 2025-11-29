@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.data.repository.SettingsRepository
-import com.example.refocus.feature.overlay.service.startOverlayService
+import com.example.refocus.system.overlay.service.startOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch

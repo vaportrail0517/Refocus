@@ -1,4 +1,4 @@
-package com.example.refocus
+package com.example.refocus.app
 
 import android.app.Application
 import dagger.hilt.android.HiltAndroidApp

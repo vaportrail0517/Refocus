@@ -1,4 +1,4 @@
-package com.example.refocus.feature.overlay.logic
+package com.example.refocus.domain.overlay
 
 import android.util.Log
 import com.example.refocus.core.model.OverlayEvent
@@ -10,11 +10,8 @@ import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.data.repository.SuggestionsRepository
 import com.example.refocus.data.repository.TargetsRepository
-import com.example.refocus.domain.overlay.OverlayStateMachine
 import com.example.refocus.domain.session.SessionManager
 import com.example.refocus.domain.suggestion.SuggestionEngine
-import com.example.refocus.feature.overlay.controller.SuggestionOverlayController
-import com.example.refocus.feature.overlay.controller.TimerOverlayController
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,8 +29,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * OverlayService から「ロジック部分」を切り出したオーケストレータ。
- *
  * - 前面アプリの監視
  * - SessionManager とのやりとり
  * - TimerOverlay / SuggestionOverlay の表示制御
@@ -42,7 +37,7 @@ import kotlinx.coroutines.withContext
  * Android Service / Notification / BroadcastReceiver などの OS 依存部分は
  * OverlayService 側に残す。
  */
-class OverlayOrchestrator(
+class OverlayCoordinator(
     private val scope: CoroutineScope,
     private val timeSource: TimeSource,
     private val targetsRepository: TargetsRepository,
@@ -51,13 +46,11 @@ class OverlayOrchestrator(
     private val suggestionsRepository: SuggestionsRepository,
     private val foregroundAppMonitor: ForegroundAppMonitor,
     private val suggestionEngine: SuggestionEngine,
-    private val timerOverlayController: TimerOverlayController,
-    private val suggestionOverlayController: SuggestionOverlayController,
     private val sessionManager: SessionManager,
+    private val uiController: OverlayUiController,
 ) {
-
     companion object {
-        private const val TAG = "OverlayOrchestrator"
+        private const val TAG = "OverlayCoordinator"
     }
 
     @Volatile
@@ -132,8 +125,8 @@ class OverlayOrchestrator(
      */
     fun stop() {
         sessionManager.clear()
-        timerOverlayController.hideTimer()
-        suggestionOverlayController.hideSuggestionOverlay()
+        uiController.hideTimer()
+        uiController.hideSuggestion()
         clearSuggestionOverlayState()
         overlayState = OverlayState.Idle
         currentForegroundPackage = null
@@ -209,10 +202,8 @@ class OverlayOrchestrator(
             // 何らかの理由で Disabled に落ちたとき（overlayEnabled=false など）
             newState is OverlayState.Disabled -> {
                 overlayPackage = null
-                scope.launch(Dispatchers.Main) {
-                    timerOverlayController.hideTimer()
-                    suggestionOverlayController.hideSuggestionOverlay()
-                }
+                uiController.hideTimer()
+                uiController.hideSuggestion()
                 clearSuggestionOverlayState()
             }
 
@@ -235,11 +226,8 @@ class OverlayOrchestrator(
                 var first = true
                 settingsFlow.collect { settings ->
                     overlaySettings = settings
-                    // ステートマシンに設定変更を通知
                     dispatchEvent(OverlayEvent.SettingsChanged(settings))
-                    withContext(Dispatchers.Main) {
-                        timerOverlayController.overlaySettings = settings
-                    }
+                    uiController.applySettings(settings)
                     if (first) {
                         first = false
                         try {
@@ -257,6 +245,7 @@ class OverlayOrchestrator(
             }
         }
     }
+
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun startMonitoringForeground() {
@@ -349,8 +338,8 @@ class OverlayOrchestrator(
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in startMonitoring loop", e)
                     withContext(Dispatchers.Main) {
-                        timerOverlayController.hideTimer()
-                        suggestionOverlayController.hideSuggestionOverlay()
+                        uiController.hideTimer()
+                        uiController.hideSuggestion()
                     }
                     overlayPackage = null
                     clearSuggestionOverlayState()
@@ -381,12 +370,11 @@ class OverlayOrchestrator(
             ) ?: initialElapsed
         }
 
-        withContext(Dispatchers.Main) {
-            timerOverlayController.showTimer(
-                elapsedMillisProvider = elapsedProvider,
-                onPositionChanged = ::onOverlayPositionChanged
-            )
-        }
+        // UI への指示は抽象インターフェイスに投げる
+        uiController.showTimer(
+            elapsedMillisProvider = elapsedProvider,
+            onPositionChanged = ::onOverlayPositionChanged
+        )
     }
 
     private fun onLeaveForeground(
@@ -397,11 +385,9 @@ class OverlayOrchestrator(
         // 先にオーバーレイを閉じる
         if (overlayPackage == packageName) {
             overlayPackage = null
-            scope.launch(Dispatchers.Main) {
-                timerOverlayController.hideTimer()
-                suggestionOverlayController.hideSuggestionOverlay()
-                clearSuggestionOverlayState()
-            }
+            uiController.hideTimer()
+            uiController.hideSuggestion()
+            clearSuggestionOverlayState()
         }
 
         // セッション管理は SessionManager に委譲
@@ -510,9 +496,10 @@ class OverlayOrchestrator(
                     "画面から少し離れて休憩する" to OverlaySuggestionMode.Rest
                 }
 
-                withContext(Dispatchers.Main) {
-                    isSuggestionOverlayShown = true
-                    suggestionOverlayController.showSuggestionOverlay(
+                isSuggestionOverlayShown = true
+
+                uiController.showSuggestion(
+                    SuggestionOverlayUiModel(
                         title = title,
                         mode = mode,
                         autoDismissMillis = suggestionTimeoutMillis(overlaySettings),
@@ -523,7 +510,7 @@ class OverlayOrchestrator(
                         onDisableThisSession = { handleSuggestionDisableThisSession() },
                         onDismissOnly = { handleSuggestionDismissOnly() },
                     )
-                }
+                )
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to show suggestion overlay for $packageName", e)
                 isSuggestionOverlayShown = false

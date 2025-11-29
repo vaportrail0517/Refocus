@@ -18,7 +18,7 @@
     </queries>
 
     <application
-        android:name=".RefocusApplication"
+        android:name=".app.RefocusApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -29,7 +29,7 @@
         android:theme="@style/Theme.Refocus">
 
         <activity
-            android:name=".MainActivity"
+            android:name=".app.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Refocus">
             <intent-filter>
@@ -39,7 +39,7 @@
         </activity>
 
         <service
-            android:name=".feature.overlay.service.OverlayService"
+            android:name=".system.overlay.service.OverlayService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse" />

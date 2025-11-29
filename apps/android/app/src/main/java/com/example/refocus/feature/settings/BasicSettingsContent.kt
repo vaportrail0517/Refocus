@@ -13,8 +13,8 @@ import com.example.refocus.core.model.SuggestionTriggerPreset
 import com.example.refocus.core.model.TimeToMaxPreset
 import com.example.refocus.core.util.formatDurationMillisOrNull
 import com.example.refocus.core.util.formatDurationSeconds
-import com.example.refocus.feature.overlay.service.startOverlayService
-import com.example.refocus.feature.overlay.service.stopOverlayService
+import com.example.refocus.system.overlay.service.startOverlayService
+import com.example.refocus.system.overlay.service.stopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
 import com.example.refocus.ui.components.PresetOption
 import com.example.refocus.ui.components.PresetOptionRow

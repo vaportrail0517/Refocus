@@ -1,4 +1,4 @@
-package com.example.refocus.di
+package com.example.refocus.app.di
 
 import android.content.Context
 import com.example.refocus.data.datastore.OnboardingDataStore

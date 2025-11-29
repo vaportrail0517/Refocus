@@ -1,4 +1,4 @@
-package com.example.refocus.navigation
+package com.example.refocus.app.navigation
 
 import android.app.Activity
 import android.util.Log
@@ -15,7 +15,7 @@ import com.example.refocus.feature.onboarding.OnboardingIntroScreen
 import com.example.refocus.feature.onboarding.OnboardingReadyScreen
 import com.example.refocus.feature.onboarding.OnboardingStartModeScreen
 import com.example.refocus.feature.onboarding.PermissionFlowScreen
-import com.example.refocus.feature.overlay.service.startOverlayService
+import com.example.refocus.system.overlay.service.startOverlayService
 
 object Destinations {
     const val ENTRY = "entry"

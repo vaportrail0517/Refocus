@@ -1,4 +1,4 @@
-package com.example.refocus.feature.overlay.ui
+package com.example.refocus.ui.overlay
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures

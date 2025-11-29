@@ -1,4 +1,4 @@
-package com.example.refocus.feature.overlay.ui
+package com.example.refocus.ui.overlay
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -8,11 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -21,29 +17,14 @@ import androidx.compose.ui.unit.sp
 import com.example.refocus.core.model.OverlayColorMode
 import com.example.refocus.core.model.OverlayGrowthMode
 import com.example.refocus.core.model.Settings
-import com.example.refocus.core.util.TimeSource
 import com.example.refocus.core.util.formatDurationForTimerBubble
-import kotlinx.coroutines.delay
 
 @Composable
 fun TimerOverlay(
     modifier: Modifier = Modifier,
     settings: Settings,
-    timeSource: TimeSource,
-    // SessionManager から経過時間をもらうための provider
-    elapsedMillisProvider: (Long) -> Long
+    elapsedMillis: Long,
 ) {
-    var elapsedMillis by remember { mutableLongStateOf(0L) }
-
-    // 200msごとに SessionManager に「今の経過時間」を問い合わせる
-    LaunchedEffect(Unit) {
-        while (true) {
-            val nowElapsed = timeSource.elapsedRealtime()
-            elapsedMillis = elapsedMillisProvider(nowElapsed)
-            delay(200L)
-        }
-    }
-
     val elapsedMinutes = elapsedMillis / 1000f / 60f
 
     // 0〜1 の進行度（timeToMaxMinutes に対する割合）
@@ -60,23 +41,17 @@ fun TimerOverlay(
         label = "timerProgress"
     )
 
-    // 成長モードに応じて変形された進行度 g
-    val g = growthProgress(animatedProgress, settings.growthMode)
+    val growth = growthProgress(animatedProgress, settings.growthMode)
 
-    // フォントサイズ計算
-    val fontSizeSp = computeTimerFontSizeSp(
-        growthProgress = g,
-        settings = settings,
-    )
-
-    // 背景色計算
     val backgroundColor = computeTimerBackgroundColor(
-        growthProgress = g,
-        settings = settings,
+        growthProgress = growth,
+        settings = settings
     )
-
-    // 背景色に対して可読性の高い文字色（白 or 黒）を選ぶ
     val textColor = chooseOnColorForBackground(backgroundColor)
+    val fontSizeSp = computeTimerFontSizeSp(
+        growthProgress = growth,
+        settings = settings
+    )
 
     Box(
         modifier = modifier
@@ -98,6 +73,7 @@ fun TimerOverlay(
         )
     }
 }
+
 
 /**
  * 成長モードに応じて進行度 p (0..1) を変形した g (0..1) を返す。
@@ -181,5 +157,5 @@ private fun chooseOnColorForBackground(bg: Color): Color {
     val b = (bg.blue * 255).toInt()
 
     val brightness = (r * 299 + g * 587 + b * 114) / 1000
-    return if (brightness >= 128) Color.Black else Color.White
+    return if (brightness >= 128) Color.Companion.Black else Color.Companion.White
 }
