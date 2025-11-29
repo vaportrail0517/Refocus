@@ -1,6 +1,8 @@
 package com.example.refocus.feature.overlay.logic
 
 import android.util.Log
+import com.example.refocus.core.model.OverlayEvent
+import com.example.refocus.core.model.OverlayState
 import com.example.refocus.core.model.OverlaySuggestionMode
 import com.example.refocus.core.model.Settings
 import com.example.refocus.core.util.TimeSource
@@ -8,6 +10,7 @@ import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.data.repository.SuggestionsRepository
 import com.example.refocus.data.repository.TargetsRepository
+import com.example.refocus.domain.overlay.OverlayStateMachine
 import com.example.refocus.domain.session.SessionManager
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.feature.overlay.controller.SuggestionOverlayController
@@ -72,6 +75,11 @@ class OverlayOrchestrator(
     @Volatile
     private var isSuggestionOverlayShown: Boolean = false
 
+    @Volatile
+    private var overlayState: OverlayState = OverlayState.Idle
+
+    private val stateMachine = OverlayStateMachine()
+
     // SettingsDataStore からの設定 Flow を shareIn して共有する
     private val settingsFlow: SharedFlow<Settings> =
         settingsRepository.observeOverlaySettings()
@@ -96,15 +104,16 @@ class OverlayOrchestrator(
      * 画面OFF時に呼び出す。前面にいた対象アプリを「離脱」として扱う。
      */
     fun onScreenOff() {
-        val pkg = currentForegroundPackage ?: return
         val nowMillis = timeSource.nowMillis()
         val nowElapsed = timeSource.elapsedRealtime()
-        Log.d(TAG, "onScreenOff: treat $pkg as leave foreground due to screen off")
-        onLeaveForeground(
-            packageName = pkg,
-            nowMillis = nowMillis,
-            nowElapsed = nowElapsed
+        Log.d(TAG, "onScreenOff: screen off event")
+        dispatchEvent(
+            OverlayEvent.ScreenOff(
+                nowMillis = nowMillis,
+                nowElapsedRealtime = nowElapsed,
+            )
         )
+        // 現在の前面アプリ情報はリセット
         currentForegroundPackage = null
     }
 
@@ -126,7 +135,98 @@ class OverlayOrchestrator(
         timerOverlayController.hideTimer()
         suggestionOverlayController.hideSuggestionOverlay()
         clearSuggestionOverlayState()
+        overlayState = OverlayState.Idle
+        currentForegroundPackage = null
+        overlayPackage = null
         // scope 自体のキャンセルは Service 側で行う
+    }
+
+    /**
+     * OverlayStateMachine へのイベント送出。
+     * 並行アクセスを避けるため synchronized にしている。
+     */
+    @Synchronized
+    private fun dispatchEvent(event: OverlayEvent) {
+        val oldState = overlayState
+        val newState = stateMachine.transition(oldState, event)
+        if (newState == oldState) {
+            // 状態変化がない場合は何もしない
+            return
+        }
+        overlayState = newState
+        Log.d(TAG, "overlayState: $oldState -> $newState by $event")
+        handleStateChange(oldState, newState, event)
+    }
+
+    /**
+     * 状態変化に応じて SessionManager や OverlayController に副作用を打つ。
+     */
+    private fun handleStateChange(
+        oldState: OverlayState,
+        newState: OverlayState,
+        event: OverlayEvent,
+    ) {
+        when {
+            // Idle -> Tracking（対象アプリに入った）
+            oldState is OverlayState.Idle &&
+                    newState is OverlayState.Tracking &&
+                    event is OverlayEvent.EnterTargetApp -> {
+
+                scope.launch {
+                    onEnterForeground(
+                        packageName = event.packageName,
+                        nowMillis = event.nowMillis,
+                        nowElapsed = event.nowElapsedRealtime,
+                    )
+                }
+            }
+
+            // Tracking -> Idle（対象アプリから出た）
+            oldState is OverlayState.Tracking &&
+                    newState is OverlayState.Idle &&
+                    event is OverlayEvent.LeaveTargetApp -> {
+
+                onLeaveForeground(
+                    packageName = event.packageName,
+                    nowMillis = event.nowMillis,
+                    nowElapsed = event.nowElapsedRealtime,
+                )
+            }
+
+            // Tracking -> Idle（画面 OFF による離脱）
+            oldState is OverlayState.Tracking &&
+                    newState is OverlayState.Idle &&
+                    event is OverlayEvent.ScreenOff -> {
+
+                val packageName = oldState.packageName
+                onLeaveForeground(
+                    packageName = packageName,
+                    nowMillis = event.nowMillis,
+                    nowElapsed = event.nowElapsedRealtime,
+                )
+            }
+
+            // 何らかの理由で Disabled に落ちたとき（overlayEnabled=false など）
+            newState is OverlayState.Disabled -> {
+                overlayPackage = null
+                scope.launch(Dispatchers.Main) {
+                    timerOverlayController.hideTimer()
+                    suggestionOverlayController.hideSuggestionOverlay()
+                }
+                clearSuggestionOverlayState()
+            }
+
+            // Disabled -> Idle（overlayEnabled が true に戻った）
+            oldState is OverlayState.Disabled &&
+                    newState is OverlayState.Idle &&
+                    event is OverlayEvent.SettingsChanged -> {
+                Log.d(TAG, "Overlay re-enabled by settings")
+            }
+
+            else -> {
+                // その他の組み合わせでは特別な副作用は発生させない
+            }
+        }
     }
 
     private fun observeOverlaySettings() {
@@ -135,6 +235,8 @@ class OverlayOrchestrator(
                 var first = true
                 settingsFlow.collect { settings ->
                     overlaySettings = settings
+                    // ステートマシンに設定変更を通知
+                    dispatchEvent(OverlayEvent.SettingsChanged(settings))
                     withContext(Dispatchers.Main) {
                         timerOverlayController.overlaySettings = settings
                     }
@@ -173,10 +275,8 @@ class OverlayOrchestrator(
                 foregroundFlow,
                 screenOnFlow
             ) { targets, foregroundRaw, isScreenOn ->
-                // ここではまだ foregroundRaw を捨てないで一緒に返す
                 Triple(targets, foregroundRaw, isScreenOn)
             }.collectLatest { (targets, foregroundRaw, isScreenOn) ->
-                // 画面OFF中は「foreground なし」とみなす
                 val foregroundPackage = if (isScreenOn) foregroundRaw else null
                 Log.d(
                     TAG,
@@ -194,31 +294,41 @@ class OverlayOrchestrator(
                     when {
                         // 非対象 → 対象
                         !prevIsTarget && nowIsTarget -> {
-                            onEnterForeground(
-                                packageName = foregroundPackage!!,
-                                nowMillis = nowMillis,
-                                nowElapsed = nowElapsed
+                            dispatchEvent(
+                                OverlayEvent.EnterTargetApp(
+                                    packageName = foregroundPackage!!,
+                                    nowMillis = nowMillis,
+                                    nowElapsedRealtime = nowElapsed,
+                                )
                             )
                         }
+
                         // 対象 → 非対象
                         prevIsTarget && !nowIsTarget -> {
-                            onLeaveForeground(
-                                packageName = previous!!,
-                                nowMillis = nowMillis,
-                                nowElapsed = nowElapsed
+                            dispatchEvent(
+                                OverlayEvent.LeaveTargetApp(
+                                    packageName = previous!!,
+                                    nowMillis = nowMillis,
+                                    nowElapsedRealtime = nowElapsed,
+                                )
                             )
                         }
+
                         // 対象A → 対象B
                         prevIsTarget && previous != foregroundPackage -> {
-                            onLeaveForeground(
-                                packageName = previous!!,
-                                nowMillis = nowMillis,
-                                nowElapsed = nowElapsed
+                            dispatchEvent(
+                                OverlayEvent.LeaveTargetApp(
+                                    packageName = previous!!,
+                                    nowMillis = nowMillis,
+                                    nowElapsedRealtime = nowElapsed,
+                                )
                             )
-                            onEnterForeground(
-                                packageName = foregroundPackage!!,
-                                nowMillis = nowMillis,
-                                nowElapsed = nowElapsed
+                            dispatchEvent(
+                                OverlayEvent.EnterTargetApp(
+                                    packageName = foregroundPackage!!,
+                                    nowMillis = nowMillis,
+                                    nowElapsedRealtime = nowElapsed,
+                                )
                             )
                         }
 
@@ -227,7 +337,9 @@ class OverlayOrchestrator(
                         }
                     }
 
-                    if (nowIsTarget && foregroundPackage != null) {
+                    // Suggestion は「Tracking 中だけ」評価するようにする
+                    val stateSnapshot = overlayState
+                    if (stateSnapshot is OverlayState.Tracking && foregroundPackage != null) {
                         maybeShowSuggestionIfNeeded(
                             packageName = foregroundPackage,
                             nowMillis = nowMillis,

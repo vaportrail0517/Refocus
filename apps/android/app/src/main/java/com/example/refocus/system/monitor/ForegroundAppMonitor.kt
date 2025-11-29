@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Log
-import com.example.refocus.core.util.SystemTimeSource
 import com.example.refocus.core.util.TimeSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -21,7 +20,7 @@ import kotlinx.coroutines.flow.flow
  */
 class ForegroundAppMonitor(
     private val context: Context,
-    private val timeSource: TimeSource = SystemTimeSource(),
+    private val timeSource: TimeSource,
 ) {
 
     companion object {
