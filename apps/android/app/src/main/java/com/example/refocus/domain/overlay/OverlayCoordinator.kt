@@ -47,7 +47,7 @@ class OverlayCoordinator(
     private val foregroundAppMonitor: ForegroundAppMonitor,
     private val suggestionEngine: SuggestionEngine,
     private val sessionManager: SessionManager,
-    private val uiController: OverlayUiController,
+    private val uiController: OverlayUiGateway,
 ) {
     companion object {
         private const val TAG = "OverlayCoordinator"

@@ -1,4 +1,4 @@
-package com.example.refocus.system.overlay.window
+package com.example.refocus.system.overlay
 
 import android.content.Context
 import android.graphics.PixelFormat

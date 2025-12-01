@@ -6,7 +6,7 @@ import android.content.Intent
 import android.util.Log
 import com.example.refocus.data.repository.OnboardingRepository
 import com.example.refocus.data.repository.SettingsRepository
-import com.example.refocus.system.overlay.service.startOverlayService
+import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope

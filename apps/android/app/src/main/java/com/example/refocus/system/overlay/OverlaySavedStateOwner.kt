@@ -1,4 +1,4 @@
-package com.example.refocus.system.overlay.window
+package com.example.refocus.system.overlay
 
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleRegistry

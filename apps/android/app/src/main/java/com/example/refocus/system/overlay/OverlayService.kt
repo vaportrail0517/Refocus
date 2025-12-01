@@ -1,4 +1,4 @@
-package com.example.refocus.system.overlay.service
+package com.example.refocus.system.overlay
 
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -24,9 +24,6 @@ import com.example.refocus.domain.overlay.OverlayCoordinator
 import com.example.refocus.domain.session.SessionManager
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.system.monitor.ForegroundAppMonitor
-import com.example.refocus.system.overlay.window.SuggestionOverlayController
-import com.example.refocus.system.overlay.window.TimerOverlayController
-import com.example.refocus.system.overlay.window.WindowOverlayUiController
 import com.example.refocus.system.permissions.PermissionHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -74,7 +71,7 @@ class OverlayService : LifecycleService() {
     private lateinit var timerOverlayController: TimerOverlayController
     private lateinit var suggestionOverlayController: SuggestionOverlayController
     private lateinit var sessionManager: SessionManager
-    private lateinit var overlayUiController: WindowOverlayUiController
+    private lateinit var overlayUiController: WindowOverlayUiGateway
     private lateinit var overlayCoordinator: OverlayCoordinator
 
     // BroadcastReceiver はそのまま残す（後で中身を少し変更）
@@ -120,7 +117,7 @@ class OverlayService : LifecycleService() {
             logTag = TAG
         )
 
-        overlayUiController = WindowOverlayUiController(
+        overlayUiController = WindowOverlayUiGateway(
             scope = serviceScope,
             timerOverlayController = timerOverlayController,
             suggestionOverlayController = suggestionOverlayController,
@@ -223,4 +220,14 @@ class OverlayService : LifecycleService() {
         }
         screenReceiverRegistered = false
     }
+}
+
+fun Context.startOverlayService() {
+    val intent = Intent(this, OverlayService::class.java)
+    this.startForegroundService(intent)
+}
+
+fun Context.stopOverlayService() {
+    val intent = Intent(this, OverlayService::class.java)
+    stopService(intent)
 }

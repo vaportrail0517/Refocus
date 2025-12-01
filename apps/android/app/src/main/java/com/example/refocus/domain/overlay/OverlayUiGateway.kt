@@ -17,7 +17,7 @@ data class SuggestionOverlayUiModel(
     val onDismissOnly: () -> Unit,
 )
 
-interface OverlayUiController {
+interface OverlayUiGateway {
 
     /**
      * 設定変更の反映（フォントサイズ・色・タッチモードなど）。

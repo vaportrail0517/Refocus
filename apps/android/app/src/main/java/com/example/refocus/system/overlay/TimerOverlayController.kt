@@ -1,4 +1,4 @@
-package com.example.refocus.system.overlay.window
+package com.example.refocus.system.overlay
 
 import android.content.Context
 import android.graphics.PixelFormat
@@ -21,8 +21,8 @@ import com.example.refocus.ui.overlay.TimerOverlay
 import com.example.refocus.ui.theme.RefocusTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable.isActive
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class TimerOverlayController(
