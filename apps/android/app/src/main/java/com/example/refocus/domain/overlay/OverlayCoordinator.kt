@@ -225,6 +225,7 @@ class OverlayCoordinator(
             try {
                 var first = true
                 settingsFlow.collect { settings ->
+                    val previousSettings = overlaySettings
                     overlaySettings = settings
                     dispatchEvent(OverlayEvent.SettingsChanged(settings))
                     uiController.applySettings(settings)
@@ -238,6 +239,11 @@ class OverlayCoordinator(
                         } catch (e: Exception) {
                             Log.e(TAG, "repairActiveSessionsAfterRestart failed", e)
                         }
+                    } else if (previousSettings.gracePeriodMillis != settings.gracePeriodMillis) {
+                        // 猶予中のセッションにも新しい猶予時間を即時反映する
+                        sessionManager.onGracePeriodUpdated(
+                            newGracePeriodMillis = settings.gracePeriodMillis
+                        )
                     }
                 }
             } catch (e: Exception) {

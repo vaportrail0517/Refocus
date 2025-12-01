@@ -229,6 +229,24 @@ class SessionManager(
     fun isSuggestionDisabledForThisSession(packageName: String): Boolean {
         return activeSessions[packageName]?.suggestionDisabledForThisSession == true
     }
+    
+    /**
+     * 設定画面から猶予時間（gracePeriodMillis）が変更されたときに呼び出す。
+     *
+     * すでに「前面から離れて猶予中」のセッションがある場合は、
+     * 新しい猶予時間に基づいて終了タイマーを組み直す。
+     */
+    fun onGracePeriodUpdated(newGracePeriodMillis: Long) {
+        activeSessions.values.forEach { state ->
+            // lastLeaveAtMillis が null のものは「まだ前面にいる」か、
+            // 一度も離脱していないので対象外とする
+            if (state.lastLeaveAtMillis != null) {
+                // 既存の pendingEndJob は startGraceTimerFor 内で cancel され、
+                // leaveAt（＝離脱時刻）を基準に新しい猶予時間で delay を再計算する
+                startGraceTimerFor(state, newGracePeriodMillis)
+            }
+        }
+    }
 
     /**
      * Service の onDestroy などで呼び出すクリーンアップ。
