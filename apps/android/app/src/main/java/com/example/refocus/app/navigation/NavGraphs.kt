@@ -14,7 +14,7 @@ import com.example.refocus.feature.onboarding.OnboardingFinishScreen
 import com.example.refocus.feature.onboarding.OnboardingIntroScreen
 import com.example.refocus.feature.onboarding.OnboardingReadyScreen
 import com.example.refocus.feature.onboarding.OnboardingStartModeScreen
-import com.example.refocus.feature.onboarding.PermissionFlowScreen
+import com.example.refocus.feature.permission.PermissionFlowScreen
 import com.example.refocus.system.overlay.startOverlayService
 
 object Destinations {
@@ -148,6 +148,9 @@ fun RefocusNavHost(
             HomeScreen(
                 onOpenAppSelect = {
                     navController.navigate(Destinations.APP_SELECT_SETTINGS)
+                },
+                onOpenPermissionFixFlow = {
+                    navController.navigate(Destinations.PERMISSION_FLOW_FIX)
                 }
             )
         }

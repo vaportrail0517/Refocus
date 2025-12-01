@@ -11,6 +11,7 @@ import com.example.refocus.ui.components.InfoDialog
 import com.example.refocus.ui.components.IntInputDialog
 import com.example.refocus.ui.components.LongSliderDialog
 import com.example.refocus.ui.components.RangeSliderDialog
+import com.example.refocus.ui.components.SettingsBaseDialog
 import com.example.refocus.ui.components.SingleChoiceDialog
 
 sealed interface SettingsDialogType {
@@ -158,11 +159,15 @@ fun TimeToMaxDialog(
  */
 @Composable
 fun CorePermissionRequiredDialog(
+    onStartPermissionFixFlow: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    InfoDialog(
+    SettingsBaseDialog(
         title = "権限が必要です",
-        description = "Refocus を動かすには「使用状況へのアクセス」と「他のアプリの上に表示」の 2 つの権限が必要です。上の「権限」セクションから、これらの権限を有効にしてください。",
+        description = """Refocus を動かすには「使用状況へのアクセス」と「他のアプリの上に表示」の 2 つの権限が必要です。「権限を設定する」をタップすると、権限を 1 つずつ案内する画面に進みます。        """.trimIndent(),
+        confirmLabel = "権限を設定する",
+        dismissLabel = "閉じる",
+        onConfirm = onStartPermissionFixFlow,
         onDismiss = onDismiss,
     )
 }

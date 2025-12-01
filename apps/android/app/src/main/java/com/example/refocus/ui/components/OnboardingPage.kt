@@ -1,4 +1,4 @@
-package com.example.refocus.feature.onboarding
+package com.example.refocus.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box

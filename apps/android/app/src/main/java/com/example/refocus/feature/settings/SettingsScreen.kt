@@ -31,6 +31,7 @@ import com.example.refocus.system.permissions.PermissionHelper
 @Composable
 fun SettingsScreen(
     onOpenAppSelect: () -> Unit,
+    onOpenPermissionFixFlow: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -216,6 +217,10 @@ fun SettingsScreen(
 
             SettingsDialogType.CorePermissionRequired -> {
                 CorePermissionRequiredDialog(
+                    onStartPermissionFixFlow = {
+                        activeDialog = null
+                        onOpenPermissionFixFlow()
+                    },
                     onDismiss = { activeDialog = null }
                 )
             }

@@ -31,7 +31,8 @@ enum class HomeTab {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
-    onOpenAppSelect: () -> Unit
+    onOpenAppSelect: () -> Unit,
+    onOpenPermissionFixFlow: () -> Unit,
 ) {
     val tabs = HomeTab.entries
     val initialPage = tabs.indexOf(HomeTab.Settings).coerceAtLeast(0)
@@ -64,7 +65,10 @@ fun HomeScreen(
             when (tabs[page]) {
                 HomeTab.Suggestions -> SuggestionsRoute()
                 HomeTab.Stats -> SessionHistoryScreen()
-                HomeTab.Settings -> SettingsScreen(onOpenAppSelect = onOpenAppSelect)
+                HomeTab.Settings -> SettingsScreen(
+                    onOpenAppSelect = onOpenAppSelect,
+                    onOpenPermissionFixFlow = onOpenPermissionFixFlow,
+                )
             }
         }
     }

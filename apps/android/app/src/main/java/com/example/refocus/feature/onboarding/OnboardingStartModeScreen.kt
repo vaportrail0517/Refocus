@@ -20,31 +20,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.example.refocus.ui.components.OnboardingPage
 
-@Composable
-fun OnboardingIntroScreen(
-    onStartSetup: () -> Unit
-) {
-    OnboardingPage(
-        title = "Refocus へようこそ",
-        description = "アプリの連続使用時間をリアルタイムに可視化するために、最初にいくつか設定を行います。",
-        primaryButtonText = "権限を設定する",
-        onPrimaryClick = onStartSetup
-    )
-}
-
-@Composable
-fun OnboardingReadyScreen(
-    onSelectApps: () -> Unit
-) {
-    OnboardingPage(
-        title = "準備ができました",
-        description = "次に、Refocusで可視化するアプリを選びましょう。",
-        primaryButtonText = "対象アプリを選択",
-        onPrimaryClick = onSelectApps
-    )
-}
-
+/**
+ * 起動モード（自動起動 / 今だけ / 起動しない）を選ぶページ。
+ *
+ * 選択内容は [OnboardingStartModeViewModel.applyStartMode] 経由で `Settings` に反映される。
+ */
 @Composable
 fun OnboardingStartModeScreen(
     onDecide: () -> Unit
@@ -63,7 +45,7 @@ fun OnboardingStartModeScreen(
         secondaryButtonText = null,
         onSecondaryClick = null,
     ) {
-        Spacer(Modifier.height(128.dp))
+        Spacer(Modifier.Companion.height(128.dp))
         Column(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -145,20 +127,4 @@ private fun StartModeOptionCard(
             )
         }
     }
-}
-
-@Composable
-fun OnboardingFinishScreen(
-    onCloseApp: () -> Unit,
-    onOpenApp: () -> Unit
-) {
-    val viewModel: OnboardingFinishViewModel = hiltViewModel()
-    OnboardingPage(
-        title = "設定が完了しました",
-        description = "このままアプリを閉じるか、Refocus のホーム画面を開いて設定を確認できます。",
-        primaryButtonText = "Refocus を開く",
-        onPrimaryClick = onOpenApp,
-        secondaryButtonText = "アプリを閉じる",
-        onSecondaryClick = onCloseApp
-    )
 }

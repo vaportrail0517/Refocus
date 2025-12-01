@@ -1,6 +1,7 @@
-package com.example.refocus.feature.onboarding
+package com.example.refocus.feature.permission
 
 import android.app.Activity
+import android.content.Context
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
@@ -17,6 +18,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.refocus.system.permissions.PermissionHelper
+import com.example.refocus.ui.components.OnboardingPage
 
 enum class PermissionType {
     UsageAccess,
@@ -27,6 +29,15 @@ data class PermissionStep(
     val type: PermissionType,
 )
 
+/**
+ * コア権限（Usage / Overlay）を順番に案内するフロー。
+ *
+ * 利用箇所:
+ * - オンボーディング中: [com.example.refocus.app.navigation.Destinations.PERMISSION_FLOW]
+ * - 設定からの権限修復: [com.example.refocus.app.navigation.Destinations.PERMISSION_FLOW_FIX]
+ *
+ * onFlowFinished の遷移先だけを呼び出し側で変えることで、同じ UI を再利用する。
+ */
 @Composable
 fun PermissionFlowScreen(
     onFlowFinished: () -> Unit
@@ -120,8 +131,6 @@ fun PermissionFlowScreen(
 
 }
 
-/* ---------- 各権限ごとの画面 ---------- */
-
 @Composable
 private fun UsageAccessPermissionPage(
     onRequestPermission: () -> Unit,
@@ -135,7 +144,7 @@ private fun UsageAccessPermissionPage(
         secondaryButtonText = "あとで設定する",
         onSecondaryClick = onSkip
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.Companion.height(24.dp))
 
         PermissionDetailCard(
             title = "使用状況アクセスの設定手順",
@@ -162,7 +171,7 @@ private fun OverlayPermissionPage(
         secondaryButtonText = "あとで設定する",
         onSecondaryClick = onSkip
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.Companion.height(24.dp))
 
         PermissionDetailCard(
             title = "オーバーレイ表示の設定手順",
@@ -177,13 +186,11 @@ private fun OverlayPermissionPage(
 }
 
 
-/* ---------- ヘルパー ---------- */
-
-private fun allPermissionsGranted(context: android.content.Context): Boolean {
+private fun allPermissionsGranted(context: Context): Boolean {
     return PermissionHelper.hasAllCorePermissions(context)
 }
 
-private fun isGranted(context: android.content.Context, type: PermissionType): Boolean =
+private fun isGranted(context: Context, type: PermissionType): Boolean =
     when (type) {
         PermissionType.UsageAccess -> PermissionHelper.hasUsageAccess(context)
         PermissionType.Overlay -> PermissionHelper.hasOverlayPermission(context)
