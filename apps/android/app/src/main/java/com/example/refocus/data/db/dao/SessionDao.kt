@@ -1,6 +1,8 @@
 package com.example.refocus.data.db.dao
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.Query
 import com.example.refocus.data.db.entity.SessionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -10,52 +12,15 @@ interface SessionDao {
     @Insert
     suspend fun insertSession(session: SessionEntity): Long
 
-    @Update
-    suspend fun updateSession(session: SessionEntity)
+    @Query("SELECT * FROM sessions WHERE id = :id")
+    suspend fun findById(id: Long): SessionEntity?
 
-    /**
-     * endedAtMillis が null の「進行中セッション」を全件取得（デグレ修復用）。
-     */
-    @Query("SELECT * FROM sessions WHERE endedAtMillis IS NULL")
-    suspend fun findAllActiveSessions(): List<SessionEntity>
+    @Query("SELECT * FROM sessions WHERE packageName = :packageName")
+    suspend fun findByPackageName(packageName: String): List<SessionEntity>
 
-    /**
-     * startedAtMillis > endedAtMillis になってしまっている壊れたセッション。
-     */
-    @Query("""
-        SELECT * FROM sessions
-        WHERE endedAtMillis IS NOT NULL
-          AND endedAtMillis < startedAtMillis
-    """)
-    suspend fun findBrokenSessions(): List<SessionEntity>
+    @Query("SELECT * FROM sessions")
+    suspend fun findAll(): List<SessionEntity>
 
-    /**
-     * 複数レコードをまとめて更新（デグレ修復で使用）。
-     */
-    @Update
-    suspend fun updateSessions(sessions: List<SessionEntity>)
-
-    /**
-     * endedAtMillis が null の「進行中セッション」を1件だけ取得。
-     * 通常は packageName ごとに1件までに制御する想定。
-     */
-    @Query("SELECT * FROM sessions WHERE packageName = :packageName AND endedAtMillis IS NULL LIMIT 1")
-    suspend fun findActiveSession(packageName: String): SessionEntity?
-
-    /**
-     * 最近終了したセッション（将来、猶予時間判定に使うかもしれない）。
-     */
-    @Query("""
-        SELECT * FROM sessions 
-        WHERE packageName = :packageName AND endedAtMillis IS NOT NULL
-        ORDER BY endedAtMillis DESC
-        LIMIT 1
-    """)
-    suspend fun findLastFinishedSession(packageName: String): SessionEntity?
-
-    /**
-     * 履歴表示用：新しい順に全セッション。
-     */
-    @Query("SELECT * FROM sessions ORDER BY startedAtMillis DESC")
+    @Query("SELECT * FROM sessions")
     fun observeAllSessions(): Flow<List<SessionEntity>>
 }

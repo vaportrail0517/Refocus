@@ -1,62 +1,68 @@
 package com.example.refocus.feature.settings
 
 import android.app.Activity
-import android.app.Application
-import androidx.compose.foundation.layout.*
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Switch
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.refocus.system.overlay.OverlayService
+import com.example.refocus.system.overlay.stopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
-import com.example.refocus.ui.components.SectionCard
-import com.example.refocus.ui.components.SettingRow
-import com.example.refocus.core.model.OverlayTouchMode
 
-sealed interface SettingsDialog {
-    data object Grace : SettingsDialog
-    data object Polling : SettingsDialog
-    data object FontRange : SettingsDialog
-    data object TimeToMax : SettingsDialog
-}
 
 @Composable
 fun SettingsScreen(
     onOpenAppSelect: () -> Unit,
+    onOpenPermissionFixFlow: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val app = context.applicationContext as Application
-    val viewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModelFactory(app)
-    )
-    val uiState by viewModel.uiState.collectAsState()
+    val viewModel: SettingsViewModel = hiltViewModel()
+
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
-
     var usageGranted by remember { mutableStateOf(PermissionHelper.hasUsageAccess(context)) }
     var overlayGranted by remember { mutableStateOf(PermissionHelper.hasOverlayPermission(context)) }
-    var notificationGranted by remember {
-        mutableStateOf(
-            PermissionHelper.hasNotificationPermission(
-                context
-            )
-        )
-    }
-    var activeDialog by remember { mutableStateOf<SettingsDialog?>(null) }
+    var activeDialog by remember { mutableStateOf<SettingsDialogType?>(null) }
+    var isAdvancedMode by remember { mutableStateOf(false) }
     var fontRange by remember(
-        uiState.overlaySettings.minFontSizeSp,
-        uiState.overlaySettings.maxFontSizeSp
+        uiState.settings.minFontSizeSp,
+        uiState.settings.maxFontSizeSp
     ) {
         mutableStateOf(
-            uiState.overlaySettings.minFontSizeSp..uiState.overlaySettings.maxFontSizeSp
+            uiState.settings.minFontSizeSp..uiState.settings.maxFontSizeSp
         )
+    }
+    var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
+    val hasCorePermissions = PermissionHelper.hasAllCorePermissions(context)
+
+    BackHandler(enabled = isAdvancedMode) {
+        isAdvancedMode = false
+    }
+
+    val scrollState = rememberScrollState()
+
+    LaunchedEffect(isAdvancedMode) {
+        scrollState.scrollTo(0)
     }
 
     // 画面復帰時に権限状態を更新
@@ -65,7 +71,21 @@ fun SettingsScreen(
             if (event == Lifecycle.Event.ON_RESUME) {
                 usageGranted = PermissionHelper.hasUsageAccess(context)
                 overlayGranted = PermissionHelper.hasOverlayPermission(context)
-                notificationGranted = PermissionHelper.hasNotificationPermission(context)
+                isServiceRunning = OverlayService.isRunning
+                val hasCorePermissions = usageGranted && overlayGranted
+                if (!hasCorePermissions) {
+                    val latestState = viewModel.uiState.value
+                    // 起動設定 or 実行中サービスが残っていたら OFF に揃える
+                    if (latestState.settings.overlayEnabled || isServiceRunning) {
+                        viewModel.updateOverlayEnabled(false)
+                        context.stopOverlayService()
+                        isServiceRunning = false
+                    }
+                    // 自動起動も OFF に揃える
+                    if (latestState.settings.autoStartOnBoot) {
+                        viewModel.updateAutoStartOnBoot(false)
+                    }
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -77,137 +97,76 @@ fun SettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        SectionCard (
-            title = "権限"
-        ) {
-            SettingRow(
-                title = "使用状況へのアクセス",
-                subtitle  = "連続使用時間を計測するために必要です。",
-                trailing = {
-                    Switch(
-                        checked = usageGranted,
-                        onCheckedChange = null,
-                        enabled = true
-                    )
+        if (!isAdvancedMode) {
+            // ================= 基本設定 =================
+            BasicSettingsContent(
+                uiState = uiState,
+                usageGranted = usageGranted,
+                overlayGranted = overlayGranted,
+                hasCorePermissions = hasCorePermissions,
+                isServiceRunning = isServiceRunning,
+                onServiceRunningChange = { isServiceRunning = it },
+                onOpenAppSelect = onOpenAppSelect,
+                onRequireCorePermission = {
+                    activeDialog = SettingsDialogType.CorePermissionRequired
                 },
-                onClick = {
-                    activity?.let { PermissionHelper.openUsageAccessSettings(it) }
-                }
+                onOpenAdvanced = { isAdvancedMode = true },
+                viewModel = viewModel,
+                context = context,
+                activity = activity,
             )
-            SettingRow(
-                title = "他のアプリの上に表示",
-                subtitle = "タイマーを他のアプリの上に表示するために必要です。",
-                trailing = {
-                    Switch(
-                        checked = overlayGranted,
-                        onCheckedChange = null,
-                        enabled = true
-                    )
+        } else {
+            // ================= 詳細設定 =================
+            AdvancedSettingsContent(
+                uiState = uiState,
+                onBackToBasic = { isAdvancedMode = false },
+                onOpenGraceDialog = { activeDialog = SettingsDialogType.GraceTime },
+                onOpenPollingDialog = { activeDialog = SettingsDialogType.PollingInterval },
+                onOpenFontDialog = {
+                    fontRange = uiState.settings.minFontSizeSp..
+                            uiState.settings.maxFontSizeSp
+                    activeDialog = SettingsDialogType.FontRange
                 },
-                onClick = {
-                    activity?.let { PermissionHelper.openOverlaySettings(it) }
-                }
-            )
-            SettingRow(
-                title = "通知",
-                subtitle = "やることの提案やお知らせに利用します。",
-                trailing = {
-                    Switch(
-                        checked = notificationGranted,
-                        onCheckedChange = null,
-                        enabled = true
-                    )
+                onOpenTimeToMaxDialog = { activeDialog = SettingsDialogType.TimeToMax },
+                onOpenSuggestionTriggerDialog = {
+                    activeDialog = SettingsDialogType.SuggestionTriggerTime
                 },
-                onClick = {
-                    activity?.let { PermissionHelper.openNotificationSettings(it) }
-                }
+                onOpenSuggestionForegroundStableDialog = {
+                    activeDialog = SettingsDialogType.SuggestionForegroundStable
+                },
+                onOpenSuggestionCooldownDialog = {
+                    activeDialog = SettingsDialogType.SuggestionCooldown
+                },
+                onOpenSuggestionTimeoutDialog = {
+                    activeDialog = SettingsDialogType.SuggestionTimeout
+                },
+                onOpenSuggestionInteractionLockoutDialog = {
+                    activeDialog = SettingsDialogType.SuggestionInteractionLockout
+                },
+                onOpenGrowthModeDialog = { activeDialog = SettingsDialogType.GrowthMode },
+                onOpenColorModeDialog = { activeDialog = SettingsDialogType.ColorMode },
+                onOpenFixedColorDialog = { activeDialog = SettingsDialogType.FixedColor },
+                onOpenGradientStartColorDialog = {
+                    activeDialog = SettingsDialogType.GradientStartColor
+                },
+                onOpenGradientMiddleColorDialog = {
+                    activeDialog = SettingsDialogType.GradientMiddleColor
+                },
+                onOpenGradientEndColorDialog = {
+                    activeDialog = SettingsDialogType.GradientEndColor
+                },
+                viewModel = viewModel,
             )
         }
 
-        SectionCard (
-            title = "アプリ"
-        ) {
-            SettingRow(
-                title = "対象アプリを設定",
-                subtitle = "時間を計測したいアプリを選択します。",
-                onClick = onOpenAppSelect
-            )
-        }
-
-        SectionCard (
-            title = "タイマー"
-        ) {
-            SettingRow(
-                title = "猶予時間",
-                subtitle = "${formatGraceTimeText(uiState.overlaySettings.gracePeriodMillis)}（この時間以内に戻るとセッションを継続します）",
-                onClick = {
-                    activeDialog = SettingsDialog.Grace
-                }
-            )
-            val pollingMs = uiState.overlaySettings.pollingIntervalMillis
-            SettingRow(
-                title = "監視間隔",
-                subtitle = "$pollingMs ms（アプリ切り替えの検出頻度）",
-                onClick = {
-                    activeDialog = SettingsDialog.Polling
-                }
-            )
-            SettingRow(
-                title = "フォントサイズ",
-                subtitle = "最小 ${uiState.overlaySettings.minFontSizeSp} sp / 最大 ${uiState.overlaySettings.maxFontSizeSp} sp",
-                onClick = {
-                    fontRange = uiState.overlaySettings.minFontSizeSp..
-                            uiState.overlaySettings.maxFontSizeSp
-                    activeDialog = SettingsDialog.FontRange
-                }
-            )
-            SettingRow(
-                title = "最大サイズになるまでの時間",
-                subtitle = "${uiState.overlaySettings.timeToMaxMinutes} 分",
-                onClick = {
-                    activeDialog = SettingsDialog.TimeToMax
-                }
-            )
-            val dragEnabled = uiState.overlaySettings.touchMode == OverlayTouchMode.Drag
-            SettingRow(
-                title = "タイマーの移動",
-                subtitle = if (dragEnabled) {
-                    "オン：タイマーをドラッグして移動できます"
-                } else {
-                    "オフ：タイマーは固定され，タップはタイマーを透過します"
-                },
-                trailing = {
-                    Switch(
-                        checked = dragEnabled,
-                        onCheckedChange = { isOn ->
-                            val mode = if (isOn) {
-                                OverlayTouchMode.Drag
-                            } else {
-                                OverlayTouchMode.PassThrough
-                            }
-                            viewModel.updateOverlayTouchMode(mode)
-                        }
-                    )
-                },
-                onClick = {
-                    // 行全体をタップしてもトグルされるように
-                    val newMode = if (dragEnabled) {
-                        OverlayTouchMode.PassThrough
-                    } else {
-                        OverlayTouchMode.Drag
-                    }
-                    viewModel.updateOverlayTouchMode(newMode)
-                }
-            )
-        }
         when (activeDialog) {
-            SettingsDialog.Grace -> {
+            SettingsDialogType.GraceTime -> {
                 GraceTimeDialog(
-                    currentMillis = uiState.overlaySettings.gracePeriodMillis,
+                    currentMillis = uiState.settings.gracePeriodMillis,
                     onConfirm = { newMillis ->
                         viewModel.updateGracePeriodMillis(newMillis)
                         activeDialog = null
@@ -215,9 +174,10 @@ fun SettingsScreen(
                     onDismiss = { activeDialog = null }
                 )
             }
-            SettingsDialog.Polling -> {
+
+            SettingsDialogType.PollingInterval -> {
                 PollingIntervalDialog(
-                    currentMillis = uiState.overlaySettings.pollingIntervalMillis,
+                    currentMillis = uiState.settings.pollingIntervalMillis,
                     onConfirm = { newMs ->
                         viewModel.updatePollingIntervalMillis(newMs)
                         activeDialog = null
@@ -225,7 +185,8 @@ fun SettingsScreen(
                     onDismiss = { activeDialog = null }
                 )
             }
-            SettingsDialog.FontRange -> {
+
+            SettingsDialogType.FontRange -> {
                 FontRangeDialog(
                     initialRange = fontRange,
                     onConfirm = { newRange ->
@@ -242,9 +203,10 @@ fun SettingsScreen(
                     onDismiss = { activeDialog = null }
                 )
             }
-            SettingsDialog.TimeToMax -> {
+
+            SettingsDialogType.TimeToMax -> {
                 TimeToMaxDialog(
-                    currentMinutes = uiState.overlaySettings.timeToMaxMinutes,
+                    currentMinutes = uiState.settings.timeToMaxMinutes,
                     onConfirm = { minutes ->
                         viewModel.updateTimeToMaxMinutes(minutes)
                         activeDialog = null
@@ -252,7 +214,146 @@ fun SettingsScreen(
                     onDismiss = { activeDialog = null }
                 )
             }
+
+            SettingsDialogType.CorePermissionRequired -> {
+                CorePermissionRequiredDialog(
+                    onStartPermissionFixFlow = {
+                        activeDialog = null
+                        onOpenPermissionFixFlow()
+                    },
+                    onDismiss = { activeDialog = null }
+                )
+            }
+
+            SettingsDialogType.SuggestionFeatureRequired -> {
+                SuggestionFeatureRequiredDialog(
+                    onDismiss = { activeDialog = null }
+                )
+            }
+
+            SettingsDialogType.SuggestionTriggerTime -> {
+                SuggestionTriggerTimeDialog(
+                    currentSeconds = uiState.settings.suggestionTriggerSeconds,
+                    onConfirm = { seconds ->
+                        viewModel.updateSuggestionTriggerSeconds(seconds)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.SuggestionForegroundStable -> {
+                SuggestionForegroundStableDialog(
+                    currentSeconds = uiState.settings.suggestionForegroundStableSeconds,
+                    onConfirm = { seconds ->
+                        viewModel.updateSuggestionForegroundStableSeconds(seconds)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.SuggestionCooldown -> {
+                SuggestionCooldownDialog(
+                    currentSeconds = uiState.settings.suggestionCooldownSeconds,
+                    onConfirm = { seconds ->
+                        viewModel.updateSuggestionCooldownSeconds(seconds)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.SuggestionTimeout -> {
+                SuggestionTimeoutDialog(
+                    currentSeconds = uiState.settings.suggestionTimeoutSeconds,
+                    onConfirm = { seconds ->
+                        viewModel.updateSuggestionTimeoutSeconds(seconds)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.SuggestionInteractionLockout -> {
+                SuggestionInteractionLockoutDialog(
+                    currentMillis = uiState.settings.suggestionInteractionLockoutMillis,
+                    onConfirm = { millis ->
+                        viewModel.updateSuggestionInteractionLockoutMillis(millis)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.GrowthMode -> {
+                GrowthModeDialog(
+                    current = uiState.settings.growthMode,
+                    onConfirm = { mode ->
+                        viewModel.updateGrowthMode(mode)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.ColorMode -> {
+                ColorModeDialog(
+                    current = uiState.settings.colorMode,
+                    onConfirm = { mode ->
+                        viewModel.updateColorMode(mode)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.FixedColor -> {
+                FixedColorDialog(
+                    currentColorArgb = uiState.settings.fixedColorArgb,
+                    onConfirm = { argb ->
+                        viewModel.updateFixedColorArgb(argb)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.GradientStartColor -> {
+                GradientStartColorDialog(
+                    currentColorArgb = uiState.settings.gradientStartColorArgb,
+                    onConfirm = { argb ->
+                        viewModel.updateGradientStartColorArgb(argb)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.GradientMiddleColor -> {
+                GradientMiddleColorDialog(
+                    currentColorArgb = uiState.settings.gradientMiddleColorArgb,
+                    onConfirm = { argb ->
+                        viewModel.updateGradientMiddleColorArgb(argb)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
+            SettingsDialogType.GradientEndColor -> {
+                GradientEndColorDialog(
+                    currentColorArgb = uiState.settings.gradientEndColorArgb,
+                    onConfirm = { argb ->
+                        viewModel.updateGradientEndColorArgb(argb)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null },
+                )
+            }
+
             null -> Unit
         }
     }
 }
+

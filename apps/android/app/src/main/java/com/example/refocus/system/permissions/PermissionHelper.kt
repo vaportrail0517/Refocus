@@ -38,6 +38,10 @@ object PermissionHelper {
         return granted
     }
 
+    fun hasAllCorePermissions(context: Context): Boolean {
+        return hasUsageAccess(context) && hasOverlayPermission(context)
+    }
+
     fun openUsageAccessSettings(activity: Activity) {
         val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
         activity.startActivity(intent)

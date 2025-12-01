@@ -1,0 +1,194 @@
+package com.example.refocus.feature.settings
+
+import androidx.compose.runtime.Composable
+import com.example.refocus.core.model.OverlayColorMode
+import com.example.refocus.core.model.OverlayGrowthMode
+import com.example.refocus.core.util.formatDurationMillisOrNull
+import com.example.refocus.core.util.formatDurationSeconds
+import com.example.refocus.ui.components.SectionCard
+import com.example.refocus.ui.components.SettingRow
+
+@Composable
+fun AdvancedSettingsContent(
+    uiState: SettingsViewModel.UiState,
+    onBackToBasic: () -> Unit,
+    onOpenGraceDialog: () -> Unit,
+    onOpenPollingDialog: () -> Unit,
+    onOpenFontDialog: () -> Unit,
+    onOpenTimeToMaxDialog: () -> Unit,
+    onOpenSuggestionTriggerDialog: () -> Unit,
+    onOpenSuggestionForegroundStableDialog: () -> Unit,
+    onOpenSuggestionCooldownDialog: () -> Unit,
+    onOpenSuggestionTimeoutDialog: () -> Unit,
+    onOpenSuggestionInteractionLockoutDialog: () -> Unit,
+    onOpenGrowthModeDialog: () -> Unit,
+    onOpenColorModeDialog: () -> Unit,
+    onOpenFixedColorDialog: () -> Unit,
+    onOpenGradientStartColorDialog: () -> Unit,
+    onOpenGradientMiddleColorDialog: () -> Unit,
+    onOpenGradientEndColorDialog: () -> Unit,
+    viewModel: SettingsViewModel,
+) {
+    val settings = uiState.settings
+
+    // 一番上に「基本設定に戻る」行を置いておく（＋将来 AppBar を載せてもよい）
+    SectionCard(title = "基本設定") {
+        SettingRow(
+            title = "基本設定に戻る",
+            subtitle = "普段使い向けのシンプルな設定に戻ります。",
+            onClick = onBackToBasic,
+        )
+    }
+
+    SectionCard(title = "セッション") {
+        val formattedGraceTime = formatDurationMillisOrNull(settings.gracePeriodMillis)
+        SettingRow(
+            title = "セッション継続の猶予時間",
+            subtitle = if (formattedGraceTime.isNullOrEmpty()) {
+                "現在: アプリの画面を閉じると猶予なしでセッションを終了します。"
+            } else {
+                "現在: 対象アプリを離れてから${formattedGraceTime}以内に戻れば同じセッションとみなします。"
+            },
+            onClick = onOpenGraceDialog,
+        )
+    }
+
+    SectionCard(title = "タイマーのサイズ") {
+        SettingRow(
+            title = "最大サイズになるまでの時間",
+            subtitle = "現在: ${settings.timeToMaxMinutes}分",
+            onClick = onOpenTimeToMaxDialog,
+        )
+        SettingRow(
+            title = "フォントサイズの範囲",
+            subtitle = "現在: 最小 ${settings.minFontSizeSp} sp / 最大 ${settings.maxFontSizeSp} sp",
+            onClick = onOpenFontDialog,
+        )
+        SettingRow(
+            title = "タイマーの成長モード",
+            subtitle = when (settings.growthMode) {
+                OverlayGrowthMode.Linear ->
+                    "線形：時間に比例して一定のペースで大きくなります。"
+
+                OverlayGrowthMode.FastToSlow ->
+                    "スローイン：序盤でぐっと大きくなり、その後はゆっくり変化します。"
+
+                OverlayGrowthMode.SlowToFast ->
+                    "スローアウト：最初は控えめで、長く使うほど目立つようになります。"
+
+                OverlayGrowthMode.SlowFastSlow ->
+                    "スローインアウト：真ん中あたりで一番ペースが速くなります。"
+            },
+            onClick = onOpenGrowthModeDialog,
+        )
+    }
+    SectionCard(title = "タイマーの色") {
+        SettingRow(
+            title = "タイマーの色モード",
+            subtitle = when (settings.colorMode) {
+                OverlayColorMode.Fixed ->
+                    "単色：背景色を一色で固定します。"
+
+                OverlayColorMode.GradientTwo ->
+                    "2色グラデーション：開始色から終了色へ変化します。"
+
+                OverlayColorMode.GradientThree ->
+                    "3色グラデーション：開始・中間・終了の3色で変化します。"
+            },
+            onClick = onOpenColorModeDialog,
+        )
+        // --- 色の詳細設定（モードに応じて表示） ---
+        when (settings.colorMode) {
+            OverlayColorMode.Fixed -> {
+                SettingRow(
+                    title = "単色の色を選ぶ",
+                    subtitle = colorSubtitle(settings.fixedColorArgb, "デフォルトの色を使用中"),
+                    onClick = onOpenFixedColorDialog,
+                )
+            }
+
+            OverlayColorMode.GradientTwo -> {
+                SettingRow(
+                    title = "開始色（短時間側）",
+                    subtitle = colorSubtitle(
+                        settings.gradientStartColorArgb,
+                        "デフォルトの開始色を使用中"
+                    ),
+                    onClick = onOpenGradientStartColorDialog,
+                )
+                SettingRow(
+                    title = "終了色（長時間側）",
+                    subtitle = colorSubtitle(
+                        settings.gradientEndColorArgb,
+                        "デフォルトの終了色を使用中"
+                    ),
+                    onClick = onOpenGradientEndColorDialog,
+                )
+            }
+
+            OverlayColorMode.GradientThree -> {
+                SettingRow(
+                    title = "開始色",
+                    subtitle = colorSubtitle(
+                        settings.gradientStartColorArgb,
+                        "デフォルトの開始色を使用中"
+                    ),
+                    onClick = onOpenGradientStartColorDialog,
+                )
+                SettingRow(
+                    title = "中間色",
+                    subtitle = colorSubtitle(
+                        settings.gradientMiddleColorArgb,
+                        "デフォルトの中間色を使用中"
+                    ),
+                    onClick = onOpenGradientMiddleColorDialog,
+                )
+                SettingRow(
+                    title = "終了色",
+                    subtitle = colorSubtitle(
+                        settings.gradientEndColorArgb,
+                        "デフォルトの終了色を使用中"
+                    ),
+                    onClick = onOpenGradientEndColorDialog,
+                )
+            }
+        }
+    }
+
+    SectionCard(title = "提案の詳細") {
+        SettingRow(
+            title = "提案を出すために必要なセッションの継続時間",
+            subtitle = "現在: ${formatDurationSeconds(settings.suggestionTriggerSeconds)}以上経過してから提案します。",
+            onClick = onOpenSuggestionTriggerDialog,
+        )
+        SettingRow(
+            title = "提案を出すために必要な対象アプリが連続して前面にいる時間",
+            subtitle = "現在: ${formatDurationSeconds(settings.suggestionForegroundStableSeconds)}以上経過してから提案します。",
+            onClick = onOpenSuggestionForegroundStableDialog,
+        )
+        SettingRow(
+            title = "次の提案までの間隔",
+            subtitle = "現在: ${formatDurationSeconds(settings.suggestionCooldownSeconds)}待ってから再び提案をします。",
+            onClick = onOpenSuggestionCooldownDialog,
+        )
+        SettingRow(
+            title = "提案カードを自動で閉じるまでの時間",
+            subtitle = "現在: ${formatDurationSeconds(settings.suggestionTimeoutSeconds)}後に自動で閉じます。",
+            onClick = onOpenSuggestionTimeoutDialog,
+        )
+        SettingRow(
+            title = "提案表示直後の誤タップ防止時間",
+            subtitle = "現在: 表示してから${settings.suggestionInteractionLockoutMillis} ms の間、提案カードを消せなくします。",
+            onClick = onOpenSuggestionInteractionLockoutDialog,
+        )
+    }
+}
+
+private fun colorSubtitle(argb: Int, fallback: String): String {
+    if (argb == 0) return fallback
+    val r = (argb shr 16) and 0xFF
+    val g = (argb shr 8) and 0xFF
+    val b = argb and 0xFF
+    val hex = "#%02X%02X%02X".format(r, g, b)
+    return "現在: $hex"
+}

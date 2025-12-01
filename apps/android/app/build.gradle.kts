@@ -1,3 +1,7 @@
+import com.android.build.api.variant.impl.VariantOutputImpl
+import java.text.SimpleDateFormat
+import java.util.Date
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -11,17 +15,14 @@ android {
     compileSdk {
         version = release(36)
     }
-
     defaultConfig {
         applicationId = "com.example.refocus"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
-
+        versionCode = 4       // APK配布時に毎回インクリメント
+        versionName = "0.4.1" // (大きな区切り・互換性のない変更).(後方互換ありの機能追加).(バグ修正など)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -43,6 +44,20 @@ android {
     }
 }
 
+kapt {
+    arguments {
+        // Room がスキーマJSONを吐き出すディレクトリ
+        arg("room.schemaLocation", "$projectDir/schemas")
+        // お好みで（ビルド高速化系）
+        arg("room.incremental", "true")
+        arg("room.expandProjection", "true")
+    }
+}
+
+hilt {
+    enableAggregatingTask = false
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -61,6 +76,9 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.material3)
+    implementation(libs.androidx.compose.foundation.layout)
+    implementation(libs.javapoet)
     kapt(libs.androidx.room.compiler)
     implementation(libs.hilt.android)
     kapt(libs.hilt.android.compiler)
@@ -72,4 +90,18 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        val appName = "refocus"
+        val date = SimpleDateFormat("yyyyMMdd").format(Date())
+        variant.outputs.forEach { output ->
+            if (output is VariantOutputImpl) {
+                val vName = output.versionName.get()
+                output.outputFileName =
+                    "${appName}-android-v${vName}-debug-${date}.apk"
+            }
+        }
+    }
 }

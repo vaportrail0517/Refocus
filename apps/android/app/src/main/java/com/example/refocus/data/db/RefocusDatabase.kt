@@ -5,26 +5,26 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.refocus.data.db.dao.SessionDao
+import com.example.refocus.data.db.dao.SessionEventDao
+import com.example.refocus.data.db.dao.SuggestionDao
 import com.example.refocus.data.db.entity.SessionEntity
-import com.example.refocus.data.db.dao.SessionPauseResumeDao
-import com.example.refocus.data.db.entity.SessionPauseResumeEntity
+import com.example.refocus.data.db.entity.SessionEventEntity
+import com.example.refocus.data.db.entity.SuggestionEntity
 
-/**
- * Room のメインDB。
- * 今は SessionEntity だけ。将来 SessionPartEntity など追加していく。
- */
 @Database(
     entities = [
         SessionEntity::class,
-        SessionPauseResumeEntity::class,
+        SessionEventEntity::class,
+        SuggestionEntity::class,
     ],
-    version = 1,
+    version = 3,
     exportSchema = true
 )
 abstract class RefocusDatabase : RoomDatabase() {
 
     abstract fun sessionDao(): SessionDao
-    abstract fun sessionPauseResumeDao(): SessionPauseResumeDao
+    abstract fun sessionEventDao(): SessionEventDao
+    abstract fun suggestionDao(): SuggestionDao
 
     companion object {
         @Volatile
@@ -37,7 +37,7 @@ abstract class RefocusDatabase : RoomDatabase() {
                     RefocusDatabase::class.java,
                     "refocus.db"
                 )
-                    .fallbackToDestructiveMigration() // 最初は楽をして、後で適切にマイグレーション
+                    .fallbackToDestructiveMigration(true) // デバッグ用，以前のDBを上書き
                     .build()
                     .also { INSTANCE = it }
             }
