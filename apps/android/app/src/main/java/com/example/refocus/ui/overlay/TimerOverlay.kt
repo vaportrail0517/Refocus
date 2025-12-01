@@ -46,7 +46,8 @@ fun TimerOverlay(
     val backgroundColor = computeTimerBackgroundColor(
         growthProgress = growth,
         settings = settings
-    )
+    ).copy(alpha = 0.7f)
+
     val textColor = chooseOnColorForBackground(backgroundColor)
     val fontSizeSp = computeTimerFontSizeSp(
         growthProgress = growth,
