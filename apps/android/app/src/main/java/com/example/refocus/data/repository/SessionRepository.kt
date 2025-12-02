@@ -75,6 +75,16 @@ interface SessionRepository {
         gracePeriodMillis: Long,
         nowMillis: Long,
     )
+
+    /**
+     * 現在 active なセッションに対して、提案関連イベントを記録する。
+     * 対象パッケージに active セッションが無ければ何もしない。
+     */
+    suspend fun recordSuggestionEvent(
+        packageName: String,
+        type: SessionEventType,
+        timestampMillis: Long,
+    )
 }
 
 class SessionRepositoryImpl(
@@ -269,6 +279,31 @@ class SessionRepositoryImpl(
         }
     }
 
+    override suspend fun recordSuggestionEvent(
+        packageName: String,
+        type: SessionEventType,
+        timestampMillis: Long,
+    ) {
+        // 想定外の type を弾いてもよい
+        if (type != SessionEventType.SuggestionShown &&
+            type != SessionEventType.SuggestionSnoozed &&
+            type != SessionEventType.SuggestionDismissed &&
+            type != SessionEventType.SuggestionDisabledForSession
+        ) {
+            return
+        }
+
+        val active = findActiveSessionByPackage(packageName) ?: return
+        val sessionId = active.id ?: return
+
+        eventDao.insert(
+            SessionEventEntity(
+                sessionId = sessionId,
+                type = type.name,
+                timestampMillis = timestampMillis,
+            )
+        )
+    }
 
     // endregion
 
@@ -290,7 +325,7 @@ class SessionRepositoryImpl(
         }
         return null
     }
-    
+
     // --- Entity <-> Domain 変換 ---
     private fun SessionEntity.toDomain(): Session =
         Session(

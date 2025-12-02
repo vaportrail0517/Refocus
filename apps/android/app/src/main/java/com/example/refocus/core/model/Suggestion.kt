@@ -32,3 +32,23 @@ enum class SuggestionTimeSlot {
     Evening,
     Night,
 }
+
+enum class SuggestionDecision {
+    Snoozed,            // あとで
+    Dismissed,          // 閉じた（自動タイムアウト含む）
+    DisabledForSession, // このセッションでは非表示
+}
+
+data class SuggestionInstance(
+    val suggestionEventId: Long,        // SessionEvent.id (SuggestionShown 側)
+    val sessionId: Long,
+    val packageName: String,
+    val shownAtMillis: Long,
+
+    val decision: SuggestionDecision?,  // null の場合もあり得ると想定
+    val decisionAtMillis: Long?,
+
+    val endAtMillis: Long?,
+    val timeToEndMillis: Long?,         // endAt - shownAt
+    val endedSoon: Boolean?,            // end が無い時は null
+)

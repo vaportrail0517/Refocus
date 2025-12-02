@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.refocus.core.model.OverlayEvent
 import com.example.refocus.core.model.OverlayState
 import com.example.refocus.core.model.OverlaySuggestionMode
+import com.example.refocus.core.model.SessionEventType
 import com.example.refocus.core.model.Settings
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.repository.SessionRepository
@@ -441,16 +442,60 @@ class OverlayCoordinator(
     }
 
     private fun handleSuggestionSnoozeLater() {
+        // ログ: Snoozed
+        val pkg = overlayPackage
+        if (pkg != null) {
+            scope.launch {
+                try {
+                    sessionRepository.recordSuggestionEvent(
+                        packageName = pkg,
+                        type = SessionEventType.SuggestionSnoozed,
+                        timestampMillis = timeSource.nowMillis(),
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to record SuggestionSnoozed for $pkg", e)
+                }
+            }
+        }
         handleSuggestionSnooze()
     }
 
     private fun handleSuggestionDismissOnly() {
+        // ログ: Dismissed（タップ閉じ／自動タイムアウトどちらも）
+        val pkg = overlayPackage
+        if (pkg != null) {
+            scope.launch {
+                try {
+                    sessionRepository.recordSuggestionEvent(
+                        packageName = pkg,
+                        type = SessionEventType.SuggestionDismissed,
+                        timestampMillis = timeSource.nowMillis(),
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to record SuggestionDismissed for $pkg", e)
+                }
+            }
+        }
         handleSuggestionSnooze()
     }
 
     private fun handleSuggestionDisableThisSession() {
         clearSuggestionOverlayState()
         val packageName = overlayPackage ?: return
+
+        // ログ: DisableForSession
+        scope.launch {
+            try {
+                sessionRepository.recordSuggestionEvent(
+                    packageName = packageName,
+                    type = SessionEventType.SuggestionDisabledForSession,
+                    timestampMillis = timeSource.nowMillis(),
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to record SuggestionDisabledForSession for $packageName", e)
+            }
+        }
+
         sessionManager.markSuggestionDisabledForThisSession(packageName)
         Log.d(TAG, "Suggestion disabled for this session: $packageName")
     }
@@ -503,6 +548,19 @@ class OverlayCoordinator(
                 }
 
                 isSuggestionOverlayShown = true
+
+                val pkg = overlayPackage ?: packageName // or packageName
+
+                // 提案表示イベントを記録
+                try {
+                    sessionRepository.recordSuggestionEvent(
+                        packageName = pkg,
+                        type = SessionEventType.SuggestionShown,
+                        timestampMillis = timeSource.nowMillis(),
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to record SuggestionShown for $pkg", e)
+                }
 
                 uiController.showSuggestion(
                     SuggestionOverlayUiModel(

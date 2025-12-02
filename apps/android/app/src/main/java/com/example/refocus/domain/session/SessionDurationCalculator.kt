@@ -47,6 +47,12 @@ object SessionDurationCalculator {
                         lastStart = null
                     }
                 }
+
+                SessionEventType.SuggestionShown,
+                SessionEventType.SuggestionSnoozed,
+                SessionEventType.SuggestionDismissed,
+                SessionEventType.SuggestionDisabledForSession -> {
+                }
             }
         }
 

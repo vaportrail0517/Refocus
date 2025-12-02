@@ -1,8 +1,11 @@
 package com.example.refocus.domain.stats
 
+import com.example.refocus.core.model.PauseResumeStats
 import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionEventType
+import com.example.refocus.core.model.SessionStats
+import com.example.refocus.core.model.SessionStatus
 import com.example.refocus.domain.session.SessionDurationCalculator
 
 /**

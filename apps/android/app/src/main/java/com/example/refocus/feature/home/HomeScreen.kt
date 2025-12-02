@@ -17,8 +17,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import com.example.refocus.feature.history.SessionHistoryScreen
 import com.example.refocus.feature.settings.SettingsScreen
+import com.example.refocus.feature.stats.StatsRoute
 import com.example.refocus.feature.suggestions.SuggestionsRoute
 import kotlinx.coroutines.launch
 
@@ -33,6 +33,7 @@ enum class HomeTab {
 fun HomeScreen(
     onOpenAppSelect: () -> Unit,
     onOpenPermissionFixFlow: () -> Unit,
+    onOpenHistory: () -> Unit,
 ) {
     val tabs = HomeTab.entries
     val initialPage = tabs.indexOf(HomeTab.Settings).coerceAtLeast(0)
@@ -64,7 +65,7 @@ fun HomeScreen(
         ) { page ->
             when (tabs[page]) {
                 HomeTab.Suggestions -> SuggestionsRoute()
-                HomeTab.Stats -> SessionHistoryScreen()
+                HomeTab.Stats -> StatsRoute(onOpenHistory = onOpenHistory)
                 HomeTab.Settings -> SettingsScreen(
                     onOpenAppSelect = onOpenAppSelect,
                     onOpenPermissionFixFlow = onOpenPermissionFixFlow,

@@ -6,9 +6,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
+import com.example.refocus.core.model.SessionStatus
 import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.domain.stats.SessionStatsCalculator
-import com.example.refocus.domain.stats.SessionStatus
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
