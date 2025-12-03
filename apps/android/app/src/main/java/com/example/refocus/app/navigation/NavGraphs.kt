@@ -161,6 +161,10 @@ fun RefocusNavHost(
                 onOpenHistory = {
                     navController.navigate(Destinations.HISTORY)
                 },
+                onOpenStatsDetail = { section ->
+                    // TODO: 統計詳細画面に飛ばすならここでナビゲーションを書く
+                    // 例えば stats の詳細タブ付き画面を作るなど
+                },
             )
         }
     }
