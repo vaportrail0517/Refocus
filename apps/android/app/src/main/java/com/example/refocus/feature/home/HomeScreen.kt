@@ -25,7 +25,7 @@ import com.example.refocus.feature.suggestions.SuggestionsRoute
 import kotlinx.coroutines.launch
 
 enum class HomeTab {
-    Home,
+    Dashboard,
     Suggestions,
     Stats,
     Settings
@@ -68,11 +68,17 @@ fun HomeScreen(
                 .padding(innerPadding)
         ) { page ->
             when (tabs[page]) {
-                HomeTab.Home -> HomeDashboardRoute(
+                HomeTab.Dashboard -> HomeDashboardRoute(
                     onOpenHistory = onOpenHistory,
-//                    onOpenAppSelect = onOpenAppSelect,
-                    onOpenPermissionFixFlow = onOpenPermissionFixFlow,
                     onOpenStatsDetail = onOpenStatsDetail,
+                    onOpenPermissionFixFlow = onOpenPermissionFixFlow,
+                    onOpenSettings = {
+                        val index = tabs.indexOf(HomeTab.Settings).coerceAtLeast(0)
+                        scope.launch {
+                            pagerState.animateScrollToPage(index)
+                        }
+                    },
+                    onOpenAppSelect = onOpenAppSelect,
                 )
 
                 HomeTab.Suggestions -> SuggestionsRoute()
@@ -94,8 +100,8 @@ private fun HomeBottomBar(
 ) {
     NavigationBar {
         NavigationBarItem(
-            selected = selectedTab == HomeTab.Home,
-            onClick = { onTabSelected(HomeTab.Home) },
+            selected = selectedTab == HomeTab.Dashboard,
+            onClick = { onTabSelected(HomeTab.Dashboard) },
             icon = { Icon(Icons.Filled.Home, contentDescription = "ホーム") },
             label = { Text("ホーム") }
         )
