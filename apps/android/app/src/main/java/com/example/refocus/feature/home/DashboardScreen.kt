@@ -60,6 +60,7 @@ import com.example.refocus.system.overlay.OverlayService
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.overlay.stopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
+import androidx.compose.foundation.layout.WindowInsets
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -131,7 +132,8 @@ fun HomeDashboardRoute(
                 },
                 onOpenSettings = onOpenSettings,
             )
-        }
+        },
+        contentWindowInsets = WindowInsets(0.dp),
     ) { innerPadding ->
         val todayStats = statsUiState.todayStats
 
@@ -195,7 +197,8 @@ fun HomeTopBar(
                     contentDescription = "設定を開く"
                 )
             }
-        }
+        },
+        windowInsets = WindowInsets(0.dp),
     )
 }
 

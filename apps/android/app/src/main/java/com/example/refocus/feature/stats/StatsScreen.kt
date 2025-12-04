@@ -89,7 +89,8 @@ fun StatsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding),
+                        .padding(innerPadding)
+                        .padding(16.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
                     CircularProgressIndicator()
@@ -100,7 +101,8 @@ fun StatsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding),
+                        .padding(innerPadding)
+                        .padding(16.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text("まだ統計データがありません。")
@@ -110,7 +112,9 @@ fun StatsScreen(
             else -> {
                 StatsContent(
                     stats = uiState.todayStats,
-                    modifier = Modifier.padding(innerPadding),
+                    modifier = Modifier
+                        .padding(innerPadding)
+                        .padding(16.dp),
                     onOpenHistory = onOpenHistory,
                     onOpenSection = onOpenDetail,
                 )
