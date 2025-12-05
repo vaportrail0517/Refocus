@@ -64,15 +64,15 @@ private fun formatDurationCore(
 
         DurationStyle.JapaneseUnit -> {
             buildString {
-                if (DisplayUnit.HOUR.enabled() && hours > 0) {
+                if (DisplayUnit.HOUR.enabled() && hours > 0L) {
                     append(hours)
                     append(options.labels[DisplayUnit.HOUR])
                 }
-                if (DisplayUnit.MINUTE.enabled() && hours + minutes > 0) {
+                if (DisplayUnit.MINUTE.enabled() && hours + minutes > 0L) {
                     append(minutes)
                     append(options.labels[DisplayUnit.MINUTE])
                 }
-                if (DisplayUnit.SECOND.enabled()) {
+                if (DisplayUnit.SECOND.enabled() && !(hours + minutes > 0L && seconds == 0L)) {
                     append(seconds)
                     append(options.labels[DisplayUnit.SECOND])
                 }

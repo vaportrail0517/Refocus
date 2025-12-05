@@ -40,8 +40,6 @@ import com.example.refocus.system.permissions.PermissionHelper
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomizeScreen(
-    onOpenAppSelect: () -> Unit,
-    onOpenPermissionFixFlow: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -52,7 +50,7 @@ fun CustomizeScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var usageGranted by remember { mutableStateOf(PermissionHelper.hasUsageAccess(context)) }
     var overlayGranted by remember { mutableStateOf(PermissionHelper.hasOverlayPermission(context)) }
-    var activeDialog by remember { mutableStateOf<SettingsDialogType?>(null) }
+    var activeDialog by remember { mutableStateOf<CustomizeDialogType?>(null) }
     var isAdvancedMode by remember { mutableStateOf(false) }
     var fontRange by remember(
         uiState.settings.minFontSizeSp,
@@ -109,13 +107,12 @@ fun CustomizeScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (isAdvancedMode) "詳細" else "基本",
+                        text = if (isAdvancedMode) "詳細カスタマイズ" else "カスタマイズ",
                     )
                 },
                 actions = {
                     IconButton(onClick = { isAdvancedMode = !isAdvancedMode }) {
                         Icon(
-//                            imageVector = Icons.Filled.Tune,
                             imageVector = Icons.Filled.SwapHoriz,
                             contentDescription = if (isAdvancedMode) {
                                 "基本設定に切り替え"
@@ -142,67 +139,53 @@ fun CustomizeScreen(
                 // ================= 基本設定 =================
                 BasicCustomizeContent(
                     uiState = uiState,
-                    usageGranted = usageGranted,
-                    overlayGranted = overlayGranted,
-                    hasCorePermissions = hasCorePermissions,
-                    isServiceRunning = isServiceRunning,
-                    onServiceRunningChange = { isServiceRunning = it },
-                    onOpenAppSelect = onOpenAppSelect,
-                    onRequireCorePermission = {
-                        activeDialog = SettingsDialogType.CorePermissionRequired
-                    },
-                    onOpenAdvanced = { isAdvancedMode = true },
-                    onResetAllData = { activeDialog = SettingsDialogType.AppDataReset },
                     viewModel = viewModel,
-                    context = context,
-                    activity = activity,
+                    onOpenAdvanced = { isAdvancedMode = true },
                 )
             } else {
                 // ================= 詳細設定 =================
                 AdvancedCustomizeContent(
                     uiState = uiState,
                     onBackToBasic = { isAdvancedMode = false },
-                    onOpenGraceDialog = { activeDialog = SettingsDialogType.GraceTime },
-                    onOpenPollingDialog = { activeDialog = SettingsDialogType.PollingInterval },
+                    onOpenGraceDialog = { activeDialog = CustomizeDialogType.GraceTime },
                     onOpenFontDialog = {
                         fontRange = uiState.settings.minFontSizeSp..
                                 uiState.settings.maxFontSizeSp
-                        activeDialog = SettingsDialogType.FontRange
+                        activeDialog = CustomizeDialogType.FontRange
                     },
-                    onOpenTimeToMaxDialog = { activeDialog = SettingsDialogType.TimeToMax },
+                    onOpenTimeToMaxDialog = { activeDialog = CustomizeDialogType.TimeToMax },
                     onOpenSuggestionTriggerDialog = {
-                        activeDialog = SettingsDialogType.SuggestionTriggerTime
+                        activeDialog = CustomizeDialogType.SuggestionTriggerTime
                     },
                     onOpenSuggestionForegroundStableDialog = {
-                        activeDialog = SettingsDialogType.SuggestionForegroundStable
+                        activeDialog = CustomizeDialogType.SuggestionForegroundStable
                     },
                     onOpenSuggestionCooldownDialog = {
-                        activeDialog = SettingsDialogType.SuggestionCooldown
+                        activeDialog = CustomizeDialogType.SuggestionCooldown
                     },
                     onOpenSuggestionTimeoutDialog = {
-                        activeDialog = SettingsDialogType.SuggestionTimeout
+                        activeDialog = CustomizeDialogType.SuggestionTimeout
                     },
                     onOpenSuggestionInteractionLockoutDialog = {
-                        activeDialog = SettingsDialogType.SuggestionInteractionLockout
+                        activeDialog = CustomizeDialogType.SuggestionInteractionLockout
                     },
-                    onOpenGrowthModeDialog = { activeDialog = SettingsDialogType.GrowthMode },
-                    onOpenColorModeDialog = { activeDialog = SettingsDialogType.ColorMode },
-                    onOpenFixedColorDialog = { activeDialog = SettingsDialogType.FixedColor },
+                    onOpenGrowthModeDialog = { activeDialog = CustomizeDialogType.GrowthMode },
+                    onOpenColorModeDialog = { activeDialog = CustomizeDialogType.ColorMode },
+                    onOpenFixedColorDialog = { activeDialog = CustomizeDialogType.FixedColor },
                     onOpenGradientStartColorDialog = {
-                        activeDialog = SettingsDialogType.GradientStartColor
+                        activeDialog = CustomizeDialogType.GradientStartColor
                     },
                     onOpenGradientMiddleColorDialog = {
-                        activeDialog = SettingsDialogType.GradientMiddleColor
+                        activeDialog = CustomizeDialogType.GradientMiddleColor
                     },
                     onOpenGradientEndColorDialog = {
-                        activeDialog = SettingsDialogType.GradientEndColor
+                        activeDialog = CustomizeDialogType.GradientEndColor
                     },
-                    viewModel = viewModel,
                 )
             }
 
             when (activeDialog) {
-                SettingsDialogType.GraceTime -> {
+                CustomizeDialogType.GraceTime -> {
                     GraceTimeDialog(
                         currentMillis = uiState.settings.gracePeriodMillis,
                         onConfirm = { newMillis ->
@@ -213,7 +196,7 @@ fun CustomizeScreen(
                     )
                 }
 
-                SettingsDialogType.PollingInterval -> {
+                CustomizeDialogType.PollingInterval -> {
                     PollingIntervalDialog(
                         currentMillis = uiState.settings.pollingIntervalMillis,
                         onConfirm = { newMs ->
@@ -224,7 +207,7 @@ fun CustomizeScreen(
                     )
                 }
 
-                SettingsDialogType.FontRange -> {
+                CustomizeDialogType.FontRange -> {
                     FontRangeDialog(
                         initialRange = fontRange,
                         onConfirm = { newRange ->
@@ -242,7 +225,7 @@ fun CustomizeScreen(
                     )
                 }
 
-                SettingsDialogType.TimeToMax -> {
+                CustomizeDialogType.TimeToMax -> {
                     TimeToMaxDialog(
                         currentMinutes = uiState.settings.timeToMaxMinutes,
                         onConfirm = { minutes ->
@@ -253,23 +236,7 @@ fun CustomizeScreen(
                     )
                 }
 
-                SettingsDialogType.CorePermissionRequired -> {
-                    CorePermissionRequiredDialog(
-                        onStartPermissionFixFlow = {
-                            activeDialog = null
-                            onOpenPermissionFixFlow()
-                        },
-                        onDismiss = { activeDialog = null }
-                    )
-                }
-
-                SettingsDialogType.SuggestionFeatureRequired -> {
-                    SuggestionFeatureRequiredDialog(
-                        onDismiss = { activeDialog = null }
-                    )
-                }
-
-                SettingsDialogType.SuggestionTriggerTime -> {
+                CustomizeDialogType.SuggestionTriggerTime -> {
                     SuggestionTriggerTimeDialog(
                         currentSeconds = uiState.settings.suggestionTriggerSeconds,
                         onConfirm = { seconds ->
@@ -280,7 +247,7 @@ fun CustomizeScreen(
                     )
                 }
 
-                SettingsDialogType.SuggestionForegroundStable -> {
+                CustomizeDialogType.SuggestionForegroundStable -> {
                     SuggestionForegroundStableDialog(
                         currentSeconds = uiState.settings.suggestionForegroundStableSeconds,
                         onConfirm = { seconds ->
@@ -291,7 +258,7 @@ fun CustomizeScreen(
                     )
                 }
 
-                SettingsDialogType.SuggestionCooldown -> {
+                CustomizeDialogType.SuggestionCooldown -> {
                     SuggestionCooldownDialog(
                         currentSeconds = uiState.settings.suggestionCooldownSeconds,
                         onConfirm = { seconds ->
@@ -302,7 +269,7 @@ fun CustomizeScreen(
                     )
                 }
 
-                SettingsDialogType.SuggestionTimeout -> {
+                CustomizeDialogType.SuggestionTimeout -> {
                     SuggestionTimeoutDialog(
                         currentSeconds = uiState.settings.suggestionTimeoutSeconds,
                         onConfirm = { seconds ->
@@ -313,7 +280,7 @@ fun CustomizeScreen(
                     )
                 }
 
-                SettingsDialogType.SuggestionInteractionLockout -> {
+                CustomizeDialogType.SuggestionInteractionLockout -> {
                     SuggestionInteractionLockoutDialog(
                         currentMillis = uiState.settings.suggestionInteractionLockoutMillis,
                         onConfirm = { millis ->
@@ -324,7 +291,7 @@ fun CustomizeScreen(
                     )
                 }
 
-                SettingsDialogType.GrowthMode -> {
+                CustomizeDialogType.GrowthMode -> {
                     GrowthModeDialog(
                         current = uiState.settings.growthMode,
                         onConfirm = { mode ->
@@ -335,7 +302,7 @@ fun CustomizeScreen(
                     )
                 }
 
-                SettingsDialogType.ColorMode -> {
+                CustomizeDialogType.ColorMode -> {
                     ColorModeDialog(
                         current = uiState.settings.colorMode,
                         onConfirm = { mode ->
@@ -346,7 +313,7 @@ fun CustomizeScreen(
                     )
                 }
 
-                SettingsDialogType.FixedColor -> {
+                CustomizeDialogType.FixedColor -> {
                     FixedColorDialog(
                         currentColorArgb = uiState.settings.fixedColorArgb,
                         onConfirm = { argb ->
@@ -357,7 +324,7 @@ fun CustomizeScreen(
                     )
                 }
 
-                SettingsDialogType.GradientStartColor -> {
+                CustomizeDialogType.GradientStartColor -> {
                     GradientStartColorDialog(
                         currentColorArgb = uiState.settings.gradientStartColorArgb,
                         onConfirm = { argb ->
@@ -368,7 +335,7 @@ fun CustomizeScreen(
                     )
                 }
 
-                SettingsDialogType.GradientMiddleColor -> {
+                CustomizeDialogType.GradientMiddleColor -> {
                     GradientMiddleColorDialog(
                         currentColorArgb = uiState.settings.gradientMiddleColorArgb,
                         onConfirm = { argb ->
@@ -379,21 +346,11 @@ fun CustomizeScreen(
                     )
                 }
 
-                SettingsDialogType.GradientEndColor -> {
+                CustomizeDialogType.GradientEndColor -> {
                     GradientEndColorDialog(
                         currentColorArgb = uiState.settings.gradientEndColorArgb,
                         onConfirm = { argb ->
                             viewModel.updateGradientEndColorArgb(argb)
-                            activeDialog = null
-                        },
-                        onDismiss = { activeDialog = null },
-                    )
-                }
-
-                SettingsDialogType.AppDataReset -> {
-                    AppDataResetDialog(
-                        onResetAllData = {
-                            viewModel.resetAllData()
                             activeDialog = null
                         },
                         onDismiss = { activeDialog = null },

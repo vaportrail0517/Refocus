@@ -31,10 +31,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.refocus.feature.customize.AppDataResetDialog
-import com.example.refocus.feature.customize.CorePermissionRequiredDialog
-import com.example.refocus.feature.customize.SettingsDialogType
-import com.example.refocus.feature.customize.SuggestionFeatureRequiredDialog
 import com.example.refocus.system.overlay.OverlayService
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.overlay.stopOverlayService
@@ -60,7 +56,7 @@ fun SettingsScreen(
     var overlayGranted by remember { mutableStateOf(PermissionHelper.hasOverlayPermission(context)) }
     var activeDialog by remember { mutableStateOf<SettingsDialogType?>(null) }
     var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
-    val hasCorePermissions = PermissionHelper.hasAllCorePermissions(context)
+    val hasCorePermissions = usageGranted && overlayGranted
 
     // 画面復帰時に権限状態を更新
     DisposableEffect(lifecycleOwner) {
@@ -69,8 +65,8 @@ fun SettingsScreen(
                 usageGranted = PermissionHelper.hasUsageAccess(context)
                 overlayGranted = PermissionHelper.hasOverlayPermission(context)
                 isServiceRunning = OverlayService.isRunning
-                val hasCorePermissions = usageGranted && overlayGranted
-                if (!hasCorePermissions) {
+                val corePermissions = usageGranted && overlayGranted
+                if (!corePermissions) {
                     val latestState = viewModel.uiState.value
                     // 起動設定 or 実行中サービスが残っていたら OFF に揃える
                     if (latestState.settings.overlayEnabled || isServiceRunning) {
@@ -167,7 +163,7 @@ fun SettingsScreen(
                     )
                 }
 
-                else -> Unit
+                null -> Unit
             }
         }
     }

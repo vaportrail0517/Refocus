@@ -7,32 +7,27 @@ import com.example.refocus.core.model.OverlayGrowthMode
 import com.example.refocus.core.util.formatDurationMilliSeconds
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.ui.components.ColorPickerDialog
-import com.example.refocus.ui.components.InfoDialog
 import com.example.refocus.ui.components.IntInputDialog
 import com.example.refocus.ui.components.LongSliderDialog
 import com.example.refocus.ui.components.RangeSliderDialog
-import com.example.refocus.ui.components.SettingsBaseDialog
 import com.example.refocus.ui.components.SingleChoiceDialog
 
-sealed interface SettingsDialogType {
-    data object GraceTime : SettingsDialogType
-    data object PollingInterval : SettingsDialogType
-    data object FontRange : SettingsDialogType
-    data object TimeToMax : SettingsDialogType
-    data object CorePermissionRequired : SettingsDialogType
-    data object SuggestionFeatureRequired : SettingsDialogType
-    data object SuggestionTriggerTime : SettingsDialogType
-    data object SuggestionForegroundStable : SettingsDialogType
-    data object SuggestionCooldown : SettingsDialogType
-    data object SuggestionTimeout : SettingsDialogType
-    data object SuggestionInteractionLockout : SettingsDialogType
-    data object GrowthMode : SettingsDialogType
-    data object ColorMode : SettingsDialogType
-    data object FixedColor : SettingsDialogType
-    data object GradientStartColor : SettingsDialogType
-    data object GradientMiddleColor : SettingsDialogType
-    data object GradientEndColor : SettingsDialogType
-    data object AppDataReset : SettingsDialogType
+sealed interface CustomizeDialogType {
+    data object GraceTime : CustomizeDialogType
+    data object PollingInterval : CustomizeDialogType
+    data object FontRange : CustomizeDialogType
+    data object TimeToMax : CustomizeDialogType
+    data object SuggestionTriggerTime : CustomizeDialogType
+    data object SuggestionForegroundStable : CustomizeDialogType
+    data object SuggestionCooldown : CustomizeDialogType
+    data object SuggestionTimeout : CustomizeDialogType
+    data object SuggestionInteractionLockout : CustomizeDialogType
+    data object GrowthMode : CustomizeDialogType
+    data object ColorMode : CustomizeDialogType
+    data object FixedColor : CustomizeDialogType
+    data object GradientStartColor : CustomizeDialogType
+    data object GradientMiddleColor : CustomizeDialogType
+    data object GradientEndColor : CustomizeDialogType
 }
 
 /**
@@ -151,38 +146,6 @@ fun TimeToMaxDialog(
         minValue = 1,
         maxValue = 720,
         onConfirm = onConfirm,
-        onDismiss = onDismiss,
-    )
-}
-
-/**
- * コア権限が不足しているときのダイアログ。
- */
-@Composable
-fun CorePermissionRequiredDialog(
-    onStartPermissionFixFlow: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    SettingsBaseDialog(
-        title = "権限が必要です",
-        description = """Refocus を動かすには「使用状況へのアクセス」と「他のアプリの上に表示」の 2 つの権限が必要です。「権限を設定する」をタップすると、権限を 1 つずつ案内する画面に進みます。        """.trimIndent(),
-        confirmLabel = "権限を設定する",
-        dismissLabel = "閉じる",
-        onConfirm = onStartPermissionFixFlow,
-        onDismiss = onDismiss,
-    )
-}
-
-/**
- * 提案機能の依存関係を満たしていないときのダイアログ。
- */
-@Composable
-fun SuggestionFeatureRequiredDialog(
-    onDismiss: () -> Unit
-) {
-    InfoDialog(
-        title = "提案が無効になっています",
-        description = "「休憩の提案」を有効にするには「提案を表示する」がオンである必要があります。",
         onDismiss = onDismiss,
     )
 }
@@ -455,21 +418,6 @@ fun GradientEndColorDialog(
         description = "タイマーが最大サイズになったときに使う色を選びます。",
         initialColorArgb = currentColorArgb.takeIf { it != 0 },
         onConfirm = onConfirm,
-        onDismiss = onDismiss,
-    )
-}
-
-@Composable
-fun AppDataResetDialog(
-    onResetAllData: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    SettingsBaseDialog(
-        title = "アプリの初期化",
-        description = "削除したデータを復元することは出来ません．本当に削除しますか？",
-        confirmLabel = "削除する",
-        dismissLabel = "キャンセル",
-        onConfirm = onResetAllData,
         onDismiss = onDismiss,
     )
 }

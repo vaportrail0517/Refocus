@@ -6,9 +6,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DataUsage
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -73,22 +73,13 @@ fun MainScreen(
                 MainTab.Home -> HomeRoute(
                     onOpenStatsDetail = onOpenStatsDetail,
                     onOpenPermissionFixFlow = onOpenPermissionFixFlow,
-//                    onOpenCustomize = {
-//                        val index = tabs.indexOf(MainTab.Customize).coerceAtLeast(0)
-//                        scope.launch {
-//                            pagerState.animateScrollToPage(index)
-//                        }
-//                    },
                     onOpenAppSelect = onOpenAppSelect,
                     onOpenSettings = onOpenSettings,
                 )
 
                 MainTab.Suggestions -> SuggestionsRoute()
                 MainTab.Stats -> StatsRoute(onOpenHistory = onOpenHistory)
-                MainTab.Customize -> CustomizeScreen(
-                    onOpenAppSelect = onOpenAppSelect,
-                    onOpenPermissionFixFlow = onOpenPermissionFixFlow,
-                )
+                MainTab.Customize -> CustomizeScreen()
             }
         }
     }
@@ -110,21 +101,18 @@ private fun HomeBottomBar(
         NavigationBarItem(
             selected = selectedTab == MainTab.Suggestions,
             onClick = { onTabSelected(MainTab.Suggestions) },
-//            icon = { Icon(Icons.Filled.Lightbulb, contentDescription = "提案") },
-            icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "提案") },
+            icon = { Icon(Icons.Filled.Lightbulb, contentDescription = "提案") },
             label = { Text("提案") }
         )
         NavigationBarItem(
             selected = selectedTab == MainTab.Stats,
             onClick = { onTabSelected(MainTab.Stats) },
-//            icon = { Icon(Icons.Filled.Insights, contentDescription = "統計") },
             icon = { Icon(Icons.Filled.DataUsage, contentDescription = "統計") },
             label = { Text("統計") }
         )
         NavigationBarItem(
             selected = selectedTab == MainTab.Customize,
             onClick = { onTabSelected(MainTab.Customize) },
-//            icon = { Icon(Icons.Filled.Customize, contentDescription = "設定") },
             icon = { Icon(Icons.Filled.Tune, contentDescription = "カスタマイズ") },
             label = { Text("カスタマイズ") }
         )

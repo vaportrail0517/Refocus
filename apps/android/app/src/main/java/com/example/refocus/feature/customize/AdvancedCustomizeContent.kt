@@ -13,7 +13,6 @@ fun AdvancedCustomizeContent(
     uiState: CustomizeViewModel.UiState,
     onBackToBasic: () -> Unit,
     onOpenGraceDialog: () -> Unit,
-    onOpenPollingDialog: () -> Unit,
     onOpenFontDialog: () -> Unit,
     onOpenTimeToMaxDialog: () -> Unit,
     onOpenSuggestionTriggerDialog: () -> Unit,
@@ -27,14 +26,13 @@ fun AdvancedCustomizeContent(
     onOpenGradientStartColorDialog: () -> Unit,
     onOpenGradientMiddleColorDialog: () -> Unit,
     onOpenGradientEndColorDialog: () -> Unit,
-    viewModel: CustomizeViewModel,
 ) {
     val settings = uiState.settings
 
     // 一番上に「基本設定に戻る」行を置いておく（＋将来 AppBar を載せてもよい）
-    SectionCard(title = "基本設定") {
+    SectionCard(title = "基本カスタマイズ") {
         SettingRow(
-            title = "基本設定に戻る",
+            title = "基本カスタマイズに戻る",
             subtitle = "普段使い向けのシンプルな設定に戻ります。",
             onClick = onBackToBasic,
         )
