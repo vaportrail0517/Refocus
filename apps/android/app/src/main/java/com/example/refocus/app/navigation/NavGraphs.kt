@@ -7,10 +7,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.refocus.feature.MainScreen
 import com.example.refocus.feature.appselect.AppSelectScreen
 import com.example.refocus.feature.entry.EntryScreen
 import com.example.refocus.feature.history.SessionHistoryScreen
-import com.example.refocus.feature.home.HomeScreen
 import com.example.refocus.feature.onboarding.OnboardingFinishScreen
 import com.example.refocus.feature.onboarding.OnboardingIntroScreen
 import com.example.refocus.feature.onboarding.OnboardingReadyScreen
@@ -151,7 +151,7 @@ fun RefocusNavHost(
         }
 
         composable(Destinations.HOME) {
-            HomeScreen(
+            MainScreen(
                 onOpenAppSelect = {
                     navController.navigate(Destinations.APP_SELECT_SETTINGS)
                 },

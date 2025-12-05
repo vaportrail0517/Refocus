@@ -44,7 +44,7 @@ enum class StatsDetailSection {
     UsageSummary,   // 今日のサマリー
     AppUsage,       // アプリ別
     Timeline,       // 1日の流れ
-    Suggestions,    // 提案との付き合い方
+    Suggestions,    // 提案の履歴
     PeakTime,       // 時間を使いがちな時間帯
 }
 
@@ -463,7 +463,7 @@ private fun SuggestionCard(
     onClick: () -> Unit = {},
 ) {
     SectionCard(
-        title = "提案との付き合い方",
+        title = "提案の履歴",
         description = null,
         onClick = onClick,
     ) {
@@ -487,7 +487,7 @@ private fun SuggestionCard(
                     Text("$total 回", style = MaterialTheme.typography.bodyMedium)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("見送った（あとで／閉じる）", style = MaterialTheme.typography.bodySmall)
+                    Text("見送った提案", style = MaterialTheme.typography.bodySmall)
                     Text("$skipPercent%", style = MaterialTheme.typography.bodyMedium)
                 }
             }

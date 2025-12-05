@@ -1,28 +1,31 @@
 package com.example.refocus.feature.home
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Settings
@@ -45,14 +48,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.refocus.core.model.DailyStats
+import com.example.refocus.core.util.displayLength
 import com.example.refocus.feature.settings.SettingsViewModel
 import com.example.refocus.feature.stats.StatsDetailSection
 import com.example.refocus.feature.stats.StatsViewModel
@@ -60,7 +68,6 @@ import com.example.refocus.system.overlay.OverlayService
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.overlay.stopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
-import androidx.compose.foundation.layout.WindowInsets
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -135,32 +142,16 @@ fun HomeDashboardRoute(
         },
         contentWindowInsets = WindowInsets(0.dp),
     ) { innerPadding ->
-        val todayStats = statsUiState.todayStats
-
-        if (todayStats == null) {
-            // まだデータが無いときの簡単なプレースホルダ
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text("まだ今日のデータがありません")
-            }
-        } else {
-            HomeDashboardContent(
-                stats = todayStats,
-                targetApps = targetApps,
-                hasCorePermissions = hasCorePermissions,
-                innerPadding = innerPadding,
-                onOpenHistory = onOpenHistory,
-                onOpenStatsDetail = onOpenStatsDetail,
-                onOpenPermissionFixFlow = onOpenPermissionFixFlow,
-                onOpenAppSelect = onOpenAppSelect,
-            )
-        }
+        HomeDashboardContent(
+            stats = statsUiState.todayStats,
+            targetApps = targetApps,
+            hasCorePermissions = hasCorePermissions,
+            innerPadding = innerPadding,
+            onOpenHistory = onOpenHistory,
+            onOpenStatsDetail = onOpenStatsDetail,
+            onOpenPermissionFixFlow = onOpenPermissionFixFlow,
+            onOpenAppSelect = onOpenAppSelect,
+        )
     }
 }
 
@@ -204,7 +195,7 @@ fun HomeTopBar(
 
 @Composable
 private fun HomeDashboardContent(
-    stats: DailyStats,
+    stats: DailyStats?,
     targetApps: List<HomeTargetsViewModel.TargetAppUiModel>,
     hasCorePermissions: Boolean,
     innerPadding: PaddingValues,
@@ -213,29 +204,35 @@ private fun HomeDashboardContent(
     onOpenPermissionFixFlow: () -> Unit,
     onOpenAppSelect: () -> Unit,
 ) {
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        if (!hasCorePermissions) {
-            PermissionWarningCard(
-                onClick = onOpenPermissionFixFlow,
+        item {
+            if (!hasCorePermissions) {
+                PermissionWarningCard(
+                    onClick = onOpenPermissionFixFlow,
+                )
+            }
+        }
+
+        item {
+            FocusSection(
+                stats = stats,
+                onOpenSection = onOpenStatsDetail,
             )
         }
 
-        FocusSection(
-            stats = stats,
-            onOpenSection = onOpenStatsDetail,
-        )
-
-        TargetAppsSection(
-            apps = targetApps,
-            onAddClick = onOpenAppSelect,
-            onAppClick = { /* 必要があればここで何かする */ },
-        )
+        item {
+            TargetAppsSection(
+                apps = targetApps,
+                onAddClick = onOpenAppSelect,
+                onAppClick = { /* 必要があればここで何かする */ },
+            )
+        }
     }
 }
 
@@ -249,6 +246,7 @@ fun PermissionWarningCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer,
             contentColor = MaterialTheme.colorScheme.onErrorContainer,
@@ -284,7 +282,7 @@ fun PermissionWarningCard(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FocusSection(
-    stats: DailyStats,
+    stats: DailyStats?,
     onOpenSection: (StatsDetailSection) -> Unit,
 ) {
     // フォーカスに載せるカード一覧
@@ -334,8 +332,10 @@ private data class FocusItem(
     val section: StatsDetailSection,
 )
 
-private fun buildFocusItems(stats: DailyStats): List<FocusItem> {
+private fun buildFocusItems(stats: DailyStats?): List<FocusItem> {
     val items = mutableListOf<FocusItem>()
+
+    if (stats == null) return items
 
     // カード1: 今日の合計利用時間
     items += FocusItem(
@@ -464,74 +464,144 @@ fun TargetAppsSection(
             style = MaterialTheme.typography.titleMedium,
         )
 
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(120.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.heightIn(max = 300.dp)
-        ) {
-            // 追加カード
-            item {
-                AddTargetAppCard(onClick = onAddClick)
-            }
+        TargetAppsGrid(
+            apps = apps,
+            onAddClick = onAddClick,
+            onAppClick = onAppClick,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
 
-            items(apps, key = { it.packageName }) { app ->
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun TargetAppsGrid(
+    apps: List<HomeTargetsViewModel.TargetAppUiModel>,
+    onAddClick: () -> Unit,
+    onAppClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    BoxWithConstraints(modifier = modifier) {
+        val columns = 2
+        val horizontalSpacing = 8.dp
+        val itemWidth = (maxWidth - horizontalSpacing * (columns - 1)) / columns
+
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(horizontalSpacing),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            apps.forEach { app ->
                 TargetAppCard(
                     app = app,
                     onClick = { onAppClick(app.packageName) },
+                    modifier = Modifier.width(itemWidth)
                 )
             }
+            AddTargetAppCard(
+                onClick = onAddClick,
+                modifier = Modifier.width(itemWidth)
+            )
         }
     }
 }
 
 @Composable
-fun AddTargetAppCard(onClick: () -> Unit) {
+fun AddTargetAppCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(1f)
-            .clickable(onClick = onClick),
+        modifier = modifier,  // Grid 側から width(itemWidth) が渡される前提
+        onClick = onClick,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        )
+        ),
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center,
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = "アプリを追加")
-                Text("アプリを追加", style = MaterialTheme.typography.bodySmall)
-            }
+            Icon(
+                imageVector = Icons.Filled.AddCircleOutline,
+                contentDescription = "追加",
+                modifier = Modifier.size(40.dp) // TargetAppCard のアイコンと揃える
+            )
+
+            Text(
+                text = "追加",
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                modifier = Modifier
+                    .padding(start = 12.dp)
+                    .weight(1f),
+            )
         }
     }
 }
+
 
 @Composable
 fun TargetAppCard(
     app: HomeTargetsViewModel.TargetAppUiModel,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    val isLong = app.label.displayLength() > 6.0
+    val textStyle = if (isLong) {
+        MaterialTheme.typography.bodySmall
+    } else {
+        MaterialTheme.typography.bodyMedium
+    }
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(1f)
             .clickable(onClick = onClick),
     ) {
-        Column(
-            modifier = Modifier.padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            // アイコンは一旦無し
+            // Drawable → Painter 変換を remember でキャッシュ
+            val iconPainter = remember(app.packageName, app.icon) {
+                app.icon?.let { drawable ->
+                    val bitmap = drawable.toBitmap()          // Drawable → Bitmap
+                    BitmapPainter(bitmap.asImageBitmap())     // Bitmap → Painter
+                }
+            }
+
+            if (iconPainter != null) {
+                Image(
+                    painter = iconPainter,
+                    contentDescription = app.label,
+                    modifier = Modifier.size(40.dp)
+                )
+            } else {
+                // アイコンが取れなかったときのプレースホルダ
+                Box(
+                    modifier = Modifier.size(40.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "？",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+
+            // 右側にアプリ名
             Text(
                 text = app.label,
-                style = MaterialTheme.typography.bodySmall,
+                style = textStyle,
                 maxLines = 2,
+                softWrap = true,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(start = 12.dp)
+                    .weight(1f),
             )
         }
     }
