@@ -25,7 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.example.refocus.domain.stats.SessionStatus
+import com.example.refocus.core.model.SessionStatus
 
 @Composable
 fun SessionHistoryScreen() {

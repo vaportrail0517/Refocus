@@ -30,11 +30,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -104,136 +106,139 @@ fun SuggestionsScreen(
         }
     }
 
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            // 画面のどこをタップしてもフォーカスを外す
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-            ) {
-                focusManager.clearFocus(force = true)
-            }
-    ) {
-        Column(
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("やりたいこと") },
+                windowInsets = WindowInsets(0.dp),
+            )
+        },
+        contentWindowInsets = WindowInsets(0.dp),
+    ) { innerPadding ->
+        Box(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(innerPadding)
+                // 画面のどこをタップしてもフォーカスを外す
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) {
+                    focusManager.clearFocus(force = true)
+                }
         ) {
-            Text(
-                text = "やりたいこと",
-                style = MaterialTheme.typography.titleLarge,
+            Column(
                 modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            )
-
-            if (uiState.suggestions.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "やりたいことはまだ登録されていません。",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            } else {
-                val listState = rememberLazyListState()
-                // 「編集対象ID」が変わったら、そのカード位置までスクロール
-                LaunchedEffect(uiState.editingId, uiState.suggestions) {
-                    val targetId = uiState.editingId ?: return@LaunchedEffect
-                    val index = uiState.suggestions.indexOfFirst { it.id == targetId }
-                    if (index >= 0) {
-                        listState.animateScrollToItem(index)
+                    .fillMaxSize()
+            ) {
+                if (uiState.suggestions.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "やりたいことはまだ登録されていません。",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
-                }
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    state = listState,
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp),
-                ) {
-                    items(
-                        items = uiState.suggestions,
-                        key = { it.id },
-                    ) { suggestion ->
-                        val isEditing = uiState.editingId == suggestion.id
-                        val dismissState = rememberSwipeToDismissBoxState()
-
-                        LaunchedEffect(dismissState.currentValue) {
-                            val value = dismissState.currentValue
-                            if (value != SwipeToDismissBoxValue.Settled) {
-                                pendingDeleteId = suggestion.id
-                                dismissState.snapTo(SwipeToDismissBoxValue.Settled)
-                            }
+                } else {
+                    val listState = rememberLazyListState()
+                    // 「編集対象ID」が変わったら、そのカード位置までスクロール
+                    LaunchedEffect(uiState.editingId, uiState.suggestions) {
+                        val targetId = uiState.editingId ?: return@LaunchedEffect
+                        val index = uiState.suggestions.indexOfFirst { it.id == targetId }
+                        if (index >= 0) {
+                            listState.animateScrollToItem(index)
                         }
+                    }
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        state = listState,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                    ) {
+                        items(
+                            items = uiState.suggestions,
+                            key = { it.id },
+                        ) { suggestion ->
+                            val isEditing = uiState.editingId == suggestion.id
+                            val dismissState = rememberSwipeToDismissBoxState()
 
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 4.dp)
-                        ) {
-                            SwipeToDismissBox(
-                                state = dismissState,
-                                enableDismissFromStartToEnd = true,
-                                enableDismissFromEndToStart = false,
-                                backgroundContent = {
-                                    SwipeToDeleteBackground(dismissState)
-                                },
-                                content = {
-                                    SuggestionCard(
-                                        suggestion = suggestion,
-                                        isEditing = isEditing,
-                                        onStartEditing = { onStartEditing(suggestion.id) },
-                                        onCommitEdit = { text ->
-                                            onCommitEdit(suggestion.id, text)
-                                        },
-                                    )
+                            LaunchedEffect(dismissState.currentValue) {
+                                val value = dismissState.currentValue
+                                if (value != SwipeToDismissBoxValue.Settled) {
+                                    pendingDeleteId = suggestion.id
+                                    dismissState.snapTo(SwipeToDismissBoxValue.Settled)
                                 }
-                            )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp, vertical = 4.dp)
+                            ) {
+                                SwipeToDismissBox(
+                                    state = dismissState,
+                                    enableDismissFromStartToEnd = true,
+                                    enableDismissFromEndToStart = false,
+                                    backgroundContent = {
+                                        SwipeToDeleteBackground(dismissState)
+                                    },
+                                    content = {
+                                        SuggestionCard(
+                                            suggestion = suggestion,
+                                            isEditing = isEditing,
+                                            onStartEditing = { onStartEditing(suggestion.id) },
+                                            onCommitEdit = { text ->
+                                                onCommitEdit(suggestion.id, text)
+                                            },
+                                        )
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
 
-        FloatingActionButton(
-            onClick = onAddClicked,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = "やりたいことを追加"
-            )
-        }
+            FloatingActionButton(
+                onClick = onAddClicked,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "やりたいことを追加"
+                )
+            }
 
-        if (pendingDeleteId != null) {
-            AlertDialog(
-                onDismissRequest = { pendingDeleteId = null },
-                title = { Text("やりたいことを削除しますか？") },
-                text = { Text("このやりたいことを削除すると元には戻せません。") },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            val id = pendingDeleteId
-                            pendingDeleteId = null
-                            if (id != null) {
-                                onDeleteConfirmed(id)
+            if (pendingDeleteId != null) {
+                AlertDialog(
+                    onDismissRequest = { pendingDeleteId = null },
+                    title = { Text("やりたいことを削除しますか？") },
+                    text = { Text("このやりたいことを削除すると元には戻せません。") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                val id = pendingDeleteId
+                                pendingDeleteId = null
+                                if (id != null) {
+                                    onDeleteConfirmed(id)
+                                }
                             }
+                        ) {
+                            Text("削除")
                         }
-                    ) {
-                        Text("削除")
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { pendingDeleteId = null }) {
+                            Text("キャンセル")
+                        }
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { pendingDeleteId = null }) {
-                        Text("キャンセル")
-                    }
-                }
-            )
+                )
+            }
         }
     }
 }

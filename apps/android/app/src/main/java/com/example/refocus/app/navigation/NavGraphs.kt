@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.refocus.feature.appselect.AppSelectScreen
 import com.example.refocus.feature.entry.EntryScreen
+import com.example.refocus.feature.history.SessionHistoryScreen
 import com.example.refocus.feature.home.HomeScreen
 import com.example.refocus.feature.onboarding.OnboardingFinishScreen
 import com.example.refocus.feature.onboarding.OnboardingIntroScreen
@@ -28,6 +29,7 @@ object Destinations {
     const val ONBOARDING_START_MODE = "onboarding_start_mode"
     const val ONBOARDING_FINISH = "onboarding_finish"
     const val HOME = "home"
+    const val HISTORY = "history"
 }
 
 @Composable
@@ -144,6 +146,10 @@ fun RefocusNavHost(
             )
         }
 
+        composable(Destinations.HISTORY) {
+            SessionHistoryScreen()
+        }
+
         composable(Destinations.HOME) {
             HomeScreen(
                 onOpenAppSelect = {
@@ -151,7 +157,14 @@ fun RefocusNavHost(
                 },
                 onOpenPermissionFixFlow = {
                     navController.navigate(Destinations.PERMISSION_FLOW_FIX)
-                }
+                },
+                onOpenHistory = {
+                    navController.navigate(Destinations.HISTORY)
+                },
+                onOpenStatsDetail = { section ->
+                    // TODO: 統計詳細画面に飛ばすならここでナビゲーションを書く
+                    // 例えば stats の詳細タブ付き画面を作るなど
+                },
             )
         }
     }

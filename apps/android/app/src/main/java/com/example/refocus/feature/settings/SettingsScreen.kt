@@ -4,10 +4,19 @@ import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +37,7 @@ import com.example.refocus.system.overlay.stopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onOpenAppSelect: () -> Unit,
@@ -94,266 +104,293 @@ fun SettingsScreen(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        if (!isAdvancedMode) {
-            // ================= 基本設定 =================
-            BasicSettingsContent(
-                uiState = uiState,
-                usageGranted = usageGranted,
-                overlayGranted = overlayGranted,
-                hasCorePermissions = hasCorePermissions,
-                isServiceRunning = isServiceRunning,
-                onServiceRunningChange = { isServiceRunning = it },
-                onOpenAppSelect = onOpenAppSelect,
-                onRequireCorePermission = {
-                    activeDialog = SettingsDialogType.CorePermissionRequired
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = if (isAdvancedMode) "詳細設定" else "設定",
+                    )
                 },
-                onOpenAdvanced = { isAdvancedMode = true },
-                viewModel = viewModel,
-                context = context,
-                activity = activity,
+                actions = {
+                    IconButton(onClick = { isAdvancedMode = !isAdvancedMode }) {
+                        Icon(
+//                            imageVector = Icons.Filled.Tune,
+                            imageVector = Icons.Filled.SwapHoriz,
+                            contentDescription = if (isAdvancedMode) {
+                                "基本設定に切り替え"
+                            } else {
+                                "詳細設定に切り替え"
+                            },
+                        )
+                    }
+                },
+                windowInsets = WindowInsets(0.dp),
             )
-        } else {
-            // ================= 詳細設定 =================
-            AdvancedSettingsContent(
-                uiState = uiState,
-                onBackToBasic = { isAdvancedMode = false },
-                onOpenGraceDialog = { activeDialog = SettingsDialogType.GraceTime },
-                onOpenPollingDialog = { activeDialog = SettingsDialogType.PollingInterval },
-                onOpenFontDialog = {
-                    fontRange = uiState.settings.minFontSizeSp..
-                            uiState.settings.maxFontSizeSp
-                    activeDialog = SettingsDialogType.FontRange
-                },
-                onOpenTimeToMaxDialog = { activeDialog = SettingsDialogType.TimeToMax },
-                onOpenSuggestionTriggerDialog = {
-                    activeDialog = SettingsDialogType.SuggestionTriggerTime
-                },
-                onOpenSuggestionForegroundStableDialog = {
-                    activeDialog = SettingsDialogType.SuggestionForegroundStable
-                },
-                onOpenSuggestionCooldownDialog = {
-                    activeDialog = SettingsDialogType.SuggestionCooldown
-                },
-                onOpenSuggestionTimeoutDialog = {
-                    activeDialog = SettingsDialogType.SuggestionTimeout
-                },
-                onOpenSuggestionInteractionLockoutDialog = {
-                    activeDialog = SettingsDialogType.SuggestionInteractionLockout
-                },
-                onOpenGrowthModeDialog = { activeDialog = SettingsDialogType.GrowthMode },
-                onOpenColorModeDialog = { activeDialog = SettingsDialogType.ColorMode },
-                onOpenFixedColorDialog = { activeDialog = SettingsDialogType.FixedColor },
-                onOpenGradientStartColorDialog = {
-                    activeDialog = SettingsDialogType.GradientStartColor
-                },
-                onOpenGradientMiddleColorDialog = {
-                    activeDialog = SettingsDialogType.GradientMiddleColor
-                },
-                onOpenGradientEndColorDialog = {
-                    activeDialog = SettingsDialogType.GradientEndColor
-                },
-                viewModel = viewModel,
-            )
-        }
-
-        when (activeDialog) {
-            SettingsDialogType.GraceTime -> {
-                GraceTimeDialog(
-                    currentMillis = uiState.settings.gracePeriodMillis,
-                    onConfirm = { newMillis ->
-                        viewModel.updateGracePeriodMillis(newMillis)
-                        activeDialog = null
+        },
+        contentWindowInsets = WindowInsets(0.dp),
+    ) { innerPadding ->
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(innerPadding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (!isAdvancedMode) {
+                // ================= 基本設定 =================
+                BasicSettingsContent(
+                    uiState = uiState,
+                    usageGranted = usageGranted,
+                    overlayGranted = overlayGranted,
+                    hasCorePermissions = hasCorePermissions,
+                    isServiceRunning = isServiceRunning,
+                    onServiceRunningChange = { isServiceRunning = it },
+                    onOpenAppSelect = onOpenAppSelect,
+                    onRequireCorePermission = {
+                        activeDialog = SettingsDialogType.CorePermissionRequired
                     },
-                    onDismiss = { activeDialog = null }
+                    onOpenAdvanced = { isAdvancedMode = true },
+                    viewModel = viewModel,
+                    context = context,
+                    activity = activity,
                 )
-            }
-
-            SettingsDialogType.PollingInterval -> {
-                PollingIntervalDialog(
-                    currentMillis = uiState.settings.pollingIntervalMillis,
-                    onConfirm = { newMs ->
-                        viewModel.updatePollingIntervalMillis(newMs)
-                        activeDialog = null
+            } else {
+                // ================= 詳細設定 =================
+                AdvancedSettingsContent(
+                    uiState = uiState,
+                    onBackToBasic = { isAdvancedMode = false },
+                    onOpenGraceDialog = { activeDialog = SettingsDialogType.GraceTime },
+                    onOpenPollingDialog = { activeDialog = SettingsDialogType.PollingInterval },
+                    onOpenFontDialog = {
+                        fontRange = uiState.settings.minFontSizeSp..
+                                uiState.settings.maxFontSizeSp
+                        activeDialog = SettingsDialogType.FontRange
                     },
-                    onDismiss = { activeDialog = null }
-                )
-            }
-
-            SettingsDialogType.FontRange -> {
-                FontRangeDialog(
-                    initialRange = fontRange,
-                    onConfirm = { newRange ->
-                        val minFontSpLimit = 8f
-                        val maxFontSpLimit = 96f
-                        val clampedMin =
-                            newRange.start.coerceIn(minFontSpLimit, maxFontSpLimit)
-                        val clampedMax =
-                            newRange.endInclusive.coerceIn(clampedMin, maxFontSpLimit)
-                        viewModel.updateMinFontSizeSp(clampedMin)
-                        viewModel.updateMaxFontSizeSp(clampedMax)
-                        activeDialog = null
+                    onOpenTimeToMaxDialog = { activeDialog = SettingsDialogType.TimeToMax },
+                    onOpenSuggestionTriggerDialog = {
+                        activeDialog = SettingsDialogType.SuggestionTriggerTime
                     },
-                    onDismiss = { activeDialog = null }
-                )
-            }
-
-            SettingsDialogType.TimeToMax -> {
-                TimeToMaxDialog(
-                    currentMinutes = uiState.settings.timeToMaxMinutes,
-                    onConfirm = { minutes ->
-                        viewModel.updateTimeToMaxMinutes(minutes)
-                        activeDialog = null
+                    onOpenSuggestionForegroundStableDialog = {
+                        activeDialog = SettingsDialogType.SuggestionForegroundStable
                     },
-                    onDismiss = { activeDialog = null }
-                )
-            }
-
-            SettingsDialogType.CorePermissionRequired -> {
-                CorePermissionRequiredDialog(
-                    onStartPermissionFixFlow = {
-                        activeDialog = null
-                        onOpenPermissionFixFlow()
+                    onOpenSuggestionCooldownDialog = {
+                        activeDialog = SettingsDialogType.SuggestionCooldown
                     },
-                    onDismiss = { activeDialog = null }
-                )
-            }
-
-            SettingsDialogType.SuggestionFeatureRequired -> {
-                SuggestionFeatureRequiredDialog(
-                    onDismiss = { activeDialog = null }
-                )
-            }
-
-            SettingsDialogType.SuggestionTriggerTime -> {
-                SuggestionTriggerTimeDialog(
-                    currentSeconds = uiState.settings.suggestionTriggerSeconds,
-                    onConfirm = { seconds ->
-                        viewModel.updateSuggestionTriggerSeconds(seconds)
-                        activeDialog = null
+                    onOpenSuggestionTimeoutDialog = {
+                        activeDialog = SettingsDialogType.SuggestionTimeout
                     },
-                    onDismiss = { activeDialog = null },
-                )
-            }
-
-            SettingsDialogType.SuggestionForegroundStable -> {
-                SuggestionForegroundStableDialog(
-                    currentSeconds = uiState.settings.suggestionForegroundStableSeconds,
-                    onConfirm = { seconds ->
-                        viewModel.updateSuggestionForegroundStableSeconds(seconds)
-                        activeDialog = null
+                    onOpenSuggestionInteractionLockoutDialog = {
+                        activeDialog = SettingsDialogType.SuggestionInteractionLockout
                     },
-                    onDismiss = { activeDialog = null },
-                )
-            }
-
-            SettingsDialogType.SuggestionCooldown -> {
-                SuggestionCooldownDialog(
-                    currentSeconds = uiState.settings.suggestionCooldownSeconds,
-                    onConfirm = { seconds ->
-                        viewModel.updateSuggestionCooldownSeconds(seconds)
-                        activeDialog = null
+                    onOpenGrowthModeDialog = { activeDialog = SettingsDialogType.GrowthMode },
+                    onOpenColorModeDialog = { activeDialog = SettingsDialogType.ColorMode },
+                    onOpenFixedColorDialog = { activeDialog = SettingsDialogType.FixedColor },
+                    onOpenGradientStartColorDialog = {
+                        activeDialog = SettingsDialogType.GradientStartColor
                     },
-                    onDismiss = { activeDialog = null },
-                )
-            }
-
-            SettingsDialogType.SuggestionTimeout -> {
-                SuggestionTimeoutDialog(
-                    currentSeconds = uiState.settings.suggestionTimeoutSeconds,
-                    onConfirm = { seconds ->
-                        viewModel.updateSuggestionTimeoutSeconds(seconds)
-                        activeDialog = null
+                    onOpenGradientMiddleColorDialog = {
+                        activeDialog = SettingsDialogType.GradientMiddleColor
                     },
-                    onDismiss = { activeDialog = null },
-                )
-            }
-
-            SettingsDialogType.SuggestionInteractionLockout -> {
-                SuggestionInteractionLockoutDialog(
-                    currentMillis = uiState.settings.suggestionInteractionLockoutMillis,
-                    onConfirm = { millis ->
-                        viewModel.updateSuggestionInteractionLockoutMillis(millis)
-                        activeDialog = null
+                    onOpenGradientEndColorDialog = {
+                        activeDialog = SettingsDialogType.GradientEndColor
                     },
-                    onDismiss = { activeDialog = null },
+                    viewModel = viewModel,
                 )
             }
 
-            SettingsDialogType.GrowthMode -> {
-                GrowthModeDialog(
-                    current = uiState.settings.growthMode,
-                    onConfirm = { mode ->
-                        viewModel.updateGrowthMode(mode)
-                        activeDialog = null
-                    },
-                    onDismiss = { activeDialog = null },
-                )
-            }
+            when (activeDialog) {
+                SettingsDialogType.GraceTime -> {
+                    GraceTimeDialog(
+                        currentMillis = uiState.settings.gracePeriodMillis,
+                        onConfirm = { newMillis ->
+                            viewModel.updateGracePeriodMillis(newMillis)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null }
+                    )
+                }
 
-            SettingsDialogType.ColorMode -> {
-                ColorModeDialog(
-                    current = uiState.settings.colorMode,
-                    onConfirm = { mode ->
-                        viewModel.updateColorMode(mode)
-                        activeDialog = null
-                    },
-                    onDismiss = { activeDialog = null },
-                )
-            }
+                SettingsDialogType.PollingInterval -> {
+                    PollingIntervalDialog(
+                        currentMillis = uiState.settings.pollingIntervalMillis,
+                        onConfirm = { newMs ->
+                            viewModel.updatePollingIntervalMillis(newMs)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null }
+                    )
+                }
 
-            SettingsDialogType.FixedColor -> {
-                FixedColorDialog(
-                    currentColorArgb = uiState.settings.fixedColorArgb,
-                    onConfirm = { argb ->
-                        viewModel.updateFixedColorArgb(argb)
-                        activeDialog = null
-                    },
-                    onDismiss = { activeDialog = null },
-                )
-            }
+                SettingsDialogType.FontRange -> {
+                    FontRangeDialog(
+                        initialRange = fontRange,
+                        onConfirm = { newRange ->
+                            val minFontSpLimit = 8f
+                            val maxFontSpLimit = 96f
+                            val clampedMin =
+                                newRange.start.coerceIn(minFontSpLimit, maxFontSpLimit)
+                            val clampedMax =
+                                newRange.endInclusive.coerceIn(clampedMin, maxFontSpLimit)
+                            viewModel.updateMinFontSizeSp(clampedMin)
+                            viewModel.updateMaxFontSizeSp(clampedMax)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null }
+                    )
+                }
 
-            SettingsDialogType.GradientStartColor -> {
-                GradientStartColorDialog(
-                    currentColorArgb = uiState.settings.gradientStartColorArgb,
-                    onConfirm = { argb ->
-                        viewModel.updateGradientStartColorArgb(argb)
-                        activeDialog = null
-                    },
-                    onDismiss = { activeDialog = null },
-                )
-            }
+                SettingsDialogType.TimeToMax -> {
+                    TimeToMaxDialog(
+                        currentMinutes = uiState.settings.timeToMaxMinutes,
+                        onConfirm = { minutes ->
+                            viewModel.updateTimeToMaxMinutes(minutes)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null }
+                    )
+                }
 
-            SettingsDialogType.GradientMiddleColor -> {
-                GradientMiddleColorDialog(
-                    currentColorArgb = uiState.settings.gradientMiddleColorArgb,
-                    onConfirm = { argb ->
-                        viewModel.updateGradientMiddleColorArgb(argb)
-                        activeDialog = null
-                    },
-                    onDismiss = { activeDialog = null },
-                )
-            }
+                SettingsDialogType.CorePermissionRequired -> {
+                    CorePermissionRequiredDialog(
+                        onStartPermissionFixFlow = {
+                            activeDialog = null
+                            onOpenPermissionFixFlow()
+                        },
+                        onDismiss = { activeDialog = null }
+                    )
+                }
 
-            SettingsDialogType.GradientEndColor -> {
-                GradientEndColorDialog(
-                    currentColorArgb = uiState.settings.gradientEndColorArgb,
-                    onConfirm = { argb ->
-                        viewModel.updateGradientEndColorArgb(argb)
-                        activeDialog = null
-                    },
-                    onDismiss = { activeDialog = null },
-                )
-            }
+                SettingsDialogType.SuggestionFeatureRequired -> {
+                    SuggestionFeatureRequiredDialog(
+                        onDismiss = { activeDialog = null }
+                    )
+                }
 
-            null -> Unit
+                SettingsDialogType.SuggestionTriggerTime -> {
+                    SuggestionTriggerTimeDialog(
+                        currentSeconds = uiState.settings.suggestionTriggerSeconds,
+                        onConfirm = { seconds ->
+                            viewModel.updateSuggestionTriggerSeconds(seconds)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null },
+                    )
+                }
+
+                SettingsDialogType.SuggestionForegroundStable -> {
+                    SuggestionForegroundStableDialog(
+                        currentSeconds = uiState.settings.suggestionForegroundStableSeconds,
+                        onConfirm = { seconds ->
+                            viewModel.updateSuggestionForegroundStableSeconds(seconds)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null },
+                    )
+                }
+
+                SettingsDialogType.SuggestionCooldown -> {
+                    SuggestionCooldownDialog(
+                        currentSeconds = uiState.settings.suggestionCooldownSeconds,
+                        onConfirm = { seconds ->
+                            viewModel.updateSuggestionCooldownSeconds(seconds)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null },
+                    )
+                }
+
+                SettingsDialogType.SuggestionTimeout -> {
+                    SuggestionTimeoutDialog(
+                        currentSeconds = uiState.settings.suggestionTimeoutSeconds,
+                        onConfirm = { seconds ->
+                            viewModel.updateSuggestionTimeoutSeconds(seconds)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null },
+                    )
+                }
+
+                SettingsDialogType.SuggestionInteractionLockout -> {
+                    SuggestionInteractionLockoutDialog(
+                        currentMillis = uiState.settings.suggestionInteractionLockoutMillis,
+                        onConfirm = { millis ->
+                            viewModel.updateSuggestionInteractionLockoutMillis(millis)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null },
+                    )
+                }
+
+                SettingsDialogType.GrowthMode -> {
+                    GrowthModeDialog(
+                        current = uiState.settings.growthMode,
+                        onConfirm = { mode ->
+                            viewModel.updateGrowthMode(mode)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null },
+                    )
+                }
+
+                SettingsDialogType.ColorMode -> {
+                    ColorModeDialog(
+                        current = uiState.settings.colorMode,
+                        onConfirm = { mode ->
+                            viewModel.updateColorMode(mode)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null },
+                    )
+                }
+
+                SettingsDialogType.FixedColor -> {
+                    FixedColorDialog(
+                        currentColorArgb = uiState.settings.fixedColorArgb,
+                        onConfirm = { argb ->
+                            viewModel.updateFixedColorArgb(argb)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null },
+                    )
+                }
+
+                SettingsDialogType.GradientStartColor -> {
+                    GradientStartColorDialog(
+                        currentColorArgb = uiState.settings.gradientStartColorArgb,
+                        onConfirm = { argb ->
+                            viewModel.updateGradientStartColorArgb(argb)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null },
+                    )
+                }
+
+                SettingsDialogType.GradientMiddleColor -> {
+                    GradientMiddleColorDialog(
+                        currentColorArgb = uiState.settings.gradientMiddleColorArgb,
+                        onConfirm = { argb ->
+                            viewModel.updateGradientMiddleColorArgb(argb)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null },
+                    )
+                }
+
+                SettingsDialogType.GradientEndColor -> {
+                    GradientEndColorDialog(
+                        currentColorArgb = uiState.settings.gradientEndColorArgb,
+                        onConfirm = { argb ->
+                            viewModel.updateGradientEndColorArgb(argb)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null },
+                    )
+                }
+
+                null -> Unit
+            }
         }
     }
 }
-
