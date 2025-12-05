@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionStatus
+import com.example.refocus.core.util.formatDurationMilliSeconds
 import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.domain.stats.SessionStatsCalculator
 import com.example.refocus.system.monitor.ForegroundAppMonitor
@@ -21,7 +22,6 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @HiltViewModel
@@ -110,10 +110,8 @@ class SessionHistoryViewModel @Inject constructor(
         )
         // それを UI 用に整形
         val uiModels = statsList.map { stats ->
-            val durationText = when (stats.status) {
-                SessionStatus.GRACE -> "" // GRACE 中は空でもよい（好みで変えてOK）
-                else -> formatDuration(stats.durationMillis)
-            }
+            val durationText = formatDurationMilliSeconds(stats.durationMillis)
+
             val pauseUiList = stats.pauseResumeEvents.map { pauseStats ->
                 PauseResumeUiModel(
                     pausedAtText = formatDateTime(pauseStats.pausedAtMillis),
@@ -153,18 +151,5 @@ class SessionHistoryViewModel @Inject constructor(
 
     private fun formatDateTime(millis: Long): String {
         return dateTimeFormat.format(Date(millis))
-    }
-
-    private fun formatDuration(durationMillis: Long): String {
-        val totalSeconds = TimeUnit.MILLISECONDS.toSeconds(durationMillis)
-        val minutes = totalSeconds / 60
-        val seconds = totalSeconds % 60
-        val hours = minutes / 60
-        val remMinutes = minutes % 60
-        return if (hours > 0) {
-            String.format("%d時間%02d分%02d秒", hours, remMinutes, seconds)
-        } else {
-            String.format("%d分%02d秒", minutes, seconds)
-        }
     }
 }

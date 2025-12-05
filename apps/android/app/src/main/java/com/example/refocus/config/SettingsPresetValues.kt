@@ -36,7 +36,7 @@ object SettingsPresetValues {
 
     // デバッグ用
     val Debug: Settings = Settings(
-        gracePeriodMillis = 30_000L,
+        gracePeriodMillis = 10_000L,
         pollingIntervalMillis = 500L,
         minFontSizeSp = 32f,
         maxFontSizeSp = 96f,

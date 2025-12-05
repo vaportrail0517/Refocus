@@ -16,6 +16,7 @@ import com.example.refocus.feature.onboarding.OnboardingIntroScreen
 import com.example.refocus.feature.onboarding.OnboardingReadyScreen
 import com.example.refocus.feature.onboarding.OnboardingStartModeScreen
 import com.example.refocus.feature.permission.PermissionFlowScreen
+import com.example.refocus.feature.settings.SettingsScreen
 import com.example.refocus.system.overlay.startOverlayService
 
 object Destinations {
@@ -30,6 +31,7 @@ object Destinations {
     const val ONBOARDING_FINISH = "onboarding_finish"
     const val HOME = "home"
     const val HISTORY = "history"
+    const val SETTINGS = "settings"
 }
 
 @Composable
@@ -154,6 +156,20 @@ fun RefocusNavHost(
             )
         }
 
+        composable(Destinations.SETTINGS) {
+            SettingsScreen(
+                onOpenAppSelect = {
+                    navController.navigate(Destinations.APP_SELECT_SETTINGS)
+                },
+                onOpenPermissionFixFlow = {
+                    navController.navigate(Destinations.PERMISSION_FLOW_FIX)
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
         composable(Destinations.HOME) {
             MainScreen(
                 onOpenAppSelect = {
@@ -169,6 +185,9 @@ fun RefocusNavHost(
                     // TODO: 統計詳細画面に飛ばすならここでナビゲーションを書く
                     // 例えば stats の詳細タブ付き画面を作るなど
                 },
+                onOpenSettings = {
+                    navController.navigate(Destinations.SETTINGS)
+                }
             )
         }
     }

@@ -62,7 +62,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.refocus.core.model.DailyStats
 import com.example.refocus.core.util.displayLength
 import com.example.refocus.core.util.formatDurationMilliSeconds
-import com.example.refocus.feature.settings.SettingsViewModel
+import com.example.refocus.feature.customize.CustomizeViewModel
 import com.example.refocus.feature.stats.StatsDetailSection
 import com.example.refocus.feature.stats.StatsViewModel
 import com.example.refocus.system.overlay.OverlayService
@@ -73,20 +73,20 @@ import com.example.refocus.system.permissions.PermissionHelper
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeRoute(
-    onOpenHistory: () -> Unit,
     onOpenStatsDetail: (StatsDetailSection) -> Unit = {},
     onOpenPermissionFixFlow: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAppSelect: () -> Unit,
+//    onOpenCustomize: () -> Unit,
     statsViewModel: StatsViewModel = hiltViewModel(),
-    settingsViewModel: SettingsViewModel = hiltViewModel(),
+    customizeViewModel: CustomizeViewModel = hiltViewModel(),
     targetsViewModel: HomeViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val statsUiState = statsViewModel.uiState.collectAsStateWithLifecycle().value
-    val settingsUiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
+    val settingsUiState by customizeViewModel.uiState.collectAsStateWithLifecycle()
     val targetAppsState = targetsViewModel.targetApps.collectAsStateWithLifecycle()
     val targetApps = targetAppsState.value
 
@@ -105,9 +105,9 @@ fun HomeRoute(
                 isServiceRunning = OverlayService.isRunning
 
                 if (!hasCorePermissions) {
-                    val latest = settingsViewModel.uiState.value
+                    val latest = customizeViewModel.uiState.value
                     if (latest.settings.overlayEnabled || isServiceRunning) {
-                        settingsViewModel.updateOverlayEnabled(false)
+                        customizeViewModel.updateOverlayEnabled(false)
                         context.stopOverlayService()
                         isServiceRunning = false
                     }
@@ -129,11 +129,11 @@ fun HomeRoute(
                         return@HomeTopBar
                     }
                     if (wantRunning) {
-                        settingsViewModel.updateOverlayEnabled(true)
+                        customizeViewModel.updateOverlayEnabled(true)
                         context.startOverlayService()
                         isServiceRunning = true
                     } else {
-                        settingsViewModel.updateOverlayEnabled(false)
+                        customizeViewModel.updateOverlayEnabled(false)
                         context.stopOverlayService()
                         isServiceRunning = false
                     }
@@ -149,7 +149,6 @@ fun HomeRoute(
             targetApps = targetApps,
             hasCorePermissions = hasCorePermissions,
             innerPadding = innerPadding,
-            onOpenHistory = onOpenHistory,
             onOpenStatsDetail = onOpenStatsDetail,
             onOpenPermissionFixFlow = onOpenPermissionFixFlow,
             onOpenAppSelect = onOpenAppSelect,
@@ -201,7 +200,6 @@ private fun HomeContent(
     targetApps: List<HomeViewModel.TargetAppUiModel>,
     hasCorePermissions: Boolean,
     innerPadding: PaddingValues,
-    onOpenHistory: () -> Unit,
     onOpenStatsDetail: (StatsDetailSection) -> Unit,
     onOpenPermissionFixFlow: () -> Unit,
     onOpenAppSelect: () -> Unit,

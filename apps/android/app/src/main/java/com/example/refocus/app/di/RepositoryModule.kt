@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.datastore.SettingsDataStore
 import com.example.refocus.data.datastore.TargetsDataStore
+import com.example.refocus.data.db.RefocusDatabase
 import com.example.refocus.data.db.dao.SessionDao
 import com.example.refocus.data.db.dao.SessionEventDao
 import com.example.refocus.data.db.dao.SuggestionDao
@@ -13,6 +14,7 @@ import com.example.refocus.data.repository.SessionRepositoryImpl
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.data.repository.SuggestionsRepository
 import com.example.refocus.data.repository.TargetsRepository
+import com.example.refocus.domain.app.AppDataResetter
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -63,4 +65,16 @@ object RepositoryModule {
     fun provideOnboardingRepository(
         @ApplicationContext context: Context
     ): OnboardingRepository = OnboardingRepository(context)
+
+    @Provides
+    @Singleton
+    fun provideAppDataResetter(
+        database: RefocusDatabase,
+        settingsRepository: SettingsRepository,
+        targetsRepository: TargetsRepository,
+    ): AppDataResetter = AppDataResetter(
+        database = database,
+        settingsRepository = settingsRepository,
+        targetsRepository = targetsRepository,
+    )
 }

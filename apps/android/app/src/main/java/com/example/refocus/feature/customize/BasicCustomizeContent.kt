@@ -1,4 +1,4 @@
-package com.example.refocus.feature.settings
+package com.example.refocus.feature.customize
 
 import android.app.Activity
 import android.content.Context
@@ -22,8 +22,8 @@ import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
 
 @Composable
-fun BasicSettingsContent(
-    uiState: SettingsViewModel.UiState,
+fun BasicCustomizeContent(
+    uiState: CustomizeViewModel.UiState,
     usageGranted: Boolean,
     overlayGranted: Boolean,
     hasCorePermissions: Boolean,
@@ -32,7 +32,8 @@ fun BasicSettingsContent(
     onOpenAppSelect: () -> Unit,
     onRequireCorePermission: () -> Unit,
     onOpenAdvanced: () -> Unit,
-    viewModel: SettingsViewModel,
+    onResetAllData: () -> Unit,
+    viewModel: CustomizeViewModel,
     context: Context,
     activity: Activity?,
 ) {
@@ -150,6 +151,15 @@ fun BasicSettingsContent(
                 }
                 viewModel.updateAutoStartOnBoot(!uiState.settings.autoStartOnBoot)
             }
+        )
+    }
+
+    // --- tmp ---
+    SectionCard(title = "データ") {
+        SettingRow(
+            title = "アプリの初期化",
+            subtitle = "全セッションの記録や登録した提案などを削除し，設定もデフォルトに戻します．",
+            onClick = onResetAllData,
         )
     }
 

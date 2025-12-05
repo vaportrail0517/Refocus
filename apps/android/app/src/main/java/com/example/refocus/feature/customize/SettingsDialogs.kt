@@ -1,4 +1,4 @@
-package com.example.refocus.feature.settings
+package com.example.refocus.feature.customize
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -32,6 +32,7 @@ sealed interface SettingsDialogType {
     data object GradientStartColor : SettingsDialogType
     data object GradientMiddleColor : SettingsDialogType
     data object GradientEndColor : SettingsDialogType
+    data object AppDataReset : SettingsDialogType
 }
 
 /**
@@ -454,6 +455,21 @@ fun GradientEndColorDialog(
         description = "タイマーが最大サイズになったときに使う色を選びます。",
         initialColorArgb = currentColorArgb.takeIf { it != 0 },
         onConfirm = onConfirm,
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+fun AppDataResetDialog(
+    onResetAllData: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    SettingsBaseDialog(
+        title = "アプリの初期化",
+        description = "削除したデータを復元することは出来ません．本当に削除しますか？",
+        confirmLabel = "削除する",
+        dismissLabel = "キャンセル",
+        onConfirm = onResetAllData,
         onDismiss = onDismiss,
     )
 }

@@ -3,7 +3,6 @@ package com.example.refocus.domain.session
 import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionPart
-import com.example.refocus.core.model.SessionStats
 import com.example.refocus.domain.stats.SessionStatsCalculator
 import java.time.Instant
 import java.time.ZoneId
@@ -16,14 +15,6 @@ import java.time.ZoneId
  */
 object SessionPartGenerator {
 
-    /**
-     * 全セッションの SessionPart を生成する。
-     *
-     * @param sessions Repository から取得した Session 一覧
-     * @param eventsBySessionId 同じく Repository から取得した sessionId -> events のマップ
-     * @param nowMillis 未終了セッションの duration 計算に使う現在時刻（SessionStatsCalculator と同じ）
-     * @param zoneId 日付計算に使うタイムゾーン（通常は systemDefault）
-     */
     fun generateParts(
         sessions: List<Session>,
         eventsBySessionId: Map<Long, List<SessionEvent>>,
@@ -32,68 +23,76 @@ object SessionPartGenerator {
     ): List<SessionPart> {
         if (sessions.isEmpty()) return emptyList()
 
-        // 1. まず SessionStats を作って startedAt / endedAt を確定させる
-        val statsList: List<SessionStats> =
-            SessionStatsCalculator.buildSessionStats(
-                sessions = sessions,
-                eventsMap = eventsBySessionId,
-                foregroundPackage = null, // 統計用途なので foregroundPackage は使わない
-                nowMillis = nowMillis,
-            )
-
+        // stats は主に packageName / status の補助情報として取得
+        val statsList = SessionStatsCalculator.buildSessionStats(
+            sessions = sessions,
+            eventsMap = eventsBySessionId,
+            foregroundPackage = null,
+            nowMillis = nowMillis,
+        )
         val statsById = statsList.associateBy { it.id }
 
-        val result = mutableListOf<SessionPart>()
+        val parts = mutableListOf<SessionPart>()
 
-        // 2. 各セッションについて、日付境界で分割した SessionPart を生成
         for (session in sessions) {
             val id = session.id ?: continue
             val stats = statsById[id] ?: continue
 
-            // 統計は「完了したセッション（End まで行ったもの）」だけを対象にする
-            val endedAtMillis = stats.endedAtMillis ?: continue
+            // ★ ここで FINISHED だけに絞らないことがポイント
+            //    GRACE や RUNNING も含めたいならフィルタ不要
+            //    （ステータス別に制御したければここで条件分岐してもよい）
 
-            val startInstant = Instant.ofEpochMilli(stats.startedAtMillis)
-            val endInstant = Instant.ofEpochMilli(endedAtMillis)
+            val events = eventsBySessionId[id].orEmpty()
+            if (events.isEmpty()) continue
 
-            var current = startInstant.atZone(zoneId)
-            val endZdt = endInstant.atZone(zoneId)
+            // Start / Pause / Resume / End からアクティブ区間リストを算出
+            val activeSegments =
+                SessionDurationCalculator.buildActiveSegments(events, nowMillis)
+            if (activeSegments.isEmpty()) continue
 
-            while (!current.toLocalDate().isAfter(endZdt.toLocalDate())) {
-                val date = current.toLocalDate()
+            // 各アクティブ区間を日付境界で切り分けて SessionPart を生成
+            for (segment in activeSegments) {
+                val startInstant = Instant.ofEpochMilli(segment.startMillis)
+                val endInstant = Instant.ofEpochMilli(segment.endMillis)
 
-                // その日の 0:00〜24:00 の境界
-                val dayStart = date.atStartOfDay(zoneId)
-                val dayEnd = dayStart.plusDays(1)
+                var current = startInstant.atZone(zoneId)
+                val endZdt = endInstant.atZone(zoneId)
 
-                // セッション区間との交差
-                val segStart = maxOf(current, dayStart)
-                val segEnd = minOf(endZdt, dayEnd)
+                while (!current.toLocalDate().isAfter(endZdt.toLocalDate())) {
+                    val date = current.toLocalDate()
 
-                if (segStart.isBefore(segEnd)) {
-                    val startMinutes =
-                        segStart.toLocalTime().hour * 60 + segStart.toLocalTime().minute
-                    val endMinutes =
-                        segEnd.toLocalTime().hour * 60 + segEnd.toLocalTime().minute
-                    val durationMillis =
-                        java.time.Duration.between(segStart, segEnd).toMillis()
+                    val dayStart = date.atStartOfDay(zoneId)
+                    val dayEnd = dayStart.plusDays(1)
 
-                    result += SessionPart(
-                        sessionId = id,
-                        packageName = session.packageName,
-                        date = date,
-                        startDateTime = segStart.toInstant(),
-                        endDateTime = segEnd.toInstant(),
-                        startMinutesOfDay = startMinutes,
-                        endMinutesOfDay = endMinutes,
-                        durationMillis = durationMillis,
-                    )
+                    val segStart = maxOf(current, dayStart)
+                    val segEnd = minOf(endZdt, dayEnd)
+
+                    if (segStart.isBefore(segEnd)) {
+                        val startMinutes =
+                            segStart.toLocalTime().hour * 60 + segStart.toLocalTime().minute
+                        val endMinutes =
+                            segEnd.toLocalTime().hour * 60 + segEnd.toLocalTime().minute
+                        val durationMillis =
+                            java.time.Duration.between(segStart, segEnd).toMillis()
+
+                        parts += SessionPart(
+                            sessionId = id,
+                            packageName = session.packageName,
+                            date = date,
+                            startDateTime = segStart.toInstant(),
+                            endDateTime = segEnd.toInstant(),
+                            startMinutesOfDay = startMinutes,
+                            endMinutesOfDay = endMinutes,
+                            durationMillis = durationMillis,
+                        )
+                    }
+
+                    // 次の日へ
+                    current = date.plusDays(1).atStartOfDay(zoneId)
                 }
-
-                // 次の日へ
-                current = date.plusDays(1).atStartOfDay(zoneId)
             }
         }
-        return result
+
+        return parts
     }
 }

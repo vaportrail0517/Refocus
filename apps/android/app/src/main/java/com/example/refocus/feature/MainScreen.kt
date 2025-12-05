@@ -18,8 +18,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import com.example.refocus.feature.customize.CustomizeScreen
 import com.example.refocus.feature.home.HomeRoute
-import com.example.refocus.feature.settings.SettingsScreen
 import com.example.refocus.feature.stats.StatsDetailSection
 import com.example.refocus.feature.stats.StatsRoute
 import com.example.refocus.feature.suggestions.SuggestionsRoute
@@ -29,7 +29,7 @@ enum class MainTab {
     Home,
     Suggestions,
     Stats,
-    Settings
+    Customize
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -39,6 +39,7 @@ fun MainScreen(
     onOpenPermissionFixFlow: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenStatsDetail: (StatsDetailSection) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val tabs = MainTab.entries
     val initialPage = tabs.indexOf(MainTab.Home).coerceAtLeast(0)
@@ -70,21 +71,21 @@ fun MainScreen(
         ) { page ->
             when (tabs[page]) {
                 MainTab.Home -> HomeRoute(
-                    onOpenHistory = onOpenHistory,
                     onOpenStatsDetail = onOpenStatsDetail,
                     onOpenPermissionFixFlow = onOpenPermissionFixFlow,
-                    onOpenSettings = {
-                        val index = tabs.indexOf(MainTab.Settings).coerceAtLeast(0)
-                        scope.launch {
-                            pagerState.animateScrollToPage(index)
-                        }
-                    },
+//                    onOpenCustomize = {
+//                        val index = tabs.indexOf(MainTab.Customize).coerceAtLeast(0)
+//                        scope.launch {
+//                            pagerState.animateScrollToPage(index)
+//                        }
+//                    },
                     onOpenAppSelect = onOpenAppSelect,
+                    onOpenSettings = onOpenSettings,
                 )
 
                 MainTab.Suggestions -> SuggestionsRoute()
                 MainTab.Stats -> StatsRoute(onOpenHistory = onOpenHistory)
-                MainTab.Settings -> SettingsScreen(
+                MainTab.Customize -> CustomizeScreen(
                     onOpenAppSelect = onOpenAppSelect,
                     onOpenPermissionFixFlow = onOpenPermissionFixFlow,
                 )
@@ -121,9 +122,9 @@ private fun HomeBottomBar(
             label = { Text("統計") }
         )
         NavigationBarItem(
-            selected = selectedTab == MainTab.Settings,
-            onClick = { onTabSelected(MainTab.Settings) },
-//            icon = { Icon(Icons.Filled.Settings, contentDescription = "設定") },
+            selected = selectedTab == MainTab.Customize,
+            onClick = { onTabSelected(MainTab.Customize) },
+//            icon = { Icon(Icons.Filled.Customize, contentDescription = "設定") },
             icon = { Icon(Icons.Filled.Tune, contentDescription = "カスタマイズ") },
             label = { Text("カスタマイズ") }
         )

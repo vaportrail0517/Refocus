@@ -11,56 +11,91 @@ import com.example.refocus.core.model.SessionEventType
  */
 object SessionDurationCalculator {
 
-    fun calculateDurationMillis(
+    data class ActiveSegment(
+        val startMillis: Long,
+        val endMillis: Long,
+    )
+
+    /**
+     * Start / Pause / Resume / End のイベント列から、
+     * 実際にアプリが前面で動いていた時間帯（アクティブ区間）のリストを返す。
+     */
+    fun buildActiveSegments(
         events: List<SessionEvent>,
         nowMillis: Long,
-    ): Long {
-        if (events.isEmpty()) return 0L
+    ): List<ActiveSegment> {
+        if (events.isEmpty()) return emptyList()
 
         val sorted = events.sortedBy { it.timestampMillis }
 
         var lastStart: Long? = null
-        var totalActive = 0L
+        val result = mutableListOf<ActiveSegment>()
 
         for (e in sorted) {
             when (e.type) {
                 SessionEventType.Start -> {
+                    // セッション開始 → 新しいアクティブ区間の開始
                     lastStart = e.timestampMillis
                 }
 
-                SessionEventType.Pause -> {
-                    if (lastStart != null) {
-                        totalActive += (e.timestampMillis - lastStart!!).coerceAtLeast(0L)
-                        lastStart = null
-                    }
-                }
-
                 SessionEventType.Resume -> {
+                    // 一時停止からの再開 → 新しいアクティブ区間の開始
                     if (lastStart == null) {
                         lastStart = e.timestampMillis
                     }
                 }
 
-                SessionEventType.End -> {
+                SessionEventType.Pause -> {
+                    // 一時停止 → アクティブ区間を閉じる
                     if (lastStart != null) {
-                        totalActive += (e.timestampMillis - lastStart!!).coerceAtLeast(0L)
+                        val end = e.timestampMillis
+                        if (end > lastStart!!) {
+                            result += ActiveSegment(lastStart!!, end)
+                        }
                         lastStart = null
                     }
                 }
 
+                SessionEventType.End -> {
+                    // セッション終了 → アクティブ区間を閉じる
+                    if (lastStart != null) {
+                        val end = e.timestampMillis
+                        if (end > lastStart!!) {
+                            result += ActiveSegment(lastStart!!, end)
+                        }
+                        lastStart = null
+                    }
+                }
+
+                // サジェスト関連イベントは時間集計には影響しない
                 SessionEventType.SuggestionShown,
                 SessionEventType.SuggestionSnoozed,
                 SessionEventType.SuggestionDismissed,
-                SessionEventType.SuggestionDisabledForSession -> {
-                }
+                SessionEventType.SuggestionDisabledForSession -> Unit
             }
         }
 
-        // まだ Start されたまま（End が来ていない）場合は now まで加算
+        // Start / Resume されたまま End が来ていない場合
+        // → RUNNING セッションとして「今まで」をアクティブ区間とみなす
         if (lastStart != null) {
-            totalActive += (nowMillis - lastStart!!).coerceAtLeast(0L)
+            val end = nowMillis
+            if (end > lastStart!!) {
+                result += ActiveSegment(lastStart!!, end)
+            }
         }
 
-        return totalActive.coerceAtLeast(0L)
+        return result
+    }
+
+    /**
+     * 既存の合計時間計算は buildActiveSegments を足し合わせるだけにする。
+     */
+    fun calculateDurationMillis(
+        events: List<SessionEvent>,
+        nowMillis: Long,
+    ): Long {
+        return buildActiveSegments(events, nowMillis)
+            .sumOf { (it.endMillis - it.startMillis).coerceAtLeast(0L) }
+            .coerceAtLeast(0L)
     }
 }

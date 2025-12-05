@@ -97,12 +97,12 @@ class SettingsDataStore(
         transform: (Settings) -> Settings
     ) {
         context.settingsDataStore.edit { prefs ->
-            // まず現在値（保存値＋デフォルト）を Settings にデコード
+            // まず現在値（保存値＋デフォルト）を Customize にデコード
             val current = prefs.toOverlaySettings()
             // ViewModel から渡された変換を当てる
             val updated = transform(current)
 
-            // Settings -> Preferences へ書き戻す
+            // Customize -> Preferences へ書き戻す
             prefs[Keys.GRACE_PERIOD_MS] = updated.gracePeriodMillis
             prefs[Keys.POLLING_INTERVAL_MS] = updated.pollingIntervalMillis
             prefs[Keys.MIN_FONT_SIZE_SP] = updated.minFontSizeSp
@@ -143,11 +143,11 @@ class SettingsDataStore(
     }
 
     /**
-     * Preferences -> Settings の変換を 1 箇所に集約。
-     * fallback はすべて Settings() のデフォルトを見る。
+     * Preferences -> Customize の変換を 1 箇所に集約。
+     * fallback はすべて Customize() のデフォルトを見る。
      */
     private fun Preferences.toOverlaySettings(): Settings {
-        // Settings() のデフォルトは SettingsConfig.SettingsDefaults を参照している
+        // Customize() のデフォルトは SettingsConfig.SettingsDefaults を参照している
         val base = Settings()
 
         val touchModeOrdinal = this[Keys.TOUCH_MODE] ?: base.touchMode.ordinal

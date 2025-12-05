@@ -1,4 +1,4 @@
-package com.example.refocus.feature.settings
+package com.example.refocus.feature.customize
 
 import androidx.compose.runtime.Composable
 import com.example.refocus.core.model.OverlayColorMode
@@ -9,8 +9,8 @@ import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
 
 @Composable
-fun AdvancedSettingsContent(
-    uiState: SettingsViewModel.UiState,
+fun AdvancedCustomizeContent(
+    uiState: CustomizeViewModel.UiState,
     onBackToBasic: () -> Unit,
     onOpenGraceDialog: () -> Unit,
     onOpenPollingDialog: () -> Unit,
@@ -27,7 +27,7 @@ fun AdvancedSettingsContent(
     onOpenGradientStartColorDialog: () -> Unit,
     onOpenGradientMiddleColorDialog: () -> Unit,
     onOpenGradientEndColorDialog: () -> Unit,
-    viewModel: SettingsViewModel,
+    viewModel: CustomizeViewModel,
 ) {
     val settings = uiState.settings
 
