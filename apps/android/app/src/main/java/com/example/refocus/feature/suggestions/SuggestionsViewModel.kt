@@ -4,6 +4,9 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.Suggestion
+import com.example.refocus.core.model.SuggestionDurationTag
+import com.example.refocus.core.model.SuggestionPriority
+import com.example.refocus.core.model.SuggestionTimeSlot
 import com.example.refocus.data.repository.SuggestionsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,6 +84,22 @@ class SuggestionsViewModel @Inject constructor(
             if (_uiState.value.editingId == id) {
                 stopEditing()
             }
+        }
+    }
+
+    fun updateTags(
+        id: Long,
+        timeSlot: SuggestionTimeSlot,
+        durationTag: SuggestionDurationTag,
+        priority: SuggestionPriority,
+    ) {
+        viewModelScope.launch {
+            suggestionsRepository.updateSuggestionTags(
+                id = id,
+                timeSlot = timeSlot,
+                durationTag = durationTag,
+                priority = priority,
+            )
         }
     }
 }

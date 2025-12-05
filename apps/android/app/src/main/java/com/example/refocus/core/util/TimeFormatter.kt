@@ -20,16 +20,16 @@ private fun formatMinutesAndSecondsOrNull(totalSeconds: Long): String? {
     }
 }
 
-fun formatDurationMillis(millis: Long): String {
-    return formatMinutesAndSecondsOrNull(millis / 1000L) ?: "なし"
+fun formatDurationMillis(millis: Long, zeroMessage: String = "なし"): String {
+    return formatMinutesAndSecondsOrNull(millis / 1000L) ?: zeroMessage
 }
 
 fun formatDurationMillisOrNull(millis: Long): String? {
     return formatMinutesAndSecondsOrNull(millis / 1000L)
 }
 
-fun formatDurationSeconds(secondsInput: Int): String {
-    return formatMinutesAndSecondsOrNull(secondsInput.toLong()) ?: "なし"
+fun formatDurationSeconds(secondsInput: Int, zeroMessage: String = "なし"): String {
+    return formatMinutesAndSecondsOrNull(secondsInput.toLong()) ?: zeroMessage
 }
 
 @SuppressLint("DefaultLocale")

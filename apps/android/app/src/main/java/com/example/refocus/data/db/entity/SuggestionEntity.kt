@@ -11,4 +11,6 @@ data class SuggestionEntity(
     val createdAtMillis: Long,
     val kind: String,
     val timeSlot: String,
+    val durationTag: String,
+    val priority: String,
 )

@@ -173,7 +173,11 @@ fun AdvancedSettingsContent(
         )
         SettingRow(
             title = "提案カードを自動で閉じるまでの時間",
-            subtitle = "現在: ${formatDurationSeconds(settings.suggestionTimeoutSeconds)}後に自動で閉じます。",
+            subtitle = if (settings.suggestionTimeoutSeconds != 0) {
+                "現在: ${formatDurationSeconds(settings.suggestionTimeoutSeconds)}後に自動で閉じます。"
+            } else {
+                "現在：時間経過では閉じません。"
+            },
             onClick = onOpenSuggestionTimeoutDialog,
         )
         SettingRow(

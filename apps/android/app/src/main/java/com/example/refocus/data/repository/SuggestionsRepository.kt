@@ -1,7 +1,9 @@
 package com.example.refocus.data.repository
 
 import com.example.refocus.core.model.Suggestion
+import com.example.refocus.core.model.SuggestionDurationTag
 import com.example.refocus.core.model.SuggestionKind
+import com.example.refocus.core.model.SuggestionPriority
 import com.example.refocus.core.model.SuggestionTimeSlot
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.db.dao.SuggestionDao
@@ -49,6 +51,8 @@ class SuggestionsRepository(
             createdAtMillis = now,
             kind = SuggestionKind.Generic.name,
             timeSlot = SuggestionTimeSlot.Anytime.name,
+            durationTag = SuggestionDurationTag.Medium.name,
+            priority = SuggestionPriority.Normal.name,
         )
         val newId = suggestionDao.insert(entity)
         return entity.copy(id = newId).toModel()
@@ -57,6 +61,21 @@ class SuggestionsRepository(
     suspend fun updateSuggestion(id: Long, newTitle: String) {
         val current = suggestionDao.getAll().firstOrNull { it.id == id } ?: return
         val updated = current.copy(title = newTitle)
+        suggestionDao.update(updated)
+    }
+
+    suspend fun updateSuggestionTags(
+        id: Long,
+        timeSlot: SuggestionTimeSlot,
+        durationTag: SuggestionDurationTag,
+        priority: SuggestionPriority,
+    ) {
+        val current = suggestionDao.getAll().firstOrNull { it.id == id } ?: return
+        val updated = current.copy(
+            timeSlot = timeSlot.name,
+            durationTag = durationTag.name,
+            priority = priority.name
+        )
         suggestionDao.update(updated)
     }
 
@@ -78,12 +97,18 @@ class SuggestionsRepository(
             .getOrDefault(SuggestionKind.Generic)
         val slotEnum = runCatching { SuggestionTimeSlot.valueOf(timeSlot) }
             .getOrDefault(SuggestionTimeSlot.Anytime)
+        val durationEnum = runCatching { SuggestionDurationTag.valueOf(durationTag) }
+            .getOrDefault(SuggestionDurationTag.Medium)
+        val priorityEnum = runCatching { SuggestionPriority.valueOf(priority) }
+            .getOrDefault(SuggestionPriority.Normal)
         return Suggestion(
             id = id,
             title = title,
             createdAtMillis = createdAtMillis,
             kind = kindEnum,
             timeSlot = slotEnum,
+            durationTag = durationEnum,
+            priority = priorityEnum,
         )
     }
 }

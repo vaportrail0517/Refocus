@@ -1,6 +1,7 @@
 package com.example.refocus.feature.suggestions
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -63,6 +64,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.refocus.core.model.Suggestion
+import com.example.refocus.core.model.SuggestionDurationTag
+import com.example.refocus.core.model.SuggestionPriority
+import com.example.refocus.core.model.SuggestionTimeSlot
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,6 +81,9 @@ fun SuggestionsRoute(
         onStartEditing = { id -> viewModel.startEditing(id) },
         onCommitEdit = { id, text -> viewModel.commitEdit(id, text) },
         onDeleteConfirmed = { id -> viewModel.deleteSuggestion(id) },
+        onUpdateTags = { id, timeSlot, durationTag, priority ->
+            viewModel.updateTags(id, timeSlot, durationTag, priority)
+        },
     )
 }
 
@@ -88,6 +95,12 @@ fun SuggestionsScreen(
     onStartEditing: (Long) -> Unit,
     onCommitEdit: (Long, String) -> Unit,
     onDeleteConfirmed: (Long) -> Unit,
+    onUpdateTags: (
+        id: Long,
+        timeSlot: SuggestionTimeSlot,
+        durationTag: SuggestionDurationTag,
+        priority: SuggestionPriority,
+    ) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
     var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -193,6 +206,14 @@ fun SuggestionsScreen(
                                             onCommitEdit = { text ->
                                                 onCommitEdit(suggestion.id, text)
                                             },
+                                            onUpdateTags = { timeSlot, durationTag, priority ->
+                                                onUpdateTags(
+                                                    suggestion.id,
+                                                    timeSlot,
+                                                    durationTag,
+                                                    priority,
+                                                )
+                                            },
                                         )
                                     }
                                 )
@@ -249,6 +270,11 @@ private fun SuggestionCard(
     isEditing: Boolean,
     onStartEditing: () -> Unit,
     onCommitEdit: (String) -> Unit,
+    onUpdateTags: (
+        SuggestionTimeSlot,
+        SuggestionDurationTag,
+        SuggestionPriority,
+    ) -> Unit,
 ) {
     var text by remember(suggestion.id) { mutableStateOf(suggestion.title) }
     val focusRequester = remember { FocusRequester() }
@@ -268,10 +294,11 @@ private fun SuggestionCard(
             }
         }
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (isEditing) {
                 LaunchedEffect(isEditing) {
@@ -324,6 +351,12 @@ private fun SuggestionCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            TagSelectorRow(
+                timeSlot = suggestion.timeSlot,
+                durationTag = suggestion.durationTag,
+                priority = suggestion.priority,
+                onChange = onUpdateTags,
+            )
         }
     }
 }
@@ -370,5 +403,134 @@ private fun SwipeToDeleteBackground(
     }
 }
 
+@Composable
+private fun TagSelectorRow(
+    timeSlot: SuggestionTimeSlot,
+    durationTag: SuggestionDurationTag,
+    priority: SuggestionPriority,
+    onChange: (
+        SuggestionTimeSlot,
+        SuggestionDurationTag,
+        SuggestionPriority,
+    ) -> Unit,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        // 時間帯
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = "時間帯:",
+                style = MaterialTheme.typography.labelMedium,
+            )
+            TagChip(
+                label = "いつでも",
+                selected = timeSlot == SuggestionTimeSlot.Anytime,
+                onClick = { onChange(SuggestionTimeSlot.Anytime, durationTag, priority) },
+            )
+            TagChip(
+                label = "朝",
+                selected = timeSlot == SuggestionTimeSlot.Morning,
+                onClick = { onChange(SuggestionTimeSlot.Morning, durationTag, priority) },
+            )
+            TagChip(
+                label = "昼",
+                selected = timeSlot == SuggestionTimeSlot.Afternoon,
+                onClick = { onChange(SuggestionTimeSlot.Afternoon, durationTag, priority) },
+            )
+            TagChip(
+                label = "夕方",
+                selected = timeSlot == SuggestionTimeSlot.Evening,
+                onClick = { onChange(SuggestionTimeSlot.Evening, durationTag, priority) },
+            )
+            TagChip(
+                label = "夜",
+                selected = timeSlot == SuggestionTimeSlot.Night,
+                onClick = { onChange(SuggestionTimeSlot.Night, durationTag, priority) },
+            )
+        }
 
+        // 所要時間
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = "長さ:",
+                style = MaterialTheme.typography.labelMedium,
+            )
+            TagChip(
+                label = "短い",
+                selected = durationTag == SuggestionDurationTag.Short,
+                onClick = { onChange(timeSlot, SuggestionDurationTag.Short, priority) },
+            )
+            TagChip(
+                label = "普通",
+                selected = durationTag == SuggestionDurationTag.Medium,
+                onClick = { onChange(timeSlot, SuggestionDurationTag.Medium, priority) },
+            )
+            TagChip(
+                label = "長い",
+                selected = durationTag == SuggestionDurationTag.Long,
+                onClick = { onChange(timeSlot, SuggestionDurationTag.Long, priority) },
+            )
+        }
 
+        // 優先度
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = "優先度:",
+                style = MaterialTheme.typography.labelMedium,
+            )
+            TagChip(
+                label = "低",
+                selected = priority == SuggestionPriority.Low,
+                onClick = { onChange(timeSlot, durationTag, SuggestionPriority.Low) },
+            )
+            TagChip(
+                label = "普通",
+                selected = priority == SuggestionPriority.Normal,
+                onClick = { onChange(timeSlot, durationTag, SuggestionPriority.Normal) },
+            )
+            TagChip(
+                label = "高",
+                selected = priority == SuggestionPriority.High,
+                onClick = { onChange(timeSlot, durationTag, SuggestionPriority.High) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun TagChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val background = if (selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+    }
+    val border = if (selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.outlineVariant
+    }
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelSmall,
+        color = if (selected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        modifier = Modifier
+            .clip(MaterialTheme.shapes.small)
+            .background(background)
+            .border(
+                width = 1.dp,
+                color = border,
+                shape = MaterialTheme.shapes.small,
+            )
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .clickable(onClick = onClick),
+    )
+}

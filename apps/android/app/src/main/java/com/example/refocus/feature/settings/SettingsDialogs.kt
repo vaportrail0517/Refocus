@@ -260,13 +260,13 @@ fun SuggestionTimeoutDialog(
 ) {
     LongSliderDialog(
         title = "提案カードを自動で閉じるまでの時間",
-        description = "提案カードを表示してから自動で閉じるまでの時間を設定します。",
-        min = 5L,
+        description = "提案カードを表示してから自動で閉じるまでの時間を設定します。0秒を指定すると時間経過では閉じません。",
+        min = 0L,
         max = 30L,
         step = 1L,
-        initial = currentSeconds.coerceIn(5, 30).toLong(),
-        valueLabel = { seconds -> formatDurationSeconds(seconds.toInt()) },
-        hintLabel = "5〜30秒 / 1秒刻み",
+        initial = currentSeconds.coerceIn(0, 30).toLong(),
+        valueLabel = { seconds -> formatDurationSeconds(seconds.toInt(), "時間経過で閉じない") },
+        hintLabel = "0〜30秒 / 1秒刻み",
         onConfirm = { selectedSeconds ->
             onConfirm(selectedSeconds.toInt())
         },
