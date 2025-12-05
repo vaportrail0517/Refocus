@@ -18,7 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import com.example.refocus.feature.home.HomeDashboardRoute
+import com.example.refocus.feature.home.HomeRoute
 import com.example.refocus.feature.settings.SettingsScreen
 import com.example.refocus.feature.stats.StatsDetailSection
 import com.example.refocus.feature.stats.StatsRoute
@@ -69,7 +69,7 @@ fun MainScreen(
                 .padding(innerPadding)
         ) { page ->
             when (tabs[page]) {
-                MainTab.Home -> HomeDashboardRoute(
+                MainTab.Home -> HomeRoute(
                     onOpenHistory = onOpenHistory,
                     onOpenStatsDetail = onOpenStatsDetail,
                     onOpenPermissionFixFlow = onOpenPermissionFixFlow,

@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.example.refocus.core.model.OverlayColorMode
 import com.example.refocus.core.model.OverlayGrowthMode
-import com.example.refocus.core.util.formatDurationMillis
+import com.example.refocus.core.util.formatDurationMilliSeconds
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.ui.components.ColorPickerDialog
 import com.example.refocus.ui.components.InfoDialog
@@ -53,7 +53,7 @@ fun GraceTimeDialog(
         max = maxGraceMillis,
         step = stepMillis,
         initial = currentMillis,
-        valueLabel = { value -> formatDurationMillis(value) },
+        valueLabel = { value -> formatDurationMilliSeconds(value, zeroLabel = "なし") },
         hintLabel = "0〜10分 / 30秒刻み",
         onConfirm = onConfirm,
         onDismiss = onDismiss,
@@ -199,7 +199,7 @@ fun SuggestionTriggerTimeDialog(
         max = 60L * 60L,
         step = 60L,
         initial = currentSeconds.coerceIn(60, 60 * 60).toLong(),
-        valueLabel = { seconds -> formatDurationSeconds(seconds.toInt()) },
+        valueLabel = { seconds -> formatDurationSeconds(seconds) },
         hintLabel = "1〜60分 / 1分刻み",
         onConfirm = { selectedSeconds ->
             onConfirm(selectedSeconds.toInt())
@@ -221,7 +221,7 @@ fun SuggestionForegroundStableDialog(
         max = 20L * 60L,
         step = 60L, // 1分刻み
         initial = currentSeconds.coerceIn(5 * 60, 20 * 60).toLong(),
-        valueLabel = { seconds -> formatDurationSeconds(seconds.toInt()) },
+        valueLabel = { seconds -> formatDurationSeconds(seconds) },
         hintLabel = "5〜20分 / 1分刻み",
         onConfirm = { selectedSeconds ->
             onConfirm(selectedSeconds.toInt())
@@ -243,7 +243,7 @@ fun SuggestionCooldownDialog(
         max = 60L * 60L,
         step = 60L,
         initial = currentSeconds.coerceIn(60, 60 * 60).toLong(),
-        valueLabel = { seconds -> formatDurationSeconds(seconds.toInt()) },
+        valueLabel = { seconds -> formatDurationSeconds(seconds) },
         hintLabel = "1〜60分 / 1分刻み",
         onConfirm = { selectedSeconds ->
             onConfirm(selectedSeconds.toInt())
@@ -265,7 +265,12 @@ fun SuggestionTimeoutDialog(
         max = 30L,
         step = 1L,
         initial = currentSeconds.coerceIn(0, 30).toLong(),
-        valueLabel = { seconds -> formatDurationSeconds(seconds.toInt(), "時間経過で閉じない") },
+        valueLabel = { seconds ->
+            formatDurationSeconds(
+                seconds,
+                zeroLabel = "時間経過で閉じない"
+            )
+        },
         hintLabel = "0〜30秒 / 1秒刻み",
         onConfirm = { selectedSeconds ->
             onConfirm(selectedSeconds.toInt())

@@ -11,7 +11,7 @@ import com.example.refocus.core.model.OverlayTouchMode
 import com.example.refocus.core.model.SettingsPreset
 import com.example.refocus.core.model.SuggestionTriggerPreset
 import com.example.refocus.core.model.TimeToMaxPreset
-import com.example.refocus.core.util.formatDurationMillisOrNull
+import com.example.refocus.core.util.formatDurationMilliSecondsOrNull
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.overlay.stopOverlayService
@@ -161,7 +161,7 @@ fun BasicSettingsContent(
             onClick = onOpenAppSelect,
         )
         val gracePreset = SettingsBasicPresets.gracePresetOrNull(settings)
-        val formattedGraceTime = formatDurationMillisOrNull(settings.gracePeriodMillis)
+        val formattedGraceTime = formatDurationMilliSecondsOrNull(settings.gracePeriodMillis)
         PresetOptionRow(
             title = "一時的なアプリ切り替え",
             currentPreset = gracePreset,
@@ -301,7 +301,7 @@ fun BasicSettingsContent(
             ),
             currentValueDescription = buildString {
                 append("対象アプリの利用を開始してから")
-                append(formatDurationSeconds(settings.suggestionTriggerSeconds))
+                append(formatDurationSeconds(settings.suggestionTriggerSeconds.toLong()))
                 append("以上経過したら提案を行います。")
             },
             onPresetSelected = { preset ->

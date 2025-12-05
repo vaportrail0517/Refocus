@@ -3,7 +3,7 @@ package com.example.refocus.feature.settings
 import androidx.compose.runtime.Composable
 import com.example.refocus.core.model.OverlayColorMode
 import com.example.refocus.core.model.OverlayGrowthMode
-import com.example.refocus.core.util.formatDurationMillisOrNull
+import com.example.refocus.core.util.formatDurationMilliSecondsOrNull
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
@@ -41,7 +41,7 @@ fun AdvancedSettingsContent(
     }
 
     SectionCard(title = "セッション") {
-        val formattedGraceTime = formatDurationMillisOrNull(settings.gracePeriodMillis)
+        val formattedGraceTime = formatDurationMilliSecondsOrNull(settings.gracePeriodMillis)
         SettingRow(
             title = "セッション継続の猶予時間",
             subtitle = if (formattedGraceTime.isNullOrEmpty()) {
@@ -158,23 +158,23 @@ fun AdvancedSettingsContent(
     SectionCard(title = "提案の詳細") {
         SettingRow(
             title = "提案を出すために必要なセッションの継続時間",
-            subtitle = "現在: ${formatDurationSeconds(settings.suggestionTriggerSeconds)}以上経過してから提案します。",
+            subtitle = "現在: ${formatDurationSeconds(settings.suggestionTriggerSeconds.toLong())}以上経過してから提案します。",
             onClick = onOpenSuggestionTriggerDialog,
         )
         SettingRow(
             title = "提案を出すために必要な対象アプリが連続して前面にいる時間",
-            subtitle = "現在: ${formatDurationSeconds(settings.suggestionForegroundStableSeconds)}以上経過してから提案します。",
+            subtitle = "現在: ${formatDurationSeconds(settings.suggestionForegroundStableSeconds.toLong())}以上経過してから提案します。",
             onClick = onOpenSuggestionForegroundStableDialog,
         )
         SettingRow(
             title = "次の提案までの間隔",
-            subtitle = "現在: ${formatDurationSeconds(settings.suggestionCooldownSeconds)}待ってから再び提案をします。",
+            subtitle = "現在: ${formatDurationSeconds(settings.suggestionCooldownSeconds.toLong())}待ってから再び提案をします。",
             onClick = onOpenSuggestionCooldownDialog,
         )
         SettingRow(
             title = "提案カードを自動で閉じるまでの時間",
             subtitle = if (settings.suggestionTimeoutSeconds != 0) {
-                "現在: ${formatDurationSeconds(settings.suggestionTimeoutSeconds)}後に自動で閉じます。"
+                "現在: ${formatDurationSeconds(settings.suggestionTimeoutSeconds.toLong())}後に自動で閉じます。"
             } else {
                 "現在：時間経過では閉じません。"
             },

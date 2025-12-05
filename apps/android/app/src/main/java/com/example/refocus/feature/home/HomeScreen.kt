@@ -61,6 +61,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.refocus.core.model.DailyStats
 import com.example.refocus.core.util.displayLength
+import com.example.refocus.core.util.formatDurationMilliSeconds
 import com.example.refocus.feature.settings.SettingsViewModel
 import com.example.refocus.feature.stats.StatsDetailSection
 import com.example.refocus.feature.stats.StatsViewModel
@@ -71,7 +72,7 @@ import com.example.refocus.system.permissions.PermissionHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeDashboardRoute(
+fun HomeRoute(
     onOpenHistory: () -> Unit,
     onOpenStatsDetail: (StatsDetailSection) -> Unit = {},
     onOpenPermissionFixFlow: () -> Unit,
@@ -79,7 +80,7 @@ fun HomeDashboardRoute(
     onOpenAppSelect: () -> Unit,
     statsViewModel: StatsViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
-    targetsViewModel: HomeTargetsViewModel = hiltViewModel(),
+    targetsViewModel: HomeViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -142,7 +143,7 @@ fun HomeDashboardRoute(
         },
         contentWindowInsets = WindowInsets(0.dp),
     ) { innerPadding ->
-        HomeDashboardContent(
+        HomeContent(
             stats = statsUiState.todayStats,
             targetApps = targetApps,
             hasCorePermissions = hasCorePermissions,
@@ -194,9 +195,9 @@ fun HomeTopBar(
 }
 
 @Composable
-private fun HomeDashboardContent(
+private fun HomeContent(
     stats: DailyStats?,
-    targetApps: List<HomeTargetsViewModel.TargetAppUiModel>,
+    targetApps: List<HomeViewModel.TargetAppUiModel>,
     hasCorePermissions: Boolean,
     innerPadding: PaddingValues,
     onOpenHistory: () -> Unit,
@@ -340,7 +341,7 @@ private fun buildFocusItems(stats: DailyStats?): List<FocusItem> {
     // カード1: 今日の合計利用時間
     items += FocusItem(
         title = "今日の合計利用時間",
-        value = formatDurationShort(stats.totalUsageMillis),
+        value = formatDurationMilliSeconds(stats.totalUsageMillis),
         subtitle = "${stats.sessionCount} セッション",
         section = StatsDetailSection.UsageSummary,
     )
@@ -350,7 +351,7 @@ private fun buildFocusItems(stats: DailyStats?): List<FocusItem> {
         items += FocusItem(
             title = "よく使ったアプリ",
             value = topApp.packageName, // 後でアプリ名に差し替え可
-            subtitle = formatDurationShort(topApp.totalUsageMillis),
+            subtitle = formatDurationMilliSeconds(topApp.totalUsageMillis),
             section = StatsDetailSection.AppUsage,
         )
     }
@@ -433,23 +434,23 @@ private fun PagerIndicator(
 }
 
 // フォーカス用の短めフォーマット
-private fun formatDurationShort(durationMillis: Long): String {
-    val totalSeconds = durationMillis / 1000
-    val minutes = totalSeconds / 60
-    val hours = minutes / 60
-    val remMinutes = minutes % 60
-    return if (hours > 0) {
-        String.format("%d時間%02d分", hours, remMinutes)
-    } else {
-        String.format("%d分", remMinutes)
-    }
-}
+//private fun formatDurationShort(durationMillis: Long): String {
+//    val totalSeconds = durationMillis / 1000
+//    val minutes = totalSeconds / 60
+//    val hours = minutes / 60
+//    val remMinutes = minutes % 60
+//    return if (hours > 0) {
+//        String.format("%d時間%02d分", hours, remMinutes)
+//    } else {
+//        String.format("%d分", remMinutes)
+//    }
+//}
 
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TargetAppsSection(
-    apps: List<HomeTargetsViewModel.TargetAppUiModel>,
+    apps: List<HomeViewModel.TargetAppUiModel>,
     onAddClick: () -> Unit,
     onAppClick: (String) -> Unit,
 ) {
@@ -476,7 +477,7 @@ fun TargetAppsSection(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TargetAppsGrid(
-    apps: List<HomeTargetsViewModel.TargetAppUiModel>,
+    apps: List<HomeViewModel.TargetAppUiModel>,
     onAddClick: () -> Unit,
     onAppClick: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -544,7 +545,7 @@ fun AddTargetAppCard(
 
 @Composable
 fun TargetAppCard(
-    app: HomeTargetsViewModel.TargetAppUiModel,
+    app: HomeViewModel.TargetAppUiModel,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {

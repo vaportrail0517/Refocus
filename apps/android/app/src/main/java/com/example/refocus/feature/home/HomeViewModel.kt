@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 @HiltViewModel
-class HomeTargetsViewModel @Inject constructor(
+class HomeViewModel @Inject constructor(
     application: Application,
     private val targetsRepository: TargetsRepository,
 ) : AndroidViewModel(application) {
