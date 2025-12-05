@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -39,11 +40,15 @@ import com.example.refocus.core.model.SessionStatus
 @Composable
 fun SessionHistoryScreen(
     modifier: Modifier = Modifier,
+    onNavigateBack: () -> Unit = {},
 ) {
     val viewModel: SessionHistoryViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .systemBarsPadding(),
         topBar = {
             TopAppBar(
                 title = {
@@ -52,7 +57,7 @@ fun SessionHistoryScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = {}) {
+                    IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.Filled.ArrowBack,
                             contentDescription = "戻る"

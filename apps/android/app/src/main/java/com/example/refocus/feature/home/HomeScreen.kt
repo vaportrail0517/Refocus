@@ -143,8 +143,9 @@ fun HomeRoute(
         },
         contentWindowInsets = WindowInsets(0.dp),
     ) { innerPadding ->
+        val todayStats = statsUiState.todayStats
         HomeContent(
-            stats = statsUiState.todayStats,
+            stats = todayStats,
             targetApps = targetApps,
             hasCorePermissions = hasCorePermissions,
             innerPadding = innerPadding,

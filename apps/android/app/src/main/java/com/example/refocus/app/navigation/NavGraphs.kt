@@ -147,7 +147,11 @@ fun RefocusNavHost(
         }
 
         composable(Destinations.HISTORY) {
-            SessionHistoryScreen()
+            SessionHistoryScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
         }
 
         composable(Destinations.HOME) {
