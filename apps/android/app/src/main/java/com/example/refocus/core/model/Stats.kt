@@ -39,19 +39,23 @@ data class SessionStats(
 
 data class DailyStats(
     val date: LocalDate,
+    // 監視状況
+    val monitoringTotalMinutes: Int,      // Refocus が監視していた合計時間
+    val monitoringWithTargetMinutes: Int, // 監視中に対象アプリを使っていた時間
     // セッション軸
     val sessionCount: Int,
     val averageSessionDurationMillis: Long,
     val longestSessionDurationMillis: Long,
-    // 時間軸（全体）
     val totalUsageMillis: Long,
-    // アプリ別統計
+    val longSessionCount: Int,
+    val veryLongSessionCount: Int,
     val appUsageStats: List<AppUsageStats> = emptyList(),
-    // 時間帯バケット統計（24時間タイムライン用）
     val timeBuckets: List<TimeBucketStats> = emptyList(),
-    // 提案単位の統計
     val suggestionStats: SuggestionDailyStats? = null,
-)
+) {
+    val monitoringWithoutTargetMinutes: Int
+        get() = (monitoringTotalMinutes - monitoringWithTargetMinutes).coerceAtLeast(0)
+}
 
 /**
  * 1 日の中でのアプリ別の使い方。
@@ -67,10 +71,15 @@ data class AppUsageStats(
  * 24 時間を固定幅バケットに切った単位。
  */
 data class TimeBucketStats(
-    val startMinutesOfDay: Int,  // 0, 30, 60, ...
-    val endMinutesOfDay: Int,    // 30, 60, ...
-    val totalUsageMillis: Long,  // バケット内の合計利用時間
-    val topPackageName: String?, // バケット内で最も使われたアプリ
+    val startMinutesOfDay: Int,
+    val endMinutesOfDay: Int,
+    // このバケット内で「Refocus が監視できていた時間」
+    val monitoringMinutes: Int,   // 0〜(end - start)
+    // このバケット内で「対象アプリを実際に使っていた時間」（監視中のみ）
+    val targetUsageMinutes: Int,
+    // 従来のフィールド（合計利用時間 / 最も使っていたアプリ）
+    val totalUsageMillis: Long,
+    val topPackageName: String?,
 )
 
 data class SuggestionDailyStats(

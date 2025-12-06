@@ -3,6 +3,7 @@ package com.example.refocus.app.di
 import android.content.Context
 import androidx.room.Room
 import com.example.refocus.data.db.RefocusDatabase
+import com.example.refocus.data.db.dao.MonitoringPeriodDao
 import com.example.refocus.data.db.dao.SessionDao
 import com.example.refocus.data.db.dao.SessionEventDao
 import com.example.refocus.data.db.dao.SuggestionDao
@@ -37,4 +38,8 @@ object DatabaseModule {
 
     @Provides
     fun provideSuggestionDao(db: RefocusDatabase): SuggestionDao = db.suggestionDao()
+
+    @Provides
+    fun provideMonitoringPeriodDao(db: RefocusDatabase): MonitoringPeriodDao =
+        db.monitoringPeriodDao()
 }

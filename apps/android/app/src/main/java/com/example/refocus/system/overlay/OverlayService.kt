@@ -14,8 +14,10 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.lifecycleScope
 import com.example.refocus.R
 import com.example.refocus.core.util.TimeSource
+import com.example.refocus.data.repository.MonitoringRepository
 import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.data.repository.SuggestionsRepository
@@ -31,6 +33,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -72,6 +75,9 @@ class OverlayService : LifecycleService() {
     @Inject
     lateinit var suggestionSelector: SuggestionSelector
 
+    @Inject
+    lateinit var monitoringRepository: MonitoringRepository
+
     private lateinit var timerOverlayController: TimerOverlayController
     private lateinit var suggestionOverlayController: SuggestionOverlayController
     private lateinit var sessionManager: SessionManager
@@ -101,6 +107,9 @@ class OverlayService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
+        lifecycleScope.launch {
+            monitoringRepository.startMonitoring(timeSource.nowMillis())
+        }
         isRunning = true
         Log.d(TAG, "onCreate")
 
@@ -160,6 +169,9 @@ class OverlayService : LifecycleService() {
         serviceScope.cancel()
         unregisterScreenReceiver()
         super.onDestroy()
+        lifecycleScope.launch {
+            monitoringRepository.stopMonitoring(timeSource.nowMillis())
+        }
     }
 
     override fun onBind(intent: Intent): IBinder? {
