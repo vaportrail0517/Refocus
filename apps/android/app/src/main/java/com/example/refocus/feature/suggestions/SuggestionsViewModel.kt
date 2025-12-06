@@ -12,13 +12,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class SuggestionsUiState(
     val suggestions: List<Suggestion> = emptyList(),
-    val editingId: Long? = null,
     val isLoading: Boolean = true,
 )
 
@@ -34,56 +32,64 @@ class SuggestionsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             suggestionsRepository.observeSuggestions()
-                .collectLatest { list ->
+                .collect { suggestions ->
                     _uiState.value = _uiState.value.copy(
-                        suggestions = list,
+                        suggestions = suggestions,
                         isLoading = false,
                     )
                 }
         }
     }
 
-    fun startEditing(id: Long) {
-        _uiState.value = _uiState.value.copy(editingId = id)
-    }
-
-    fun stopEditing() {
-        _uiState.value = _uiState.value.copy(editingId = null)
-    }
-
     /**
-     * 右下の「追加」ボタン押下時に呼ぶ。
-     * 空タイトルの Suggestion を 1 件作って、そのカードを編集状態にする。
+     * 新規のやりたいことを追加する。
+     * ラベルが空の場合は何もしない。
      */
-    fun addSuggestionAndStartEditing() {
+    fun createSuggestion(
+        title: String,
+        timeSlot: SuggestionTimeSlot,
+        durationTag: SuggestionDurationTag,
+        priority: SuggestionPriority,
+    ) {
+        val trimmed = title.trim()
+        if (trimmed.isEmpty()) return
         viewModelScope.launch {
-            val created = suggestionsRepository.addSuggestion(title = "")
-            _uiState.value = _uiState.value.copy(editingId = created.id)
+            suggestionsRepository.addSuggestion(
+                title = trimmed,
+                timeSlot = timeSlot,
+                durationTag = durationTag,
+                priority = priority,
+            )
         }
     }
 
     /**
-     * 編集を確定する。
-     * 空文字で確定された場合は削除扱い。
+     * 既存のやりたいことのラベルを更新する。
+     * 空文字が渡された場合は何もしない（削除は deleteSuggestion で行う）。
      */
-    fun commitEdit(id: Long, text: String) {
-        val trimmed = text.trim()
+    fun updateSuggestion(
+        id: Long,
+        title: String,
+        timeSlot: SuggestionTimeSlot,
+        durationTag: SuggestionDurationTag,
+        priority: SuggestionPriority,
+    ) {
+        val trimmed = title.trim()
+        if (trimmed.isEmpty()) return
         viewModelScope.launch {
-            if (trimmed.isEmpty()) {
-                suggestionsRepository.deleteSuggestion(id)
-            } else {
-                suggestionsRepository.updateSuggestion(id, trimmed)
-            }
-            stopEditing()
+            suggestionsRepository.updateSuggestion(id, trimmed)
+            suggestionsRepository.updateSuggestionTags(
+                id = id,
+                timeSlot = timeSlot,
+                durationTag = durationTag,
+                priority = priority,
+            )
         }
     }
 
     fun deleteSuggestion(id: Long) {
         viewModelScope.launch {
             suggestionsRepository.deleteSuggestion(id)
-            if (_uiState.value.editingId == id) {
-                stopEditing()
-            }
         }
     }
 

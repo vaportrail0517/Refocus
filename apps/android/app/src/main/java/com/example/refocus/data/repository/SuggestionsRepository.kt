@@ -43,16 +43,21 @@ class SuggestionsRepository(
      * ここでは title をそのまま保存する（空文字でも保存される）。
      * UI 側で空のまま確定されたときは削除する。
      */
-    suspend fun addSuggestion(title: String): Suggestion {
+    suspend fun addSuggestion(
+        title: String,
+        timeSlot: SuggestionTimeSlot,
+        durationTag: SuggestionDurationTag,
+        priority: SuggestionPriority,
+    ): Suggestion {
         val now = timeSource.nowMillis()
         val entity = SuggestionEntity(
             id = 0L,
             title = title,
             createdAtMillis = now,
             kind = SuggestionKind.Generic.name,
-            timeSlot = SuggestionTimeSlot.Anytime.name,
-            durationTag = SuggestionDurationTag.Medium.name,
-            priority = SuggestionPriority.Normal.name,
+            timeSlot = timeSlot.name,
+            durationTag = durationTag.name,
+            priority = priority.name,
         )
         val newId = suggestionDao.insert(entity)
         return entity.copy(id = newId).toModel()
@@ -82,14 +87,6 @@ class SuggestionsRepository(
     suspend fun deleteSuggestion(id: Long) {
         val current = suggestionDao.getAll().firstOrNull { it.id == id } ?: return
         suggestionDao.delete(current)
-    }
-
-    /**
-     * 旧 API の互換メソッド。
-     * 全件削除する。
-     */
-    suspend fun clearSuggestion() {
-        suggestionDao.deleteAll()
     }
 
     private fun SuggestionEntity.toModel(): Suggestion {

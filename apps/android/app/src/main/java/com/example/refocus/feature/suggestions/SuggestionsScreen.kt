@@ -1,72 +1,78 @@
 package com.example.refocus.feature.suggestions
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.refocus.core.model.Suggestion
 import com.example.refocus.core.model.SuggestionDurationTag
 import com.example.refocus.core.model.SuggestionPriority
 import com.example.refocus.core.model.SuggestionTimeSlot
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,45 +83,67 @@ fun SuggestionsRoute(
 
     SuggestionsScreen(
         uiState = uiState,
-        onAddClicked = { viewModel.addSuggestionAndStartEditing() },
-        onStartEditing = { id -> viewModel.startEditing(id) },
-        onCommitEdit = { id, text -> viewModel.commitEdit(id, text) },
-        onDeleteConfirmed = { id -> viewModel.deleteSuggestion(id) },
-        onUpdateTags = { id, timeSlot, durationTag, priority ->
-            viewModel.updateTags(id, timeSlot, durationTag, priority)
+        onCreateSuggestion = { title, timeSlot, durationTag, priority ->
+            viewModel.createSuggestion(title, timeSlot, durationTag, priority)
         },
+        onUpdateSuggestion = { id, title, timeSlot, durationTag, priority ->
+            viewModel.updateSuggestion(id, title, timeSlot, durationTag, priority)
+        },
+        onDeleteConfirmed = { id -> viewModel.deleteSuggestion(id) },
     )
+}
+
+private enum class EditorSheetMode {
+    View,
+    Edit,
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SuggestionsScreen(
     uiState: SuggestionsUiState,
-    onAddClicked: () -> Unit,
-    onStartEditing: (Long) -> Unit,
-    onCommitEdit: (Long, String) -> Unit,
-    onDeleteConfirmed: (Long) -> Unit,
-    onUpdateTags: (
-        id: Long,
+    onCreateSuggestion: (
+        title: String,
         timeSlot: SuggestionTimeSlot,
         durationTag: SuggestionDurationTag,
         priority: SuggestionPriority,
     ) -> Unit,
+    onUpdateSuggestion: (
+        id: Long,
+        title: String,
+        timeSlot: SuggestionTimeSlot,
+        durationTag: SuggestionDurationTag,
+        priority: SuggestionPriority,
+    ) -> Unit,
+    onDeleteConfirmed: (Long) -> Unit,
 ) {
-    val focusManager = LocalFocusManager.current
+    val coroutineScope = rememberCoroutineScope()
     var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
-
-    // 戻るボタン → まずフォーカスを外す（＝キーボードを閉じる）
-    //    BackHandler(enabled = uiState.editingId != null) {
-    //        focusManager.clearFocus(force = true)
-    //    }
+    var isEditorVisible by rememberSaveable { mutableStateOf(false) }
+    var editingSuggestionId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var isCreatingNew by rememberSaveable { mutableStateOf(false) }
+    var draftTitle by rememberSaveable { mutableStateOf("") }
+    var draftTimeSlot by rememberSaveable { mutableStateOf(SuggestionTimeSlot.Anytime) }
+    var draftDurationTag by rememberSaveable { mutableStateOf(SuggestionDurationTag.Medium) }
+    var draftPriority by rememberSaveable { mutableStateOf(SuggestionPriority.Normal) }
+    var initialTitle by rememberSaveable { mutableStateOf("") }
+    var initialTimeSlot by rememberSaveable { mutableStateOf(SuggestionTimeSlot.Anytime) }
+    var initialDurationTag by rememberSaveable { mutableStateOf(SuggestionDurationTag.Medium) }
+    var initialPriority by rememberSaveable { mutableStateOf(SuggestionPriority.Normal) }
+    var showDiscardConfirm by rememberSaveable { mutableStateOf(false) }
+    var sheetMode by rememberSaveable { mutableStateOf(EditorSheetMode.View) }
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = false,
+    )
 
     val density = LocalDensity.current
-    val imeVisible = WindowInsets.ime.getBottom(density) > 0
-    // キーボードが閉じられた瞬間にフォーカスを外す
-    LaunchedEffect(imeVisible) {
-        if (!imeVisible) {
-            focusManager.clearFocus(force = true)
+    val imeBottom = WindowInsets.ime.getBottom(density)
+    val imeVisible = imeBottom > 0
+    LaunchedEffect(imeVisible, sheetState.currentValue) {
+        if (imeVisible && sheetState.currentValue == SheetValue.Expanded) {
+            // キーボードが表示されている間に Expanded になったら、
+            // 部分表示状態に戻す
+            sheetState.partialExpand()
         }
     }
 
@@ -132,13 +160,6 @@ fun SuggestionsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                // 画面のどこをタップしてもフォーカスを外す
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) {
-                    focusManager.clearFocus(force = true)
-                }
         ) {
             Column(
                 modifier = Modifier
@@ -157,14 +178,6 @@ fun SuggestionsScreen(
                     }
                 } else {
                     val listState = rememberLazyListState()
-                    // 「編集対象ID」が変わったら、そのカード位置までスクロール
-                    LaunchedEffect(uiState.editingId, uiState.suggestions) {
-                        val targetId = uiState.editingId ?: return@LaunchedEffect
-                        val index = uiState.suggestions.indexOfFirst { it.id == targetId }
-                        if (index >= 0) {
-                            listState.animateScrollToItem(index)
-                        }
-                    }
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         state = listState,
@@ -175,7 +188,6 @@ fun SuggestionsScreen(
                             items = uiState.suggestions,
                             key = { it.id },
                         ) { suggestion ->
-                            val isEditing = uiState.editingId == suggestion.id
                             val dismissState = rememberSwipeToDismissBoxState()
 
                             LaunchedEffect(dismissState.currentValue) {
@@ -201,18 +213,21 @@ fun SuggestionsScreen(
                                     content = {
                                         SuggestionCard(
                                             suggestion = suggestion,
-                                            isEditing = isEditing,
-                                            onStartEditing = { onStartEditing(suggestion.id) },
-                                            onCommitEdit = { text ->
-                                                onCommitEdit(suggestion.id, text)
-                                            },
-                                            onUpdateTags = { timeSlot, durationTag, priority ->
-                                                onUpdateTags(
-                                                    suggestion.id,
-                                                    timeSlot,
-                                                    durationTag,
-                                                    priority,
-                                                )
+                                            onClick = {
+                                                editingSuggestionId = suggestion.id
+                                                isCreatingNew = false
+                                                // 初期値（開いた瞬間の値）
+                                                initialTitle = suggestion.title
+                                                initialTimeSlot = suggestion.timeSlot
+                                                initialDurationTag = suggestion.durationTag
+                                                initialPriority = suggestion.priority
+                                                // 編集用ドラフト（最初は初期値と同じ）
+                                                draftTitle = suggestion.title
+                                                draftTimeSlot = suggestion.timeSlot
+                                                draftDurationTag = suggestion.durationTag
+                                                draftPriority = suggestion.priority
+                                                sheetMode = EditorSheetMode.View
+                                                isEditorVisible = true
                                             },
                                         )
                                     }
@@ -224,7 +239,22 @@ fun SuggestionsScreen(
             }
 
             FloatingActionButton(
-                onClick = onAddClicked,
+                onClick = {
+                    editingSuggestionId = null
+                    isCreatingNew = true
+                    // 新規の初期値
+                    initialTitle = ""
+                    initialTimeSlot = SuggestionTimeSlot.Anytime
+                    initialDurationTag = SuggestionDurationTag.Medium
+                    initialPriority = SuggestionPriority.Normal
+                    // ドラフト
+                    draftTitle = ""
+                    draftTimeSlot = SuggestionTimeSlot.Anytime
+                    draftDurationTag = SuggestionDurationTag.Medium
+                    draftPriority = SuggestionPriority.Normal
+                    sheetMode = EditorSheetMode.Edit
+                    isEditorVisible = true
+                },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp),
@@ -235,6 +265,161 @@ fun SuggestionsScreen(
                 )
             }
 
+            // 編集用のボトムシート
+            if (isEditorVisible) {
+                ModalBottomSheet(
+                    onDismissRequest = {
+                        if (sheetMode == EditorSheetMode.Edit) {
+                            val isDirty =
+                                draftTitle != initialTitle ||
+                                        draftTimeSlot != initialTimeSlot ||
+                                        draftDurationTag != initialDurationTag ||
+                                        draftPriority != initialPriority
+                            if (isDirty) {
+                                showDiscardConfirm = true
+                            } else {
+                                isEditorVisible = false
+                            }
+                        } else {
+                            isEditorVisible = false
+                        }
+                    },
+                    sheetState = sheetState,
+                ) {
+                    when (sheetMode) {
+                        EditorSheetMode.View -> {
+                            // 閲覧用シート
+                            SuggestionViewSheet(
+                                title = draftTitle,
+                                timeSlot = draftTimeSlot,
+                                durationTag = draftDurationTag,
+                                priority = draftPriority,
+                                onClose = {
+                                    isEditorVisible = false
+                                },
+                                onEdit = {
+                                    // 編集モードへ切り替え
+                                    sheetMode = EditorSheetMode.Edit
+                                    // initialXXX はすでにセット済みなのでそのままで OK
+                                },
+                                onDelete = {
+                                    val id = editingSuggestionId
+                                    if (id != null) {
+                                        pendingDeleteId = id
+                                    }
+                                },
+                            )
+                        }
+
+                        EditorSheetMode.Edit -> {
+                            // 既存の編集用シート（前回追加した discard 判定付き）
+                            SuggestionEditorSheet(
+                                title = draftTitle,
+                                onTitleChange = { draftTitle = it },
+                                isNew = isCreatingNew,
+                                onConfirm = {
+                                    if (isCreatingNew) {
+                                        onCreateSuggestion(
+                                            draftTitle,
+                                            draftTimeSlot,
+                                            draftDurationTag,
+                                            draftPriority,
+                                        )
+                                    } else {
+                                        val id = editingSuggestionId
+                                        if (id != null) {
+                                            onUpdateSuggestion(
+                                                id,
+                                                draftTitle,
+                                                draftTimeSlot,
+                                                draftDurationTag,
+                                                draftPriority,
+                                            )
+                                        }
+                                    }
+                                    isEditorVisible = false
+                                },
+                                onDelete = if (!isCreatingNew && editingSuggestionId != null) {
+                                    {
+                                        val id = editingSuggestionId
+                                        if (id != null) {
+                                            pendingDeleteId = id
+                                        }
+                                    }
+                                } else null,
+                                onCancel = {
+                                    // 前回説明した discard 判定ロジックをここに
+                                    val isDirty =
+                                        draftTitle != initialTitle ||
+                                                draftTimeSlot != initialTimeSlot ||
+                                                draftDurationTag != initialDurationTag ||
+                                                draftPriority != initialPriority
+
+                                    if (isDirty) {
+                                        showDiscardConfirm = true
+                                    } else {
+                                        isEditorVisible = false
+                                    }
+                                },
+                                timeSlot = draftTimeSlot,
+                                onTimeSlotChange = { draftTimeSlot = it },
+                                durationTag = draftDurationTag,
+                                onDurationTagChange = { draftDurationTag = it },
+                                priority = draftPriority,
+                                onPriorityChange = { draftPriority = it },
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (showDiscardConfirm) {
+                AlertDialog(
+                    onDismissRequest = {
+                        showDiscardConfirm = false
+                        // ダイアログの外側タップなどでも編集を続けたいならここでも show()
+                        if (isEditorVisible) {
+                            coroutineScope.launch {
+                                sheetState.show()
+                            }
+                        }
+                    },
+                    title = { Text("入力中のやりたいことを破棄しますか？") },
+                    text = { Text("変更内容は保存されません。") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                // 破棄を確定
+                                showDiscardConfirm = false
+                                isEditorVisible = false
+                                // アニメーションさせたいなら hide() を呼んでもよい
+                                coroutineScope.launch {
+                                    sheetState.hide()
+                                }
+                            }
+                        ) {
+                            Text("破棄する")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                // キャンセル → ダイアログだけ閉じてシートを戻す
+                                showDiscardConfirm = false
+                                if (isEditorVisible) {
+                                    coroutineScope.launch {
+                                        sheetState.show()
+                                    }
+                                }
+                            }
+                        ) {
+                            Text("キャンセル")
+                        }
+                    },
+                )
+            }
+
+
             if (pendingDeleteId != null) {
                 AlertDialog(
                     onDismissRequest = { pendingDeleteId = null },
@@ -244,20 +429,34 @@ fun SuggestionsScreen(
                         TextButton(
                             onClick = {
                                 val id = pendingDeleteId
-                                pendingDeleteId = null
                                 if (id != null) {
-                                    onDeleteConfirmed(id)
+                                    onDeleteConfirmed(id)   // ← リポジトリ経由で削除
                                 }
+
+                                // ダイアログの状態をリセット
+                                pendingDeleteId = null
+
+                                // ここを追加：シートを閉じる
+                                isEditorVisible = false
+                                editingSuggestionId = null
+                                isCreatingNew = false
+                                // 必要なら sheetMode や draftXXX もリセットしてよい
+                                // sheetMode = EditorSheetMode.View
                             }
                         ) {
-                            Text("削除")
+                            Text("削除する")
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = { pendingDeleteId = null }) {
+                        TextButton(
+                            onClick = {
+                                // 削除をキャンセル → ダイアログだけ閉じてシートは残す
+                                pendingDeleteId = null
+                            }
+                        ) {
                             Text("キャンセル")
                         }
-                    }
+                    },
                 )
             }
         }
@@ -267,32 +466,12 @@ fun SuggestionsScreen(
 @Composable
 private fun SuggestionCard(
     suggestion: Suggestion,
-    isEditing: Boolean,
-    onStartEditing: () -> Unit,
-    onCommitEdit: (String) -> Unit,
-    onUpdateTags: (
-        SuggestionTimeSlot,
-        SuggestionDurationTag,
-        SuggestionPriority,
-    ) -> Unit,
+    onClick: () -> Unit,
 ) {
-    var text by remember(suggestion.id) { mutableStateOf(suggestion.title) }
-    val focusRequester = remember { FocusRequester() }
-    val focusManager = LocalFocusManager.current
-
-    // 「この編集で既に確定処理を呼んだか」を記録して二重実行を防ぐ
-    var committed by remember(suggestion.id) { mutableStateOf(false) }
-    // 「一度でもフォーカスが当たったか（＝単なる初期状態の onFocusChanged を避ける）」
-    var hadFocus by remember(suggestion.id) { mutableStateOf(false) }
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        onClick = {
-            if (!isEditing) {
-                onStartEditing()
-            }
-        }
+        onClick = onClick,
     ) {
         Column(
             modifier = Modifier
@@ -300,62 +479,11 @@ private fun SuggestionCard(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (isEditing) {
-                LaunchedEffect(isEditing) {
-                    if (isEditing) {
-                        committed = false
-                        hadFocus = false
-                        focusRequester.requestFocus()
-                    }
-                }
-
-                BasicTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    textStyle = TextStyle(
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 16.sp,
-                    ),
-                    singleLine = true,
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    keyboardOptions = KeyboardOptions.Default.copy(
-                        imeAction = ImeAction.Done,
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            if (!committed) {
-                                committed = true
-                                onCommitEdit(text)
-                            }
-                            focusManager.clearFocus(force = true)
-                        }
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester)
-                        .onFocusChanged { state ->
-                            if (state.isFocused) {
-                                hadFocus = true
-                            } else if (!state.isFocused && hadFocus && !committed) {
-                                // どこかをタップしてフォーカスが外れた場合もここに来る
-                                committed = true
-                                onCommitEdit(text)
-                            }
-                        },
-                )
-            } else {
-                Text(
-                    text = suggestion.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            TagSelectorRow(
-                timeSlot = suggestion.timeSlot,
-                durationTag = suggestion.durationTag,
-                priority = suggestion.priority,
-                onChange = onUpdateTags,
+            Text(
+                text = suggestion.title,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -404,133 +532,318 @@ private fun SwipeToDeleteBackground(
 }
 
 @Composable
-private fun TagSelectorRow(
+private fun SuggestionViewSheet(
+    title: String,
     timeSlot: SuggestionTimeSlot,
     durationTag: SuggestionDurationTag,
     priority: SuggestionPriority,
-    onChange: (
-        SuggestionTimeSlot,
-        SuggestionDurationTag,
-        SuggestionPriority,
-    ) -> Unit,
+    onClose: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     Column(
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
     ) {
-        // 時間帯
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = "時間帯:",
-                style = MaterialTheme.typography.labelMedium,
-            )
-            TagChip(
-                label = "いつでも",
-                selected = timeSlot == SuggestionTimeSlot.Anytime,
-                onClick = { onChange(SuggestionTimeSlot.Anytime, durationTag, priority) },
-            )
-            TagChip(
-                label = "朝",
-                selected = timeSlot == SuggestionTimeSlot.Morning,
-                onClick = { onChange(SuggestionTimeSlot.Morning, durationTag, priority) },
-            )
-            TagChip(
-                label = "昼",
-                selected = timeSlot == SuggestionTimeSlot.Afternoon,
-                onClick = { onChange(SuggestionTimeSlot.Afternoon, durationTag, priority) },
-            )
-            TagChip(
-                label = "夕方",
-                selected = timeSlot == SuggestionTimeSlot.Evening,
-                onClick = { onChange(SuggestionTimeSlot.Evening, durationTag, priority) },
-            )
-            TagChip(
-                label = "夜",
-                selected = timeSlot == SuggestionTimeSlot.Night,
-                onClick = { onChange(SuggestionTimeSlot.Night, durationTag, priority) },
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // 左上: 閉じるアイコン
+            IconButton(onClick = onClose) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "閉じる",
+                )
+            }
+
+            Row {
+                // 右上: 編集アイコン
+                IconButton(onClick = onEdit) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "編集",
+                    )
+                }
+                // 右上: 削除アイコン
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "削除",
+                    )
+                }
+            }
         }
 
-        // 所要時間
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = "長さ:",
-                style = MaterialTheme.typography.labelMedium,
-            )
-            TagChip(
-                label = "短い",
-                selected = durationTag == SuggestionDurationTag.Short,
-                onClick = { onChange(timeSlot, SuggestionDurationTag.Short, priority) },
-            )
-            TagChip(
-                label = "普通",
-                selected = durationTag == SuggestionDurationTag.Medium,
-                onClick = { onChange(timeSlot, SuggestionDurationTag.Medium, priority) },
-            )
-            TagChip(
-                label = "長い",
-                selected = durationTag == SuggestionDurationTag.Long,
-                onClick = { onChange(timeSlot, SuggestionDurationTag.Long, priority) },
-            )
-        }
+        Spacer(modifier = Modifier.height(8.dp))
 
-        // 優先度
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = "優先度:",
-                style = MaterialTheme.typography.labelMedium,
-            )
-            TagChip(
-                label = "低",
-                selected = priority == SuggestionPriority.Low,
-                onClick = { onChange(timeSlot, durationTag, SuggestionPriority.Low) },
-            )
-            TagChip(
-                label = "普通",
-                selected = priority == SuggestionPriority.Normal,
-                onClick = { onChange(timeSlot, durationTag, SuggestionPriority.Normal) },
-            )
-            TagChip(
-                label = "高",
-                selected = priority == SuggestionPriority.High,
-                onClick = { onChange(timeSlot, durationTag, SuggestionPriority.High) },
-            )
-        }
+        // タイトル
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        SuggestionTagsRow(
+            timeSlot = timeSlot,
+            durationTag = durationTag,
+            priority = priority,
+            interactive = false, // ← 編集なのでタップ可能
+            onTimeSlotChange = {},
+            onDurationTagChange = {},
+            onPriorityChange = {},
+        )
+        // 必要なら作成日時やメモなどもここに表示できる
     }
 }
 
 @Composable
-private fun TagChip(
+private fun SuggestionEditorSheet(
+    title: String,
+    onTitleChange: (String) -> Unit,
+    isNew: Boolean,
+    onConfirm: () -> Unit,
+    onDelete: (() -> Unit)?,
+    onCancel: () -> Unit,
+    timeSlot: SuggestionTimeSlot,
+    onTimeSlotChange: (SuggestionTimeSlot) -> Unit,
+    durationTag: SuggestionDurationTag,
+    onDurationTagChange: (SuggestionDurationTag) -> Unit,
+    priority: SuggestionPriority,
+    onPriorityChange: (SuggestionPriority) -> Unit,
+) {
+    val focusManager = LocalFocusManager.current
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        // 上部ヘッダー: 左に×, 右に保存
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onCancel) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "閉じる",
+                    )
+                }
+            }
+
+            TextButton(
+                onClick = {
+                    if (title.isNotBlank()) {
+                        onConfirm()
+                    }
+                },
+                enabled = title.isNotBlank(),
+            ) {
+                Text("保存")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ラベル入力: 枠なし・複数行・プレースホルダ表示
+        BasicTextField(
+            value = title,
+            onValueChange = onTitleChange,
+            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                color = MaterialTheme.colorScheme.onSurface,
+            ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions.Default.copy(
+                imeAction = ImeAction.Done,
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    focusManager.clearFocus(force = true)
+                },
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 64.dp),
+            decorationBox = { innerTextField ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 64.dp),
+                ) {
+                    if (title.isBlank()) {
+                        Text(
+                            text = "やりたいことを入力",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    innerTextField()
+                }
+            },
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        SuggestionTagsRow(
+            timeSlot = timeSlot,
+            durationTag = durationTag,
+            priority = priority,
+            interactive = true, // ← 編集なのでタップ可能
+            onTimeSlotChange = onTimeSlotChange,
+            onDurationTagChange = onDurationTagChange,
+            onPriorityChange = onPriorityChange,
+        )
+    }
+}
+
+@Composable
+private fun SuggestionTagChip(
     label: String,
     selected: Boolean,
+    enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val background = if (selected) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-    } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-    }
-    val border = if (selected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.outlineVariant
-    }
-    Text(
-        text = label,
-        style = MaterialTheme.typography.labelSmall,
-        color = if (selected) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
-        modifier = Modifier
-            .clip(MaterialTheme.shapes.small)
-            .background(background)
-            .border(
-                width = 1.dp,
-                color = border,
-                shape = MaterialTheme.shapes.small,
-            )
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clickable(onClick = onClick),
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        enabled = enabled,
+        label = { Text(label) },
     )
+}
+
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SuggestionTagsRow(
+    timeSlot: SuggestionTimeSlot,
+    durationTag: SuggestionDurationTag,
+    priority: SuggestionPriority,
+    // true: 編集モード（タップ可）, false: ビューモード（タップ不可）
+    interactive: Boolean,
+    onTimeSlotChange: (SuggestionTimeSlot) -> Unit,
+    onDurationTagChange: (SuggestionDurationTag) -> Unit,
+    onPriorityChange: (SuggestionPriority) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // 時間帯
+        Column {
+            Text(
+                text = "時間帯",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SuggestionTagChip(
+                    label = "いつでも",
+                    selected = timeSlot == SuggestionTimeSlot.Anytime,
+                    enabled = interactive,
+                    onClick = { onTimeSlotChange(SuggestionTimeSlot.Anytime) },
+                )
+                SuggestionTagChip(
+                    label = "朝",
+                    selected = timeSlot == SuggestionTimeSlot.Morning,
+                    enabled = interactive,
+                    onClick = { onTimeSlotChange(SuggestionTimeSlot.Morning) },
+                )
+                SuggestionTagChip(
+                    label = "昼",
+                    selected = timeSlot == SuggestionTimeSlot.Afternoon,
+                    enabled = interactive,
+                    onClick = { onTimeSlotChange(SuggestionTimeSlot.Afternoon) },
+                )
+                SuggestionTagChip(
+                    label = "夜",
+                    selected = timeSlot == SuggestionTimeSlot.Evening,
+                    enabled = interactive,
+                    onClick = { onTimeSlotChange(SuggestionTimeSlot.Evening) },
+                )
+            }
+        }
+
+        // 所要時間
+        Column {
+            Text(
+                text = "所要時間",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SuggestionTagChip(
+                    label = "短め",
+                    selected = durationTag == SuggestionDurationTag.Short,
+                    enabled = interactive,
+                    onClick = { onDurationTagChange(SuggestionDurationTag.Short) },
+                )
+                SuggestionTagChip(
+                    label = "ふつう",
+                    selected = durationTag == SuggestionDurationTag.Medium,
+                    enabled = interactive,
+                    onClick = { onDurationTagChange(SuggestionDurationTag.Medium) },
+                )
+                SuggestionTagChip(
+                    label = "じっくり",
+                    selected = durationTag == SuggestionDurationTag.Long,
+                    enabled = interactive,
+                    onClick = { onDurationTagChange(SuggestionDurationTag.Long) },
+                )
+            }
+        }
+
+        // 優先度
+        Column {
+            Text(
+                text = "優先度",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SuggestionTagChip(
+                    label = "低",
+                    selected = priority == SuggestionPriority.Low,
+                    enabled = interactive,
+                    onClick = { onPriorityChange(SuggestionPriority.Low) },
+                )
+                SuggestionTagChip(
+                    label = "通常",
+                    selected = priority == SuggestionPriority.Normal,
+                    enabled = interactive,
+                    onClick = { onPriorityChange(SuggestionPriority.Normal) },
+                )
+                SuggestionTagChip(
+                    label = "高",
+                    selected = priority == SuggestionPriority.High,
+                    enabled = interactive,
+                    onClick = { onPriorityChange(SuggestionPriority.High) },
+                )
+            }
+        }
+    }
 }
