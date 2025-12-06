@@ -59,7 +59,9 @@ fun OnboardingPage(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = onPrimaryClick,
-                    modifier = Modifier.Companion.fillMaxWidth()
+                    modifier = Modifier.Companion
+                        .fillMaxWidth()
+                        .systemBarsPadding()
                 ) {
                     Text(primaryButtonText)
                 }
@@ -67,7 +69,9 @@ fun OnboardingPage(
                 if (secondaryButtonText != null && onSecondaryClick != null) {
                     OutlinedButton(
                         onClick = onSecondaryClick,
-                        modifier = Modifier.Companion.fillMaxWidth()
+                        modifier = Modifier.Companion
+                            .fillMaxWidth()
+                            .systemBarsPadding()
                     ) {
                         Text(secondaryButtonText)
                     }

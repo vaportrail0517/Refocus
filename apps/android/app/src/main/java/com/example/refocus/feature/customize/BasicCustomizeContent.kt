@@ -1,7 +1,5 @@
-package com.example.refocus.feature.settings
+package com.example.refocus.feature.customize
 
-import android.app.Activity
-import android.content.Context
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import com.example.refocus.config.SettingsBasicPresets
@@ -11,157 +9,25 @@ import com.example.refocus.core.model.OverlayTouchMode
 import com.example.refocus.core.model.SettingsPreset
 import com.example.refocus.core.model.SuggestionTriggerPreset
 import com.example.refocus.core.model.TimeToMaxPreset
-import com.example.refocus.core.util.formatDurationMillisOrNull
+import com.example.refocus.core.util.formatDurationMilliSecondsOrNull
 import com.example.refocus.core.util.formatDurationSeconds
-import com.example.refocus.system.overlay.startOverlayService
-import com.example.refocus.system.overlay.stopOverlayService
-import com.example.refocus.system.permissions.PermissionHelper
 import com.example.refocus.ui.components.PresetOption
 import com.example.refocus.ui.components.PresetOptionRow
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
 
 @Composable
-fun BasicSettingsContent(
-    uiState: SettingsViewModel.UiState,
-    usageGranted: Boolean,
-    overlayGranted: Boolean,
-    hasCorePermissions: Boolean,
-    isServiceRunning: Boolean,
-    onServiceRunningChange: (Boolean) -> Unit,
-    onOpenAppSelect: () -> Unit,
-    onRequireCorePermission: () -> Unit,
+fun BasicCustomizeContent(
+    uiState: CustomizeViewModel.UiState,
+    viewModel: CustomizeViewModel,
     onOpenAdvanced: () -> Unit,
-    viewModel: SettingsViewModel,
-    context: Context,
-    activity: Activity?,
 ) {
     val settings = uiState.settings
 
-    // --- 権限 ---
-    SectionCard(
-        title = "権限"
-    ) {
-        SettingRow(
-            title = "使用状況へのアクセス",
-            subtitle = "（必須）連続使用時間を計測するために必要です。",
-            trailing = {
-                Switch(
-                    checked = usageGranted,
-                    onCheckedChange = null,
-                    enabled = true
-                )
-            },
-            onClick = {
-                activity?.let { PermissionHelper.openUsageAccessSettings(it) }
-            }
-        )
-        SettingRow(
-            title = "他のアプリの上に表示",
-            subtitle = "（必須）タイマーを他のアプリの上に表示するために必要です。",
-            trailing = {
-                Switch(
-                    checked = overlayGranted,
-                    onCheckedChange = null,
-                    enabled = true
-                )
-            },
-            onClick = {
-                activity?.let { PermissionHelper.openOverlaySettings(it) }
-            }
-        )
-    }
-
-    // --- 起動 ---
-    SectionCard(
-        title = "起動"
-    ) {
-        SettingRow(
-            title = "Refocus を動かす",
-            subtitle = if (!hasCorePermissions) {
-                "権限が足りないため、現在 Refocus を動かすことはできません。上の「権限」から設定を有効にしてください。"
-            } else if (isServiceRunning) {
-                "現在: 計測中（対象アプリ利用時に連続使用時間を記録します）"
-            } else {
-                "現在: 停止中（対象アプリの計測は行われていません）"
-            },
-            trailing = {
-                val checked = uiState.settings.overlayEnabled && isServiceRunning
-                Switch(
-                    checked = checked,
-                    enabled = hasCorePermissions,
-                    onCheckedChange = { newChecked ->
-                        if (!hasCorePermissions) {
-                            // 権限不足 → ダイアログを出すだけ
-                            onRequireCorePermission()
-                            return@Switch
-                        }
-                        if (newChecked) {
-                            viewModel.updateOverlayEnabled(true)
-                            context.startOverlayService()
-                            onServiceRunningChange(true)
-                        } else {
-                            viewModel.updateOverlayEnabled(false)
-                            context.stopOverlayService()
-                            onServiceRunningChange(false)
-                        }
-                    }
-                )
-            },
-            onClick = {
-                if (!hasCorePermissions) {
-                    onRequireCorePermission()
-                    return@SettingRow
-                }
-                val currentlyOn = uiState.settings.overlayEnabled && isServiceRunning
-                val turnOn = !currentlyOn
-                if (turnOn) {
-                    viewModel.updateOverlayEnabled(true)
-                    context.startOverlayService()
-                    onServiceRunningChange(true)
-                } else {
-                    viewModel.updateOverlayEnabled(false)
-                    context.stopOverlayService()
-                    onServiceRunningChange(false)
-                }
-            }
-        )
-        SettingRow(
-            title = "端末起動時に自動起動",
-            subtitle = "端末を再起動したときに自動で Refocus を起動します。※起動には少し時間がかかります。",
-            trailing = {
-                Switch(
-                    checked = uiState.settings.autoStartOnBoot,
-                    enabled = hasCorePermissions, // 権限不足時はグレーアウト
-                    onCheckedChange = { enabled ->
-                        if (!hasCorePermissions) {
-                            // 権限不足 → ダイアログだけ
-                            onRequireCorePermission()
-                            return@Switch
-                        }
-                        viewModel.updateAutoStartOnBoot(enabled)
-                    }
-                )
-            },
-            onClick = {
-                if (!hasCorePermissions) {
-                    onRequireCorePermission()
-                    return@SettingRow
-                }
-                viewModel.updateAutoStartOnBoot(!uiState.settings.autoStartOnBoot)
-            }
-        )
-    }
-
     // --- アプリ ---
     SectionCard(title = "アプリ") {
-        SettingRow(
-            title = "対象アプリを設定",
-            subtitle = "時間を計測したいアプリを選びます。",
-            onClick = onOpenAppSelect,
-        )
         val gracePreset = SettingsBasicPresets.gracePresetOrNull(settings)
-        val formattedGraceTime = formatDurationMillisOrNull(settings.gracePeriodMillis)
+        val formattedGraceTime = formatDurationMilliSecondsOrNull(settings.gracePeriodMillis)
         PresetOptionRow(
             title = "一時的なアプリ切り替え",
             currentPreset = gracePreset,
@@ -301,7 +167,7 @@ fun BasicSettingsContent(
             ),
             currentValueDescription = buildString {
                 append("対象アプリの利用を開始してから")
-                append(formatDurationSeconds(settings.suggestionTriggerSeconds))
+                append(formatDurationSeconds(settings.suggestionTriggerSeconds.toLong()))
                 append("以上経過したら提案を行います。")
             },
             onPresetSelected = { preset ->
@@ -336,9 +202,9 @@ fun BasicSettingsContent(
     )
 
     // --- 詳細設定への入口 ---
-    SectionCard(title = "詳細設定") {
+    SectionCard(title = "詳細カスタマイズ") {
         SettingRow(
-            title = "詳細設定を開く",
+            title = "詳細カスタマイズを開く",
             subtitle = "タイマー表示や提案などの詳細な設定が行えます。",
             onClick = onOpenAdvanced,
         )

@@ -16,6 +16,8 @@ data class Suggestion(
     val createdAtMillis: Long,
     val kind: SuggestionKind = SuggestionKind.Generic,
     val timeSlot: SuggestionTimeSlot = SuggestionTimeSlot.Anytime,
+    val durationTag: SuggestionDurationTag = SuggestionDurationTag.Medium,
+    val priority: SuggestionPriority = SuggestionPriority.Normal,
 )
 
 enum class SuggestionKind {
@@ -31,6 +33,19 @@ enum class SuggestionTimeSlot {
     Afternoon,
     Evening,
     Night,
+}
+
+
+enum class SuggestionDurationTag {
+    Short,   // 〜15分くらい
+    Medium,  // 15〜40分くらい
+    Long,    // 40分〜
+}
+
+enum class SuggestionPriority {
+    Low,
+    Normal,
+    High,
 }
 
 enum class SuggestionDecision {
@@ -52,3 +67,4 @@ data class SuggestionInstance(
     val timeToEndMillis: Long?,         // endAt - shownAt
     val endedSoon: Boolean?,            // end が無い時は null
 )
+

@@ -24,7 +24,7 @@ class SettingsRepository(
     /**
      * プリセットを適用する。
      *
-     * - Default / Debug: Settings の値をプリセット値で上書き
+     * - Default / Debug: Customize の値をプリセット値で上書き
      * - Custom: 値は変更せず、種別だけ変更
      *
      * 位置や overlayEnabled / autoStartOnBoot など
@@ -100,5 +100,10 @@ class SettingsRepository(
         updateOverlaySettings {
             it.copy(restSuggestionEnabled = enabled)
         }
+    }
+
+    suspend fun resetToDefaults() {
+        dataStore.update { Settings() }
+        dataStore.setPreset(SettingsPreset.Default)
     }
 }

@@ -32,7 +32,7 @@ object SettingsDefaults {
     // --- 提案機能 ---
     const val SUGGESTION_ENABLED: Boolean = true
     const val SUGGESTION_TRIGGER_SECONDS: Int = 15 * 60
-    const val SUGGESTION_TIMEOUT_SECONDS: Int = 8
+    const val SUGGESTION_TIMEOUT_SECONDS: Int = 0
     const val SUGGESTION_COOLDOWN_SECONDS: Int = 10 * 60
     const val SUGGESTION_FOREGROUND_STABLE_SECONDS: Int = 5 * 60
     const val REST_SUGGESTION_ENABLED: Boolean = true

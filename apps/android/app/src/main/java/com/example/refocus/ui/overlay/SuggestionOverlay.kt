@@ -68,9 +68,11 @@ fun SuggestionOverlay(
     }
 
     // 一定時間後に自動で閉じる
-    LaunchedEffect(Unit) {
-        delay(autoDismissMillis)
-        onDismissOnly()
+    LaunchedEffect(autoDismissMillis) {
+        if (autoDismissMillis > 0L) {
+            delay(autoDismissMillis)
+            onDismissOnly()
+        }
     }
 
     // 表示直後の誤タップ／誤スワイプを防ぐためのロックアウト

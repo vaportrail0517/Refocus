@@ -1,25 +1,24 @@
 package com.example.refocus.feature.settings
 
 import android.app.Activity
-import androidx.activity.compose.BackHandler
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,8 +32,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.refocus.system.overlay.OverlayService
+import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.overlay.stopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
+import com.example.refocus.ui.components.SectionCard
+import com.example.refocus.ui.components.SettingRow
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,38 +44,19 @@ import com.example.refocus.system.permissions.PermissionHelper
 fun SettingsScreen(
     onOpenAppSelect: () -> Unit,
     onOpenPermissionFixFlow: () -> Unit,
+    onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val viewModel: SettingsViewModel = hiltViewModel()
-
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
     var usageGranted by remember { mutableStateOf(PermissionHelper.hasUsageAccess(context)) }
     var overlayGranted by remember { mutableStateOf(PermissionHelper.hasOverlayPermission(context)) }
     var activeDialog by remember { mutableStateOf<SettingsDialogType?>(null) }
-    var isAdvancedMode by remember { mutableStateOf(false) }
-    var fontRange by remember(
-        uiState.settings.minFontSizeSp,
-        uiState.settings.maxFontSizeSp
-    ) {
-        mutableStateOf(
-            uiState.settings.minFontSizeSp..uiState.settings.maxFontSizeSp
-        )
-    }
     var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
-    val hasCorePermissions = PermissionHelper.hasAllCorePermissions(context)
-
-    BackHandler(enabled = isAdvancedMode) {
-        isAdvancedMode = false
-    }
-
-    val scrollState = rememberScrollState()
-
-    LaunchedEffect(isAdvancedMode) {
-        scrollState.scrollTo(0)
-    }
+    val hasCorePermissions = usageGranted && overlayGranted
 
     // 画面復帰時に権限状態を更新
     DisposableEffect(lifecycleOwner) {
@@ -82,8 +65,8 @@ fun SettingsScreen(
                 usageGranted = PermissionHelper.hasUsageAccess(context)
                 overlayGranted = PermissionHelper.hasOverlayPermission(context)
                 isServiceRunning = OverlayService.isRunning
-                val hasCorePermissions = usageGranted && overlayGranted
-                if (!hasCorePermissions) {
+                val corePermissions = usageGranted && overlayGranted
+                if (!corePermissions) {
                     val latestState = viewModel.uiState.value
                     // 起動設定 or 実行中サービスが残っていたら OFF に揃える
                     if (latestState.settings.overlayEnabled || isServiceRunning) {
@@ -105,23 +88,21 @@ fun SettingsScreen(
     }
 
     Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .systemBarsPadding(),
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = if (isAdvancedMode) "詳細設定" else "設定",
+                        text = "設定",
                     )
                 },
-                actions = {
-                    IconButton(onClick = { isAdvancedMode = !isAdvancedMode }) {
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
                         Icon(
-//                            imageVector = Icons.Filled.Tune,
-                            imageVector = Icons.Filled.SwapHoriz,
-                            contentDescription = if (isAdvancedMode) {
-                                "基本設定に切り替え"
-                            } else {
-                                "詳細設定に切り替え"
-                            },
+                            imageVector = Icons.Filled.ArrowBack,
+                            contentDescription = "戻る"
                         )
                     }
                 },
@@ -133,122 +114,36 @@ fun SettingsScreen(
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState)
                 .padding(innerPadding)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (!isAdvancedMode) {
-                // ================= 基本設定 =================
-                BasicSettingsContent(
-                    uiState = uiState,
-                    usageGranted = usageGranted,
-                    overlayGranted = overlayGranted,
-                    hasCorePermissions = hasCorePermissions,
-                    isServiceRunning = isServiceRunning,
-                    onServiceRunningChange = { isServiceRunning = it },
-                    onOpenAppSelect = onOpenAppSelect,
-                    onRequireCorePermission = {
-                        activeDialog = SettingsDialogType.CorePermissionRequired
-                    },
-                    onOpenAdvanced = { isAdvancedMode = true },
-                    viewModel = viewModel,
-                    context = context,
-                    activity = activity,
-                )
-            } else {
-                // ================= 詳細設定 =================
-                AdvancedSettingsContent(
-                    uiState = uiState,
-                    onBackToBasic = { isAdvancedMode = false },
-                    onOpenGraceDialog = { activeDialog = SettingsDialogType.GraceTime },
-                    onOpenPollingDialog = { activeDialog = SettingsDialogType.PollingInterval },
-                    onOpenFontDialog = {
-                        fontRange = uiState.settings.minFontSizeSp..
-                                uiState.settings.maxFontSizeSp
-                        activeDialog = SettingsDialogType.FontRange
-                    },
-                    onOpenTimeToMaxDialog = { activeDialog = SettingsDialogType.TimeToMax },
-                    onOpenSuggestionTriggerDialog = {
-                        activeDialog = SettingsDialogType.SuggestionTriggerTime
-                    },
-                    onOpenSuggestionForegroundStableDialog = {
-                        activeDialog = SettingsDialogType.SuggestionForegroundStable
-                    },
-                    onOpenSuggestionCooldownDialog = {
-                        activeDialog = SettingsDialogType.SuggestionCooldown
-                    },
-                    onOpenSuggestionTimeoutDialog = {
-                        activeDialog = SettingsDialogType.SuggestionTimeout
-                    },
-                    onOpenSuggestionInteractionLockoutDialog = {
-                        activeDialog = SettingsDialogType.SuggestionInteractionLockout
-                    },
-                    onOpenGrowthModeDialog = { activeDialog = SettingsDialogType.GrowthMode },
-                    onOpenColorModeDialog = { activeDialog = SettingsDialogType.ColorMode },
-                    onOpenFixedColorDialog = { activeDialog = SettingsDialogType.FixedColor },
-                    onOpenGradientStartColorDialog = {
-                        activeDialog = SettingsDialogType.GradientStartColor
-                    },
-                    onOpenGradientMiddleColorDialog = {
-                        activeDialog = SettingsDialogType.GradientMiddleColor
-                    },
-                    onOpenGradientEndColorDialog = {
-                        activeDialog = SettingsDialogType.GradientEndColor
-                    },
-                    viewModel = viewModel,
-                )
-            }
+            SettingsContent(
+                uiState = uiState,
+                usageGranted = usageGranted,
+                overlayGranted = overlayGranted,
+                hasCorePermissions = hasCorePermissions,
+                isServiceRunning = isServiceRunning,
+                onServiceRunningChange = { isServiceRunning = it },
+                onOpenAppSelect = onOpenAppSelect,
+                onRequireCorePermission = {
+                    activeDialog = SettingsDialogType.CorePermissionRequired
+                },
+                onResetAllData = { activeDialog = SettingsDialogType.AppDataReset },
+                viewModel = viewModel,
+                context = context,
+                activity = activity,
+            )
+
 
             when (activeDialog) {
-                SettingsDialogType.GraceTime -> {
-                    GraceTimeDialog(
-                        currentMillis = uiState.settings.gracePeriodMillis,
-                        onConfirm = { newMillis ->
-                            viewModel.updateGracePeriodMillis(newMillis)
+                SettingsDialogType.AppDataReset -> {
+                    AppDataResetDialog(
+                        onResetAllData = {
+                            viewModel.resetAllData()
                             activeDialog = null
                         },
-                        onDismiss = { activeDialog = null }
-                    )
-                }
-
-                SettingsDialogType.PollingInterval -> {
-                    PollingIntervalDialog(
-                        currentMillis = uiState.settings.pollingIntervalMillis,
-                        onConfirm = { newMs ->
-                            viewModel.updatePollingIntervalMillis(newMs)
-                            activeDialog = null
-                        },
-                        onDismiss = { activeDialog = null }
-                    )
-                }
-
-                SettingsDialogType.FontRange -> {
-                    FontRangeDialog(
-                        initialRange = fontRange,
-                        onConfirm = { newRange ->
-                            val minFontSpLimit = 8f
-                            val maxFontSpLimit = 96f
-                            val clampedMin =
-                                newRange.start.coerceIn(minFontSpLimit, maxFontSpLimit)
-                            val clampedMax =
-                                newRange.endInclusive.coerceIn(clampedMin, maxFontSpLimit)
-                            viewModel.updateMinFontSizeSp(clampedMin)
-                            viewModel.updateMaxFontSizeSp(clampedMax)
-                            activeDialog = null
-                        },
-                        onDismiss = { activeDialog = null }
-                    )
-                }
-
-                SettingsDialogType.TimeToMax -> {
-                    TimeToMaxDialog(
-                        currentMinutes = uiState.settings.timeToMaxMinutes,
-                        onConfirm = { minutes ->
-                            viewModel.updateTimeToMaxMinutes(minutes)
-                            activeDialog = null
-                        },
-                        onDismiss = { activeDialog = null }
+                        onDismiss = { activeDialog = null },
                     )
                 }
 
@@ -268,129 +163,159 @@ fun SettingsScreen(
                     )
                 }
 
-                SettingsDialogType.SuggestionTriggerTime -> {
-                    SuggestionTriggerTimeDialog(
-                        currentSeconds = uiState.settings.suggestionTriggerSeconds,
-                        onConfirm = { seconds ->
-                            viewModel.updateSuggestionTriggerSeconds(seconds)
-                            activeDialog = null
-                        },
-                        onDismiss = { activeDialog = null },
-                    )
-                }
-
-                SettingsDialogType.SuggestionForegroundStable -> {
-                    SuggestionForegroundStableDialog(
-                        currentSeconds = uiState.settings.suggestionForegroundStableSeconds,
-                        onConfirm = { seconds ->
-                            viewModel.updateSuggestionForegroundStableSeconds(seconds)
-                            activeDialog = null
-                        },
-                        onDismiss = { activeDialog = null },
-                    )
-                }
-
-                SettingsDialogType.SuggestionCooldown -> {
-                    SuggestionCooldownDialog(
-                        currentSeconds = uiState.settings.suggestionCooldownSeconds,
-                        onConfirm = { seconds ->
-                            viewModel.updateSuggestionCooldownSeconds(seconds)
-                            activeDialog = null
-                        },
-                        onDismiss = { activeDialog = null },
-                    )
-                }
-
-                SettingsDialogType.SuggestionTimeout -> {
-                    SuggestionTimeoutDialog(
-                        currentSeconds = uiState.settings.suggestionTimeoutSeconds,
-                        onConfirm = { seconds ->
-                            viewModel.updateSuggestionTimeoutSeconds(seconds)
-                            activeDialog = null
-                        },
-                        onDismiss = { activeDialog = null },
-                    )
-                }
-
-                SettingsDialogType.SuggestionInteractionLockout -> {
-                    SuggestionInteractionLockoutDialog(
-                        currentMillis = uiState.settings.suggestionInteractionLockoutMillis,
-                        onConfirm = { millis ->
-                            viewModel.updateSuggestionInteractionLockoutMillis(millis)
-                            activeDialog = null
-                        },
-                        onDismiss = { activeDialog = null },
-                    )
-                }
-
-                SettingsDialogType.GrowthMode -> {
-                    GrowthModeDialog(
-                        current = uiState.settings.growthMode,
-                        onConfirm = { mode ->
-                            viewModel.updateGrowthMode(mode)
-                            activeDialog = null
-                        },
-                        onDismiss = { activeDialog = null },
-                    )
-                }
-
-                SettingsDialogType.ColorMode -> {
-                    ColorModeDialog(
-                        current = uiState.settings.colorMode,
-                        onConfirm = { mode ->
-                            viewModel.updateColorMode(mode)
-                            activeDialog = null
-                        },
-                        onDismiss = { activeDialog = null },
-                    )
-                }
-
-                SettingsDialogType.FixedColor -> {
-                    FixedColorDialog(
-                        currentColorArgb = uiState.settings.fixedColorArgb,
-                        onConfirm = { argb ->
-                            viewModel.updateFixedColorArgb(argb)
-                            activeDialog = null
-                        },
-                        onDismiss = { activeDialog = null },
-                    )
-                }
-
-                SettingsDialogType.GradientStartColor -> {
-                    GradientStartColorDialog(
-                        currentColorArgb = uiState.settings.gradientStartColorArgb,
-                        onConfirm = { argb ->
-                            viewModel.updateGradientStartColorArgb(argb)
-                            activeDialog = null
-                        },
-                        onDismiss = { activeDialog = null },
-                    )
-                }
-
-                SettingsDialogType.GradientMiddleColor -> {
-                    GradientMiddleColorDialog(
-                        currentColorArgb = uiState.settings.gradientMiddleColorArgb,
-                        onConfirm = { argb ->
-                            viewModel.updateGradientMiddleColorArgb(argb)
-                            activeDialog = null
-                        },
-                        onDismiss = { activeDialog = null },
-                    )
-                }
-
-                SettingsDialogType.GradientEndColor -> {
-                    GradientEndColorDialog(
-                        currentColorArgb = uiState.settings.gradientEndColorArgb,
-                        onConfirm = { argb ->
-                            viewModel.updateGradientEndColorArgb(argb)
-                            activeDialog = null
-                        },
-                        onDismiss = { activeDialog = null },
-                    )
-                }
-
                 null -> Unit
             }
         }
+    }
+}
+
+@Composable
+fun SettingsContent(
+    uiState: SettingsViewModel.UiState,
+    usageGranted: Boolean,
+    overlayGranted: Boolean,
+    hasCorePermissions: Boolean,
+    isServiceRunning: Boolean,
+    onServiceRunningChange: (Boolean) -> Unit,
+    onOpenAppSelect: () -> Unit,
+    onRequireCorePermission: () -> Unit,
+    onResetAllData: () -> Unit,
+    viewModel: SettingsViewModel,
+    context: Context,
+    activity: Activity?,
+) {
+    val settings = uiState.settings
+
+    // --- 権限 ---
+    SectionCard(
+        title = "権限"
+    ) {
+        SettingRow(
+            title = "使用状況へのアクセス",
+            subtitle = "（必須）連続使用時間を計測するために必要です。",
+            trailing = {
+                Switch(
+                    checked = usageGranted,
+                    onCheckedChange = null,
+                    enabled = true
+                )
+            },
+            onClick = {
+                activity?.let { PermissionHelper.openUsageAccessSettings(it) }
+            }
+        )
+        SettingRow(
+            title = "他のアプリの上に表示",
+            subtitle = "（必須）タイマーを他のアプリの上に表示するために必要です。",
+            trailing = {
+                Switch(
+                    checked = overlayGranted,
+                    onCheckedChange = null,
+                    enabled = true
+                )
+            },
+            onClick = {
+                activity?.let { PermissionHelper.openOverlaySettings(it) }
+            }
+        )
+    }
+
+    // --- 起動 ---
+    SectionCard(
+        title = "起動"
+    ) {
+        SettingRow(
+            title = "Refocus を動かす",
+            subtitle = if (!hasCorePermissions) {
+                "権限が足りないため、現在 Refocus を動かすことはできません。上の「権限」から設定を有効にしてください。"
+            } else if (isServiceRunning) {
+                "現在: 計測中（対象アプリ利用時に連続使用時間を記録します）"
+            } else {
+                "現在: 停止中（対象アプリの計測は行われていません）"
+            },
+            trailing = {
+                val checked = uiState.settings.overlayEnabled && isServiceRunning
+                Switch(
+                    checked = checked,
+                    enabled = hasCorePermissions,
+                    onCheckedChange = { newChecked ->
+                        if (!hasCorePermissions) {
+                            // 権限不足 → ダイアログを出すだけ
+                            onRequireCorePermission()
+                            return@Switch
+                        }
+                        if (newChecked) {
+                            viewModel.updateOverlayEnabled(true)
+                            context.startOverlayService()
+                            onServiceRunningChange(true)
+                        } else {
+                            viewModel.updateOverlayEnabled(false)
+                            context.stopOverlayService()
+                            onServiceRunningChange(false)
+                        }
+                    }
+                )
+            },
+            onClick = {
+                if (!hasCorePermissions) {
+                    onRequireCorePermission()
+                    return@SettingRow
+                }
+                val currentlyOn = uiState.settings.overlayEnabled && isServiceRunning
+                val turnOn = !currentlyOn
+                if (turnOn) {
+                    viewModel.updateOverlayEnabled(true)
+                    context.startOverlayService()
+                    onServiceRunningChange(true)
+                } else {
+                    viewModel.updateOverlayEnabled(false)
+                    context.stopOverlayService()
+                    onServiceRunningChange(false)
+                }
+            }
+        )
+        SettingRow(
+            title = "端末起動時に自動起動",
+            subtitle = "端末を再起動したときに自動で Refocus を起動します。※起動には少し時間がかかります。",
+            trailing = {
+                Switch(
+                    checked = uiState.settings.autoStartOnBoot,
+                    enabled = hasCorePermissions, // 権限不足時はグレーアウト
+                    onCheckedChange = { enabled ->
+                        if (!hasCorePermissions) {
+                            // 権限不足 → ダイアログだけ
+                            onRequireCorePermission()
+                            return@Switch
+                        }
+                        viewModel.updateAutoStartOnBoot(enabled)
+                    }
+                )
+            },
+            onClick = {
+                if (!hasCorePermissions) {
+                    onRequireCorePermission()
+                    return@SettingRow
+                }
+                viewModel.updateAutoStartOnBoot(!uiState.settings.autoStartOnBoot)
+            }
+        )
+    }
+
+    // --- アプリ ---
+    SectionCard(title = "アプリ") {
+        SettingRow(
+            title = "対象アプリを設定",
+            subtitle = "時間を計測したいアプリを選びます。",
+            onClick = onOpenAppSelect,
+        )
+    }
+
+    // --- データ ---
+    SectionCard(title = "データ") {
+        SettingRow(
+            title = "アプリの初期化",
+            subtitle = "全セッションの記録や登録した提案などを削除し，設定もデフォルトに戻します．",
+            onClick = onResetAllData,
+        )
     }
 }

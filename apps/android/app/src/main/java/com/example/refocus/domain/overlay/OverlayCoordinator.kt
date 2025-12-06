@@ -13,6 +13,7 @@ import com.example.refocus.data.repository.SuggestionsRepository
 import com.example.refocus.data.repository.TargetsRepository
 import com.example.refocus.domain.session.SessionManager
 import com.example.refocus.domain.suggestion.SuggestionEngine
+import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +48,7 @@ class OverlayCoordinator(
     private val suggestionsRepository: SuggestionsRepository,
     private val foregroundAppMonitor: ForegroundAppMonitor,
     private val suggestionEngine: SuggestionEngine,
+    private val suggestionSelector: SuggestionSelector,
     private val sessionManager: SessionManager,
     private val uiController: OverlayUiGateway,
 ) {
@@ -533,16 +535,21 @@ class OverlayCoordinator(
 
         scope.launch {
             try {
-                val suggestion = suggestionsRepository.observeSuggestion().firstOrNull()
-                val hasSuggestion = suggestion != null
+                val suggestions = suggestionsRepository.observeSuggestions().firstOrNull().orEmpty()
+                val selected = suggestionSelector.select(
+                    suggestions = suggestions,
+                    nowMillis = nowMillis,
+                    elapsedMillis = elapsed,
+                )
+                val hasSuggestion = selected != null
 
                 if (!hasSuggestion && !overlaySettings.restSuggestionEnabled) {
                     Log.d(TAG, "No suggestion and restSuggestion disabled, skip overlay")
                     return@launch
                 }
 
-                val (title, mode) = if (suggestion != null) {
-                    suggestion.title to OverlaySuggestionMode.Goal
+                val (title, mode) = if (selected != null) {
+                    selected.title to OverlaySuggestionMode.Goal
                 } else {
                     "画面から少し離れて休憩する" to OverlaySuggestionMode.Rest
                 }

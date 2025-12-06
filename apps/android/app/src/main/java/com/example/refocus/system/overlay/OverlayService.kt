@@ -23,6 +23,7 @@ import com.example.refocus.data.repository.TargetsRepository
 import com.example.refocus.domain.overlay.OverlayCoordinator
 import com.example.refocus.domain.session.SessionManager
 import com.example.refocus.domain.suggestion.SuggestionEngine
+import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import com.example.refocus.system.permissions.PermissionHelper
 import dagger.hilt.android.AndroidEntryPoint
@@ -67,6 +68,9 @@ class OverlayService : LifecycleService() {
 
     @Inject
     lateinit var suggestionEngine: SuggestionEngine
+
+    @Inject
+    lateinit var suggestionSelector: SuggestionSelector
 
     private lateinit var timerOverlayController: TimerOverlayController
     private lateinit var suggestionOverlayController: SuggestionOverlayController
@@ -134,6 +138,7 @@ class OverlayService : LifecycleService() {
             suggestionEngine = suggestionEngine,
             sessionManager = sessionManager,
             uiController = overlayUiController,
+            suggestionSelector = suggestionSelector,
         )
 
         startForegroundWithNotification()

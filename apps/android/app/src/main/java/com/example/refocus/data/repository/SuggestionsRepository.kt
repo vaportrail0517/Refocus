@@ -1,7 +1,9 @@
 package com.example.refocus.data.repository
 
 import com.example.refocus.core.model.Suggestion
+import com.example.refocus.core.model.SuggestionDurationTag
 import com.example.refocus.core.model.SuggestionKind
+import com.example.refocus.core.model.SuggestionPriority
 import com.example.refocus.core.model.SuggestionTimeSlot
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.db.dao.SuggestionDao
@@ -41,14 +43,21 @@ class SuggestionsRepository(
      * ここでは title をそのまま保存する（空文字でも保存される）。
      * UI 側で空のまま確定されたときは削除する。
      */
-    suspend fun addSuggestion(title: String): Suggestion {
+    suspend fun addSuggestion(
+        title: String,
+        timeSlot: SuggestionTimeSlot,
+        durationTag: SuggestionDurationTag,
+        priority: SuggestionPriority,
+    ): Suggestion {
         val now = timeSource.nowMillis()
         val entity = SuggestionEntity(
             id = 0L,
             title = title,
             createdAtMillis = now,
             kind = SuggestionKind.Generic.name,
-            timeSlot = SuggestionTimeSlot.Anytime.name,
+            timeSlot = timeSlot.name,
+            durationTag = durationTag.name,
+            priority = priority.name,
         )
         val newId = suggestionDao.insert(entity)
         return entity.copy(id = newId).toModel()
@@ -60,17 +69,24 @@ class SuggestionsRepository(
         suggestionDao.update(updated)
     }
 
+    suspend fun updateSuggestionTags(
+        id: Long,
+        timeSlot: SuggestionTimeSlot,
+        durationTag: SuggestionDurationTag,
+        priority: SuggestionPriority,
+    ) {
+        val current = suggestionDao.getAll().firstOrNull { it.id == id } ?: return
+        val updated = current.copy(
+            timeSlot = timeSlot.name,
+            durationTag = durationTag.name,
+            priority = priority.name
+        )
+        suggestionDao.update(updated)
+    }
+
     suspend fun deleteSuggestion(id: Long) {
         val current = suggestionDao.getAll().firstOrNull { it.id == id } ?: return
         suggestionDao.delete(current)
-    }
-
-    /**
-     * 旧 API の互換メソッド。
-     * 全件削除する。
-     */
-    suspend fun clearSuggestion() {
-        suggestionDao.deleteAll()
     }
 
     private fun SuggestionEntity.toModel(): Suggestion {
@@ -78,12 +94,18 @@ class SuggestionsRepository(
             .getOrDefault(SuggestionKind.Generic)
         val slotEnum = runCatching { SuggestionTimeSlot.valueOf(timeSlot) }
             .getOrDefault(SuggestionTimeSlot.Anytime)
+        val durationEnum = runCatching { SuggestionDurationTag.valueOf(durationTag) }
+            .getOrDefault(SuggestionDurationTag.Medium)
+        val priorityEnum = runCatching { SuggestionPriority.valueOf(priority) }
+            .getOrDefault(SuggestionPriority.Normal)
         return Suggestion(
             id = id,
             title = title,
             createdAtMillis = createdAtMillis,
             kind = kindEnum,
             timeSlot = slotEnum,
+            durationTag = durationEnum,
+            priority = priorityEnum,
         )
     }
 }

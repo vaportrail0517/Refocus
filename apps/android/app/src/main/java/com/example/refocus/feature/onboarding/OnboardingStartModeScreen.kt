@@ -25,7 +25,7 @@ import com.example.refocus.ui.components.OnboardingPage
 /**
  * 起動モード（自動起動 / 今だけ / 起動しない）を選ぶページ。
  *
- * 選択内容は [OnboardingStartModeViewModel.applyStartMode] 経由で `Settings` に反映される。
+ * 選択内容は [OnboardingStartModeViewModel.applyStartMode] 経由で `Customize` に反映される。
  */
 @Composable
 fun OnboardingStartModeScreen(

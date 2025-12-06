@@ -36,7 +36,7 @@ object SettingsPresetValues {
 
     // デバッグ用
     val Debug: Settings = Settings(
-        gracePeriodMillis = 30_000L,
+        gracePeriodMillis = 10_000L,
         pollingIntervalMillis = 500L,
         minFontSizeSp = 32f,
         maxFontSizeSp = 96f,
@@ -60,7 +60,7 @@ object SettingsPresetValues {
         // 提案周りは「体感しやすい値」に寄せる
         suggestionEnabled = true,
         suggestionTriggerSeconds = 20,
-        suggestionTimeoutSeconds = 8,
+        suggestionTimeoutSeconds = 0,
         suggestionCooldownSeconds = 40,
         suggestionForegroundStableSeconds = 10,
         restSuggestionEnabled = true,
