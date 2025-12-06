@@ -11,10 +11,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,7 +40,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -61,7 +60,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -136,14 +134,11 @@ fun SuggestionsScreen(
         skipPartiallyExpanded = false,
     )
 
-    val density = LocalDensity.current
-    val imeBottom = WindowInsets.ime.getBottom(density)
-    val imeVisible = imeBottom > 0
-    LaunchedEffect(imeVisible, sheetState.currentValue) {
-        if (imeVisible && sheetState.currentValue == SheetValue.Expanded) {
-            // キーボードが表示されている間に Expanded になったら、
-            // 部分表示状態に戻す
-            sheetState.partialExpand()
+    LaunchedEffect(isEditorVisible) {
+        if (isEditorVisible) {
+            coroutineScope.launch {
+                sheetState.expand()
+            }
         }
     }
 
@@ -544,7 +539,8 @@ private fun SuggestionViewSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .fillMaxHeight()
+            .padding(horizontal = 16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -621,8 +617,9 @@ private fun SuggestionEditorSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .fillMaxHeight()
             .verticalScroll(scrollState)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp)
     ) {
         // 上部ヘッダー: 左に×, 右に保存
         Row(
