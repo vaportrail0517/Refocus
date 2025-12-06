@@ -186,17 +186,10 @@ private fun StatsTopBar(
 ) {
     TopAppBar(
         title = {
-            Column {
-                Text(
-                    text = "統計",
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = dateLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
+            Text(
+                text = "統計",
+                style = MaterialTheme.typography.titleLarge,
+            )
         },
         actions = {
             IconButton(onClick = onOpenHistory) {
