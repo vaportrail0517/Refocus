@@ -724,9 +724,12 @@ private fun buildYesterdaySummaryRows(today: DailyStats): List<Pair<String, Stri
         "合計利用時間" to formatDuration(today.totalUsageMillis),
         "セッション数" to today.sessionCount.toString(),
         "平均セッション長" to formatDuration(today.averageSessionDurationMillis),
-        "監視時間の合計" to "${today.monitoringTotalMinutes}分",
-        "対象アプリ利用中の監視時間" to "${today.monitoringWithTargetMinutes}分",
         "提案表示回数" to (today.suggestionStats?.totalShown?.toString() ?: "0"),
+        "提案を見送った割合" to (
+                today.suggestionStats?.let { s ->
+                    if (s.totalShown > 0) "${(s.skippedCount * 100 / s.totalShown)}%" else "-"
+                } ?: "-"
+                ),
     )
 }
 
@@ -735,7 +738,8 @@ private fun buildLast7DaysSummaryRows(today: DailyStats): List<Pair<String, Stri
     return listOf(
         "1日あたり平均利用時間" to formatDuration(today.totalUsageMillis),
         "1日あたりセッション数" to today.sessionCount.toString(),
-        "1日あたり監視時間" to "${today.monitoringTotalMinutes}分",
+        "1日あたり平均セッション長" to formatDuration(today.averageSessionDurationMillis),
+        "提案表示回数" to (today.suggestionStats?.totalShown?.toString() ?: "0"),
         "提案を見送った割合" to (
                 today.suggestionStats?.let { s ->
                     if (s.totalShown > 0) "${(s.skippedCount * 100 / s.totalShown)}%" else "-"
