@@ -10,7 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -111,15 +112,23 @@ fun CustomizeScreen(
                     )
                 },
                 actions = {
-                    IconButton(onClick = { isAdvancedMode = !isAdvancedMode }) {
-                        Icon(
-                            imageVector = Icons.Filled.SwapHoriz,
-                            contentDescription = if (isAdvancedMode) {
-                                "基本設定に切り替え"
-                            } else {
-                                "詳細設定に切り替え"
-                            },
-                        )
+                    if (!isAdvancedMode) {
+                        IconButton(onClick = { isAdvancedMode = !isAdvancedMode }) {
+                            Icon(
+                                imageVector = Icons.Filled.ChevronRight,
+                                contentDescription = "詳細設定に切り替え"
+                            )
+                        }
+                    }
+                },
+                navigationIcon = {
+                    if (isAdvancedMode) {
+                        IconButton(onClick = { isAdvancedMode = !isAdvancedMode }) {
+                            Icon(
+                                imageVector = Icons.Filled.ChevronLeft,
+                                contentDescription = "基本設定に切り替え"
+                            )
+                        }
                     }
                 },
                 windowInsets = WindowInsets(0.dp),

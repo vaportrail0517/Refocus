@@ -145,7 +145,7 @@ fun SuggestionsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("やりたいこと") },
+                title = { Text("提案") },
                 windowInsets = WindowInsets(0.dp),
             )
         },

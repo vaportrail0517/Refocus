@@ -40,26 +40,34 @@ import com.example.refocus.core.model.SuggestionDailyStats
 import com.example.refocus.core.model.TimeBucketStats
 import com.example.refocus.ui.components.SectionCard
 
+/**
+ * 統計詳細画面の種類。
+ *
+ * HomeScreen など他画面からも参照されるので、この enum の値は既存のものを維持しつつ、
+ * 新しく Monitoring を追加する。
+ */
 enum class StatsDetailSection {
     UsageSummary,   // 今日のサマリー
     AppUsage,       // アプリ別
     Timeline,       // 1日の流れ
     Suggestions,    // 提案の履歴
     PeakTime,       // 時間を使いがちな時間帯
+    Monitoring,     // Refocus の動作状況
 }
 
 @Composable
 fun StatsRoute(
     viewModel: StatsViewModel = hiltViewModel(),
-    onOpenHistory: () -> Unit = {},   // 後で履歴画面へのショートカットに使う
-    onOpenDetail: (StatsDetailSection) -> Unit = {}, // 各統計項目の詳細画面
+    onOpenHistory: () -> Unit = {},
+    onOpenDetail: (StatsDetailSection) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     StatsScreen(
         uiState = uiState,
         onOpenHistory = onOpenHistory,
-        onRangeChange = { range ->
+        onRangeChange = { _ ->
+            // ひとまず Today 固定。将来 Last7Days / Last30Days を実装するときに拡張する。
         },
         onOpenDetail = onOpenDetail,
     )
@@ -86,12 +94,11 @@ fun StatsScreen(
     ) { innerPadding ->
         when {
             uiState.isLoading -> {
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding)
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.Center,
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator()
                 }
@@ -106,6 +113,11 @@ fun StatsScreen(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text("まだ統計データがありません。")
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "対象アプリの使用中にオーバーレイを表示すると、ここに今日の振り返りが表示されます。",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
             }
 
@@ -136,6 +148,32 @@ private fun StatsContent(
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        // Refocus の動作状況（監視時間）
+        // item {
+        //     MonitoringSummaryCard(
+        //         stats = stats,
+        //         onClick = { onOpenSection(StatsDetailSection.Monitoring) },
+        //     )
+        // }
+
+        // 今日のサマリー（対象アプリの合計時間・セッション）
+        item {
+            SummaryCard(
+                stats = stats,
+                onClick = { onOpenSection(StatsDetailSection.UsageSummary) },
+            )
+        }
+
+        // アプリ別の使い方
+        if (stats.appUsageStats.isNotEmpty()) {
+            item {
+                AppUsageCard(
+                    apps = stats.appUsageStats,
+                    onClick = { onOpenSection(StatsDetailSection.AppUsage) },
+                )
+            }
+        }
+
         // 1日の流れ（タイムライン）
         if (stats.timeBuckets.isNotEmpty()) {
             item {
@@ -144,9 +182,15 @@ private fun StatsContent(
                     onClick = { onOpenSection(StatsDetailSection.Timeline) },
                 )
             }
+            item {
+                PeakTimeCard(
+                    timeBuckets = stats.timeBuckets,
+                    onClick = { onOpenSection(StatsDetailSection.PeakTime) },
+                )
+            }
         }
 
-        // 提案履歴
+        // 提案との付き合い方
         stats.suggestionStats?.let { suggestion ->
             item {
                 SuggestionCard(
@@ -156,25 +200,33 @@ private fun StatsContent(
             }
         }
 
-        // 昨日のサマリー
+        // 昨日のサマリー（現状は「今日の値を使ったダミー」。実装時に正しく差分集計する）
         item {
             PeriodSummarySection(
                 title = "昨日のまとめ",
-                rows = buildYesterdaySummaryRows(stats),   // ※今は DailyStats を仮で流用
+                rows = buildYesterdaySummaryRows(stats),
             )
         }
 
-        // 過去7日間のサマリー
+        // 過去7日間のサマリー（こちらも現状はダミー）
         item {
             PeriodSummarySection(
                 title = "過去7日間のまとめ",
                 rows = buildLast7DaysSummaryRows(stats),
             )
         }
+
+        // 履歴画面への導線
+        item {
+            Button(
+                onClick = onOpenHistory,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("セッション履歴を詳しく見る")
+            }
+        }
     }
 }
-
-// ナビゲーションバー
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -186,17 +238,10 @@ private fun StatsTopBar(
 ) {
     TopAppBar(
         title = {
-            Column {
-                Text(
-                    text = "統計",
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = dateLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
+            Text(
+                text = "統計",
+                style = MaterialTheme.typography.titleLarge,
+            )
         },
         actions = {
             IconButton(onClick = onOpenHistory) {
@@ -205,11 +250,6 @@ private fun StatsTopBar(
                     contentDescription = "セッション履歴",
                 )
             }
-
-            RangeToggle(
-                selected = statsRange,
-                onRangeChange = onRangeChange,
-            )
         },
         windowInsets = WindowInsets(0.dp),
     )
@@ -224,17 +264,87 @@ private fun RangeToggle(
     Row(
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Text(
-        //     text = "日",
-        //     style = MaterialTheme.typography.bodyMedium,
-        // )
+        Text(
+            text = "今日",
+            style = MaterialTheme.typography.bodyMedium,
+        )
         // 週・月は今はダミー or 無効状態にしておいてもよい
         // Text("週", modifier = Modifier.alpha(0.4f))
         // Text("月", modifier = Modifier.alpha(0.4f))
     }
 }
 
-// データカード
+// --- カード群 ---
+
+@Composable
+private fun MonitoringSummaryCard(
+    stats: DailyStats,
+    onClick: () -> Unit = {},
+) {
+    SectionCard(
+        title = "Refocus の動作状況",
+        description = "今日どれくらい Refocus が対象アプリを見守っていたかの概要です。",
+        onClick = onClick,
+    ) {
+        if (stats.monitoringTotalMinutes == 0) {
+            Text(
+                text = "今日はまだ Refocus が動作していません。\n",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            return@SectionCard
+        }
+
+        val total = stats.monitoringTotalMinutes
+        val withTarget = stats.monitoringWithTargetMinutes
+        val withoutTarget = stats.monitoringWithoutTargetMinutes
+        val ratio = if (total > 0) (withTarget * 100 / total) else 0
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column {
+                    Text(
+                        text = "対象の使用時間 / Refocus の動作時間",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = "${withTarget}分 / ${total}分",
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // 下段：割合バー
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(999.dp),
+                    )
+            ) {
+                val fraction =
+                    if (total > 0) withTarget.toFloat() / total.toFloat() else 0f
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(fraction.coerceIn(0f, 1f))
+                        .background(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = RoundedCornerShape(999.dp),
+                        )
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun SummaryCard(
@@ -246,26 +356,39 @@ private fun SummaryCard(
         description = "対象アプリの利用状況の概要です。",
         onClick = onClick,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+        Column {
+            Text(
+                text = "合計利用時間",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = formatDuration(stats.totalUsageMillis),
+                style = MaterialTheme.typography.headlineSmall,
+            )
+        }
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Column {
-                Text(
-                    text = "合計利用時間",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = formatDuration(stats.totalUsageMillis),
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-            }
-            Column(
-                horizontalAlignment = Alignment.End,
-            ) {
-                Text("セッション数: ${stats.sessionCount}")
-                Text("平均セッション: ${formatDuration(stats.averageSessionDurationMillis)}")
-                Text("最長セッション: ${formatDuration(stats.longestSessionDurationMillis)}")
+            listOf(
+                "セッション数" to stats.sessionCount.toString(),
+                "平均セッション" to formatDuration(stats.averageSessionDurationMillis),
+                "最長セッション" to formatDuration(stats.longestSessionDurationMillis),
+                "長めのセッション" to "${stats.longSessionCount} 回",
+                "とても長いセッション" to "${stats.veryLongSessionCount} 回",
+            ).forEach { (label, value) ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
         }
     }
@@ -281,9 +404,29 @@ private fun AppUsageCard(
         description = "よく使っているアプリの一覧です。",
         onClick = onClick,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            apps.take(5).forEach { app ->
+        if (apps.isEmpty()) {
+            Text("まだデータがありません。")
+            return@SectionCard
+        }
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            val topApps = apps
+                .sortedByDescending { it.totalUsageMillis }
+                .take(5)
+
+            topApps.forEach { app ->
                 AppUsageRow(app)
+            }
+
+            val others = apps.size - topApps.size
+            if (others > 0) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "他 $others 件...",
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
         }
     }
@@ -323,6 +466,7 @@ private fun TimelineCard(
     SectionCard(
         title = "タイムライン",
         description = "どの時間帯に対象アプリを使っていたかの目安です。",
+        onClick = onClick,
     ) {
         TimelineChart(timeBuckets = timeBuckets)
     }
@@ -332,11 +476,11 @@ private fun TimelineCard(
 private fun TimelineChart(
     timeBuckets: List<TimeBucketStats>,
 ) {
-    val maxUsageMillis = (timeBuckets.maxOfOrNull { it.totalUsageMillis } ?: 0L)
-        .coerceAtLeast(1L)
-    val maxMinutes = (maxUsageMillis / 60_000L).toInt().coerceAtLeast(1)
+    // 縦軸のベースは「対象アプリの利用時間（分）」で見る
+    val maxTargetMinutes = (timeBuckets.maxOfOrNull { it.targetUsageMinutes } ?: 0)
+        .coerceAtLeast(1)
     // 縦軸の最大値を「10分刻み」で丸める（例: 7分 -> 10, 18分 -> 20, 35分 -> 40）
-    val axisMaxMinutes = ((maxMinutes + 9) / 10) * 10
+    val axisMaxMinutes = ((maxTargetMinutes + 9) / 10) * 10
     val yLabels = listOf(
         axisMaxMinutes,
         (axisMaxMinutes * 2) / 3,
@@ -344,70 +488,85 @@ private fun TimelineChart(
         0,
     )
     val yAxisWidth = 40.dp
-    val chartHeight = 80.dp
-    Column {
-        // 上段: 縦軸ラベル + 棒グラフ
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        // 上段: Y 軸 + バー
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(chartHeight),
-            verticalAlignment = Alignment.Bottom,
+                .height(120.dp),
         ) {
-            // 縦軸ラベル (分)
+            // Y 軸ラベル
             Column(
                 modifier = Modifier
                     .width(yAxisWidth)
                     .fillMaxHeight(),
                 verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.End,
             ) {
-                yLabels.forEach { minutes ->
+                yLabels.forEach { label ->
                     Text(
-                        text = "${minutes}分",
+                        text = "${label}分",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
             }
-            // 棒グラフ本体
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // バー本体
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom,
             ) {
                 timeBuckets.forEach { bucket ->
-                    val bucketMinutes =
-                        (bucket.totalUsageMillis / 60_000L).toFloat()
-                    val ratio = (bucketMinutes / axisMaxMinutes.toFloat())
-                        .coerceIn(0f, 1f)
-                    // 0 でもうっすら見えるように最低高さ
-                    val heightFraction = if (ratio > 0f) {
-                        0.1f + 0.9f * ratio
-                    } else {
-                        0.02f
-                    }
+                    val usageMinutes = bucket.targetUsageMinutes
+                    val usageHeightFraction =
+                        (usageMinutes.toFloat() / axisMaxMinutes.toFloat()).coerceIn(0f, 1f)
+
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .fillMaxHeight()
-                            .padding(horizontal = 0.5.dp),
+                            .fillMaxHeight(),
                         contentAlignment = Alignment.BottomCenter,
                     ) {
+                        // 背景: Refocus 監視状態
                         Box(
                             modifier = Modifier
+                                .fillMaxHeight()
                                 .fillMaxWidth()
-                                .fillMaxHeight(heightFraction)
                                 .background(
-                                    color = if (bucket.totalUsageMillis > 0L) {
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                    color = if (bucket.monitoringMinutes > 0) {
+                                        // 監視していた時間帯
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
                                     } else {
+                                        // Refocus が動いていなかった時間帯（未知）
                                         MaterialTheme.colorScheme.surfaceVariant
                                     },
-                                    shape = RoundedCornerShape(
-                                        topStart = 2.dp,
-                                        topEnd = 2.dp,
-                                    ),
+                                    shape = RoundedCornerShape(2.dp),
                                 )
                         )
+
+                        // 前景: 対象アプリの利用時間バー
+                        if (usageMinutes > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .fillMaxHeight(usageHeightFraction)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                        shape = RoundedCornerShape(
+                                            topStart = 2.dp,
+                                            topEnd = 2.dp,
+                                        ),
+                                    )
+                            )
+                        }
                     }
                 }
             }
@@ -458,67 +617,6 @@ private fun TimelineXAxis(
 }
 
 @Composable
-private fun SuggestionCard(
-    stats: SuggestionDailyStats,
-    onClick: () -> Unit = {},
-) {
-    SectionCard(
-        title = "提案の履歴",
-        description = null,
-        onClick = onClick,
-    ) {
-        val total = stats.totalShown
-        if (total == 0) {
-            Text("今日は提案はありません。")
-            return@SectionCard
-        }
-
-        val skipRate = if (total > 0) stats.skippedCount.toFloat() / total else 0f
-        val skipPercent = (skipRate * 100).toInt()
-
-        Column {
-            // 上段：数字
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column {
-                    Text("提案表示", style = MaterialTheme.typography.bodySmall)
-                    Text("$total 回", style = MaterialTheme.typography.bodyMedium)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("見送った提案", style = MaterialTheme.typography.bodySmall)
-                    Text("$skipPercent%", style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // 下段：割合バー
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(999.dp),
-                    )
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(skipRate.coerceIn(0f, 1f))
-                        .height(8.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = RoundedCornerShape(999.dp),
-                        )
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun PeakTimeCard(
     timeBuckets: List<TimeBucketStats>,
     onClick: () -> Unit = {},
@@ -529,8 +627,8 @@ private fun PeakTimeCard(
         onClick = onClick,
     ) {
         val topBuckets = timeBuckets
-            .filter { it.totalUsageMillis > 0L }
-            .sortedByDescending { it.totalUsageMillis }
+            .filter { it.targetUsageMinutes > 0 }
+            .sortedByDescending { it.targetUsageMinutes }
             .take(3)
 
         if (topBuckets.isEmpty()) {
@@ -541,7 +639,11 @@ private fun PeakTimeCard(
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             topBuckets.forEach { bucket ->
                 Text(
-                    text = "${formatBucketRange(bucket)}   合計 ${formatDuration(bucket.totalUsageMillis)}",
+                    text = "${formatBucketRange(bucket)}   合計 ${
+                        formatDuration(
+                            bucket.targetUsageMinutes * 60_000L
+                        )
+                    }",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -557,23 +659,32 @@ private fun formatBucketRange(
         val mm = m % 60
         return String.format("%02d:%02d", h, mm)
     }
-    return "${formatMinutes(bucket.startMinutesOfDay)} – ${formatMinutes(bucket.endMinutesOfDay)}"
+    return "${formatMinutes(bucket.startMinutesOfDay)}〜${formatMinutes(bucket.endMinutesOfDay)}"
 }
 
 @Composable
-private fun HistoryShortcutCard(
-    onOpenHistory: () -> Unit,
+private fun SuggestionCard(
+    stats: SuggestionDailyStats,
+    onClick: () -> Unit = {},
 ) {
     SectionCard(
-        title = "詳細な履歴を確認",
+        title = "提案との付き合い方",
+        description = "今日、提案がどれくらい表示され、どのように扱ったかの概要です。",
+        onClick = onClick,
     ) {
-        Button(onClick = onOpenHistory) {
-            Text("今日のセッション履歴を開く")
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text("提案例数: ${stats.totalShown}")
+            Text("「あとで」「閉じる」: ${stats.skippedCount}")
+            Text("短時間で終了した提案: ${stats.endedSoonCount}")
+            Text("続行した提案: ${stats.continuedCount}")
+            Text("まだ判定できない提案: ${stats.noEndYetCount}")
         }
     }
 }
 
-// サマリー表
+// --- サマリー表（昨日 / 過去7日） ---
 
 @Composable
 private fun PeriodSummarySection(
@@ -584,7 +695,9 @@ private fun PeriodSummarySection(
         title = title,
         description = null,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             rows.forEach { (label, value) ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -605,20 +718,13 @@ private fun PeriodSummarySection(
 }
 
 private fun buildYesterdaySummaryRows(today: DailyStats): List<Pair<String, String>> {
-    // TODO: 本来は「昨日」の別 DailyStats を使う
+    // TODO: 本来は「昨日の DailyStats」を受け取り、今日との差分を表示する。
+    // ここではひとまず今日の値を使ったダミーとしておく。
     return listOf(
         "合計利用時間" to formatDuration(today.totalUsageMillis),
         "セッション数" to today.sessionCount.toString(),
         "平均セッション長" to formatDuration(today.averageSessionDurationMillis),
         "提案表示回数" to (today.suggestionStats?.totalShown?.toString() ?: "0"),
-    )
-}
-
-private fun buildLast7DaysSummaryRows(today: DailyStats): List<Pair<String, String>> {
-    // TODO: 本来は過去7日分を集計して 1日平均などを出す
-    return listOf(
-        "1日あたり平均利用時間" to formatDuration(today.totalUsageMillis),
-        "1日あたりセッション数" to today.sessionCount.toString(),
         "提案を見送った割合" to (
                 today.suggestionStats?.let { s ->
                     if (s.totalShown > 0) "${(s.skippedCount * 100 / s.totalShown)}%" else "-"
@@ -627,7 +733,22 @@ private fun buildLast7DaysSummaryRows(today: DailyStats): List<Pair<String, Stri
     )
 }
 
-// ヘルパー
+private fun buildLast7DaysSummaryRows(today: DailyStats): List<Pair<String, String>> {
+    // TODO: 本来は過去7日分を集計して 1日平均などを出す
+    return listOf(
+        "1日あたり平均利用時間" to formatDuration(today.totalUsageMillis),
+        "1日あたりセッション数" to today.sessionCount.toString(),
+        "1日あたり平均セッション長" to formatDuration(today.averageSessionDurationMillis),
+        "提案表示回数" to (today.suggestionStats?.totalShown?.toString() ?: "0"),
+        "提案を見送った割合" to (
+                today.suggestionStats?.let { s ->
+                    if (s.totalShown > 0) "${(s.skippedCount * 100 / s.totalShown)}%" else "-"
+                } ?: "-"
+                ),
+    )
+}
+
+// --- ヘルパー ---
 
 private fun formatDuration(durationMillis: Long): String {
     val totalSeconds = durationMillis / 1000
@@ -641,4 +762,3 @@ private fun formatDuration(durationMillis: Long): String {
         String.format("%d分%02d秒", minutes, seconds)
     }
 }
-

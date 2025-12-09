@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.DailyStats
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.util.TimeSource
+import com.example.refocus.data.repository.MonitoringRepository
 import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SessionsWithEvents
 import com.example.refocus.domain.session.SessionPartGenerator
@@ -31,6 +32,7 @@ enum class StatsRange {
 class StatsViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val timeSource: TimeSource,
+    private val monitoringRepository: MonitoringRepository,
 ) : ViewModel() {
 
     data class UiState(
@@ -59,7 +61,7 @@ class StatsViewModel @Inject constructor(
         }
     }
 
-    private fun buildTodayStats(
+    private suspend fun buildTodayStats(
         sessionsWithEvents: SessionsWithEvents,
     ) {
         val nowMillis = timeSource.nowMillis()
@@ -79,10 +81,17 @@ class StatsViewModel @Inject constructor(
                 dateLabel = "今日",
                 todayStats = DailyStats(
                     date = today,
+                    // 監視状況
+                    monitoringTotalMinutes = 0,
+                    monitoringWithTargetMinutes = 0,
+                    // セッション軸
                     sessionCount = 0,
                     averageSessionDurationMillis = 0L,
                     longestSessionDurationMillis = 0L,
                     totalUsageMillis = 0L,
+                    longSessionCount = 0,
+                    veryLongSessionCount = 0,
+                    // 明細
                     appUsageStats = emptyList(),
                     timeBuckets = emptyList(),
                     suggestionStats = null,
@@ -99,7 +108,7 @@ class StatsViewModel @Inject constructor(
             nowMillis = nowMillis,
         )
 
-        // 2. 日付跨ぎを考慮した SessionPart を生成
+        // 2. SessionPart を生成（既存）
         val sessionParts = SessionPartGenerator.generateParts(
             sessions = sessions,
             eventsBySessionId = eventsBySessionId,
@@ -107,15 +116,24 @@ class StatsViewModel @Inject constructor(
             zoneId = zoneId,
         )
 
-        // 3. 1 日分の DailyStats を計算
+        // 3. MonitoringPeriod（Refocus の監視時間）を取得（新規）
+        val monitoringPeriods = monitoringRepository.getMonitoringPeriodsForDate(
+            date = today,
+            zoneId = zoneId,
+        )
+
+        // 4. 1 日分の DailyStats を計算（シグネチャ変更に合わせる）
         val dailyStats = DailyStatsCalculator.calculateDailyStats(
             sessions = sessions,
             sessionStats = sessionStats,
             sessionParts = sessionParts,
             eventsBySessionId = eventsBySessionId,
+            monitoringPeriods = monitoringPeriods,
             targetDate = today,
             zoneId = zoneId,
+            nowMillis = nowMillis,
         )
+
 
         _uiState.value = UiState(
             isLoading = false,

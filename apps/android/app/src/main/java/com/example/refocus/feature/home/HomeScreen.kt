@@ -165,7 +165,7 @@ fun HomeTopBar(
     onOpenSettings: () -> Unit,
 ) {
     TopAppBar(
-        title = { Text("Refocus") },
+        title = { Text("ホーム") },
         actions = {
             IconButton(
                 onClick = { onToggleRunning(!isRunning) },

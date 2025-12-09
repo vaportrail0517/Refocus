@@ -5,9 +5,12 @@ import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.datastore.SettingsDataStore
 import com.example.refocus.data.datastore.TargetsDataStore
 import com.example.refocus.data.db.RefocusDatabase
+import com.example.refocus.data.db.dao.MonitoringPeriodDao
 import com.example.refocus.data.db.dao.SessionDao
 import com.example.refocus.data.db.dao.SessionEventDao
 import com.example.refocus.data.db.dao.SuggestionDao
+import com.example.refocus.data.repository.MonitoringRepository
+import com.example.refocus.data.repository.MonitoringRepositoryImpl
 import com.example.refocus.data.repository.OnboardingRepository
 import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SessionRepositoryImpl
@@ -77,4 +80,10 @@ object RepositoryModule {
         settingsRepository = settingsRepository,
         targetsRepository = targetsRepository,
     )
+
+    @Provides
+    @Singleton
+    fun provideMonitoringRepository(
+        monitoringPeriodDao: MonitoringPeriodDao,
+    ): MonitoringRepository = MonitoringRepositoryImpl(monitoringPeriodDao)
 }
