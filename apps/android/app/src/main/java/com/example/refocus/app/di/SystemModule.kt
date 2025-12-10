@@ -3,8 +3,10 @@ package com.example.refocus.app.di
 import android.content.Context
 import com.example.refocus.core.util.SystemTimeSource
 import com.example.refocus.core.util.TimeSource
+import com.example.refocus.data.repository.TimelineRepository
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
+import com.example.refocus.domain.timeline.EventRecorder
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import dagger.Module
 import dagger.Provides
@@ -35,4 +37,11 @@ object SystemModule {
     @Provides
     @Singleton
     fun provideSuggestionSelector(): SuggestionSelector = SuggestionSelector()
+
+    @Provides
+    @Singleton
+    fun provideEventRecorder(
+        timeSource: TimeSource,
+        timelineRepository: TimelineRepository,
+    ): EventRecorder = EventRecorder(timeSource, timelineRepository)
 }

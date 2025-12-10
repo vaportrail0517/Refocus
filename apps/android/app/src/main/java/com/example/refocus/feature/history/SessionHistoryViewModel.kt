@@ -4,12 +4,18 @@ import android.app.Application
 import android.content.pm.PackageManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
+import com.example.refocus.core.model.SessionStats
 import com.example.refocus.core.model.SessionStatus
+import com.example.refocus.core.model.Settings
+import com.example.refocus.core.model.TimelineEvent
+import com.example.refocus.core.util.TimeSource
 import com.example.refocus.core.util.formatDurationMilliSeconds
-import com.example.refocus.data.repository.SessionRepository
+import com.example.refocus.data.repository.SettingsRepository
+import com.example.refocus.data.repository.TargetsRepository
+import com.example.refocus.data.repository.TimelineRepository
 import com.example.refocus.domain.stats.SessionStatsCalculator
+import com.example.refocus.domain.timeline.SessionProjector
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,8 +33,11 @@ import javax.inject.Inject
 @HiltViewModel
 class SessionHistoryViewModel @Inject constructor(
     application: Application,
-    private val sessionRepository: SessionRepository,
-    private val foregroundAppMonitor: ForegroundAppMonitor
+    private val timelineRepository: TimelineRepository,
+    private val settingsRepository: SettingsRepository,
+    private val targetsRepository: TargetsRepository,
+    private val foregroundAppMonitor: ForegroundAppMonitor,
+    private val timeSource: TimeSource,
 ) : AndroidViewModel(application) {
 
     data class PauseResumeUiModel(
@@ -66,48 +75,85 @@ class SessionHistoryViewModel @Inject constructor(
             // foreground の Flow に初期値 null を付与
             val foregroundFlow = foregroundAppMonitor
                 .foregroundAppFlow(pollingIntervalMs = 1_000L)
-                .onStart {
-                    emit(null)
-                }
+                .onStart { emit(null) }
+
             combine(
-                sessionRepository.observeAllSessionsWithEvents(),
-                foregroundFlow
-            ) { sessionsWithEvents, foregroundPackage: String? ->
-                Triple(
-                    sessionsWithEvents.sessions,
-                    sessionsWithEvents.eventsBySessionId,
-                    foregroundPackage
+                timelineRepository.observeEvents(),
+                settingsRepository.observeOverlaySettings(),
+                targetsRepository.observeTargets(),
+                foregroundFlow,
+            ) { events, settings, targets, foregroundPackage ->
+                CombinedInput(
+                    events = events,
+                    settings = settings,
+                    targets = targets,
+                    foregroundPackage = foregroundPackage,
                 )
-            }.collectLatest { (sessions, eventsMap, foregroundPackage) ->
+            }.collectLatest { input ->
                 buildUiState(
-                    sessions = sessions,
-                    eventsMap = eventsMap,
-                    foregroundPackage = foregroundPackage
+                    events = input.events,
+                    settings = input.settings,
+                    targets = input.targets,
+                    foregroundPackage = input.foregroundPackage,
                 )
             }
         }
     }
 
+    private data class CombinedInput(
+        val events: List<TimelineEvent>,
+        val settings: Settings,
+        val targets: Set<String>,
+        val foregroundPackage: String?,
+    )
+
     private fun buildUiState(
-        sessions: List<Session>,
-        eventsMap: Map<Long, List<SessionEvent>>,
+        events: List<TimelineEvent>,
+        settings: Settings,
+        targets: Set<String>,
         foregroundPackage: String?,
     ) {
-        if (sessions.isEmpty()) {
+        if (events.isEmpty()) {
             _uiState.value = UiState(
                 sessions = emptyList(),
                 isLoading = false,
             )
             return
         }
-        val nowMillis = System.currentTimeMillis()
-        // まず domain の集計ロジックで SessionStats を作る
-        val statsList = SessionStatsCalculator.buildSessionStats(
+
+        val nowMillis = timeSource.nowMillis()
+
+        // TimelineEvent からセッションを再構成
+        val sessionsWithEvents = SessionProjector.projectSessions(
+            events = events,
+            targetPackages = targets,
+            stopGracePeriodMillis = settings.gracePeriodMillis,
+            nowMillis = nowMillis,
+        )
+
+        if (sessionsWithEvents.isEmpty()) {
+            _uiState.value = UiState(
+                sessions = emptyList(),
+                isLoading = false,
+            )
+            return
+        }
+
+        val sessions = sessionsWithEvents.map { it.session }
+        val eventsMap: Map<Long, List<SessionEvent>> =
+            sessionsWithEvents.mapNotNull { swe ->
+                val id = swe.session.id ?: return@mapNotNull null
+                id to swe.events
+            }.toMap()
+
+        // domain の集計ロジックで SessionStats を作る
+        val statsList: List<SessionStats> = SessionStatsCalculator.buildSessionStats(
             sessions = sessions,
             eventsMap = eventsMap,
             foregroundPackage = foregroundPackage,
             nowMillis = nowMillis,
         )
+
         // それを UI 用に整形
         val uiModels = statsList.map { stats ->
             val durationText = formatDurationMilliSeconds(stats.durationMillis)
@@ -131,6 +177,7 @@ class SessionHistoryViewModel @Inject constructor(
                 pauseResumeEvents = pauseUiList,
             )
         }
+
         _uiState.value = UiState(
             sessions = uiModels,
             isLoading = false,

@@ -4,16 +4,15 @@ import android.util.Log
 import com.example.refocus.core.model.OverlayEvent
 import com.example.refocus.core.model.OverlayState
 import com.example.refocus.core.model.OverlaySuggestionMode
-import com.example.refocus.core.model.SessionEventType
 import com.example.refocus.core.model.Settings
+import com.example.refocus.core.model.SuggestionDecision
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.data.repository.SuggestionsRepository
 import com.example.refocus.data.repository.TargetsRepository
-import com.example.refocus.domain.session.SessionManager
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
+import com.example.refocus.domain.timeline.EventRecorder
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,8 +31,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * - 前面アプリの監視
- * - SessionManager とのやりとり
- * - TimerOverlay / SuggestionOverlay の表示制御
+ * - タイマーオーバーレイ / 提案オーバーレイの制御
  * を担当する。
  *
  * Android Service / Notification / BroadcastReceiver などの OS 依存部分は
@@ -43,14 +41,13 @@ class OverlayCoordinator(
     private val scope: CoroutineScope,
     private val timeSource: TimeSource,
     private val targetsRepository: TargetsRepository,
-    private val sessionRepository: SessionRepository,
     private val settingsRepository: SettingsRepository,
     private val suggestionsRepository: SuggestionsRepository,
     private val foregroundAppMonitor: ForegroundAppMonitor,
     private val suggestionEngine: SuggestionEngine,
     private val suggestionSelector: SuggestionSelector,
-    private val sessionManager: SessionManager,
     private val uiController: OverlayUiGateway,
+    private val eventRecorder: EventRecorder,
 ) {
     companion object {
         private const val TAG = "OverlayCoordinator"
@@ -72,6 +69,22 @@ class OverlayCoordinator(
     private var isSuggestionOverlayShown: Boolean = false
 
     @Volatile
+    private var currentSuggestionId: Long? = null
+
+    /**
+     * 現在の「対象アプリセッション」の開始時刻（elapsedRealtime ベース）
+     * null の場合は「セッションなし」とみなす。
+     */
+    @Volatile
+    private var currentSessionStartElapsedRealtime: Long? = null
+
+    /**
+     * 「このセッション中は提案を出さない」が押されたかどうか
+     */
+    @Volatile
+    private var suggestionDisabledForCurrentSession: Boolean = false
+
+    @Volatile
     private var overlayState: OverlayState = OverlayState.Idle
 
     private val stateMachine = OverlayStateMachine()
@@ -84,6 +97,7 @@ class OverlayCoordinator(
                 started = SharingStarted.Eagerly,
                 replay = 1
             )
+
     private val screenOnState = MutableStateFlow(true)
 
     val screenOnFlow: StateFlow<Boolean> get() = screenOnState
@@ -124,16 +138,17 @@ class OverlayCoordinator(
 
     /**
      * Service 破棄時に呼ぶ。
-     * SessionManager / Overlay を片付ける。
+     * オーバーレイ表示を片付ける。
      */
     fun stop() {
-        sessionManager.clear()
         uiController.hideTimer()
         uiController.hideSuggestion()
         clearSuggestionOverlayState()
         overlayState = OverlayState.Idle
         currentForegroundPackage = null
         overlayPackage = null
+        currentSessionStartElapsedRealtime = null
+        suggestionDisabledForCurrentSession = false
         // scope 自体のキャンセルは Service 側で行う
     }
 
@@ -155,7 +170,7 @@ class OverlayCoordinator(
     }
 
     /**
-     * 状態変化に応じて SessionManager や OverlayController に副作用を打つ。
+     * 状態変化に応じて OverlayController に副作用を打つ。
      */
     private fun handleStateChange(
         oldState: OverlayState,
@@ -208,6 +223,8 @@ class OverlayCoordinator(
                 uiController.hideTimer()
                 uiController.hideSuggestion()
                 clearSuggestionOverlayState()
+                currentSessionStartElapsedRealtime = null
+                suggestionDisabledForCurrentSession = false
             }
 
             // Disabled -> Idle（overlayEnabled が true に戻った）
@@ -226,35 +243,18 @@ class OverlayCoordinator(
     private fun observeOverlaySettings() {
         scope.launch {
             try {
-                var first = true
                 settingsFlow.collect { settings ->
-                    val previousSettings = overlaySettings
                     overlaySettings = settings
                     dispatchEvent(OverlayEvent.SettingsChanged(settings))
                     uiController.applySettings(settings)
-                    if (first) {
-                        first = false
-                        try {
-                            sessionRepository.repairActiveSessionsAfterRestart(
-                                gracePeriodMillis = settings.gracePeriodMillis,
-                                nowMillis = timeSource.nowMillis()
-                            )
-                        } catch (e: Exception) {
-                            Log.e(TAG, "repairActiveSessionsAfterRestart failed", e)
-                        }
-                    } else if (previousSettings.gracePeriodMillis != settings.gracePeriodMillis) {
-                        // 猶予中のセッションにも新しい猶予時間を即時反映する
-                        sessionManager.onGracePeriodUpdated(
-                            newGracePeriodMillis = settings.gracePeriodMillis
-                        )
-                    }
+                    // セッションの repair / 猶予時間更新は
+                    // タイムライン再投影側に任せるのでここでは何もしない
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "observeOverlaySettings failed", e)
             }
         }
     }
-
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun startMonitoringForeground() {
@@ -268,6 +268,8 @@ class OverlayCoordinator(
                 }
             val screenOnFlow = screenOnState
 
+            var lastForegroundRaw: String? = null
+
             combine(
                 targetsFlow,
                 foregroundFlow,
@@ -280,6 +282,18 @@ class OverlayCoordinator(
                     TAG,
                     "combine: raw=$foregroundRaw, screenOn=$isScreenOn, effective=$foregroundPackage, targets=$targets"
                 )
+
+                if (foregroundRaw != lastForegroundRaw) {
+                    lastForegroundRaw = foregroundRaw
+                    scope.launch {
+                        try {
+                            eventRecorder.onForegroundAppChanged(foregroundRaw)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to record foreground app change: $foregroundRaw", e)
+                        }
+                    }
+                }
+
                 try {
                     val previous = currentForegroundPackage
                     val prevIsTarget = previous != null && previous in targets
@@ -335,7 +349,7 @@ class OverlayCoordinator(
                         }
                     }
 
-                    // Suggestion は「Tracking 中だけ」評価するようにする
+                    // Suggestion は「Tracking 中だけ」評価する
                     val stateSnapshot = overlayState
                     if (stateSnapshot is OverlayState.Tracking && foregroundPackage != null) {
                         maybeShowSuggestionIfNeeded(
@@ -352,6 +366,8 @@ class OverlayCoordinator(
                     }
                     overlayPackage = null
                     clearSuggestionOverlayState()
+                    currentSessionStartElapsedRealtime = null
+                    suggestionDisabledForCurrentSession = false
                 }
             }
         }
@@ -362,24 +378,16 @@ class OverlayCoordinator(
         nowMillis: Long,
         nowElapsed: Long
     ) {
-        // SessionManager に「前面に入った」ことを通知し、初期経過時間を取得
-        val initialElapsed = sessionManager.onEnterForeground(
-            packageName = packageName,
-            nowMillis = nowMillis,
-            nowElapsedRealtime = nowElapsed
-        ) ?: return
-
+        // ランタイムのセッション開始時刻を記録
         overlayPackage = packageName
+        currentSessionStartElapsedRealtime = nowElapsed
+        suggestionDisabledForCurrentSession = false
 
-        // SessionManager + packageName を閉じ込めた provider
         val elapsedProvider: (Long) -> Long = { nowElapsedRealtime ->
-            sessionManager.computeElapsedFor(
-                packageName = packageName,
-                nowElapsedRealtime = nowElapsedRealtime
-            ) ?: initialElapsed
+            val start = currentSessionStartElapsedRealtime ?: nowElapsedRealtime
+            (nowElapsedRealtime - start).coerceAtLeast(0L)
         }
 
-        // UI への指示は抽象インターフェイスに投げる
         uiController.showTimer(
             elapsedMillisProvider = elapsedProvider,
             onPositionChanged = ::onOverlayPositionChanged
@@ -399,14 +407,9 @@ class OverlayCoordinator(
             clearSuggestionOverlayState()
         }
 
-        // セッション管理は SessionManager に委譲
-        val grace = overlaySettings.gracePeriodMillis
-        sessionManager.onLeaveForeground(
-            packageName = packageName,
-            nowMillis = nowMillis,
-            nowElapsedRealtime = nowElapsed,
-            gracePeriodMillis = grace
-        )
+        // ランタイムセッションの情報をリセット
+        currentSessionStartElapsedRealtime = null
+        suggestionDisabledForCurrentSession = false
     }
 
     private fun onOverlayPositionChanged(x: Int, y: Int) {
@@ -444,15 +447,16 @@ class OverlayCoordinator(
     }
 
     private fun handleSuggestionSnoozeLater() {
-        // ログ: Snoozed
         val pkg = overlayPackage
+        val suggestionId = currentSuggestionId ?: 0L
+
         if (pkg != null) {
             scope.launch {
                 try {
-                    sessionRepository.recordSuggestionEvent(
+                    eventRecorder.onSuggestionDecision(
                         packageName = pkg,
-                        type = SessionEventType.SuggestionSnoozed,
-                        timestampMillis = timeSource.nowMillis(),
+                        suggestionId = suggestionId,
+                        decision = SuggestionDecision.Snoozed,
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to record SuggestionSnoozed for $pkg", e)
@@ -463,15 +467,16 @@ class OverlayCoordinator(
     }
 
     private fun handleSuggestionDismissOnly() {
-        // ログ: Dismissed（タップ閉じ／自動タイムアウトどちらも）
         val pkg = overlayPackage
+        val suggestionId = currentSuggestionId ?: 0L
+
         if (pkg != null) {
             scope.launch {
                 try {
-                    sessionRepository.recordSuggestionEvent(
+                    eventRecorder.onSuggestionDecision(
                         packageName = pkg,
-                        type = SessionEventType.SuggestionDismissed,
-                        timestampMillis = timeSource.nowMillis(),
+                        suggestionId = suggestionId,
+                        decision = SuggestionDecision.Dismissed,
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to record SuggestionDismissed for $pkg", e)
@@ -484,22 +489,22 @@ class OverlayCoordinator(
     private fun handleSuggestionDisableThisSession() {
         clearSuggestionOverlayState()
         val packageName = overlayPackage ?: return
+        val suggestionId = currentSuggestionId ?: 0L
 
-        // ログ: DisableForSession
         scope.launch {
             try {
-                sessionRepository.recordSuggestionEvent(
+                eventRecorder.onSuggestionDecision(
                     packageName = packageName,
-                    type = SessionEventType.SuggestionDisabledForSession,
-                    timestampMillis = timeSource.nowMillis(),
+                    suggestionId = suggestionId,
+                    decision = SuggestionDecision.DisabledForSession,
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to record SuggestionDisabledForSession for $packageName", e)
             }
         }
 
-        sessionManager.markSuggestionDisabledForThisSession(packageName)
-        Log.d(TAG, "Suggestion disabled for this session: $packageName")
+        // 「このセッション中は提案を出さない」を Coordinator 内で保持
+        suggestionDisabledForCurrentSession = true
     }
 
     private fun maybeShowSuggestionIfNeeded(
@@ -507,15 +512,9 @@ class OverlayCoordinator(
         nowMillis: Long,
         nowElapsedRealtime: Long
     ) {
-        val elapsed = sessionManager.computeElapsedFor(
-            packageName = packageName,
-            nowElapsedRealtime = nowElapsedRealtime
-        ) ?: return
-
-        val sinceForegroundMs = sessionManager.sinceForegroundMillis(
-            packageName = packageName,
-            nowElapsedRealtime = nowElapsedRealtime
-        )
+        val start = currentSessionStartElapsedRealtime ?: return
+        val elapsed = (nowElapsedRealtime - start).coerceAtLeast(0L)
+        val sinceForegroundMs = elapsed
 
         val input = SuggestionEngine.Input(
             elapsedMillis = elapsed,
@@ -524,9 +523,7 @@ class OverlayCoordinator(
             nowMillis = nowMillis,
             snoozedUntilMillis = suggestionSnoozedUntilMillis,
             isOverlayShown = isSuggestionOverlayShown,
-            disabledForThisSession = sessionManager.isSuggestionDisabledForThisSession(
-                packageName
-            ),
+            disabledForThisSession = suggestionDisabledForCurrentSession,
         )
 
         if (!suggestionEngine.shouldShow(input)) {
@@ -548,25 +545,35 @@ class OverlayCoordinator(
                     return@launch
                 }
 
-                val (title, mode) = if (selected != null) {
-                    selected.title to OverlaySuggestionMode.Goal
+                val (title, mode, suggestionId) = if (selected != null) {
+                    Triple(
+                        selected.title,
+                        OverlaySuggestionMode.Goal,
+                        selected.id,           // DB 上の Suggestion.id
+                    )
                 } else {
-                    "画面から少し離れて休憩する" to OverlaySuggestionMode.Rest
+                    Triple(
+                        "画面から少し離れて休憩する",
+                        OverlaySuggestionMode.Rest,
+                        0L,                    // 休憩用デフォルト → 0L のダミー ID
+                    )
                 }
 
                 isSuggestionOverlayShown = true
+                currentSuggestionId = suggestionId
 
-                val pkg = overlayPackage ?: packageName // or packageName
+                val pkg = overlayPackage ?: packageName
 
-                // 提案表示イベントを記録
-                try {
-                    sessionRepository.recordSuggestionEvent(
-                        packageName = pkg,
-                        type = SessionEventType.SuggestionShown,
-                        timestampMillis = timeSource.nowMillis(),
-                    )
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to record SuggestionShown for $pkg", e)
+                // 提案表示イベントを Timeline に記録
+                scope.launch {
+                    try {
+                        eventRecorder.onSuggestionShown(
+                            packageName = pkg,
+                            suggestionId = suggestionId,
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to record SuggestionShown for $pkg", e)
+                    }
                 }
 
                 uiController.showSuggestion(
@@ -591,7 +598,7 @@ class OverlayCoordinator(
 
     private fun clearSuggestionOverlayState() {
         isSuggestionOverlayShown = false
+        currentSuggestionId = null
         // suggestionSnoozedUntilMillis はここでは触らない
-        // （スヌーズ状態は handleSuggestionSnooze 系で管理）
     }
 }
