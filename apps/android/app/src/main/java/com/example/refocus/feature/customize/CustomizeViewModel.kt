@@ -18,6 +18,7 @@ import com.example.refocus.core.model.SuggestionTriggerPreset
 import com.example.refocus.core.model.TimeToMaxPreset
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.domain.app.AppDataResetter
+import com.example.refocus.domain.timeline.EventRecorder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +32,7 @@ class CustomizeViewModel @Inject constructor(
     application: Application,
     private val settingsRepository: SettingsRepository,
     private val appDataResetter: AppDataResetter,
+    private val eventRecorder: EventRecorder,
 ) : AndroidViewModel(application) {
 
     data class UiState(
@@ -75,6 +77,10 @@ class CustomizeViewModel @Inject constructor(
                 current.transform()
             }
             settingsRepository.setSettingsPreset(SettingsPreset.Custom)
+            eventRecorder.onSettingsChanged(
+                key = "overlaySettingsCustom",
+                newValueDescription = null,  // 詳細を入れたければここに入れる
+            )
         }
     }
 
@@ -132,12 +138,20 @@ class CustomizeViewModel @Inject constructor(
     fun updateOverlayEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setOverlayEnabled(enabled)
+            eventRecorder.onSettingsChanged(
+                key = "overlayEnabled",
+                newValueDescription = enabled.toString(),
+            )
         }
     }
 
     fun updateAutoStartOnBoot(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setAutoStartOnBoot(enabled)
+            eventRecorder.onSettingsChanged(
+                key = "autoStartOnBoot",
+                newValueDescription = enabled.toString(),
+            )
         }
     }
 
@@ -146,12 +160,20 @@ class CustomizeViewModel @Inject constructor(
     fun updateSuggestionEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setSuggestionEnabled(enabled)
+            eventRecorder.onSettingsChanged(
+                key = "suggestionEnabled",
+                newValueDescription = enabled.toString(),
+            )
         }
     }
 
     fun updateRestSuggestionEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setRestSuggestionEnabled(enabled)
+            eventRecorder.onSettingsChanged(
+                key = "restSuggestionEnabled",
+                newValueDescription = enabled.toString(),
+            )
         }
     }
 
@@ -179,6 +201,10 @@ class CustomizeViewModel @Inject constructor(
                 current.withFontPreset(preset)
             }
             settingsRepository.setSettingsPreset(SettingsPreset.Custom)
+            eventRecorder.onSettingsChanged(
+                key = "settingsPreset",
+                newValueDescription = SettingsPreset.Custom.name,
+            )
         }
     }
 
@@ -189,6 +215,10 @@ class CustomizeViewModel @Inject constructor(
                 current.withTimeToMaxPreset(preset)
             }
             settingsRepository.setSettingsPreset(SettingsPreset.Custom)
+            eventRecorder.onSettingsChanged(
+                key = "settingsPreset",
+                newValueDescription = SettingsPreset.Custom.name,
+            )
         }
     }
 
@@ -199,6 +229,10 @@ class CustomizeViewModel @Inject constructor(
                 current.withGracePreset(preset)
             }
             settingsRepository.setSettingsPreset(SettingsPreset.Custom)
+            eventRecorder.onSettingsChanged(
+                key = "settingsPreset",
+                newValueDescription = SettingsPreset.Custom.name,
+            )
         }
     }
 
@@ -209,6 +243,10 @@ class CustomizeViewModel @Inject constructor(
                 current.withSuggestionTriggerPreset(preset)
             }
             settingsRepository.setSettingsPreset(SettingsPreset.Custom)
+            eventRecorder.onSettingsChanged(
+                key = "settingsPreset",
+                newValueDescription = SettingsPreset.Custom.name,
+            )
         }
     }
 
@@ -222,6 +260,10 @@ class CustomizeViewModel @Inject constructor(
     fun applyPreset(preset: SettingsPreset) {
         viewModelScope.launch {
             settingsRepository.applyPreset(preset)
+            eventRecorder.onSettingsChanged(
+                key = "settingsPreset",
+                newValueDescription = preset.name,
+            )
         }
     }
 
