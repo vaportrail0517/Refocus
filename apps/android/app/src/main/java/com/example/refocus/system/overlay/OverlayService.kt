@@ -20,6 +20,7 @@ import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.data.repository.SuggestionsRepository
 import com.example.refocus.data.repository.TargetsRepository
+import com.example.refocus.data.repository.TimelineRepository
 import com.example.refocus.domain.overlay.OverlayCoordinator
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
@@ -72,6 +73,9 @@ class OverlayService : LifecycleService() {
 
     @Inject
     lateinit var eventRecorder: EventRecorder
+
+    @Inject
+    lateinit var timelineRepository: TimelineRepository
 
     private lateinit var timerOverlayController: TimerOverlayController
     private lateinit var suggestionOverlayController: SuggestionOverlayController
@@ -156,6 +160,7 @@ class OverlayService : LifecycleService() {
             suggestionSelector = suggestionSelector,
             uiController = overlayUiController,
             eventRecorder = eventRecorder,
+            timelineRepository = timelineRepository,
         )
 
         startForegroundWithNotification()

@@ -14,6 +14,7 @@ import com.example.refocus.data.repository.TargetsRepository
 import com.example.refocus.data.repository.TimelineRepository
 import com.example.refocus.data.repository.TimelineRepositoryImpl
 import com.example.refocus.domain.app.AppDataResetter
+import com.example.refocus.domain.timeline.EventRecorder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -41,7 +42,8 @@ object RepositoryModule {
     @Singleton
     fun provideTargetsRepository(
         dataStore: TargetsDataStore,
-    ): TargetsRepository = TargetsRepository(dataStore)
+        eventRecorder: EventRecorder,
+    ): TargetsRepository = TargetsRepository(dataStore, eventRecorder)
 
     @Provides
     @Singleton

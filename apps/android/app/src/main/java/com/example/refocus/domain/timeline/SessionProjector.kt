@@ -1,6 +1,20 @@
 package com.example.refocus.domain.timeline
 
-import com.example.refocus.core.model.*
+import com.example.refocus.core.model.ForegroundAppEvent
+import com.example.refocus.core.model.PermissionEvent
+import com.example.refocus.core.model.ScreenEvent
+import com.example.refocus.core.model.ScreenState
+import com.example.refocus.core.model.ServiceLifecycleEvent
+import com.example.refocus.core.model.ServiceState
+import com.example.refocus.core.model.Session
+import com.example.refocus.core.model.SessionEvent
+import com.example.refocus.core.model.SessionEventType
+import com.example.refocus.core.model.SessionPart
+import com.example.refocus.core.model.SettingsChangedEvent
+import com.example.refocus.core.model.SuggestionDecisionEvent
+import com.example.refocus.core.model.SuggestionShownEvent
+import com.example.refocus.core.model.TargetAppsChangedEvent
+import com.example.refocus.core.model.TimelineEvent
 import com.example.refocus.domain.session.SessionDurationCalculator
 import java.time.Instant
 import java.time.ZoneId
@@ -23,7 +37,8 @@ object SessionProjector {
      * @param events   時刻昇順のイベント列（同一 timestamp の順序は問わない）
      * @param targetPackages 対象アプリの packageName セット
      * @param stopGracePeriodMillis 停止猶予時間
-     * @param nowMillis まだ終了していないセッションの「仮想終了時刻」に使う
+     * @param nowMillis 「いま」の時刻。停止猶予をまたいで復帰していないセッションは
+     *                  この時刻までに十分時間が経っていれば終了扱いにする。
      */
     fun projectSessions(
         events: List<TimelineEvent>,
@@ -40,7 +55,15 @@ object SessionProjector {
         data class ActiveState(
             val sessionId: Long,
             val events: MutableList<SessionEvent>,
-            var lastActiveMillis: Long,
+            /**
+             * そのアプリが「アクティブでなくなった」時刻。
+             * - フォアグラウンドから外れた
+             * - 画面 OFF になった
+             * などのタイミングでセットされる。
+             *
+             * null のときは「いまもアクティブ中」。
+             */
+            var lastInactiveAtMillis: Long?,
         )
 
         val activeSessions = mutableMapOf<String, ActiveState>()
@@ -65,18 +88,18 @@ object SessionProjector {
             activeSessions[pkg] = ActiveState(
                 sessionId = id,
                 events = evs,
-                lastActiveMillis = ts,
+                lastInactiveAtMillis = null,
             )
         }
 
-        fun endSession(pkg: String, ts: Long) {
+        fun endSession(pkg: String, endTimestamp: Long) {
             val state = activeSessions.remove(pkg) ?: return
             state.events.add(
                 SessionEvent(
                     id = null,
                     sessionId = state.sessionId,
                     type = SessionEventType.End,
-                    timestampMillis = ts,
+                    timestampMillis = endTimestamp,
                 )
             )
             finished += SessionWithEvents(
@@ -84,26 +107,40 @@ object SessionProjector {
                     id = state.sessionId,
                     packageName = pkg,
                 ),
-                events = state.events.toList(),
+                events = state.events.sortedBy { it.timestampMillis },
+            )
+        }
+
+        /**
+         * アプリが「アクティブでなくなった」ことを記録（Pause + 非アクティブ開始時刻）。
+         */
+        fun markInactive(pkg: String, ts: Long) {
+            val state = activeSessions[pkg] ?: return
+            // すでに非アクティブなら何もしない
+            if (state.lastInactiveAtMillis != null) return
+
+            state.lastInactiveAtMillis = ts
+            state.events.add(
+                SessionEvent(
+                    id = null,
+                    sessionId = state.sessionId,
+                    type = SessionEventType.Pause,
+                    timestampMillis = ts,
+                )
             )
         }
 
         fun pauseAllActive(ts: Long) {
-            activeSessions.values.forEach { state ->
-                state.events.add(
-                    SessionEvent(
-                        id = null,
-                        sessionId = state.sessionId,
-                        type = SessionEventType.Pause,
-                        timestampMillis = ts,
-                    )
-                )
+            activeSessions.keys.forEach { pkg ->
+                markInactive(pkg, ts)
             }
         }
 
         fun resumeCurrentForeground(ts: Long) {
             val pkg = currentForeground ?: return
             val state = activeSessions[pkg] ?: return
+            // 画面 ON / 再フォアグラウンドで復帰
+            state.lastInactiveAtMillis = null
             state.events.add(
                 SessionEvent(
                     id = null,
@@ -114,40 +151,40 @@ object SessionProjector {
             )
         }
 
-        fun checkGraceTimeout(ts: Long) {
-            val iterator = activeSessions.iterator()
-            while (iterator.hasNext()) {
-                val (pkg, state) = iterator.next()
-                if (ts - state.lastActiveMillis >= stopGracePeriodMillis) {
-                    state.events.add(
-                        SessionEvent(
-                            id = null,
-                            sessionId = state.sessionId,
-                            type = SessionEventType.End,
-                            timestampMillis = ts,
-                        )
-                    )
-                    finished += SessionWithEvents(
-                        session = Session(
-                            id = state.sessionId,
-                            packageName = pkg,
-                        ),
-                        events = state.events.toList(),
-                    )
-                    iterator.remove()
+        /**
+         * 指定時刻までに停止猶予時間を超えて非アクティブだったセッションを終了扱いにする。
+         *
+         * セッションの終了時刻自体は「非アクティブになった瞬間（lastInactiveAtMillis）」に
+         * 揃えておき、停止猶予はあくまで「同じセッションを再利用するための窓」として使う。
+         */
+        fun applyGraceTimeout(cutoffTs: Long) {
+            val toClose = activeSessions
+                .mapNotNull { (pkg, state) ->
+                    val inactiveAt = state.lastInactiveAtMillis ?: return@mapNotNull null
+                    if (cutoffTs - inactiveAt >= stopGracePeriodMillis) {
+                        pkg to inactiveAt
+                    } else {
+                        null
+                    }
                 }
+
+            for ((pkg, endAt) in toClose) {
+                endSession(pkg, endAt)
             }
         }
 
-        // イベント列を順番に処理
+        // イベント列を時刻順に処理
         for (event in events.sortedBy { it.timestampMillis }) {
             val ts = event.timestampMillis
+
+            // まず、ここまでに停止猶予を超えているセッションがあれば閉じる
+            applyGraceTimeout(ts)
 
             when (event) {
                 is ScreenEvent -> {
                     screenOn = (event.state == ScreenState.On)
                     if (!screenOn) {
-                        // 画面 OFF → すべて Pause 扱い
+                        // 画面 OFF → すべて Pause 扱い（非アクティブ開始）
                         pauseAllActive(ts)
                     } else {
                         // 画面 ON → 現在前面の対象アプリを Resume
@@ -156,19 +193,22 @@ object SessionProjector {
                 }
 
                 is ForegroundAppEvent -> {
-                    // 前回の前面アプリが対象でなくなる → 最終アクティブ時刻を更新
                     val prev = currentForeground
-                    if (prev != null) {
-                        activeSessions[prev]?.lastActiveMillis = ts
+                    val newPkg = event.packageName
+
+                    // 前の前面アプリが対象だった場合は「離脱」とみなす
+                    if (prev != null && prev != newPkg && prev in targetPackages) {
+                        markInactive(prev, ts)
                     }
 
-                    currentForeground = event.packageName
+                    currentForeground = newPkg
 
                     if (screenOn && monitoringEnabled) {
                         val fg = currentForeground
                         if (fg != null && fg in targetPackages) {
-                            // 新しい対象アプリが前面に来た
                             if (!activeSessions.containsKey(fg)) {
+                                // 停止猶予内に復帰していれば ActiveState が残っているはず、
+                                // そうでなければ新しいセッションを開始
                                 startSession(fg, ts)
                             } else {
                                 // すでにセッション中なら Resume 扱い
@@ -182,13 +222,11 @@ object SessionProjector {
                     // 必須権限が失われたら monitoringEnabled を false にするなど、
                     // 詳細ルールは後で詰める。
                     // 今は UsageStats / Overlay が両方 Granted のときだけ true とするイメージ。
-                    // （ここでは簡略化して常に true のままでもよい）
                 }
 
                 is ServiceLifecycleEvent -> {
-                    // サービス停止時に全セッションを終了させるなどのルールを入れてもよい
+                    // サービス停止時に全セッションを終了させる
                     if (event.state == ServiceState.Stopped) {
-                        // 停止時点で全部 End 扱いにする例
                         val nowTs = ts
                         activeSessions.keys.toList().forEach { pkg ->
                             endSession(pkg, nowTs)
@@ -197,7 +235,7 @@ object SessionProjector {
                 }
 
                 is TargetAppsChangedEvent -> {
-                    // 対象から外れたアプリのセッションを終了扱いにするなど
+                    // 対象から外れたアプリのセッションを終了扱いにする
                     activeSessions.keys
                         .filter { it !in event.targetPackages }
                         .forEach { pkg -> endSession(pkg, ts) }
@@ -209,18 +247,26 @@ object SessionProjector {
                     // セッション構築には直接関与しない
                 }
             }
-
-            // 停止猶予のチェック
-            checkGraceTimeout(ts)
         }
 
-        // 最後まで来ても End していないセッションは nowMillis で閉じる
-        val tsNow = nowMillis
-        activeSessions.keys.toList().forEach { pkg ->
-            endSession(pkg, tsNow)
+        // すべてのイベント処理が終わった段階でもう一度猶予切れ判定を行う
+        applyGraceTimeout(nowMillis)
+
+        // まだ activeSessions に残っているものは
+        // - いまもアクティブ中
+        // - 「停止猶予内で一時離脱中」
+        // のどちらかなので、未終了セッションとして返す。
+        val ongoing = activeSessions.map { (pkg, state) ->
+            SessionWithEvents(
+                session = Session(
+                    id = state.sessionId,
+                    packageName = pkg,
+                ),
+                events = state.events.sortedBy { it.timestampMillis },
+            )
         }
 
-        return finished.sortedBy { it.session.id ?: 0L }
+        return (finished + ongoing).sortedBy { it.session.id ?: 0L }
     }
 
     /**
