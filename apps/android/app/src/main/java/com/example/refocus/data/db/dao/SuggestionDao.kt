@@ -20,6 +20,19 @@ interface SuggestionDao {
     @Insert
     suspend fun insert(entity: SuggestionEntity): Long
 
+    @Query("UPDATE suggestions SET title = :title WHERE id = :id")
+    suspend fun updateTitle(id: Long, title: String)
+
+    @Query(
+        "UPDATE suggestions " +
+                "SET timeSlot = :timeSlot, durationTag = :durationTag, priority = :priority " +
+                "WHERE id = :id"
+    )
+    suspend fun updateTags(id: Long, timeSlot: String, durationTag: String, priority: String)
+
+    @Query("DELETE FROM suggestions WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
     @Update
     suspend fun update(entity: SuggestionEntity)
 

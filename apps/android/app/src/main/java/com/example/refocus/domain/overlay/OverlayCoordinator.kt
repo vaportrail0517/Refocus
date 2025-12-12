@@ -24,9 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
@@ -299,7 +297,7 @@ class OverlayCoordinator(
                 screenOnFlow
             ) { targets, foregroundRaw, isScreenOn ->
                 Triple(targets, foregroundRaw, isScreenOn)
-            }.collectLatest { (targets, foregroundRaw, isScreenOn) ->
+            }.collect { (targets, foregroundRaw, isScreenOn) ->
                 val foregroundPackage = if (isScreenOn) foregroundRaw else null
                 Log.d(
                     TAG,
@@ -308,12 +306,14 @@ class OverlayCoordinator(
 
                 if (foregroundRaw != lastForegroundRaw) {
                     lastForegroundRaw = foregroundRaw
-                    scope.launch {
-                        try {
+                    try {
+                        // ここを別launchで逃がすと順序が崩れ得るため、直列に記録する
+                        // Room/DB書き込みはIOに寄せるが、順序は保持する
+                        withContext(Dispatchers.IO) {
                             eventRecorder.onForegroundAppChanged(foregroundRaw)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to record foreground app change: $foregroundRaw", e)
                         }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to record foreground app change: $foregroundRaw", e)
                     }
                 }
 
@@ -585,7 +585,7 @@ class OverlayCoordinator(
         // （この先は今の実装のままで OK: suggestionsRepository / suggestionSelector / eventRecorder など）
         scope.launch {
             try {
-                val suggestions = suggestionsRepository.observeSuggestions().firstOrNull().orEmpty()
+                val suggestions = suggestionsRepository.getSuggestionsSnapshot()
                 val selected = suggestionSelector.select(
                     suggestions = suggestions,
                     nowMillis = nowMillis,

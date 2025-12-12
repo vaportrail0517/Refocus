@@ -9,15 +9,11 @@ import com.example.refocus.core.model.ServiceState
 import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionEventType
-import com.example.refocus.core.model.SessionPart
 import com.example.refocus.core.model.SettingsChangedEvent
 import com.example.refocus.core.model.SuggestionDecisionEvent
 import com.example.refocus.core.model.SuggestionShownEvent
 import com.example.refocus.core.model.TargetAppsChangedEvent
 import com.example.refocus.core.model.TimelineEvent
-import com.example.refocus.domain.session.SessionDurationCalculator
-import java.time.Instant
-import java.time.ZoneId
 
 /**
  * TimelineEvent の列から Session / SessionEvent を再構成する。
@@ -267,42 +263,5 @@ object SessionProjector {
         }
 
         return (finished + ongoing).sortedBy { it.session.id ?: 0L }
-    }
-
-    /**
-     * SessionWithEvents から SessionPart を生成するヘルパー。
-     * 既存の SessionPartGenerator を置き換える用途を想定。
-     */
-    fun generateSessionParts(
-        sessionsWithEvents: List<SessionWithEvents>,
-        zoneId: ZoneId,
-    ): List<SessionPart> {
-        val result = mutableListOf<SessionPart>()
-        for ((session, events) in sessionsWithEvents) {
-            val segments =
-                SessionDurationCalculator.buildActiveSegments(events, nowMillis = Long.MAX_VALUE)
-            // date 切りを SessionPartGenerator と同様にやる（詳細は既存実装に合わせる）
-            for (segment in segments) {
-                val startInstant = Instant.ofEpochMilli(segment.startMillis)
-                val endInstant = Instant.ofEpochMilli(segment.endMillis)
-                val startZdt = startInstant.atZone(zoneId)
-                val endZdt = endInstant.atZone(zoneId)
-                val date = startZdt.toLocalDate()
-                val startMinutes = startZdt.hour * 60 + startZdt.minute
-                val endMinutes = endZdt.hour * 60 + endZdt.minute
-
-                result += SessionPart(
-                    sessionId = session.id ?: -1L,
-                    packageName = session.packageName,
-                    date = date,
-                    startDateTime = startInstant,
-                    endDateTime = endInstant,
-                    startMinutesOfDay = startMinutes,
-                    endMinutesOfDay = endMinutes,
-                    durationMillis = segment.endMillis - segment.startMillis,
-                )
-            }
-        }
-        return result
     }
 }

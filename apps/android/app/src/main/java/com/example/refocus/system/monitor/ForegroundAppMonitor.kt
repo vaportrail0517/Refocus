@@ -65,19 +65,21 @@ class ForegroundAppMonitor(
      * - ホームアプリ / SystemUI → null
      */
     fun foregroundAppFlow(
-        pollingIntervalMs: Long = 1_000L
+        pollingIntervalMs: Long = 1_000L,
+        // 起動直後、「すでに前面にいるアプリ」を拾うためのイベント巻き戻し幅
+        // (lastCheckedTime を now から開始すると、直前の MOVE_TO_FOREGROUND を取り逃がしやすい)
+        initialLookbackMs: Long = 10_000L
     ): Flow<String?> = flow {
         if (usageStatsManager == null) {
             Log.w(TAG, "UsageStatsManager is null, cannot monitor foreground app")
-            // 何も分からないのでずっと null を流す
-            while (true) {
-                emit(null)
-                delay(pollingIntervalMs)
-            }
+            // 何も分からないので null を一度だけ流し、以降は無駄に emit しない
+            emit(null)
+            while (true) delay(pollingIntervalMs)
         }
 
         var lastEmittedPackage: String? = null
-        var lastCheckedTime: Long = timeSource.nowMillis()
+        val startNow = timeSource.nowMillis()
+        var lastCheckedTime: Long = (startNow - initialLookbackMs).coerceAtLeast(0L)
         val events = UsageEvents.Event()
         var currentTop: String? = null
         while (true) {
@@ -122,10 +124,9 @@ class ForegroundAppMonitor(
 
             if (effectiveTop != lastEmittedPackage) {
                 Log.d(TAG, "foreground changed: $lastEmittedPackage -> $effectiveTop")
+                lastEmittedPackage = effectiveTop
+                emit(effectiveTop)
             }
-
-            lastEmittedPackage = effectiveTop
-            emit(effectiveTop)
 
             delay(pollingIntervalMs)
         }

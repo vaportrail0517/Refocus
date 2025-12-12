@@ -22,26 +22,28 @@ class SuggestionsRepository(
 
     /**
      * 複数のやりたいことをそのまま流す Flow。
-     * 空タイトルのものは除外しておく（編集中プレースホルダは含めない）。
+     * 空タイトル（空白のみ含む）ものは除外しておく。
      */
     fun observeSuggestions(): Flow<List<Suggestion>> =
         suggestionDao.observeAll()
             .map { entities ->
                 entities
                     .map { it.toModel() }
+                    .filter { it.title.isNotBlank() }
             }
 
     /**
-     * 互換性のための helper。
-     * 先頭の1件だけを返す（Overlay から利用）。
+     * ワンショットで suggestions を取りたい箇所用（例: Overlay）。
+     * Flow を立ち上げずに一回だけ Room を叩く。
      */
-    fun observeSuggestion(): Flow<Suggestion?> =
-        observeSuggestions().map { list -> list.firstOrNull() }
+    suspend fun getSuggestionsSnapshot(): List<Suggestion> =
+        suggestionDao.getAll()
+            .map { it.toModel() }
+            .filter { it.title.isNotBlank() }
 
     /**
      * 新しい Suggestion を追加して返す。
-     * ここでは title をそのまま保存する（空文字でも保存される）。
-     * UI 側で空のまま確定されたときは削除する。
+     * title は trim した上で、空白のみ/空文字は禁止（= 保存しない）。
      */
     suspend fun addSuggestion(
         title: String,
@@ -49,10 +51,12 @@ class SuggestionsRepository(
         durationTag: SuggestionDurationTag,
         priority: SuggestionPriority,
     ): Suggestion {
+        val normalizedTitle = normalizeTitle(title)
+        require(normalizedTitle.isNotEmpty()) { "Suggestion title must not be blank." }
         val now = timeSource.nowMillis()
         val entity = SuggestionEntity(
             id = 0L,
-            title = title,
+            title = normalizedTitle,
             createdAtMillis = now,
             kind = SuggestionKind.Generic.name,
             timeSlot = timeSlot.name,
@@ -64,9 +68,9 @@ class SuggestionsRepository(
     }
 
     suspend fun updateSuggestion(id: Long, newTitle: String) {
-        val current = suggestionDao.getAll().firstOrNull { it.id == id } ?: return
-        val updated = current.copy(title = newTitle)
-        suggestionDao.update(updated)
+        val normalizedTitle = normalizeTitle(newTitle)
+        if (normalizedTitle.isEmpty()) return
+        suggestionDao.updateTitle(id = id, title = normalizedTitle)
     }
 
     suspend fun updateSuggestionTags(
@@ -75,19 +79,19 @@ class SuggestionsRepository(
         durationTag: SuggestionDurationTag,
         priority: SuggestionPriority,
     ) {
-        val current = suggestionDao.getAll().firstOrNull { it.id == id } ?: return
-        val updated = current.copy(
+        suggestionDao.updateTags(
+            id = id,
             timeSlot = timeSlot.name,
             durationTag = durationTag.name,
-            priority = priority.name
+            priority = priority.name,
         )
-        suggestionDao.update(updated)
     }
 
     suspend fun deleteSuggestion(id: Long) {
-        val current = suggestionDao.getAll().firstOrNull { it.id == id } ?: return
-        suggestionDao.delete(current)
+        suggestionDao.deleteById(id)
     }
+
+    private fun normalizeTitle(title: String): String = title.trim()
 
     private fun SuggestionEntity.toModel(): Suggestion {
         val kindEnum = runCatching { SuggestionKind.valueOf(kind) }

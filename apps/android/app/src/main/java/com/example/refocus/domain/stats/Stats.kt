@@ -19,6 +19,7 @@ import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.data.repository.TargetsRepository
 import com.example.refocus.data.repository.TimelineRepository
+import com.example.refocus.domain.session.SessionPartGenerator
 import com.example.refocus.domain.timeline.SessionProjector
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -55,15 +56,9 @@ class Stats @Inject constructor(
                 .atZone(zoneId)
                 .toLocalDate()
 
-            val todayEvents = events.filter { event ->
-                Instant.ofEpochMilli(event.timestampMillis)
-                    .atZone(zoneId)
-                    .toLocalDate() == today
-            }
-
             buildDailyStatsForDate(
                 date = today,
-                events = todayEvents,
+                events = events,
                 settings = settings,
                 targets = targets,
                 nowMillis = nowMillis,
@@ -82,11 +77,13 @@ class Stats @Inject constructor(
         // 「その日の終わり」か「今時点」のうち早い方を上限として扱う
         val nowMillisForDay = minOf(timeSource.nowMillis(), endOfDayExclusive - 1)
 
-        val events = timelineRepository.getEvents(startOfDay, endOfDayExclusive)
-        if (events.isEmpty()) return null
-
         val settings = settingsRepository.observeOverlaySettings().first()
         val targets = targetsRepository.observeTargets().first()
+
+        // その日より前に確定した状態（サービス稼働・権限・直前foreground等）も必要なので
+        // 0..endOfDay まで取って「その日の解釈」を構築する
+        val events = timelineRepository.getEvents(0L, endOfDayExclusive)
+        if (events.isEmpty()) return null
 
         return buildDailyStatsForDate(
             date = date,
@@ -134,10 +131,12 @@ class Stats @Inject constructor(
                 nowMillis = nowMillis,
             )
 
-        // 3) SessionPart を生成（SessionProjector.generateSessionParts のシグネチャに合わせる）
+        // 3) SessionPart を生成（日付境界の分割は SessionPartGenerator に一本化）
         val sessionParts: List<SessionPart> =
-            SessionProjector.generateSessionParts(
-                sessionsWithEvents = sessionsWithEvents,
+            SessionPartGenerator.generateParts(
+                sessions = sessions,
+                eventsBySessionId = eventsBySessionId,
+                nowMillis = nowMillis,
                 zoneId = zoneId,
             )
 
