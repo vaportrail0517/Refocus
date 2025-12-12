@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -182,28 +181,28 @@ private fun StatsContent(
                     onClick = { onOpenSection(StatsDetailSection.Timeline) },
                 )
             }
-            item {
-                PeakTimeCard(
-                    timeBuckets = stats.timeBuckets,
-                    onClick = { onOpenSection(StatsDetailSection.PeakTime) },
-                )
-            }
+//            item {
+//                PeakTimeCard(
+//                    timeBuckets = stats.timeBuckets,
+//                    onClick = { onOpenSection(StatsDetailSection.PeakTime) },
+//                )
+//            }
         }
 
         // 提案との付き合い方
-        stats.suggestionStats?.let { suggestion ->
-            item {
-                SuggestionCard(
-                    stats = suggestion,
-                    onClick = { onOpenSection(StatsDetailSection.Suggestions) },
-                )
-            }
-        }
+//        stats.suggestionStats?.let { suggestion ->
+//            item {
+//                SuggestionCard(
+//                    stats = suggestion,
+//                    onClick = { onOpenSection(StatsDetailSection.Suggestions) },
+//                )
+//            }
+//        }
 
         // 昨日のサマリー（現状は「今日の値を使ったダミー」。実装時に正しく差分集計する）
         item {
             PeriodSummarySection(
-                title = "昨日のまとめ",
+                title = "昨日のまとめ（ダミー）",
                 rows = buildYesterdaySummaryRows(stats),
             )
         }
@@ -211,20 +210,20 @@ private fun StatsContent(
         // 過去7日間のサマリー（こちらも現状はダミー）
         item {
             PeriodSummarySection(
-                title = "過去7日間のまとめ",
+                title = "過去7日間のまとめ（ダミー）",
                 rows = buildLast7DaysSummaryRows(stats),
             )
         }
 
         // 履歴画面への導線
-        item {
-            Button(
-                onClick = onOpenHistory,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("セッション履歴を詳しく見る")
-            }
-        }
+//        item {
+//            Button(
+//                onClick = onOpenHistory,
+//                modifier = Modifier.fillMaxWidth(),
+//            ) {
+//                Text("セッション履歴を詳しく見る")
+//            }
+//        }
     }
 }
 
