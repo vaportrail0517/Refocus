@@ -93,11 +93,13 @@ class ForegroundAppMonitor(
                         val pkg = events.packageName ?: continue
                         when (events.eventType) {
                             UsageEvents.Event.MOVE_TO_FOREGROUND -> {
-                                currentTop = if (isHomeLikePackage(pkg)) {
-                                    // ホーム / SystemUI に来たら「前面なし」
-                                    null
-                                } else {
-                                    pkg
+                                // SystemUI / Launcher が「前面」として出ることがあるが、
+                                // それは通知シェードやオーバーレイ操作などで
+                                // 実際のアプリが BACKGROUND に落ちていないケースを含む。
+                                // ここで currentTop を null にすると誤判定でタイマーが消えるため、
+                                // home-like は currentTop を上書きしない（離脱確定は BACKGROUND 側で判定）。
+                                if (!isHomeLikePackage(pkg)) {
+                                    currentTop = pkg
                                 }
                             }
 
