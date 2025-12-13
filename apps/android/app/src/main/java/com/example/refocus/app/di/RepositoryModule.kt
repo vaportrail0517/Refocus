@@ -67,9 +67,11 @@ object RepositoryModule {
         database: RefocusDatabase,
         settingsRepository: SettingsRepository,
         targetsRepository: TargetsRepository,
+        onboardingRepository: OnboardingRepository,
     ): AppDataResetter = AppDataResetter(
         database = database,
         settingsRepository = settingsRepository,
         targetsRepository = targetsRepository,
+        onboardingRepository = onboardingRepository,
     )
 }

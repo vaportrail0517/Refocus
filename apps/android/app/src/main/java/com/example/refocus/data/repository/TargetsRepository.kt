@@ -10,8 +10,17 @@ class TargetsRepository(
 ) {
     fun observeTargets(): Flow<Set<String>> = targetsDataStore.targetPackagesFlow
 
-    suspend fun setTargets(targets: Set<String>) {
+    suspend fun setTargets(
+        targets: Set<String>,
+        recordEvent: Boolean = true,
+    ) {
         targetsDataStore.updateTargets(targets)
-        eventRecorder.onTargetAppsChanged(targets)
+        if (recordEvent) {
+            eventRecorder.onTargetAppsChanged(targets)
+        }
+    }
+
+    suspend fun clearForReset() {
+        setTargets(emptySet(), recordEvent = false)
     }
 }
