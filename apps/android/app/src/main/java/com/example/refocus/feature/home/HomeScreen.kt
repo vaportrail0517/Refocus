@@ -146,6 +146,7 @@ fun HomeRoute(
         val todayStats = statsUiState.todayStats
         HomeContent(
             stats = todayStats,
+            appLabelByPackage = statsUiState.appLabelByPackage,
             targetApps = targetApps,
             hasCorePermissions = hasCorePermissions,
             innerPadding = innerPadding,
@@ -197,6 +198,7 @@ fun HomeTopBar(
 @Composable
 private fun HomeContent(
     stats: DailyStats?,
+    appLabelByPackage: Map<String, String>,
     targetApps: List<HomeViewModel.TargetAppUiModel>,
     hasCorePermissions: Boolean,
     innerPadding: PaddingValues,
@@ -222,6 +224,7 @@ private fun HomeContent(
         item {
             FocusSection(
                 stats = stats,
+                appLabelByPackage = appLabelByPackage,
                 onOpenSection = onOpenStatsDetail,
             )
         }
@@ -283,10 +286,11 @@ fun PermissionWarningCard(
 @Composable
 private fun FocusSection(
     stats: DailyStats?,
+    appLabelByPackage: Map<String, String>,
     onOpenSection: (StatsDetailSection) -> Unit,
 ) {
     // フォーカスに載せるカード一覧
-    val focusItems = buildFocusItems(stats)
+    val focusItems = buildFocusItems(stats, appLabelByPackage)
     if (focusItems.isEmpty()) return
 
     val pagerState = rememberPagerState(
@@ -332,7 +336,10 @@ private data class FocusItem(
     val section: StatsDetailSection,
 )
 
-private fun buildFocusItems(stats: DailyStats?): List<FocusItem> {
+private fun buildFocusItems(
+    stats: DailyStats?,
+    appLabelByPackage: Map<String, String>,
+): List<FocusItem> {
     val items = mutableListOf<FocusItem>()
 
     if (stats == null) return items
@@ -347,9 +354,10 @@ private fun buildFocusItems(stats: DailyStats?): List<FocusItem> {
 
     // カード2: 一番使っているアプリ
     stats.appUsageStats.maxByOrNull { it.totalUsageMillis }?.let { topApp ->
+        val label = appLabelByPackage[topApp.packageName] ?: topApp.packageName
         items += FocusItem(
             title = "よく使ったアプリ",
-            value = topApp.packageName, // 後でアプリ名に差し替え可
+            value = label,
             subtitle = formatDurationMilliSeconds(topApp.totalUsageMillis),
             section = StatsDetailSection.AppUsage,
         )

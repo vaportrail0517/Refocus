@@ -124,6 +124,7 @@ fun StatsScreen(
             else -> {
                 StatsContent(
                     stats = uiState.todayStats,
+                    appLabelByPackage = uiState.appLabelByPackage,
                     modifier = Modifier
                         .padding(innerPadding)
                         .padding(16.dp),
@@ -138,6 +139,7 @@ fun StatsScreen(
 @Composable
 private fun StatsContent(
     stats: DailyStats,
+    appLabelByPackage: Map<String, String>,
     modifier: Modifier = Modifier,
     onOpenHistory: () -> Unit,
     onOpenSection: (StatsDetailSection) -> Unit = {},
@@ -169,6 +171,7 @@ private fun StatsContent(
             item {
                 AppUsageCard(
                     apps = stats.appUsageStats,
+                    appLabelByPackage = appLabelByPackage,
                     onClick = { onOpenSection(StatsDetailSection.AppUsage) },
                 )
             }
@@ -371,11 +374,18 @@ private fun SummaryCard(
         ) {
             listOf(
                 "セッション数" to stats.sessionCount.toString(),
-                "平均セッション" to formatDurationMilliSeconds(stats.averageSessionDurationMillis),
+                "平均セッション長" to formatDurationMilliSeconds(stats.averageSessionDurationMillis),
                 "最長セッション" to formatDurationMilliSeconds(stats.longestSessionDurationMillis),
                 "長めのセッション" to "${stats.longSessionCount} 回",
                 "とても長いセッション" to "${stats.veryLongSessionCount} 回",
-            ).forEach { (label, value) ->
+                "提案表示回数" to (stats.suggestionStats?.totalShown?.toString() ?: "0"),
+                "提案を見送った割合" to (
+                        stats.suggestionStats?.let { s ->
+                            if (s.totalShown > 0) "${(s.skippedCount * 100 / s.totalShown)}%" else "-"
+                        } ?: "-"
+                        ),
+
+                ).forEach { (label, value) ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -397,6 +407,7 @@ private fun SummaryCard(
 @Composable
 private fun AppUsageCard(
     apps: List<AppUsageStats>,
+    appLabelByPackage: Map<String, String>,
     onClick: () -> Unit = {},
 ) {
     SectionCard(
@@ -417,7 +428,7 @@ private fun AppUsageCard(
                 .take(5)
 
             topApps.forEach { app ->
-                AppUsageRow(app)
+                AppUsageRow(app, appLabelByPackage)
             }
 
             val others = apps.size - topApps.size
@@ -435,6 +446,7 @@ private fun AppUsageCard(
 @Composable
 private fun AppUsageRow(
     app: AppUsageStats,
+    appLabelByPackage: Map<String, String>,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -442,10 +454,8 @@ private fun AppUsageRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column {
-            Text(
-                text = app.packageName,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            val label = appLabelByPackage[app.packageName] ?: app.packageName
+            Text(text = label, style = MaterialTheme.typography.bodyMedium)
             Text(
                 text = "セッション数 ${app.sessionCount} / 平均 ${formatDurationMilliSeconds(app.averageSessionDurationMillis)}",
                 style = MaterialTheme.typography.bodySmall,

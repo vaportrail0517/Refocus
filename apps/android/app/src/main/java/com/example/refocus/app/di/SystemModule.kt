@@ -7,6 +7,8 @@ import com.example.refocus.data.repository.TimelineRepository
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
+import com.example.refocus.system.appinfo.AndroidAppLabelResolver
+import com.example.refocus.system.appinfo.AppLabelResolver
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import dagger.Module
 import dagger.Provides
@@ -44,4 +46,10 @@ object SystemModule {
         timeSource: TimeSource,
         timelineRepository: TimelineRepository,
     ): EventRecorder = EventRecorder(timeSource, timelineRepository)
+
+    @Provides
+    @Singleton
+    fun provideAppLabelResolver(
+        @ApplicationContext context: Context,
+    ): AppLabelResolver = AndroidAppLabelResolver(context)
 }
