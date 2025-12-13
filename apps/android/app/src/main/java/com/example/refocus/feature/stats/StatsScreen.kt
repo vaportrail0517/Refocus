@@ -37,6 +37,7 @@ import com.example.refocus.core.model.AppUsageStats
 import com.example.refocus.core.model.DailyStats
 import com.example.refocus.core.model.SuggestionDailyStats
 import com.example.refocus.core.model.TimeBucketStats
+import com.example.refocus.core.util.formatDurationMilliSeconds
 import com.example.refocus.ui.components.SectionCard
 
 /**
@@ -361,7 +362,7 @@ private fun SummaryCard(
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                text = formatDuration(stats.totalUsageMillis),
+                text = formatDurationMilliSeconds(stats.totalUsageMillis),
                 style = MaterialTheme.typography.headlineSmall,
             )
         }
@@ -370,8 +371,8 @@ private fun SummaryCard(
         ) {
             listOf(
                 "セッション数" to stats.sessionCount.toString(),
-                "平均セッション" to formatDuration(stats.averageSessionDurationMillis),
-                "最長セッション" to formatDuration(stats.longestSessionDurationMillis),
+                "平均セッション" to formatDurationMilliSeconds(stats.averageSessionDurationMillis),
+                "最長セッション" to formatDurationMilliSeconds(stats.longestSessionDurationMillis),
                 "長めのセッション" to "${stats.longSessionCount} 回",
                 "とても長いセッション" to "${stats.veryLongSessionCount} 回",
             ).forEach { (label, value) ->
@@ -446,12 +447,12 @@ private fun AppUsageRow(
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                text = "セッション数 ${app.sessionCount} / 平均 ${formatDuration(app.averageSessionDurationMillis)}",
+                text = "セッション数 ${app.sessionCount} / 平均 ${formatDurationMilliSeconds(app.averageSessionDurationMillis)}",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
         Text(
-            text = formatDuration(app.totalUsageMillis),
+            text = formatDurationMilliSeconds(app.totalUsageMillis),
             style = MaterialTheme.typography.bodyMedium,
         )
     }
@@ -639,7 +640,7 @@ private fun PeakTimeCard(
             topBuckets.forEach { bucket ->
                 Text(
                     text = "${formatBucketRange(bucket)}   合計 ${
-                        formatDuration(
+                        formatDurationMilliSeconds(
                             bucket.targetUsageMinutes * 60_000L
                         )
                     }",
@@ -720,9 +721,9 @@ private fun buildYesterdaySummaryRows(today: DailyStats): List<Pair<String, Stri
     // TODO: 本来は「昨日の DailyStats」を受け取り、今日との差分を表示する。
     // ここではひとまず今日の値を使ったダミーとしておく。
     return listOf(
-        "合計利用時間" to formatDuration(today.totalUsageMillis),
+        "合計利用時間" to formatDurationMilliSeconds(today.totalUsageMillis),
         "セッション数" to today.sessionCount.toString(),
-        "平均セッション長" to formatDuration(today.averageSessionDurationMillis),
+        "平均セッション長" to formatDurationMilliSeconds(today.averageSessionDurationMillis),
         "提案表示回数" to (today.suggestionStats?.totalShown?.toString() ?: "0"),
         "提案を見送った割合" to (
                 today.suggestionStats?.let { s ->
@@ -735,9 +736,9 @@ private fun buildYesterdaySummaryRows(today: DailyStats): List<Pair<String, Stri
 private fun buildLast7DaysSummaryRows(today: DailyStats): List<Pair<String, String>> {
     // TODO: 本来は過去7日分を集計して 1日平均などを出す
     return listOf(
-        "1日あたり平均利用時間" to formatDuration(today.totalUsageMillis),
+        "1日あたり平均利用時間" to formatDurationMilliSeconds(today.totalUsageMillis),
         "1日あたりセッション数" to today.sessionCount.toString(),
-        "1日あたり平均セッション長" to formatDuration(today.averageSessionDurationMillis),
+        "1日あたり平均セッション長" to formatDurationMilliSeconds(today.averageSessionDurationMillis),
         "提案表示回数" to (today.suggestionStats?.totalShown?.toString() ?: "0"),
         "提案を見送った割合" to (
                 today.suggestionStats?.let { s ->
@@ -745,19 +746,4 @@ private fun buildLast7DaysSummaryRows(today: DailyStats): List<Pair<String, Stri
                 } ?: "-"
                 ),
     )
-}
-
-// --- ヘルパー ---
-
-private fun formatDuration(durationMillis: Long): String {
-    val totalSeconds = durationMillis / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    val hours = minutes / 60
-    val remMinutes = minutes % 60
-    return if (hours > 0) {
-        String.format("%d時間%02d分%02d秒", hours, remMinutes, seconds)
-    } else {
-        String.format("%d分%02d秒", minutes, seconds)
-    }
 }
