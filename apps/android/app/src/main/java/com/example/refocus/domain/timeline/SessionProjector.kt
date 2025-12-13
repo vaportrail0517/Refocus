@@ -2,6 +2,8 @@ package com.example.refocus.domain.timeline
 
 import com.example.refocus.core.model.ForegroundAppEvent
 import com.example.refocus.core.model.PermissionEvent
+import com.example.refocus.core.model.PermissionKind
+import com.example.refocus.core.model.PermissionState
 import com.example.refocus.core.model.ScreenEvent
 import com.example.refocus.core.model.ScreenState
 import com.example.refocus.core.model.ServiceLifecycleEvent
@@ -45,7 +47,10 @@ object SessionProjector {
 
         var currentForeground: String? = null
         var screenOn: Boolean = true
-        var monitoringEnabled: Boolean = true // Permission / 設定を見て将来拡張
+        var monitoringEnabled: Boolean = true
+        var serviceRunning: Boolean = true
+        val permissionStates = mutableMapOf<PermissionKind, PermissionState>()
+        val requiredPermissions = setOf(PermissionKind.UsageStats, PermissionKind.Overlay)
 
         // app -> アクティブなセッション状態
         data class ActiveState(
@@ -148,6 +153,22 @@ object SessionProjector {
             }
         }
 
+        fun recomputeMonitoringEnabled(ts: Long) {
+            // まだイベントが来ていない権限は「Granted扱い」にして現状挙動を壊さない
+            val permsOk = requiredPermissions.all { kind ->
+                permissionStates[kind] != PermissionState.Revoked
+            }
+            val enabled = serviceRunning && permsOk
+            if (enabled == monitoringEnabled) return
+            monitoringEnabled = enabled
+            if (!monitoringEnabled) {
+                // 監視不能になった瞬間を「一時離脱」として扱う
+                pauseAllActive(ts)
+                // 監視不能期間に foreground は変わり得るので信用しない
+                currentForeground = null
+            }
+        }
+
         fun resumeCurrentForeground(ts: Long) {
             val pkg = currentForeground ?: return
             val state = activeSessions[pkg] ?: return
@@ -198,8 +219,8 @@ object SessionProjector {
                     if (!screenOn) {
                         // 画面 OFF → すべて Pause 扱い（非アクティブ開始）
                         pauseAllActive(ts)
-                    } else {
-                        // 画面 ON → 現在前面の対象アプリを Resume
+                    } else if (monitoringEnabled) {
+                        // 画面 ON → （監視できている時だけ）現在前面の対象アプリを Resume
                         resumeCurrentForeground(ts)
                     }
                 }
@@ -231,19 +252,13 @@ object SessionProjector {
                 }
 
                 is PermissionEvent -> {
-                    // 必須権限が失われたら monitoringEnabled を false にするなど、
-                    // 詳細ルールは後で詰める。
-                    // 今は UsageStats / Overlay が両方 Granted のときだけ true とするイメージ。
+                    permissionStates[event.permission] = event.state
+                    recomputeMonitoringEnabled(ts)
                 }
 
                 is ServiceLifecycleEvent -> {
-                    // サービス停止時に全セッションを終了させる
-                    if (event.state == ServiceState.Stopped) {
-                        val nowTs = ts
-                        activeSessions.keys.toList().forEach { pkg ->
-                            endSession(pkg, nowTs)
-                        }
-                    }
+                    serviceRunning = (event.state == ServiceState.Started)
+                    recomputeMonitoringEnabled(ts)
                 }
 
                 is TargetAppsChangedEvent -> {

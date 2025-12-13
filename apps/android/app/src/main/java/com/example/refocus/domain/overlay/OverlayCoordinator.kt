@@ -328,29 +328,31 @@ class OverlayCoordinator(
     private fun startMonitoringForeground() {
         scope.launch {
             val targetsFlow = targetsRepository.observeTargets()
-            val foregroundFlow = settingsFlow
+            val foregroundSampleFlow = settingsFlow
                 .flatMapLatest { settings ->
-                    foregroundAppMonitor.foregroundAppFlow(
+                    foregroundAppMonitor.foregroundSampleFlow(
                         pollingIntervalMs = settings.pollingIntervalMillis
                     )
                 }
             val screenOnFlow = screenOnState
 
             var lastForegroundRaw: String? = null
+            var lastSample: ForegroundAppMonitor.ForegroundSample? = null
 
             val tickFlow = tickerFlow(periodMs = 1_000L)
             combine(
                 targetsFlow,
-                foregroundFlow,
+                foregroundSampleFlow,
                 screenOnFlow,
                 tickFlow
-            ) { targets, foregroundRaw, isScreenOn, _ ->
-                Triple(targets, foregroundRaw, isScreenOn)
-            }.collect { (targets, foregroundRaw, isScreenOn) ->
+            ) { targets, sample, isScreenOn, _ ->
+                Triple(targets, sample, isScreenOn)
+            }.collect { (targets, sample, isScreenOn) ->
+                val foregroundRaw = sample.packageName
                 val foregroundPackage = if (isScreenOn) foregroundRaw else null
                 Log.d(
                     TAG,
-                    "combine: raw=$foregroundRaw, screenOn=$isScreenOn, effective=$foregroundPackage, targets=$targets"
+                    "combine: raw=$foregroundRaw, gen=${sample.generation}, screenOn=$isScreenOn, effective=$foregroundPackage, targets=$targets"
                 )
 
                 if (foregroundRaw != lastForegroundRaw) {
@@ -367,11 +369,37 @@ class OverlayCoordinator(
                 }
 
                 try {
+                    val nowMillis = timeSource.nowMillis()
+                    val nowElapsed = timeSource.elapsedRealtime()
+                    // --- 追加: 「同一パッケージだが前面復帰した」を検知して、前面安定だけリセットする ---
+                    val prevSample = lastSample
+                    lastSample = sample
+                    val reconfirmed =
+                        isScreenOn &&
+                                foregroundRaw != null &&
+                                prevSample?.packageName == foregroundRaw &&
+                                prevSample.generation != sample.generation
+                    if (reconfirmed) {
+                        val stateSnapshot = overlayState
+                        // Tracking 中かつ、いま見ているターゲットと一致しているときだけ適用
+                        if (stateSnapshot is OverlayState.Tracking &&
+                            stateSnapshot.packageName == foregroundRaw &&
+                            overlayPackage == foregroundRaw
+                        ) {
+                            sessionTracker.onForegroundReconfirmed(
+                                packageName = foregroundRaw,
+                                nowElapsedRealtime = nowElapsed
+                            )
+                            Log.d(
+                                TAG,
+                                "Foreground reconfirmed for $foregroundRaw -> reset stable timer only"
+                            )
+                        }
+                    }
+
                     val previous = currentForegroundPackage
                     val prevIsTarget = previous != null && previous in targets
                     val nowIsTarget = foregroundPackage != null && foregroundPackage in targets
-                    val nowMillis = timeSource.nowMillis()
-                    val nowElapsed = timeSource.elapsedRealtime()
 
                     currentForegroundPackage = foregroundPackage
 
