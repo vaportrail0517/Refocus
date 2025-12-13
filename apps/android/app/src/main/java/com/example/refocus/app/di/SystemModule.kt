@@ -4,8 +4,10 @@ import android.content.Context
 import com.example.refocus.core.util.SystemTimeSource
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.repository.TimelineRepository
+import com.example.refocus.domain.suggestion.GaussianCircularTimeSlotWeightModel
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
+import com.example.refocus.domain.suggestion.TimeSlotWeightModel
 import com.example.refocus.domain.timeline.EventRecorder
 import com.example.refocus.system.appinfo.AndroidAppLabelResolver
 import com.example.refocus.system.appinfo.AppLabelResolver
@@ -38,7 +40,13 @@ object SystemModule {
 
     @Provides
     @Singleton
-    fun provideSuggestionSelector(): SuggestionSelector = SuggestionSelector()
+    fun provideTimeSlotWeightModel(): TimeSlotWeightModel = GaussianCircularTimeSlotWeightModel()
+
+    @Provides
+    @Singleton
+    fun provideSuggestionSelector(
+        timeSlotWeightModel: TimeSlotWeightModel
+    ): SuggestionSelector = SuggestionSelector(timeSlotWeightModel)
 
     @Provides
     @Singleton

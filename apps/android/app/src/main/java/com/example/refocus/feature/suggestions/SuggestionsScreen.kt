@@ -741,7 +741,7 @@ private fun SuggestionTagsRow(
         // 時間帯
         Column {
             Text(
-                text = "時間帯",
+                text = "時間帯: ${timeSlot.hintJa()}",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -750,30 +750,24 @@ private fun SuggestionTagsRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                SuggestionTagChip(
-                    label = "いつでも",
-                    selected = timeSlot == SuggestionTimeSlot.Anytime,
-                    enabled = interactive,
-                    onClick = { onTimeSlotChange(SuggestionTimeSlot.Anytime) },
+                val slotOrder = listOf(
+                    SuggestionTimeSlot.Anytime,
+                    SuggestionTimeSlot.Dawn,
+                    SuggestionTimeSlot.Morning,
+                    SuggestionTimeSlot.Noon,
+                    SuggestionTimeSlot.Afternoon,
+                    SuggestionTimeSlot.Evening,
+                    SuggestionTimeSlot.Night,
+                    SuggestionTimeSlot.LateNight,
                 )
-                SuggestionTagChip(
-                    label = "朝",
-                    selected = timeSlot == SuggestionTimeSlot.Morning,
-                    enabled = interactive,
-                    onClick = { onTimeSlotChange(SuggestionTimeSlot.Morning) },
-                )
-                SuggestionTagChip(
-                    label = "昼",
-                    selected = timeSlot == SuggestionTimeSlot.Afternoon,
-                    enabled = interactive,
-                    onClick = { onTimeSlotChange(SuggestionTimeSlot.Afternoon) },
-                )
-                SuggestionTagChip(
-                    label = "夜",
-                    selected = timeSlot == SuggestionTimeSlot.Evening,
-                    enabled = interactive,
-                    onClick = { onTimeSlotChange(SuggestionTimeSlot.Evening) },
-                )
+                for (slot in slotOrder) {
+                    SuggestionTagChip(
+                        label = slot.labelJa(),
+                        selected = timeSlot == slot,
+                        enabled = interactive,
+                        onClick = { onTimeSlotChange(slot) },
+                    )
+                }
             }
         }
 
@@ -843,4 +837,26 @@ private fun SuggestionTagsRow(
             }
         }
     }
+}
+
+fun SuggestionTimeSlot.labelJa(): String = when (this) {
+    SuggestionTimeSlot.Anytime -> "いつでも"
+    SuggestionTimeSlot.Dawn -> "早朝"
+    SuggestionTimeSlot.Morning -> "午前"
+    SuggestionTimeSlot.Noon -> "昼"
+    SuggestionTimeSlot.Afternoon -> "午後"
+    SuggestionTimeSlot.Evening -> "夕方"
+    SuggestionTimeSlot.Night -> "夜"
+    SuggestionTimeSlot.LateNight -> "深夜"
+}
+
+fun SuggestionTimeSlot.hintJa(): String = when (this) {
+    SuggestionTimeSlot.Dawn -> "4〜7時ごろ"
+    SuggestionTimeSlot.Morning -> "8〜11時ごろ"
+    SuggestionTimeSlot.Noon -> "11〜14時ごろ"
+    SuggestionTimeSlot.Afternoon -> "13〜17時ごろ"
+    SuggestionTimeSlot.Evening -> "17〜19時ごろ"
+    SuggestionTimeSlot.Night -> "19〜23時ごろ"
+    SuggestionTimeSlot.LateNight -> "23〜3時ごろ"
+    SuggestionTimeSlot.Anytime -> "いつでも"
 }

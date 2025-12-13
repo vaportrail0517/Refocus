@@ -28,11 +28,14 @@ enum class SuggestionKind {
 }
 
 enum class SuggestionTimeSlot {
-    Anytime,
-    Morning,
-    Afternoon,
-    Evening,
-    Night,
+    Anytime,        // いつでも
+    Dawn,           // 早朝（例: 4〜7）
+    Morning,        // 午前（例: 8〜11）
+    Noon,           // 昼（例: 11〜14）
+    Afternoon,      // 午後（例: 13〜17）
+    Evening,        // 夕方（例: 17〜19）
+    Night,          // 夜（例: 19〜23）
+    LateNight,      // 深夜（例: 23〜3）
 }
 
 
