@@ -43,7 +43,7 @@ interface OverlayUiGateway {
     /**
      * 提案オーバーレイ表示。
      */
-    fun showSuggestion(model: SuggestionOverlayUiModel)
+    suspend fun showSuggestion(model: SuggestionOverlayUiModel): Boolean
 
     /**
      * 提案オーバーレイ非表示。

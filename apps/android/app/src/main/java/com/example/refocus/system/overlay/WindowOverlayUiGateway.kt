@@ -6,6 +6,7 @@ import com.example.refocus.domain.overlay.SuggestionOverlayUiModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * domain/overlay.OverlayUiGateway の実装。
@@ -41,8 +42,8 @@ class WindowOverlayUiGateway(
         }
     }
 
-    override fun showSuggestion(model: SuggestionOverlayUiModel) {
-        scope.launch(Dispatchers.Main) {
+    override suspend fun showSuggestion(model: SuggestionOverlayUiModel): Boolean {
+        return withContext(Dispatchers.Main) {
             suggestionOverlayController.showSuggestionOverlay(
                 title = model.title,
                 mode = model.mode,

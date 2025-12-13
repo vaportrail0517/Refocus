@@ -160,11 +160,11 @@ fun SuggestionTriggerTimeDialog(
         title = "提案を出すまでのセッション継続時間",
         description = "対象アプリを連続して使い始めてから、どれくらい経過したら提案を行うかを設定します。",
         min = 60L,
-        max = 60L * 60L,
+        max = 60L * 30L,
         step = 60L,
         initial = currentSeconds.coerceIn(60, 60 * 60).toLong(),
         valueLabel = { seconds -> formatDurationSeconds(seconds) },
-        hintLabel = "1〜60分 / 1分刻み",
+        hintLabel = "1〜30分 / 1分刻み",
         onConfirm = { selectedSeconds ->
             onConfirm(selectedSeconds.toInt())
         },
@@ -181,12 +181,12 @@ fun SuggestionForegroundStableDialog(
     LongSliderDialog(
         title = "前面アプリの安定時間",
         description = "対象アプリが連続して前面に表示されてから、どれくらい安定していたら提案を行うかを設定します。",
-        min = 5L * 60L,
-        max = 20L * 60L,
+        min = 60L,
+        max = 60L * 20L,
         step = 60L, // 1分刻み
         initial = currentSeconds.coerceIn(5 * 60, 20 * 60).toLong(),
         valueLabel = { seconds -> formatDurationSeconds(seconds) },
-        hintLabel = "5〜20分 / 1分刻み",
+        hintLabel = "1〜20分 / 1分刻み",
         onConfirm = { selectedSeconds ->
             onConfirm(selectedSeconds.toInt())
         },
@@ -204,11 +204,11 @@ fun SuggestionCooldownDialog(
         title = "次の提案までの間隔",
         description = "一度提案を出してから、次の提案を行うまでどれくらい間隔を空けるかを設定します。",
         min = 60L,
-        max = 60L * 60L,
+        max = 60L * 30L,
         step = 60L,
         initial = currentSeconds.coerceIn(60, 60 * 60).toLong(),
         valueLabel = { seconds -> formatDurationSeconds(seconds) },
-        hintLabel = "1〜60分 / 1分刻み",
+        hintLabel = "1〜30分 / 1分刻み",
         onConfirm = { selectedSeconds ->
             onConfirm(selectedSeconds.toInt())
         },

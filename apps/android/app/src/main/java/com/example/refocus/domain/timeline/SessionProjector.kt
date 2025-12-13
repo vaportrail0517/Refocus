@@ -67,6 +67,22 @@ object SessionProjector {
 
         var nextSessionId = 1L
 
+        /**
+         * セッション境界には影響させず「その時点でアクティブなセッション」にイベントだけ付与する。
+         * （提案の表示/操作など）
+         */
+        fun appendEventIfActive(pkg: String, type: SessionEventType, ts: Long) {
+            val state = activeSessions[pkg] ?: return
+            state.events.add(
+                SessionEvent(
+                    id = null,
+                    sessionId = state.sessionId,
+                    type = type,
+                    timestampMillis = ts,
+                )
+            )
+        }
+
         fun startSession(pkg: String, ts: Long) {
             if (pkg !in targetPackages) return
             if (activeSessions.containsKey(pkg)) return
@@ -237,11 +253,27 @@ object SessionProjector {
                         .forEach { pkg -> endSession(pkg, ts) }
                 }
 
-                is SuggestionShownEvent,
-                is SuggestionDecisionEvent,
-                is SettingsChangedEvent -> {
-                    // セッション構築には直接関与しない
+                is SuggestionShownEvent -> {
+                    // セッション境界は変えず、アクティブなセッションに「表示された」事実だけ載せる
+                    appendEventIfActive(event.packageName, SessionEventType.SuggestionShown, ts)
                 }
+
+                is SuggestionDecisionEvent -> {
+                    // 操作も同様に「アクティブなセッション」に付与する
+                    val t = when (event.decision) {
+                        com.example.refocus.core.model.SuggestionDecision.Snoozed ->
+                            SessionEventType.SuggestionSnoozed
+
+                        com.example.refocus.core.model.SuggestionDecision.Dismissed ->
+                            SessionEventType.SuggestionDismissed
+
+                        com.example.refocus.core.model.SuggestionDecision.DisabledForSession ->
+                            SessionEventType.SuggestionDisabledForSession
+                    }
+                    appendEventIfActive(event.packageName, t, ts)
+                }
+
+                is SettingsChangedEvent -> Unit // セッション境界には影響させない
             }
         }
 

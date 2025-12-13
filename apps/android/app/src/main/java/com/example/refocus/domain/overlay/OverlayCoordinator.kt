@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.refocus.core.model.OverlayEvent
 import com.example.refocus.core.model.OverlayState
 import com.example.refocus.core.model.OverlaySuggestionMode
+import com.example.refocus.core.model.SessionEventType
 import com.example.refocus.core.model.Settings
 import com.example.refocus.core.model.SuggestionDecision
 import com.example.refocus.core.util.TimeSource
@@ -20,13 +21,20 @@ import com.example.refocus.system.monitor.ForegroundAppMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -53,9 +61,28 @@ class OverlayCoordinator(
 ) {
     companion object {
         private const val TAG = "OverlayCoordinator"
+
+        // 「停止猶予を含む論理セッション」を復元するためにどれだけ遡るか（必要なら後で調整）
+        private const val BOOTSTRAP_LOOKBACK_HOURS = 48L
     }
 
     private val sessionTracker = OverlaySessionTracker(timeSource)
+
+    /**
+     * 「この論理セッションに対する提案ゲート」。
+     * - disabledForThisSession: このセッションではもう提案しない
+     * - lastDecisionAtMillis: Snooze/Dismiss が最後に行われた時刻（クールダウンは Settings から再解釈）
+     */
+    private data class SessionSuggestionGate(
+        val disabledForThisSession: Boolean = false,
+        val lastDecisionElapsedMillis: Long? = null,
+    )
+
+    private data class SessionBootstrapFromTimeline(
+        val initialElapsedMillis: Long,
+        val isOngoingSession: Boolean,
+        val gate: SessionSuggestionGate,
+    )
 
     @Volatile
     private var currentForegroundPackage: String? = null
@@ -67,19 +94,16 @@ class OverlayCoordinator(
     private var overlaySettings: Settings = Settings()
 
     @Volatile
-    private var suggestionSnoozedUntilMillis: Long? = null
+    private var showSuggestionJob: Job? = null
+
+    @Volatile
+    private var sessionSuggestionGate: SessionSuggestionGate = SessionSuggestionGate()
 
     @Volatile
     private var isSuggestionOverlayShown: Boolean = false
 
     @Volatile
     private var currentSuggestionId: Long? = null
-
-    /**
-     * 「このセッション中は提案を出さない」が押されたかどうか
-     */
-    @Volatile
-    private var suggestionDisabledForCurrentSession: Boolean = false
 
     @Volatile
     private var overlayState: OverlayState = OverlayState.Idle
@@ -144,8 +168,7 @@ class OverlayCoordinator(
         overlayState = OverlayState.Idle
         currentForegroundPackage = null
         overlayPackage = null
-        suggestionSnoozedUntilMillis = null
-        suggestionDisabledForCurrentSession = false
+        sessionSuggestionGate = SessionSuggestionGate()
         // オーバーレイ用セッションもクリア
         sessionTracker.clear()
         // scope 自体のキャンセルは Service 側で行う
@@ -224,7 +247,7 @@ class OverlayCoordinator(
                 clearSuggestionOverlayState()
 
                 sessionTracker.clear()
-                suggestionDisabledForCurrentSession = false
+                sessionSuggestionGate = SessionSuggestionGate()
             }
 
             // Disabled -> Idle（overlayEnabled が true に戻った）
@@ -259,15 +282,32 @@ class OverlayCoordinator(
                             TAG,
                             "gracePeriodMillis changed: ${oldSettings.gracePeriodMillis} -> ${settings.gracePeriodMillis}"
                         )
-                        // 1) ランタイムのセッション解釈を一旦リセット
-                        sessionTracker.clear()
-                        suggestionDisabledForCurrentSession = false
-                        // 2) 今出ているオーバーレイは一度全部閉じる
-                        overlayPackage?.let {
-                            uiController.hideTimer()
-                            uiController.hideSuggestion()
-                            clearSuggestionOverlayState()
-                            overlayPackage = null
+                        // 「今表示中のターゲット」について、変更後の停止猶予で論理セッションを再解釈して追従する
+                        val pkg = overlayPackage
+                        if (pkg != null && overlayState is OverlayState.Tracking && screenOnState.value) {
+                            val nowMillis = timeSource.nowMillis()
+                            // 変更前 tracker が残っていても投影したいので force=true で復元
+                            val bootstrap = computeBootstrapFromTimeline(
+                                packageName = pkg,
+                                settings = settings,
+                                nowMillis = nowMillis,
+                                force = true,
+                            )
+                            // tracker を入れ替える（timer は provider 経由なので、ここで再注入すれば表示は追従する）
+                            sessionTracker.clear()
+                            sessionSuggestionGate = SessionSuggestionGate()
+                            val initialElapsed = bootstrap?.initialElapsedMillis ?: 0L
+                            sessionTracker.onEnterTargetApp(
+                                packageName = pkg,
+                                gracePeriodMillis = settings.gracePeriodMillis,
+                                initialElapsedIfNew = initialElapsed,
+                            )
+                            sessionSuggestionGate =
+                                if (bootstrap?.isOngoingSession == true) bootstrap.gate else SessionSuggestionGate()
+                        } else {
+                            // 表示中でなければ単純にクリアだけ
+                            sessionTracker.clear()
+                            sessionSuggestionGate = SessionSuggestionGate()
                         }
                     }
                 }
@@ -276,6 +316,13 @@ class OverlayCoordinator(
             }
         }
     }
+
+    private fun tickerFlow(periodMs: Long): Flow<Unit> = flow {
+        while (currentCoroutineContext().isActive) {
+            emit(Unit)
+            delay(periodMs)
+        }
+    }.onStart { emit(Unit) }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun startMonitoringForeground() {
@@ -291,11 +338,13 @@ class OverlayCoordinator(
 
             var lastForegroundRaw: String? = null
 
+            val tickFlow = tickerFlow(periodMs = 1_000L)
             combine(
                 targetsFlow,
                 foregroundFlow,
-                screenOnFlow
-            ) { targets, foregroundRaw, isScreenOn ->
+                screenOnFlow,
+                tickFlow
+            ) { targets, foregroundRaw, isScreenOn, _ ->
                 Triple(targets, foregroundRaw, isScreenOn)
             }.collect { (targets, foregroundRaw, isScreenOn) ->
                 val foregroundPackage = if (isScreenOn) foregroundRaw else null
@@ -389,7 +438,7 @@ class OverlayCoordinator(
                     }
                     overlayPackage = null
                     clearSuggestionOverlayState()
-                    suggestionDisabledForCurrentSession = false
+                    sessionSuggestionGate = SessionSuggestionGate()
                 }
             }
         }
@@ -400,26 +449,34 @@ class OverlayCoordinator(
         nowMillis: Long,
         nowElapsed: Long
     ) {
-        val settings = overlaySettings ?: return
+        val settings = overlaySettings
         val grace = settings.gracePeriodMillis
 
         // まだ OverlaySessionTracker がこの app を知らない場合だけ、
         //    Timeline から「論理セッションの累積時間」を初期値として取得
-        val initialFromTimeline = computeInitialElapsedFromTimelineIfNeeded(
+//        val initialFromTimeline = computeInitialElapsedFromTimelineIfNeeded(
+//            packageName = packageName,
+//            settings = settings,
+//            nowMillis = nowMillis,
+//        )
+
+        val bootstrap = computeBootstrapFromTimeline(
             packageName = packageName,
             settings = settings,
             nowMillis = nowMillis,
+            force = false,
         )
-
+        val initialElapsed = bootstrap?.initialElapsedMillis ?: 0L
         val isNewSession = sessionTracker.onEnterTargetApp(
             packageName = packageName,
             gracePeriodMillis = grace,
-            initialElapsedIfNew = initialFromTimeline,
+            initialElapsedIfNew = initialElapsed,
         )
 
         if (isNewSession) {
-            // 「論理的に新しいセッション」のときだけ提案抑制フラグをリセット
-            suggestionDisabledForCurrentSession = false
+            // セッション開始時のゲートは「投影された論理セッションが継続ならそのゲートを引き継ぐ」
+            sessionSuggestionGate =
+                if (bootstrap?.isOngoingSession == true) bootstrap.gate else SessionSuggestionGate()
         }
 
         overlayPackage = packageName
@@ -484,10 +541,21 @@ class OverlayCoordinator(
 
     private fun handleSuggestionSnooze() {
         clearSuggestionOverlayState()
-        val now = timeSource.nowMillis()
-        val cooldownMs = suggestionCooldownMillis(overlaySettings)
-        suggestionSnoozedUntilMillis = now + cooldownMs
-        Log.d(TAG, "Suggestion snoozed until $suggestionSnoozedUntilMillis")
+
+        val pkg = overlayPackage
+        if (pkg == null) {
+            Log.w(TAG, "handleSuggestionSnooze: overlayPackage=null; gate not updated")
+            return
+        }
+
+        val nowElapsed = timeSource.elapsedRealtime()
+        val elapsed = sessionTracker.computeElapsedFor(pkg, nowElapsed)
+        if (elapsed != null) {
+            sessionSuggestionGate = sessionSuggestionGate.copy(lastDecisionElapsedMillis = elapsed)
+            Log.d(TAG, "Suggestion decision recorded at sessionElapsed=$elapsed ms")
+        } else {
+            Log.w(TAG, "handleSuggestionSnooze: no tracker state for $pkg; gate not updated")
+        }
     }
 
     private fun handleSuggestionSnoozeLater() {
@@ -548,7 +616,7 @@ class OverlayCoordinator(
         }
 
         // 「このセッション中は提案を出さない」を Coordinator 内で保持
-        suggestionDisabledForCurrentSession = true
+        sessionSuggestionGate = sessionSuggestionGate.copy(disabledForThisSession = true)
     }
 
     private fun maybeShowSuggestionIfNeeded(
@@ -556,34 +624,24 @@ class OverlayCoordinator(
         nowMillis: Long,
         nowElapsedRealtime: Long
     ) {
-        // SessionTracker から「セッション累積経過時間」を取得
-        val elapsed = sessionTracker.computeElapsedFor(
-            packageName = packageName,
-            nowElapsedRealtime = nowElapsedRealtime,
-        ) ?: return
+        if (showSuggestionJob?.isActive == true) return
 
-        // 「最後に前面になってからの経過時間」もトラッカーから取得
-        val sinceForegroundMs = sessionTracker.sinceForegroundMillis(
-            packageName = packageName,
-            nowElapsedRealtime = nowElapsedRealtime,
-        ) ?: elapsed
+        val elapsed = sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: return
+        val sinceForegroundMs =
+            sessionTracker.sinceForegroundMillis(packageName, nowElapsedRealtime) ?: return
 
         val input = SuggestionEngine.Input(
             elapsedMillis = elapsed,
             sinceForegroundMillis = sinceForegroundMs,
             settings = overlaySettings,
-            nowMillis = nowMillis,
-            snoozedUntilMillis = suggestionSnoozedUntilMillis,
+            lastDecisionElapsedMillis = sessionSuggestionGate.lastDecisionElapsedMillis,
             isOverlayShown = isSuggestionOverlayShown,
-            disabledForThisSession = suggestionDisabledForCurrentSession,
+            disabledForThisSession = sessionSuggestionGate.disabledForThisSession,
         )
 
-        if (!suggestionEngine.shouldShow(input)) {
-            return
-        }
+        if (!suggestionEngine.shouldShow(input)) return
 
-        // （この先は今の実装のままで OK: suggestionsRepository / suggestionSelector / eventRecorder など）
-        scope.launch {
+        showSuggestionJob = scope.launch {
             try {
                 val suggestions = suggestionsRepository.getSuggestionsSnapshot()
                 val selected = suggestionSelector.select(
@@ -612,23 +670,8 @@ class OverlayCoordinator(
                     )
                 }
 
-                isSuggestionOverlayShown = true
-                currentSuggestionId = suggestionId
-
                 val pkg = overlayPackage ?: packageName
-
-                scope.launch {
-                    try {
-                        eventRecorder.onSuggestionShown(
-                            packageName = pkg,
-                            suggestionId = suggestionId,
-                        )
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to record SuggestionShown for $pkg", e)
-                    }
-                }
-
-                uiController.showSuggestion(
+                val shown = uiController.showSuggestion(
                     SuggestionOverlayUiModel(
                         title = title,
                         mode = mode,
@@ -641,9 +684,26 @@ class OverlayCoordinator(
                         onDismissOnly = { handleSuggestionDismissOnly() },
                     )
                 )
+                if (!shown) {
+                    Log.w(TAG, "Suggestion overlay was NOT shown (addView failed etc). Will retry.")
+                    return@launch
+                }
+                isSuggestionOverlayShown = true
+                currentSuggestionId = suggestionId
+                try {
+                    eventRecorder.onSuggestionShown(
+                        packageName = pkg,
+                        suggestionId = suggestionId,
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to record SuggestionShown for $pkg", e)
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to show suggestion overlay for $packageName", e)
                 isSuggestionOverlayShown = false
+                currentSuggestionId = null
+            } finally {
+                showSuggestionJob = null
             }
         }
     }
@@ -652,7 +712,7 @@ class OverlayCoordinator(
     private fun clearSuggestionOverlayState() {
         isSuggestionOverlayShown = false
         currentSuggestionId = null
-        // suggestionSnoozedUntilMillis はここでは触らない
+        // クールダウン/セッション抑制は sessionSuggestionGate 側で保持する
     }
 
     /**
@@ -664,41 +724,65 @@ class OverlayCoordinator(
      *   その全体の duration を返す。
      * - 過去 24 時間分だけ見れば十分、など horizon は任意に絞ってよい。
      */
-    private suspend fun computeInitialElapsedFromTimelineIfNeeded(
+    private suspend fun computeBootstrapFromTimeline(
         packageName: String,
         settings: Settings,
         nowMillis: Long,
-    ): Long {
-        // すでにランタイムの tracker が何か知っているなら、再注入は不要
-        val nowElapsed = timeSource.elapsedRealtime()
-        val already = sessionTracker.computeElapsedFor(packageName, nowElapsed)
-        if (already != null) return 0L
-
-        // どれくらい遡るかはトレードオフ：とりあえず最近 24h を見る例
-        val horizonHours = 24L
-        val startMillis = (nowMillis - horizonHours * 60L * 60L * 1000L)
+        force: Boolean,
+    ): SessionBootstrapFromTimeline? {
+        if (!force) {
+            // すでにランタイムの tracker が何か知っているなら、再注入は不要
+            val nowElapsed = timeSource.elapsedRealtime()
+            val already = sessionTracker.computeElapsedFor(packageName, nowElapsed)
+            if (already != null) return null
+        }
+        val startMillis = (nowMillis - BOOTSTRAP_LOOKBACK_HOURS * 60L * 60L * 1000L)
             .coerceAtLeast(0L)
-
-        val events = timelineRepository.getEvents(
-            startMillis = startMillis,
-            endMillis = nowMillis,
-        )
-        if (events.isEmpty()) return 0L
-
+        val events = timelineRepository.getEvents(startMillis = startMillis, endMillis = nowMillis)
+        if (events.isEmpty()) return null
         val sessionsWithEvents = SessionProjector.projectSessions(
             events = events,
             targetPackages = setOf(packageName),
             stopGracePeriodMillis = settings.gracePeriodMillis,
             nowMillis = nowMillis,
         )
-        val last = sessionsWithEvents.lastOrNull() ?: return 0L
-
-        // 「論理セッション last に含まれる実際のアクティブ時間」を計算
+        val last = sessionsWithEvents.lastOrNull() ?: return null
+        // 終了イベントが入っている = すでに論理セッションとしては閉じている
+        val ended = last.events.any { it.type == SessionEventType.End }
+        if (ended) {
+            return SessionBootstrapFromTimeline(
+                initialElapsedMillis = 0L,
+                isOngoingSession = false,
+                gate = SessionSuggestionGate(),
+            )
+        }
         val duration = SessionDurationCalculator.calculateDurationMillis(
             events = last.events,
             nowMillis = nowMillis,
-        )
+        ).coerceAtLeast(0L)
+        val disabled = last.events.any { it.type == SessionEventType.SuggestionDisabledForSession }
+        val lastDecisionAt = last.events
+            .filter {
+                it.type == SessionEventType.SuggestionSnoozed ||
+                        it.type == SessionEventType.SuggestionDismissed
+            }
+            .maxOfOrNull { it.timestampMillis }
 
-        return duration.coerceAtLeast(0L)
+        val lastDecisionElapsed = lastDecisionAt?.let { at ->
+            val truncated = last.events.filter { it.timestampMillis <= at }
+            SessionDurationCalculator.calculateDurationMillis(
+                events = truncated,
+                nowMillis = at
+            ).coerceAtLeast(0L)
+        }
+
+        return SessionBootstrapFromTimeline(
+            initialElapsedMillis = duration,
+            isOngoingSession = true,
+            gate = SessionSuggestionGate(
+                disabledForThisSession = disabled,
+                lastDecisionElapsedMillis = lastDecisionElapsed,
+            )
+        )
     }
 }

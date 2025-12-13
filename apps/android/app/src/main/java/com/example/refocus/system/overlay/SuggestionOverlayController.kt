@@ -30,10 +30,10 @@ class SuggestionOverlayController(
         onSnoozeLater: () -> Unit,
         onDisableThisSession: () -> Unit,
         onDismissOnly: () -> Unit,
-    ) {
+    ): Boolean {
         if (suggestionView != null) {
             Log.d("SuggestionOverlayController", "showSuggestionOverlay: already showing")
-            return
+            return true
         }
 
         val params = WindowManager.LayoutParams(
@@ -75,12 +75,14 @@ class SuggestionOverlayController(
             }
         }
 
-        suggestionView = composeView
         try {
             windowManager.addView(composeView, params)
+            suggestionView = composeView
+            return true
         } catch (e: Exception) {
             Log.e("SuggestionOverlayController", "showSuggestionOverlay: addView failed", e)
             suggestionView = null
+            return false
         }
     }
 
