@@ -61,7 +61,7 @@ object CustomizePresetValues {
         restSuggestionEnabled = true,
         suggestionTriggerSeconds = 20,
         suggestionTimeoutSeconds = 0,
-        suggestionCooldownSeconds = 40,
+        suggestionCooldownSeconds = 20,
         suggestionForegroundStableSeconds = 10,
         suggestionInteractionLockoutMillis = 400L,
     )

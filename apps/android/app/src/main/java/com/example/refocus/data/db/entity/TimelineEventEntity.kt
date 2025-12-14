@@ -1,6 +1,7 @@
 package com.example.refocus.data.db.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
@@ -9,7 +10,14 @@ import androidx.room.PrimaryKey
  * - kind: イベント種別を表す文字列
  * - 以下のカラムは種別に応じて使う（使わないカラムは null）
  */
-@Entity(tableName = "timeline_events")
+@Entity(
+    tableName = "timeline_events",
+    indices = [
+        Index(value = ["timestampMillis"]),
+        Index(value = ["kind", "timestampMillis"]),
+        Index(value = ["packageName", "timestampMillis"]),
+    ]
+)
 data class TimelineEventEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0L,
