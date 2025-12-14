@@ -2,13 +2,13 @@ package com.example.refocus.feature.customize
 
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
-import com.example.refocus.config.SettingsBasicPresets
-import com.example.refocus.core.model.FontPreset
-import com.example.refocus.core.model.GracePreset
-import com.example.refocus.core.model.OverlayTouchMode
-import com.example.refocus.core.model.SettingsPreset
-import com.example.refocus.core.model.SuggestionTriggerPreset
-import com.example.refocus.core.model.TimeToMaxPreset
+import com.example.refocus.config.CustomizeBasicPresets
+import com.example.refocus.config.FontPreset
+import com.example.refocus.config.GracePreset
+import com.example.refocus.config.SuggestionTriggerPreset
+import com.example.refocus.config.TimeToMaxPreset
+import com.example.refocus.core.model.CustomizePreset
+import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.util.formatDurationMilliSecondsOrNull
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.ui.components.PresetOption
@@ -22,11 +22,11 @@ fun BasicCustomizeContent(
     viewModel: CustomizeViewModel,
     onOpenAdvanced: () -> Unit,
 ) {
-    val settings = uiState.settings
+    val settings = uiState.customize
 
     // --- アプリ ---
     SectionCard(title = "アプリ") {
-        val gracePreset = SettingsBasicPresets.gracePresetOrNull(settings)
+        val gracePreset = CustomizeBasicPresets.gracePresetOrNull(settings)
         val formattedGraceTime = formatDurationMilliSecondsOrNull(settings.gracePeriodMillis)
         PresetOptionRow(
             title = "一時的なアプリ切り替え",
@@ -52,7 +52,7 @@ fun BasicCustomizeContent(
 
     // --- タイマー（プリセット） ---
     SectionCard(title = "タイマー") {
-        val dragEnabled = settings.touchMode == OverlayTouchMode.Drag
+        val dragEnabled = settings.touchMode == TimerTouchMode.Drag
         SettingRow(
             title = "タイマーのタッチ操作",
             subtitle = if (dragEnabled) {
@@ -64,19 +64,19 @@ fun BasicCustomizeContent(
                 Switch(
                     checked = dragEnabled,
                     onCheckedChange = { isOn ->
-                        val mode = if (isOn) OverlayTouchMode.Drag else OverlayTouchMode.PassThrough
+                        val mode = if (isOn) TimerTouchMode.Drag else TimerTouchMode.PassThrough
                         viewModel.updateOverlayTouchMode(mode)
                     }
                 )
             },
             onClick = {
                 val newMode =
-                    if (dragEnabled) OverlayTouchMode.PassThrough else OverlayTouchMode.Drag
+                    if (dragEnabled) TimerTouchMode.PassThrough else TimerTouchMode.Drag
                 viewModel.updateOverlayTouchMode(newMode)
             },
         )
 
-        val fontPreset = SettingsBasicPresets.fontPresetOrNull(settings)
+        val fontPreset = CustomizeBasicPresets.fontPresetOrNull(settings)
         PresetOptionRow(
             title = "文字サイズ",
             currentPreset = fontPreset,
@@ -91,7 +91,7 @@ fun BasicCustomizeContent(
             },
         )
 
-        val timePreset = SettingsBasicPresets.timeToMaxPresetOrNull(settings)
+        val timePreset = CustomizeBasicPresets.timeToMaxPresetOrNull(settings)
         PresetOptionRow(
             title = "最大サイズになるまでの時間",
             currentPreset = timePreset,
@@ -156,7 +156,7 @@ fun BasicCustomizeContent(
             },
         )
 
-        val trigPreset = SettingsBasicPresets.suggestionTriggerPresetOrNull(settings)
+        val trigPreset = CustomizeBasicPresets.suggestionTriggerPresetOrNull(settings)
         PresetOptionRow(
             title = "提案するまでの時間",
             currentPreset = trigPreset,
@@ -178,14 +178,14 @@ fun BasicCustomizeContent(
 
     // --- 設定プリセット（全体） ---
     val presetOptions = listOf(
-        PresetOption(SettingsPreset.Default, "Default"),
-        PresetOption(SettingsPreset.Custom, "Custom"),
-        PresetOption(SettingsPreset.Debug, "Debug"),
+        PresetOption(CustomizePreset.Default, "Default"),
+        PresetOption(CustomizePreset.Custom, "Custom"),
+        PresetOption(CustomizePreset.Debug, "Debug"),
     )
     val subtitleDescription = when (uiState.preset) {
-        SettingsPreset.Default -> "標準的なバランスの設定です。"
-        SettingsPreset.Debug -> "動作確認やデバッグに便利な設定です。"
-        SettingsPreset.Custom -> "一部の値がプリセットから変更されています。"
+        CustomizePreset.Default -> "標準的なバランスの設定です。"
+        CustomizePreset.Debug -> "動作確認やデバッグに便利な設定です。"
+        CustomizePreset.Custom -> "一部の値がプリセットから変更されています。"
     }
     PresetOptionRow(
         title = "現在のプリセット",
@@ -194,9 +194,9 @@ fun BasicCustomizeContent(
         currentValueDescription = subtitleDescription,
         onPresetSelected = { preset ->
             when (preset) {
-                SettingsPreset.Default -> viewModel.applyPreset(SettingsPreset.Default)
-                SettingsPreset.Debug -> viewModel.applyPreset(SettingsPreset.Debug)
-                SettingsPreset.Custom -> viewModel.setPresetCustom()
+                CustomizePreset.Default -> viewModel.applyPreset(CustomizePreset.Default)
+                CustomizePreset.Debug -> viewModel.applyPreset(CustomizePreset.Debug)
+                CustomizePreset.Custom -> viewModel.setPresetCustom()
             }
         },
     )

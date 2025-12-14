@@ -3,10 +3,11 @@ package com.example.refocus.feature.settings
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.refocus.core.model.Settings
-import com.example.refocus.core.model.SettingsPreset
+import com.example.refocus.core.model.Customize
+import com.example.refocus.core.model.CustomizePreset
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.domain.app.AppDataResetter
+import com.example.refocus.domain.timeline.EventRecorder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,18 +21,19 @@ class SettingsViewModel @Inject constructor(
     application: Application,
     private val settingsRepository: SettingsRepository,
     private val appDataResetter: AppDataResetter,
+    private val eventRecorder: EventRecorder,
 ) : AndroidViewModel(application) {
 
     data class UiState(
-        val settings: Settings,
-        val preset: SettingsPreset = SettingsPreset.Default,
+        val customize: Customize,
+        val preset: CustomizePreset = CustomizePreset.Default,
         val isLoading: Boolean = true,
     )
 
     private val _uiState = MutableStateFlow(
         UiState(
-            settings = Settings(),
-            preset = SettingsPreset.Default,
+            customize = Customize(),
+            preset = CustomizePreset.Default,
             isLoading = true,
         )
     )
@@ -44,7 +46,7 @@ class SettingsViewModel @Inject constructor(
                 settingsRepository.observeSettingsPreset(),
             ) { settings, preset ->
                 UiState(
-                    settings = settings,
+                    customize = settings,
                     preset = preset,
                     isLoading = false,
                 )
@@ -59,12 +61,20 @@ class SettingsViewModel @Inject constructor(
     fun updateOverlayEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setOverlayEnabled(enabled)
+            eventRecorder.onSettingsChanged(
+                key = "overlayEnabled",
+                newValueDescription = enabled.toString(),
+            )
         }
     }
 
     fun updateAutoStartOnBoot(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setAutoStartOnBoot(enabled)
+            eventRecorder.onSettingsChanged(
+                key = "autoStartOnBoot",
+                newValueDescription = enabled.toString(),
+            )
         }
     }
 

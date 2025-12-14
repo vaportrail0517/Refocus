@@ -17,23 +17,25 @@ import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.example.refocus.R
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.data.repository.MonitoringRepository
-import com.example.refocus.data.repository.SessionRepository
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.data.repository.SuggestionsRepository
 import com.example.refocus.data.repository.TargetsRepository
+import com.example.refocus.data.repository.TimelineRepository
 import com.example.refocus.domain.overlay.OverlayCoordinator
-import com.example.refocus.domain.session.SessionManager
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
+import com.example.refocus.domain.timeline.EventRecorder
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import com.example.refocus.system.permissions.PermissionHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -58,9 +60,6 @@ class OverlayService : LifecycleService() {
     lateinit var targetsRepository: TargetsRepository
 
     @Inject
-    lateinit var sessionRepository: SessionRepository
-
-    @Inject
     lateinit var settingsRepository: SettingsRepository
 
     @Inject
@@ -76,15 +75,17 @@ class OverlayService : LifecycleService() {
     lateinit var suggestionSelector: SuggestionSelector
 
     @Inject
-    lateinit var monitoringRepository: MonitoringRepository
+    lateinit var eventRecorder: EventRecorder
+
+    @Inject
+    lateinit var timelineRepository: TimelineRepository
 
     private lateinit var timerOverlayController: TimerOverlayController
     private lateinit var suggestionOverlayController: SuggestionOverlayController
-    private lateinit var sessionManager: SessionManager
     private lateinit var overlayUiController: WindowOverlayUiGateway
     private lateinit var overlayCoordinator: OverlayCoordinator
 
-    // BroadcastReceiver はそのまま残す（後で中身を少し変更）
+    // 画面 ON/OFF を受け取る BroadcastReceiver
     private var screenReceiverRegistered: Boolean = false
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -94,12 +95,28 @@ class OverlayService : LifecycleService() {
                     Log.d(TAG, "ACTION_SCREEN_OFF / SHUTDOWN received")
                     overlayCoordinator.setScreenOn(false)
                     overlayCoordinator.onScreenOff()
+
+                    lifecycleScope.launch {
+                        try {
+                            eventRecorder.onScreenOff()
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to record screen off event", e)
+                        }
+                    }
                 }
 
                 Intent.ACTION_USER_PRESENT,
                 Intent.ACTION_SCREEN_ON -> {
                     Log.d(TAG, "ACTION_USER_PRESENT / SCREEN_ON received")
                     overlayCoordinator.setScreenOn(true)
+
+                    lifecycleScope.launch {
+                        try {
+                            eventRecorder.onScreenOn()
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to record screen on event", e)
+                        }
+                    }
                 }
             }
         }
@@ -107,11 +124,16 @@ class OverlayService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
-        lifecycleScope.launch {
-            monitoringRepository.startMonitoring(timeSource.nowMillis())
-        }
         isRunning = true
         Log.d(TAG, "onCreate")
+
+        lifecycleScope.launch {
+            try {
+                eventRecorder.onServiceStarted()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to record service start event", e)
+            }
+        }
 
         timerOverlayController = TimerOverlayController(
             context = this,
@@ -122,12 +144,6 @@ class OverlayService : LifecycleService() {
         suggestionOverlayController = SuggestionOverlayController(
             context = this,
             lifecycleOwner = this
-        )
-        sessionManager = SessionManager(
-            sessionRepository = sessionRepository,
-            timeSource = timeSource,
-            scope = serviceScope,
-            logTag = TAG
         )
 
         overlayUiController = WindowOverlayUiGateway(
@@ -140,14 +156,14 @@ class OverlayService : LifecycleService() {
             scope = serviceScope,
             timeSource = timeSource,
             targetsRepository = targetsRepository,
-            sessionRepository = sessionRepository,
             settingsRepository = settingsRepository,
             suggestionsRepository = suggestionsRepository,
             foregroundAppMonitor = foregroundAppMonitor,
             suggestionEngine = suggestionEngine,
-            sessionManager = sessionManager,
-            uiController = overlayUiController,
             suggestionSelector = suggestionSelector,
+            uiController = overlayUiController,
+            eventRecorder = eventRecorder,
+            timelineRepository = timelineRepository,
         )
 
         startForegroundWithNotification()
@@ -164,14 +180,20 @@ class OverlayService : LifecycleService() {
     }
 
     override fun onDestroy() {
+        runBlocking {
+            withContext(NonCancellable + Dispatchers.IO) {
+                try {
+                    eventRecorder.onServiceStopped()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to record service stop event", e)
+                }
+            }
+        }
         isRunning = false
         overlayCoordinator.stop()
-        serviceScope.cancel()
         unregisterScreenReceiver()
+        serviceScope.cancel()
         super.onDestroy()
-        lifecycleScope.launch {
-            monitoringRepository.stopMonitoring(timeSource.nowMillis())
-        }
     }
 
     override fun onBind(intent: Intent): IBinder? {
@@ -190,7 +212,7 @@ class OverlayService : LifecycleService() {
             description = "Refocus timer overlay service"
         }
         nm.createNotificationChannel(channel)
-        // アイコンはとりあえずアプリアイコンを流用
+
         val notification: Notification =
             NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
                 .setContentTitle("Refocus が動作しています")
@@ -198,7 +220,7 @@ class OverlayService : LifecycleService() {
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setOngoing(true)
                 .build()
-//        startForeground
+
         ServiceCompat.startForeground(
             this,
             NOTIFICATION_ID,
@@ -219,7 +241,6 @@ class OverlayService : LifecycleService() {
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_SHUTDOWN)
-            // 画面ON / ユーザ復帰も監視
             addAction(Intent.ACTION_USER_PRESENT)
             addAction(Intent.ACTION_SCREEN_ON)
         }
@@ -232,7 +253,6 @@ class OverlayService : LifecycleService() {
         try {
             unregisterReceiver(screenReceiver)
         } catch (e: IllegalArgumentException) {
-            // 既に解除済みなど
             Log.w(TAG, "unregisterScreenReceiver failed", e)
         }
         screenReceiverRegistered = false

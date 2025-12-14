@@ -54,11 +54,11 @@ fun CustomizeScreen(
     var activeDialog by remember { mutableStateOf<CustomizeDialogType?>(null) }
     var isAdvancedMode by remember { mutableStateOf(false) }
     var fontRange by remember(
-        uiState.settings.minFontSizeSp,
-        uiState.settings.maxFontSizeSp
+        uiState.customize.minFontSizeSp,
+        uiState.customize.maxFontSizeSp
     ) {
         mutableStateOf(
-            uiState.settings.minFontSizeSp..uiState.settings.maxFontSizeSp
+            uiState.customize.minFontSizeSp..uiState.customize.maxFontSizeSp
         )
     }
     var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
@@ -85,13 +85,13 @@ fun CustomizeScreen(
                 if (!hasCorePermissions) {
                     val latestState = viewModel.uiState.value
                     // 起動設定 or 実行中サービスが残っていたら OFF に揃える
-                    if (latestState.settings.overlayEnabled || isServiceRunning) {
+                    if (latestState.customize.overlayEnabled || isServiceRunning) {
                         viewModel.updateOverlayEnabled(false)
                         context.stopOverlayService()
                         isServiceRunning = false
                     }
                     // 自動起動も OFF に揃える
-                    if (latestState.settings.autoStartOnBoot) {
+                    if (latestState.customize.autoStartOnBoot) {
                         viewModel.updateAutoStartOnBoot(false)
                     }
                 }
@@ -158,8 +158,8 @@ fun CustomizeScreen(
                     onBackToBasic = { isAdvancedMode = false },
                     onOpenGraceDialog = { activeDialog = CustomizeDialogType.GraceTime },
                     onOpenFontDialog = {
-                        fontRange = uiState.settings.minFontSizeSp..
-                                uiState.settings.maxFontSizeSp
+                        fontRange = uiState.customize.minFontSizeSp..
+                                uiState.customize.maxFontSizeSp
                         activeDialog = CustomizeDialogType.FontRange
                     },
                     onOpenTimeToMaxDialog = { activeDialog = CustomizeDialogType.TimeToMax },
@@ -196,7 +196,7 @@ fun CustomizeScreen(
             when (activeDialog) {
                 CustomizeDialogType.GraceTime -> {
                     GraceTimeDialog(
-                        currentMillis = uiState.settings.gracePeriodMillis,
+                        currentMillis = uiState.customize.gracePeriodMillis,
                         onConfirm = { newMillis ->
                             viewModel.updateGracePeriodMillis(newMillis)
                             activeDialog = null
@@ -207,7 +207,7 @@ fun CustomizeScreen(
 
                 CustomizeDialogType.PollingInterval -> {
                     PollingIntervalDialog(
-                        currentMillis = uiState.settings.pollingIntervalMillis,
+                        currentMillis = uiState.customize.pollingIntervalMillis,
                         onConfirm = { newMs ->
                             viewModel.updatePollingIntervalMillis(newMs)
                             activeDialog = null
@@ -236,7 +236,7 @@ fun CustomizeScreen(
 
                 CustomizeDialogType.TimeToMax -> {
                     TimeToMaxDialog(
-                        currentMinutes = uiState.settings.timeToMaxMinutes,
+                        currentMinutes = uiState.customize.timeToMaxMinutes,
                         onConfirm = { minutes ->
                             viewModel.updateTimeToMaxMinutes(minutes)
                             activeDialog = null
@@ -247,7 +247,7 @@ fun CustomizeScreen(
 
                 CustomizeDialogType.SuggestionTriggerTime -> {
                     SuggestionTriggerTimeDialog(
-                        currentSeconds = uiState.settings.suggestionTriggerSeconds,
+                        currentSeconds = uiState.customize.suggestionTriggerSeconds,
                         onConfirm = { seconds ->
                             viewModel.updateSuggestionTriggerSeconds(seconds)
                             activeDialog = null
@@ -258,7 +258,7 @@ fun CustomizeScreen(
 
                 CustomizeDialogType.SuggestionForegroundStable -> {
                     SuggestionForegroundStableDialog(
-                        currentSeconds = uiState.settings.suggestionForegroundStableSeconds,
+                        currentSeconds = uiState.customize.suggestionForegroundStableSeconds,
                         onConfirm = { seconds ->
                             viewModel.updateSuggestionForegroundStableSeconds(seconds)
                             activeDialog = null
@@ -269,7 +269,7 @@ fun CustomizeScreen(
 
                 CustomizeDialogType.SuggestionCooldown -> {
                     SuggestionCooldownDialog(
-                        currentSeconds = uiState.settings.suggestionCooldownSeconds,
+                        currentSeconds = uiState.customize.suggestionCooldownSeconds,
                         onConfirm = { seconds ->
                             viewModel.updateSuggestionCooldownSeconds(seconds)
                             activeDialog = null
@@ -280,7 +280,7 @@ fun CustomizeScreen(
 
                 CustomizeDialogType.SuggestionTimeout -> {
                     SuggestionTimeoutDialog(
-                        currentSeconds = uiState.settings.suggestionTimeoutSeconds,
+                        currentSeconds = uiState.customize.suggestionTimeoutSeconds,
                         onConfirm = { seconds ->
                             viewModel.updateSuggestionTimeoutSeconds(seconds)
                             activeDialog = null
@@ -291,7 +291,7 @@ fun CustomizeScreen(
 
                 CustomizeDialogType.SuggestionInteractionLockout -> {
                     SuggestionInteractionLockoutDialog(
-                        currentMillis = uiState.settings.suggestionInteractionLockoutMillis,
+                        currentMillis = uiState.customize.suggestionInteractionLockoutMillis,
                         onConfirm = { millis ->
                             viewModel.updateSuggestionInteractionLockoutMillis(millis)
                             activeDialog = null
@@ -302,7 +302,7 @@ fun CustomizeScreen(
 
                 CustomizeDialogType.GrowthMode -> {
                     GrowthModeDialog(
-                        current = uiState.settings.growthMode,
+                        current = uiState.customize.growthMode,
                         onConfirm = { mode ->
                             viewModel.updateGrowthMode(mode)
                             activeDialog = null
@@ -313,7 +313,7 @@ fun CustomizeScreen(
 
                 CustomizeDialogType.ColorMode -> {
                     ColorModeDialog(
-                        current = uiState.settings.colorMode,
+                        current = uiState.customize.colorMode,
                         onConfirm = { mode ->
                             viewModel.updateColorMode(mode)
                             activeDialog = null
@@ -324,7 +324,7 @@ fun CustomizeScreen(
 
                 CustomizeDialogType.FixedColor -> {
                     FixedColorDialog(
-                        currentColorArgb = uiState.settings.fixedColorArgb,
+                        currentColorArgb = uiState.customize.fixedColorArgb,
                         onConfirm = { argb ->
                             viewModel.updateFixedColorArgb(argb)
                             activeDialog = null
@@ -335,7 +335,7 @@ fun CustomizeScreen(
 
                 CustomizeDialogType.GradientStartColor -> {
                     GradientStartColorDialog(
-                        currentColorArgb = uiState.settings.gradientStartColorArgb,
+                        currentColorArgb = uiState.customize.gradientStartColorArgb,
                         onConfirm = { argb ->
                             viewModel.updateGradientStartColorArgb(argb)
                             activeDialog = null
@@ -346,7 +346,7 @@ fun CustomizeScreen(
 
                 CustomizeDialogType.GradientMiddleColor -> {
                     GradientMiddleColorDialog(
-                        currentColorArgb = uiState.settings.gradientMiddleColorArgb,
+                        currentColorArgb = uiState.customize.gradientMiddleColorArgb,
                         onConfirm = { argb ->
                             viewModel.updateGradientMiddleColorArgb(argb)
                             activeDialog = null
@@ -357,7 +357,7 @@ fun CustomizeScreen(
 
                 CustomizeDialogType.GradientEndColor -> {
                     GradientEndColorDialog(
-                        currentColorArgb = uiState.settings.gradientEndColorArgb,
+                        currentColorArgb = uiState.customize.gradientEndColorArgb,
                         onConfirm = { argb ->
                             viewModel.updateGradientEndColorArgb(argb)
                             activeDialog = null

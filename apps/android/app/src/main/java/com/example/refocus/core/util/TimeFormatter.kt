@@ -84,7 +84,7 @@ private fun formatDurationCore(
 fun formatDurationMilliSecondsOrNull(
     secondsInput: Long,
     style: DurationStyle = DurationStyle.JapaneseUnit,
-    maxUnit: DisplayUnit = DisplayUnit.MINUTE,
+    maxUnit: DisplayUnit = DisplayUnit.HOUR,
     minUnit: DisplayUnit = DisplayUnit.SECOND,
 ): String? {
     if (secondsInput <= 0L) return null
@@ -99,7 +99,7 @@ fun formatDurationMilliSecondsOrNull(
 fun formatDurationMilliSeconds(
     secondsInput: Long,
     style: DurationStyle = DurationStyle.JapaneseUnit,
-    maxUnit: DisplayUnit = DisplayUnit.MINUTE,
+    maxUnit: DisplayUnit = DisplayUnit.HOUR,
     minUnit: DisplayUnit = DisplayUnit.SECOND,
     zeroLabel: String = "",
 ): String {
@@ -115,7 +115,7 @@ fun formatDurationMilliSeconds(
 fun formatDurationSecondsOrNull(
     secondsInput: Long,
     style: DurationStyle = DurationStyle.JapaneseUnit,
-    maxUnit: DisplayUnit = DisplayUnit.MINUTE,
+    maxUnit: DisplayUnit = DisplayUnit.HOUR,
     minUnit: DisplayUnit = DisplayUnit.SECOND,
 ): String? {
     if (secondsInput <= 0L) return null
@@ -130,7 +130,7 @@ fun formatDurationSecondsOrNull(
 fun formatDurationSeconds(
     secondsInput: Long,
     style: DurationStyle = DurationStyle.JapaneseUnit,
-    maxUnit: DisplayUnit = DisplayUnit.MINUTE,
+    maxUnit: DisplayUnit = DisplayUnit.HOUR,
     minUnit: DisplayUnit = DisplayUnit.SECOND,
     zeroLabel: String = "",
 ): String {

@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -38,6 +37,7 @@ import com.example.refocus.core.model.AppUsageStats
 import com.example.refocus.core.model.DailyStats
 import com.example.refocus.core.model.SuggestionDailyStats
 import com.example.refocus.core.model.TimeBucketStats
+import com.example.refocus.core.util.formatDurationMilliSeconds
 import com.example.refocus.ui.components.SectionCard
 
 /**
@@ -124,6 +124,7 @@ fun StatsScreen(
             else -> {
                 StatsContent(
                     stats = uiState.todayStats,
+                    appLabelByPackage = uiState.appLabelByPackage,
                     modifier = Modifier
                         .padding(innerPadding)
                         .padding(16.dp),
@@ -138,6 +139,7 @@ fun StatsScreen(
 @Composable
 private fun StatsContent(
     stats: DailyStats,
+    appLabelByPackage: Map<String, String>,
     modifier: Modifier = Modifier,
     onOpenHistory: () -> Unit,
     onOpenSection: (StatsDetailSection) -> Unit = {},
@@ -169,6 +171,7 @@ private fun StatsContent(
             item {
                 AppUsageCard(
                     apps = stats.appUsageStats,
+                    appLabelByPackage = appLabelByPackage,
                     onClick = { onOpenSection(StatsDetailSection.AppUsage) },
                 )
             }
@@ -182,28 +185,28 @@ private fun StatsContent(
                     onClick = { onOpenSection(StatsDetailSection.Timeline) },
                 )
             }
-            item {
-                PeakTimeCard(
-                    timeBuckets = stats.timeBuckets,
-                    onClick = { onOpenSection(StatsDetailSection.PeakTime) },
-                )
-            }
+//            item {
+//                PeakTimeCard(
+//                    timeBuckets = stats.timeBuckets,
+//                    onClick = { onOpenSection(StatsDetailSection.PeakTime) },
+//                )
+//            }
         }
 
         // 提案との付き合い方
-        stats.suggestionStats?.let { suggestion ->
-            item {
-                SuggestionCard(
-                    stats = suggestion,
-                    onClick = { onOpenSection(StatsDetailSection.Suggestions) },
-                )
-            }
-        }
+//        stats.suggestionStats?.let { suggestion ->
+//            item {
+//                SuggestionCard(
+//                    stats = suggestion,
+//                    onClick = { onOpenSection(StatsDetailSection.Suggestions) },
+//                )
+//            }
+//        }
 
         // 昨日のサマリー（現状は「今日の値を使ったダミー」。実装時に正しく差分集計する）
         item {
             PeriodSummarySection(
-                title = "昨日のまとめ",
+                title = "昨日のまとめ（ダミー）",
                 rows = buildYesterdaySummaryRows(stats),
             )
         }
@@ -211,20 +214,20 @@ private fun StatsContent(
         // 過去7日間のサマリー（こちらも現状はダミー）
         item {
             PeriodSummarySection(
-                title = "過去7日間のまとめ",
+                title = "過去7日間のまとめ（ダミー）",
                 rows = buildLast7DaysSummaryRows(stats),
             )
         }
 
         // 履歴画面への導線
-        item {
-            Button(
-                onClick = onOpenHistory,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("セッション履歴を詳しく見る")
-            }
-        }
+//        item {
+//            Button(
+//                onClick = onOpenHistory,
+//                modifier = Modifier.fillMaxWidth(),
+//            ) {
+//                Text("セッション履歴を詳しく見る")
+//            }
+//        }
     }
 }
 
@@ -362,7 +365,7 @@ private fun SummaryCard(
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                text = formatDuration(stats.totalUsageMillis),
+                text = formatDurationMilliSeconds(stats.totalUsageMillis),
                 style = MaterialTheme.typography.headlineSmall,
             )
         }
@@ -371,11 +374,18 @@ private fun SummaryCard(
         ) {
             listOf(
                 "セッション数" to stats.sessionCount.toString(),
-                "平均セッション" to formatDuration(stats.averageSessionDurationMillis),
-                "最長セッション" to formatDuration(stats.longestSessionDurationMillis),
+                "平均セッション長" to formatDurationMilliSeconds(stats.averageSessionDurationMillis),
+                "最長セッション" to formatDurationMilliSeconds(stats.longestSessionDurationMillis),
                 "長めのセッション" to "${stats.longSessionCount} 回",
                 "とても長いセッション" to "${stats.veryLongSessionCount} 回",
-            ).forEach { (label, value) ->
+                "提案表示回数" to (stats.suggestionStats?.totalShown?.toString() ?: "0"),
+                "提案を見送った割合" to (
+                        stats.suggestionStats?.let { s ->
+                            if (s.totalShown > 0) "${(s.skippedCount * 100 / s.totalShown)}%" else "-"
+                        } ?: "-"
+                        ),
+
+                ).forEach { (label, value) ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -397,6 +407,7 @@ private fun SummaryCard(
 @Composable
 private fun AppUsageCard(
     apps: List<AppUsageStats>,
+    appLabelByPackage: Map<String, String>,
     onClick: () -> Unit = {},
 ) {
     SectionCard(
@@ -417,7 +428,7 @@ private fun AppUsageCard(
                 .take(5)
 
             topApps.forEach { app ->
-                AppUsageRow(app)
+                AppUsageRow(app, appLabelByPackage)
             }
 
             val others = apps.size - topApps.size
@@ -435,6 +446,7 @@ private fun AppUsageCard(
 @Composable
 private fun AppUsageRow(
     app: AppUsageStats,
+    appLabelByPackage: Map<String, String>,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -442,17 +454,15 @@ private fun AppUsageRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column {
+            val label = appLabelByPackage[app.packageName] ?: app.packageName
+            Text(text = label, style = MaterialTheme.typography.bodyMedium)
             Text(
-                text = app.packageName,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                text = "セッション数 ${app.sessionCount} / 平均 ${formatDuration(app.averageSessionDurationMillis)}",
+                text = "セッション数 ${app.sessionCount} / 平均 ${formatDurationMilliSeconds(app.averageSessionDurationMillis)}",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
         Text(
-            text = formatDuration(app.totalUsageMillis),
+            text = formatDurationMilliSeconds(app.totalUsageMillis),
             style = MaterialTheme.typography.bodyMedium,
         )
     }
@@ -640,7 +650,7 @@ private fun PeakTimeCard(
             topBuckets.forEach { bucket ->
                 Text(
                     text = "${formatBucketRange(bucket)}   合計 ${
-                        formatDuration(
+                        formatDurationMilliSeconds(
                             bucket.targetUsageMinutes * 60_000L
                         )
                     }",
@@ -721,9 +731,9 @@ private fun buildYesterdaySummaryRows(today: DailyStats): List<Pair<String, Stri
     // TODO: 本来は「昨日の DailyStats」を受け取り、今日との差分を表示する。
     // ここではひとまず今日の値を使ったダミーとしておく。
     return listOf(
-        "合計利用時間" to formatDuration(today.totalUsageMillis),
+        "合計利用時間" to formatDurationMilliSeconds(today.totalUsageMillis),
         "セッション数" to today.sessionCount.toString(),
-        "平均セッション長" to formatDuration(today.averageSessionDurationMillis),
+        "平均セッション長" to formatDurationMilliSeconds(today.averageSessionDurationMillis),
         "提案表示回数" to (today.suggestionStats?.totalShown?.toString() ?: "0"),
         "提案を見送った割合" to (
                 today.suggestionStats?.let { s ->
@@ -736,9 +746,9 @@ private fun buildYesterdaySummaryRows(today: DailyStats): List<Pair<String, Stri
 private fun buildLast7DaysSummaryRows(today: DailyStats): List<Pair<String, String>> {
     // TODO: 本来は過去7日分を集計して 1日平均などを出す
     return listOf(
-        "1日あたり平均利用時間" to formatDuration(today.totalUsageMillis),
+        "1日あたり平均利用時間" to formatDurationMilliSeconds(today.totalUsageMillis),
         "1日あたりセッション数" to today.sessionCount.toString(),
-        "1日あたり平均セッション長" to formatDuration(today.averageSessionDurationMillis),
+        "1日あたり平均セッション長" to formatDurationMilliSeconds(today.averageSessionDurationMillis),
         "提案表示回数" to (today.suggestionStats?.totalShown?.toString() ?: "0"),
         "提案を見送った割合" to (
                 today.suggestionStats?.let { s ->
@@ -746,19 +756,4 @@ private fun buildLast7DaysSummaryRows(today: DailyStats): List<Pair<String, Stri
                 } ?: "-"
                 ),
     )
-}
-
-// --- ヘルパー ---
-
-private fun formatDuration(durationMillis: Long): String {
-    val totalSeconds = durationMillis / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    val hours = minutes / 60
-    val remMinutes = minutes % 60
-    return if (hours > 0) {
-        String.format("%d時間%02d分%02d秒", hours, remMinutes, seconds)
-    } else {
-        String.format("%d分%02d秒", minutes, seconds)
-    }
 }

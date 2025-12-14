@@ -1,7 +1,7 @@
 package com.example.refocus.domain.overlay
 
-import com.example.refocus.core.model.OverlaySuggestionMode
-import com.example.refocus.core.model.Settings
+import com.example.refocus.core.model.Customize
+import com.example.refocus.core.model.SuggestionMode
 
 /**
  * ドメイン層から見た「オーバーレイ UI コントローラ」の抽象。
@@ -9,7 +9,7 @@ import com.example.refocus.core.model.Settings
  */
 data class SuggestionOverlayUiModel(
     val title: String,
-    val mode: OverlaySuggestionMode,
+    val mode: SuggestionMode,
     val autoDismissMillis: Long,
     val interactionLockoutMillis: Long,
     val onSnoozeLater: () -> Unit,
@@ -22,7 +22,7 @@ interface OverlayUiGateway {
     /**
      * 設定変更の反映（フォントサイズ・色・タッチモードなど）。
      */
-    fun applySettings(settings: Settings)
+    fun applySettings(customize: Customize)
 
     /**
      * タイマーオーバーレイ表示。
@@ -43,7 +43,7 @@ interface OverlayUiGateway {
     /**
      * 提案オーバーレイ表示。
      */
-    fun showSuggestion(model: SuggestionOverlayUiModel)
+    suspend fun showSuggestion(model: SuggestionOverlayUiModel): Boolean
 
     /**
      * 提案オーバーレイ非表示。

@@ -14,22 +14,22 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.refocus.core.model.OverlayColorMode
-import com.example.refocus.core.model.OverlayGrowthMode
-import com.example.refocus.core.model.Settings
+import com.example.refocus.core.model.Customize
+import com.example.refocus.core.model.TimerColorMode
+import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.util.formatDurationForTimerBubble
 
 @Composable
 fun TimerOverlay(
     modifier: Modifier = Modifier,
-    settings: Settings,
+    customize: Customize,
     elapsedMillis: Long,
 ) {
     val elapsedMinutes = elapsedMillis / 1000f / 60f
 
     // 0〜1 の進行度（timeToMaxMinutes に対する割合）
-    val p = if (settings.timeToMaxMinutes > 0) {
-        (elapsedMinutes / settings.timeToMaxMinutes).coerceIn(0f, 1f)
+    val p = if (customize.timeToMaxMinutes > 0) {
+        (elapsedMinutes / customize.timeToMaxMinutes).coerceIn(0f, 1f)
     } else {
         1f
     }
@@ -41,17 +41,17 @@ fun TimerOverlay(
         label = "timerProgress"
     )
 
-    val growth = growthProgress(animatedProgress, settings.growthMode)
+    val growth = growthProgress(animatedProgress, customize.growthMode)
 
     val backgroundColor = computeTimerBackgroundColor(
         growthProgress = growth,
-        settings = settings
+        customize = customize
     ).copy(alpha = 0.7f)
 
     val textColor = chooseOnColorForBackground(backgroundColor)
     val fontSizeSp = computeTimerFontSizeSp(
         growthProgress = growth,
-        settings = settings
+        customize = customize
     )
 
     Box(
@@ -81,12 +81,12 @@ fun TimerOverlay(
  */
 private fun growthProgress(
     p: Float,
-    mode: OverlayGrowthMode,
+    mode: TimerGrowthMode,
 ): Float = when (mode) {
-    OverlayGrowthMode.Linear -> p
-    OverlayGrowthMode.FastToSlow -> 1f - (1f - p) * (1f - p)     // 早く→遅く
-    OverlayGrowthMode.SlowToFast -> p * p                         // 遅く→早く
-    OverlayGrowthMode.SlowFastSlow -> 3f * p * p - 2f * p * p * p // スムーズステップ
+    TimerGrowthMode.Linear -> p
+    TimerGrowthMode.FastToSlow -> 1f - (1f - p) * (1f - p)     // 早く→遅く
+    TimerGrowthMode.SlowToFast -> p * p                         // 遅く→早く
+    TimerGrowthMode.SlowFastSlow -> 3f * p * p - 2f * p * p * p // スムーズステップ
 }
 
 /**
@@ -96,36 +96,36 @@ private fun growthProgress(
  */
 private fun computeTimerFontSizeSp(
     growthProgress: Float,
-    settings: Settings,
+    customize: Customize,
 ): Float {
     val g = growthProgress.coerceIn(0f, 1f)
-    return settings.minFontSizeSp +
-            (settings.maxFontSizeSp - settings.minFontSizeSp) * g
+    return customize.minFontSizeSp +
+            (customize.maxFontSizeSp - customize.minFontSizeSp) * g
 }
 
 private fun computeTimerBackgroundColor(
     growthProgress: Float,
-    settings: Settings,
+    customize: Customize,
 ): Color {
     val t = growthProgress.coerceIn(0f, 1f)
 
     fun Int.toColor(): Color = Color(this)
 
-    return when (settings.colorMode) {
-        OverlayColorMode.Fixed -> {
-            settings.fixedColorArgb.toColor()
+    return when (customize.colorMode) {
+        TimerColorMode.Fixed -> {
+            customize.fixedColorArgb.toColor()
         }
 
-        OverlayColorMode.GradientTwo -> {
-            val start = settings.gradientStartColorArgb.toColor()
-            val end = settings.gradientEndColorArgb.toColor()
+        TimerColorMode.GradientTwo -> {
+            val start = customize.gradientStartColorArgb.toColor()
+            val end = customize.gradientEndColorArgb.toColor()
             lerpColor(start, end, t)
         }
 
-        OverlayColorMode.GradientThree -> {
-            val start = settings.gradientStartColorArgb.toColor()
-            val middle = settings.gradientMiddleColorArgb.toColor()
-            val end = settings.gradientEndColorArgb.toColor()
+        TimerColorMode.GradientThree -> {
+            val start = customize.gradientStartColorArgb.toColor()
+            val middle = customize.gradientMiddleColorArgb.toColor()
+            val end = customize.gradientEndColorArgb.toColor()
             if (t <= 0.5f) {
                 val localT = t * 2f
                 lerpColor(start, middle, localT)

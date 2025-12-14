@@ -4,8 +4,6 @@ import com.example.refocus.core.model.Suggestion
 import com.example.refocus.core.model.SuggestionDurationTag
 import com.example.refocus.core.model.SuggestionPriority
 import com.example.refocus.core.model.SuggestionTimeSlot
-import java.time.Instant
-import java.time.ZoneId
 import kotlin.random.Random
 
 /**
@@ -13,7 +11,10 @@ import kotlin.random.Random
  * 今出すべき Suggestion を 1 件選ぶためのロジック。
  * * アルゴリズム: 重み付きランダム選択 (適合度比例選択)
  */
-class SuggestionSelector {
+class SuggestionSelector(
+    private val timeSlotWeightModel: TimeSlotWeightModel,
+    private val random: Random = Random.Default,
+) {
 
     /**
      * @param suggestions 候補一覧（空の場合は null を返す）
@@ -27,12 +28,11 @@ class SuggestionSelector {
     ): Suggestion? {
         if (suggestions.isEmpty()) return null
 
-        val currentSlot = currentTimeSlot(nowMillis)
         val minutesElapsed = elapsedMillis / 60_000L
 
         // 1. 各候補のスコア（重み）を計算し、候補リストを構築
         val candidatesWithWeight = suggestions.mapNotNull { suggestion ->
-            val score = calculateScore(suggestion, currentSlot, minutesElapsed)
+            val score = calculateScore(suggestion, nowMillis, minutesElapsed)
             // スコアが0以下の候補（例：時間帯不一致）は除外
             if (score > 0.0) suggestion to score else null
         }
@@ -45,7 +45,7 @@ class SuggestionSelector {
         val totalWeight = candidatesWithWeight.sumOf { it.second }
 
         // 0 から totalWeight の間でランダムな値を取得 (ダーツを投げる位置)
-        val randomValue = Random.Default.nextDouble() * totalWeight
+        val randomValue = random.nextDouble() * totalWeight
 
         // 累積合計を用いて、ランダム値が該当する区間の候補を選択
         var currentSum = 0.0
@@ -60,19 +60,6 @@ class SuggestionSelector {
         return candidatesWithWeight.last().first
     }
 
-    // 時間帯判定ロジック (変更なし)
-    private fun currentTimeSlot(nowMillis: Long): SuggestionTimeSlot {
-        val time = Instant.ofEpochMilli(nowMillis)
-            .atZone(ZoneId.systemDefault())
-            .toLocalTime()
-        return when (time.hour) {
-            in 5..9 -> SuggestionTimeSlot.Morning
-            in 10..16 -> SuggestionTimeSlot.Afternoon
-            in 17..20 -> SuggestionTimeSlot.Evening
-            else -> SuggestionTimeSlot.Night
-        }
-    }
-
     /**
      * 重みスコアを計算するロジック (旧 scoreSuggestion)。
      * 適合度比例選択のため、Double型でスコアを返す。
@@ -80,17 +67,19 @@ class SuggestionSelector {
      */
     private fun calculateScore(
         suggestion: Suggestion,
-        currentSlot: SuggestionTimeSlot,
+        nowMillis: Long,
         minutesElapsed: Long
     ): Double {
         // --- 1. 時間帯のマッチング係数 ---
-        // 不一致の場合はスコア 0 として選出候補から即座に除外
-        val timeMultiplier = when {
-            suggestion.timeSlot == SuggestionTimeSlot.Anytime -> 1.0
-            suggestion.timeSlot == currentSlot -> 2.0 // 時間帯一致を強く優遇
-            else -> 0.0 // 時間帯が合わないものは除外
+        val slots = suggestion.timeSlots
+        val timeMultiplier = if (slots.isEmpty() || slots.contains(SuggestionTimeSlot.Anytime)) {
+            1.0
+        } else {
+            // 複数スロットのうち「最も今に合うもの」を採用（max 集約）
+            val wMax = slots.maxOf { slot -> timeSlotWeightModel.weight(slot, nowMillis) }
+            if (wMax < MIN_TIME_WEIGHT) return 0.0
+            wMax * 2.0 // ピーク時は旧実装の一致(=2.0)相当
         }
-        if (timeMultiplier == 0.0) return 0.0
 
         // --- 2. 優先度の基礎点 (ベーススコア) ---
         val baseScore = when (suggestion.priority) {
@@ -110,5 +99,10 @@ class SuggestionSelector {
 
         // 最終スコア = (ベーススコア) × (時間帯係数) × (摩擦係数)
         return baseScore * timeMultiplier * frictionMultiplier
+    }
+
+    companion object {
+        // 低すぎる適合度は「その時間帯として不自然」なので除外（重なりは残る）
+        private const val MIN_TIME_WEIGHT = 0.10
     }
 }

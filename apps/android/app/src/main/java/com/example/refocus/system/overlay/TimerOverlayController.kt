@@ -14,8 +14,8 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.example.refocus.core.model.OverlayTouchMode
-import com.example.refocus.core.model.Settings
+import com.example.refocus.core.model.Customize
+import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.ui.overlay.TimerOverlay
 import com.example.refocus.ui.theme.RefocusTheme
@@ -40,7 +40,7 @@ class TimerOverlayController(
     private var onPositionChangedCallback: ((Int, Int) -> Unit)? = null
 
     // Compose が監視するステート本体
-    private var overlaySettingsState by mutableStateOf(Settings())
+    private var overlayCustomizeState by mutableStateOf(Customize())
 
     // Compose が監視する経過時間（TimerOverlay にそのまま渡す）
     private var elapsedMillis by mutableStateOf(0L)
@@ -49,15 +49,15 @@ class TimerOverlayController(
     private var timerJob: Job? = null
 
     // 外から触るプロパティ。変更時に onSettingsChanged を呼ぶ
-    var overlaySettings: Settings
-        get() = overlaySettingsState
+    var overlayCustomize: Customize
+        get() = overlayCustomizeState
         set(value) {
-            val old = overlaySettingsState
-            overlaySettingsState = value
+            val old = overlayCustomizeState
+            overlayCustomizeState = value
             onSettingsChanged(old, value)
         }
 
-    private fun onSettingsChanged(old: Settings, new: Settings) {
+    private fun onSettingsChanged(old: Customize, new: Customize) {
         val view = overlayView ?: return
         val lp = layoutParams ?: return
         // タッチモードが変わった場合のみ、flag とリスナーを差し替える
@@ -66,10 +66,10 @@ class TimerOverlayController(
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
             lp.flags = when (new.touchMode) {
-                OverlayTouchMode.Drag ->
+                TimerTouchMode.Drag ->
                     baseFlags
 
-                OverlayTouchMode.PassThrough ->
+                TimerTouchMode.PassThrough ->
                     baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             }
             windowManager.updateViewLayout(view, lp)
@@ -84,9 +84,9 @@ class TimerOverlayController(
     private fun applyTouchListener(
         view: View,
         lp: WindowManager.LayoutParams,
-        touchMode: OverlayTouchMode
+        touchMode: TimerTouchMode
     ) {
-        if (touchMode == OverlayTouchMode.Drag) {
+        if (touchMode == TimerTouchMode.Drag) {
             view.setOnTouchListener(object : View.OnTouchListener {
                 private var initialX = 0
                 private var initialY = 0
@@ -136,7 +136,7 @@ class TimerOverlayController(
             return
         }
 
-        val settings = overlaySettings
+        val settings = overlayCustomize
         onPositionChangedCallback = onPositionChanged
 
         // 表示開始時に経過時間をリセット
@@ -158,10 +158,10 @@ class TimerOverlayController(
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
         val flags = when (settings.touchMode) {
-            OverlayTouchMode.Drag ->
+            TimerTouchMode.Drag ->
                 baseFlags
 
-            OverlayTouchMode.PassThrough ->
+            TimerTouchMode.PassThrough ->
                 baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         }
 
@@ -184,7 +184,7 @@ class TimerOverlayController(
             setContent {
                 RefocusTheme {
                     TimerOverlay(
-                        settings = overlaySettingsState,
+                        customize = overlayCustomizeState,
                         elapsedMillis = elapsedMillis,
                     )
                 }

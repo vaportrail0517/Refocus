@@ -31,7 +31,7 @@ object Destinations {
     const val ONBOARDING_FINISH = "onboarding_finish"
     const val HOME = "home"
     const val HISTORY = "history"
-    const val SETTINGS = "settings"
+    const val SETTINGS = "customize"
 }
 
 @Composable

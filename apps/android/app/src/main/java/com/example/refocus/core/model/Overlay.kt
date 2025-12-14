@@ -1,85 +1,7 @@
 package com.example.refocus.core.model
 
-/**
- * Overlay のトップレベル状態を表すドメインモデル。
- *
- * - Idle: 対象アプリではなく、オーバーレイも出ていない。
- * - Tracking: 対象アプリが前面で、連続使用時間を追跡している。
- * - Paused: 一時的に対象アプリから離脱している（猶予中）状態。
- * - Suggesting: 提案オーバーレイを出している状態。
- * - Disabled: 設定や権限の理由で Overlay 機能自体が無効。
- *
- * 現時点では Idle / Tracking / Disabled を主に利用し、
- * Paused / Suggesting は今後の拡張のためのプレースホルダとする。
- */
-sealed class OverlayState {
 
-    object Idle : OverlayState()
-
-    data class Tracking(
-        val packageName: String,
-    ) : OverlayState()
-
-    data class Paused(
-        val packageName: String,
-    ) : OverlayState()
-
-    data class Suggesting(
-        val packageName: String,
-    ) : OverlayState()
-
-    object Disabled : OverlayState()
-}
-
-/**
- * OverlayStateMachine に入力されるイベント。
- *
- * - EnterTargetApp: 対象アプリが前面になった。
- * - LeaveTargetApp: 対象アプリが前面でなくなった。
- * - ScreenOff: 画面が OFF になった。パッケージ自体は OverlayState（Tracking の packageName）から取得する想定。
- * - ScreenOn: 画面が ON になった。現時点では状態遷移は行っていないが、将来 Paused → Tracking などに使える。
- * - SettingsChanged: 設定が更新された。overlayEnabled の変化などで Disabled <-> Idle を制御する。
- * - OverlayDisabled: Overlay 機能全体が無効になった（例: overlayEnabled = false など）。直接 Disabled に落としたい場合用のショートカット。
- *
- * OverlayOrchestrator / Service 側から生成し、OverlayStateMachine に渡す。
- */
-sealed class OverlayEvent {
-
-    data class EnterTargetApp(
-        val packageName: String,
-        val nowMillis: Long,
-        val nowElapsedRealtime: Long,
-    ) : OverlayEvent()
-
-    data class LeaveTargetApp(
-        val packageName: String,
-        val nowMillis: Long,
-        val nowElapsedRealtime: Long,
-    ) : OverlayEvent()
-
-    data class ScreenOff(
-        val nowMillis: Long,
-        val nowElapsedRealtime: Long,
-    ) : OverlayEvent()
-
-    data class ScreenOn(
-        val nowMillis: Long,
-        val nowElapsedRealtime: Long,
-    ) : OverlayEvent()
-
-    data class SettingsChanged(
-        val settings: Settings,
-    ) : OverlayEvent()
-
-    object OverlayDisabled : OverlayEvent()
-}
-
-enum class OverlaySuggestionMode {
-    Goal,   // 「やりたいこと」モード
-    Rest    // 「休憩」モード
-}
-
-enum class OverlayTouchMode {
+enum class TimerTouchMode {
     Drag,        // タイマーをドラッグして動かす
     PassThrough, // タップは背面の UI にそのまま渡す
 }
@@ -93,7 +15,7 @@ enum class OverlayTouchMode {
  * - SlowToFast: 初めはゆっくり、後半は速く
  * - SlowFastSlow: 真ん中あたりで一番速い（スローインアウト）
  */
-enum class OverlayGrowthMode {
+enum class TimerGrowthMode {
     Linear,
     FastToSlow,
     SlowToFast,
@@ -107,8 +29,82 @@ enum class OverlayGrowthMode {
  * - GradientTwo: 2色グラデーション
  * - GradientThree: 3色グラデーション
  */
-enum class OverlayColorMode {
+enum class TimerColorMode {
     Fixed,
     GradientTwo,
     GradientThree,
 }
+
+/**
+ * 「やりたいこと」を表すモデル。
+ *
+ * - id: 永続化用の一意ID（Room の主キーと対応）
+ * - title: ユーザーが入力したテキスト
+ * - createdAtMillis: 作成時刻
+ * - kind: 休憩/やりたいこと/タスク などの種別（将来利用）
+ * - timeSlots: 好ましい時間帯（複数選択）
+ *
+ * timeSlots のルール:
+ * - 空は不可（空になったら {Anytime} に正規化）
+ * - Anytime は他と排他的（含まれていたら {Anytime} に正規化）
+ */
+data class Suggestion(
+    val id: Long = 0L,
+    val title: String,
+    val createdAtMillis: Long,
+    val kind: SuggestionMode = SuggestionMode.Generic,
+    val timeSlots: Set<SuggestionTimeSlot> = setOf(SuggestionTimeSlot.Anytime),
+    val durationTag: SuggestionDurationTag = SuggestionDurationTag.Medium,
+    val priority: SuggestionPriority = SuggestionPriority.Normal,
+)
+
+enum class SuggestionMode {
+    Generic,
+    Rest,
+    // Want,
+    // Task,
+}
+
+enum class SuggestionTimeSlot {
+    Anytime,        // いつでも
+    Dawn,           // 早朝（例: 4〜7）
+    Morning,        // 午前（例: 8〜11）
+    Noon,           // 昼（例: 11〜14）
+    Afternoon,      // 午後（例: 13〜17）
+    Evening,        // 夕方（例: 17〜19）
+    Night,          // 夜（例: 19〜23）
+    LateNight,      // 深夜（例: 23〜3）
+}
+
+
+enum class SuggestionDurationTag {
+    Short,   // 〜15分くらい
+    Medium,  // 15〜40分くらい
+    Long,    // 40分〜
+}
+
+enum class SuggestionPriority {
+    Low,
+    Normal,
+    High,
+}
+
+enum class SuggestionDecision {
+    Snoozed,            // あとで
+    Dismissed,          // 閉じた（自動タイムアウト含む）
+    DisabledForSession, // このセッションでは非表示
+}
+
+data class SuggestionInstance(
+    val suggestionEventId: Long,        // SessionEvent.id (SuggestionShown 側)
+    val sessionId: Long,
+    val packageName: String,
+    val shownAtMillis: Long,
+
+    val decision: SuggestionDecision?,  // null の場合もあり得ると想定
+    val decisionAtMillis: Long?,
+
+    val endAtMillis: Long?,
+    val timeToEndMillis: Long?,         // endAt - shownAt
+    val endedSoon: Boolean?,            // end が無い時は null
+)

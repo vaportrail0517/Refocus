@@ -69,13 +69,13 @@ fun SettingsScreen(
                 if (!corePermissions) {
                     val latestState = viewModel.uiState.value
                     // 起動設定 or 実行中サービスが残っていたら OFF に揃える
-                    if (latestState.settings.overlayEnabled || isServiceRunning) {
+                    if (latestState.customize.overlayEnabled || isServiceRunning) {
                         viewModel.updateOverlayEnabled(false)
                         context.stopOverlayService()
                         isServiceRunning = false
                     }
                     // 自動起動も OFF に揃える
-                    if (latestState.settings.autoStartOnBoot) {
+                    if (latestState.customize.autoStartOnBoot) {
                         viewModel.updateAutoStartOnBoot(false)
                     }
                 }
@@ -184,7 +184,7 @@ fun SettingsContent(
     context: Context,
     activity: Activity?,
 ) {
-    val settings = uiState.settings
+    val settings = uiState.customize
 
     // --- 権限 ---
     SectionCard(
@@ -234,7 +234,7 @@ fun SettingsContent(
                 "現在: 停止中（対象アプリの計測は行われていません）"
             },
             trailing = {
-                val checked = uiState.settings.overlayEnabled && isServiceRunning
+                val checked = uiState.customize.overlayEnabled && isServiceRunning
                 Switch(
                     checked = checked,
                     enabled = hasCorePermissions,
@@ -261,7 +261,7 @@ fun SettingsContent(
                     onRequireCorePermission()
                     return@SettingRow
                 }
-                val currentlyOn = uiState.settings.overlayEnabled && isServiceRunning
+                val currentlyOn = uiState.customize.overlayEnabled && isServiceRunning
                 val turnOn = !currentlyOn
                 if (turnOn) {
                     viewModel.updateOverlayEnabled(true)
@@ -279,7 +279,7 @@ fun SettingsContent(
             subtitle = "端末を再起動したときに自動で Refocus を起動します。※起動には少し時間がかかります。",
             trailing = {
                 Switch(
-                    checked = uiState.settings.autoStartOnBoot,
+                    checked = uiState.customize.autoStartOnBoot,
                     enabled = hasCorePermissions, // 権限不足時はグレーアウト
                     onCheckedChange = { enabled ->
                         if (!hasCorePermissions) {
@@ -296,7 +296,7 @@ fun SettingsContent(
                     onRequireCorePermission()
                     return@SettingRow
                 }
-                viewModel.updateAutoStartOnBoot(!uiState.settings.autoStartOnBoot)
+                viewModel.updateAutoStartOnBoot(!uiState.customize.autoStartOnBoot)
             }
         )
     }

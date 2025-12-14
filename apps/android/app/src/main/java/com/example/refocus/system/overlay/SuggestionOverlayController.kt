@@ -10,7 +10,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.example.refocus.core.model.OverlaySuggestionMode
+import com.example.refocus.core.model.SuggestionMode
 import com.example.refocus.ui.overlay.SuggestionOverlay
 import com.example.refocus.ui.theme.RefocusTheme
 
@@ -24,16 +24,16 @@ class SuggestionOverlayController(
 
     fun showSuggestionOverlay(
         title: String,
-        mode: OverlaySuggestionMode,
+        mode: SuggestionMode,
         autoDismissMillis: Long,
         interactionLockoutMillis: Long,
         onSnoozeLater: () -> Unit,
         onDisableThisSession: () -> Unit,
         onDismissOnly: () -> Unit,
-    ) {
+    ): Boolean {
         if (suggestionView != null) {
             Log.d("SuggestionOverlayController", "showSuggestionOverlay: already showing")
-            return
+            return true
         }
 
         val params = WindowManager.LayoutParams(
@@ -75,12 +75,14 @@ class SuggestionOverlayController(
             }
         }
 
-        suggestionView = composeView
         try {
             windowManager.addView(composeView, params)
+            suggestionView = composeView
+            return true
         } catch (e: Exception) {
             Log.e("SuggestionOverlayController", "showSuggestionOverlay: addView failed", e)
             suggestionView = null
+            return false
         }
     }
 

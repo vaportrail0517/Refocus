@@ -47,7 +47,7 @@ class SuggestionsViewModel @Inject constructor(
      */
     fun createSuggestion(
         title: String,
-        timeSlot: SuggestionTimeSlot,
+        timeSlots: Set<SuggestionTimeSlot>,
         durationTag: SuggestionDurationTag,
         priority: SuggestionPriority,
     ) {
@@ -56,7 +56,7 @@ class SuggestionsViewModel @Inject constructor(
         viewModelScope.launch {
             suggestionsRepository.addSuggestion(
                 title = trimmed,
-                timeSlot = timeSlot,
+                timeSlots = timeSlots,
                 durationTag = durationTag,
                 priority = priority,
             )
@@ -70,7 +70,7 @@ class SuggestionsViewModel @Inject constructor(
     fun updateSuggestion(
         id: Long,
         title: String,
-        timeSlot: SuggestionTimeSlot,
+        timeSlots: Set<SuggestionTimeSlot>,
         durationTag: SuggestionDurationTag,
         priority: SuggestionPriority,
     ) {
@@ -80,7 +80,7 @@ class SuggestionsViewModel @Inject constructor(
             suggestionsRepository.updateSuggestion(id, trimmed)
             suggestionsRepository.updateSuggestionTags(
                 id = id,
-                timeSlot = timeSlot,
+                timeSlots = timeSlots,
                 durationTag = durationTag,
                 priority = priority,
             )
@@ -95,14 +95,14 @@ class SuggestionsViewModel @Inject constructor(
 
     fun updateTags(
         id: Long,
-        timeSlot: SuggestionTimeSlot,
+        timeSlots: Set<SuggestionTimeSlot>,
         durationTag: SuggestionDurationTag,
         priority: SuggestionPriority,
     ) {
         viewModelScope.launch {
             suggestionsRepository.updateSuggestionTags(
                 id = id,
-                timeSlot = timeSlot,
+                timeSlots = timeSlots,
                 durationTag = durationTag,
                 priority = priority,
             )
