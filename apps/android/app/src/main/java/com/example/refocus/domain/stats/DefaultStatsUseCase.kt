@@ -2,13 +2,6 @@ package com.example.refocus.domain.stats
 
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.DailyStats
-import com.example.refocus.core.model.PermissionEvent
-import com.example.refocus.core.model.PermissionKind
-import com.example.refocus.core.model.PermissionState
-import com.example.refocus.core.model.ScreenEvent
-import com.example.refocus.core.model.ScreenState
-import com.example.refocus.core.model.ServiceLifecycleEvent
-import com.example.refocus.core.model.ServiceState
 import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionPart
@@ -20,6 +13,7 @@ import com.example.refocus.data.repository.TargetsRepository
 import com.example.refocus.data.repository.TimelineRepository
 import com.example.refocus.domain.session.SessionPartGenerator
 import com.example.refocus.domain.timeline.MonitoringPeriod
+import com.example.refocus.domain.timeline.MonitoringStateProjector
 import com.example.refocus.domain.timeline.SessionProjector
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -143,8 +137,9 @@ class DefaultStatsUseCase @Inject constructor(
 
         // 4) 監視期間を日ベースで再構成
         val monitoringPeriods: List<MonitoringPeriod> =
-            buildMonitoringPeriodsForDate(
+            MonitoringStateProjector.buildMonitoringPeriodsForDate(
                 date = date,
+                zoneId = zoneId,
                 events = events,
                 nowMillis = nowMillis,
             )
@@ -165,94 +160,5 @@ class DefaultStatsUseCase @Inject constructor(
             zoneId = zoneId,
             nowMillis = nowMillis,
         )
-    }
-
-    /**
-     * 1 日分のタイムラインイベントから MonitoringPeriod の一覧を再構成する。
-     *
-     * 条件:
-     * - OverlayService が稼働している
-     * - 画面が ON
-     * - UsageStats / Overlay の 2 権限が GRANTED
-     */
-    private fun buildMonitoringPeriodsForDate(
-        date: LocalDate,
-        events: List<TimelineEvent>,
-        nowMillis: Long,
-    ): List<MonitoringPeriod> {
-        val startOfDay = date.atStartOfDay(zoneId).toInstant().toEpochMilli()
-        val endOfDayExclusive = date.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
-
-        var serviceRunning = false
-        var screenOn = false
-        val permissionStates = mutableMapOf<PermissionKind, PermissionState>()
-
-        fun isMonitoring(): Boolean {
-            val required = listOf(PermissionKind.UsageStats, PermissionKind.Overlay)
-            return serviceRunning &&
-                    screenOn &&
-                    required.all { permissionStates[it] == PermissionState.Granted }
-        }
-
-        val periods = mutableListOf<MonitoringPeriod>()
-        fun applyStateChange(event: TimelineEvent) {
-            when (event) {
-                is ServiceLifecycleEvent -> {
-                    serviceRunning = (event.state == ServiceState.Started)
-                }
-
-                is ScreenEvent -> {
-                    screenOn = (event.state == ScreenState.On)
-                }
-
-                is PermissionEvent -> {
-                    permissionStates[event.permission] = event.state
-                }
-
-                else -> Unit
-            }
-        }
-        // 1) 日付開始より前のイベントで「初期状態」を復元する
-        //    （サービスが前日から動き続けている/画面ONのまま/権限Granted済み、など）
-        val sorted = events.sortedBy { it.timestampMillis }
-        for (event in sorted) {
-            if (event.timestampMillis >= startOfDay) break
-            applyStateChange(event)
-        }
-        // 2) 日付開始時点ですでに監視可能なら startOfDay から開始
-        var monitoring = isMonitoring()
-        var currentStart: Long? = if (monitoring) startOfDay else null
-        // 3) 当日イベントを流して ON/OFF を切り替える
-        for (event in sorted) {
-            if (event.timestampMillis < startOfDay) continue
-            if (event.timestampMillis >= endOfDayExclusive) break
-            val wasMonitoring = monitoring
-            applyStateChange(event)
-            val newMonitoring = isMonitoring()
-            // OFF → ON
-            if (!wasMonitoring && newMonitoring) {
-                currentStart = maxOf(event.timestampMillis, startOfDay)
-            }
-            // ON → OFF
-            else if (wasMonitoring && !newMonitoring) {
-                val start = currentStart ?: startOfDay
-                val end = event.timestampMillis
-                if (end > start) {
-                    periods += MonitoringPeriod(startMillis = start, endMillis = end)
-                }
-                currentStart = null
-            }
-            monitoring = newMonitoring
-        }
-        // 4) 当日終端（または now）まで監視が続く場合は閉じる
-        if (monitoring) {
-            val start = currentStart ?: startOfDay
-            val end = minOf(nowMillis, endOfDayExclusive)
-            if (end > start) {
-                periods += MonitoringPeriod(startMillis = start, endMillis = end)
-            }
-        }
-
-        return periods
     }
 }

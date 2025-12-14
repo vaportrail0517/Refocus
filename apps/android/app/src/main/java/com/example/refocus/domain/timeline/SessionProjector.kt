@@ -51,7 +51,6 @@ object SessionProjector {
         var monitoringEnabled: Boolean = true
         var serviceRunning: Boolean = true
         val permissionStates = mutableMapOf<PermissionKind, PermissionState>()
-        val requiredPermissions = setOf(PermissionKind.UsageStats, PermissionKind.Overlay)
 
         // app -> アクティブなセッション状態
         data class ActiveState(
@@ -155,11 +154,8 @@ object SessionProjector {
         }
 
         fun recomputeMonitoringEnabled(ts: Long) {
-            // まだイベントが来ていない権限は「Granted扱い」にして現状挙動を壊さない
-            val permsOk = requiredPermissions.all { kind ->
-                permissionStates[kind] != PermissionState.Revoked
-            }
-            val enabled = serviceRunning && permsOk
+            val enabled =
+                MonitoringStateProjector.isMonitoringEnabled(serviceRunning, permissionStates)
             if (enabled == monitoringEnabled) return
             monitoringEnabled = enabled
             if (!monitoringEnabled) {
