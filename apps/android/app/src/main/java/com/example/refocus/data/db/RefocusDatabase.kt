@@ -14,7 +14,7 @@ import com.example.refocus.data.db.entity.TimelineEventEntity
         TimelineEventEntity::class,
         SuggestionEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class RefocusDatabase : RoomDatabase() {

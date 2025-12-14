@@ -53,6 +53,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -81,11 +82,11 @@ fun SuggestionsRoute(
 
     SuggestionsScreen(
         uiState = uiState,
-        onCreateSuggestion = { title, timeSlot, durationTag, priority ->
-            viewModel.createSuggestion(title, timeSlot, durationTag, priority)
+        onCreateSuggestion = { title, timeSlots, durationTag, priority ->
+            viewModel.createSuggestion(title, timeSlots, durationTag, priority)
         },
-        onUpdateSuggestion = { id, title, timeSlot, durationTag, priority ->
-            viewModel.updateSuggestion(id, title, timeSlot, durationTag, priority)
+        onUpdateSuggestion = { id, title, timeSlots, durationTag, priority ->
+            viewModel.updateSuggestion(id, title, timeSlots, durationTag, priority)
         },
         onDeleteConfirmed = { id -> viewModel.deleteSuggestion(id) },
     )
@@ -96,20 +97,33 @@ private enum class EditorSheetMode {
     Edit,
 }
 
+private val TimeSlotsStateSaver = listSaver<Set<SuggestionTimeSlot>, String>(
+    save = { slots ->
+        // 空→Anytime / Anytimeは排他、の正規化を保存時にも適用
+        normalizeTimeSlots(slots).map { it.name }
+    },
+    restore = { names ->
+        val parsed = names
+            .mapNotNull { runCatching { SuggestionTimeSlot.valueOf(it) }.getOrNull() }
+            .toSet()
+        normalizeTimeSlots(parsed)
+    }
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SuggestionsScreen(
     uiState: SuggestionsUiState,
     onCreateSuggestion: (
         title: String,
-        timeSlot: SuggestionTimeSlot,
+        timeSlots: Set<SuggestionTimeSlot>,
         durationTag: SuggestionDurationTag,
         priority: SuggestionPriority,
     ) -> Unit,
     onUpdateSuggestion: (
         id: Long,
         title: String,
-        timeSlot: SuggestionTimeSlot,
+        timeSlots: Set<SuggestionTimeSlot>,
         durationTag: SuggestionDurationTag,
         priority: SuggestionPriority,
     ) -> Unit,
@@ -121,11 +135,21 @@ fun SuggestionsScreen(
     var editingSuggestionId by rememberSaveable { mutableStateOf<Long?>(null) }
     var isCreatingNew by rememberSaveable { mutableStateOf(false) }
     var draftTitle by rememberSaveable { mutableStateOf("") }
-    var draftTimeSlot by rememberSaveable { mutableStateOf(SuggestionTimeSlot.Anytime) }
+    var draftTimeSlots by rememberSaveable(stateSaver = TimeSlotsStateSaver) {
+        mutableStateOf(
+            setOf(
+                SuggestionTimeSlot.Anytime
+            )
+        )
+    }
     var draftDurationTag by rememberSaveable { mutableStateOf(SuggestionDurationTag.Medium) }
     var draftPriority by rememberSaveable { mutableStateOf(SuggestionPriority.Normal) }
     var initialTitle by rememberSaveable { mutableStateOf("") }
-    var initialTimeSlot by rememberSaveable { mutableStateOf(SuggestionTimeSlot.Anytime) }
+    var initialTimeSlots by rememberSaveable(stateSaver = TimeSlotsStateSaver) {
+        mutableStateOf(
+            setOf(SuggestionTimeSlot.Anytime)
+        )
+    }
     var initialDurationTag by rememberSaveable { mutableStateOf(SuggestionDurationTag.Medium) }
     var initialPriority by rememberSaveable { mutableStateOf(SuggestionPriority.Normal) }
     var showDiscardConfirm by rememberSaveable { mutableStateOf(false) }
@@ -213,12 +237,12 @@ fun SuggestionsScreen(
                                                 isCreatingNew = false
                                                 // 初期値（開いた瞬間の値）
                                                 initialTitle = suggestion.title
-                                                initialTimeSlot = suggestion.timeSlot
+                                                initialTimeSlots = suggestion.timeSlots
                                                 initialDurationTag = suggestion.durationTag
                                                 initialPriority = suggestion.priority
                                                 // 編集用ドラフト（最初は初期値と同じ）
                                                 draftTitle = suggestion.title
-                                                draftTimeSlot = suggestion.timeSlot
+                                                draftTimeSlots = suggestion.timeSlots
                                                 draftDurationTag = suggestion.durationTag
                                                 draftPriority = suggestion.priority
                                                 sheetMode = EditorSheetMode.View
@@ -239,12 +263,12 @@ fun SuggestionsScreen(
                     isCreatingNew = true
                     // 新規の初期値
                     initialTitle = ""
-                    initialTimeSlot = SuggestionTimeSlot.Anytime
+                    initialTimeSlots = setOf(SuggestionTimeSlot.Anytime)
                     initialDurationTag = SuggestionDurationTag.Medium
                     initialPriority = SuggestionPriority.Normal
                     // ドラフト
                     draftTitle = ""
-                    draftTimeSlot = SuggestionTimeSlot.Anytime
+                    draftTimeSlots = setOf(SuggestionTimeSlot.Anytime)
                     draftDurationTag = SuggestionDurationTag.Medium
                     draftPriority = SuggestionPriority.Normal
                     sheetMode = EditorSheetMode.Edit
@@ -267,7 +291,7 @@ fun SuggestionsScreen(
                         if (sheetMode == EditorSheetMode.Edit) {
                             val isDirty =
                                 draftTitle != initialTitle ||
-                                        draftTimeSlot != initialTimeSlot ||
+                                        draftTimeSlots != initialTimeSlots ||
                                         draftDurationTag != initialDurationTag ||
                                         draftPriority != initialPriority
                             if (isDirty) {
@@ -286,7 +310,7 @@ fun SuggestionsScreen(
                             // 閲覧用シート
                             SuggestionViewSheet(
                                 title = draftTitle,
-                                timeSlot = draftTimeSlot,
+                                timeSlots = draftTimeSlots,
                                 durationTag = draftDurationTag,
                                 priority = draftPriority,
                                 onClose = {
@@ -316,7 +340,7 @@ fun SuggestionsScreen(
                                     if (isCreatingNew) {
                                         onCreateSuggestion(
                                             draftTitle,
-                                            draftTimeSlot,
+                                            draftTimeSlots,
                                             draftDurationTag,
                                             draftPriority,
                                         )
@@ -326,7 +350,7 @@ fun SuggestionsScreen(
                                             onUpdateSuggestion(
                                                 id,
                                                 draftTitle,
-                                                draftTimeSlot,
+                                                draftTimeSlots,
                                                 draftDurationTag,
                                                 draftPriority,
                                             )
@@ -346,7 +370,7 @@ fun SuggestionsScreen(
                                     // 前回説明した discard 判定ロジックをここに
                                     val isDirty =
                                         draftTitle != initialTitle ||
-                                                draftTimeSlot != initialTimeSlot ||
+                                                draftTimeSlots != initialTimeSlots ||
                                                 draftDurationTag != initialDurationTag ||
                                                 draftPriority != initialPriority
 
@@ -356,8 +380,10 @@ fun SuggestionsScreen(
                                         isEditorVisible = false
                                     }
                                 },
-                                timeSlot = draftTimeSlot,
-                                onTimeSlotChange = { draftTimeSlot = it },
+                                timeSlots = draftTimeSlots,
+                                onToggleTimeSlot = { slot ->
+                                    draftTimeSlots = toggleTimeSlots(draftTimeSlots, slot)
+                                },
                                 durationTag = draftDurationTag,
                                 onDurationTagChange = { draftDurationTag = it },
                                 priority = draftPriority,
@@ -529,7 +555,7 @@ private fun SwipeToDeleteBackground(
 @Composable
 private fun SuggestionViewSheet(
     title: String,
-    timeSlot: SuggestionTimeSlot,
+    timeSlots: Set<SuggestionTimeSlot>,
     durationTag: SuggestionDurationTag,
     priority: SuggestionPriority,
     onClose: () -> Unit,
@@ -584,11 +610,11 @@ private fun SuggestionViewSheet(
         Spacer(modifier = Modifier.height(16.dp))
 
         SuggestionTagsRow(
-            timeSlot = timeSlot,
+            timeSlots = timeSlots,
             durationTag = durationTag,
             priority = priority,
-            interactive = false, // ← 編集なのでタップ可能
-            onTimeSlotChange = {},
+            interactive = false, // ビューモード（タップ不可）
+            onToggleTimeSlot = {},
             onDurationTagChange = {},
             onPriorityChange = {},
         )
@@ -604,8 +630,8 @@ private fun SuggestionEditorSheet(
     onConfirm: () -> Unit,
     onDelete: (() -> Unit)?,
     onCancel: () -> Unit,
-    timeSlot: SuggestionTimeSlot,
-    onTimeSlotChange: (SuggestionTimeSlot) -> Unit,
+    timeSlots: Set<SuggestionTimeSlot>,
+    onToggleTimeSlot: (SuggestionTimeSlot) -> Unit,
     durationTag: SuggestionDurationTag,
     onDurationTagChange: (SuggestionDurationTag) -> Unit,
     priority: SuggestionPriority,
@@ -695,11 +721,11 @@ private fun SuggestionEditorSheet(
         Spacer(modifier = Modifier.height(16.dp))
 
         SuggestionTagsRow(
-            timeSlot = timeSlot,
+            timeSlots = timeSlots,
             durationTag = durationTag,
             priority = priority,
-            interactive = true, // ← 編集なのでタップ可能
-            onTimeSlotChange = onTimeSlotChange,
+            interactive = true,
+            onToggleTimeSlot = onToggleTimeSlot,
             onDurationTagChange = onDurationTagChange,
             onPriorityChange = onPriorityChange,
         )
@@ -725,12 +751,12 @@ private fun SuggestionTagChip(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SuggestionTagsRow(
-    timeSlot: SuggestionTimeSlot,
+    timeSlots: Set<SuggestionTimeSlot>,
     durationTag: SuggestionDurationTag,
     priority: SuggestionPriority,
     // true: 編集モード（タップ可）, false: ビューモード（タップ不可）
     interactive: Boolean,
-    onTimeSlotChange: (SuggestionTimeSlot) -> Unit,
+    onToggleTimeSlot: (SuggestionTimeSlot) -> Unit,
     onDurationTagChange: (SuggestionDurationTag) -> Unit,
     onPriorityChange: (SuggestionPriority) -> Unit,
 ) {
@@ -740,8 +766,15 @@ private fun SuggestionTagsRow(
     ) {
         // 時間帯
         Column {
+            val normalized = normalizeTimeSlots(timeSlots)
+            val hintText = if (normalized == setOf(SuggestionTimeSlot.Anytime)) {
+                "いつでも"
+            } else {
+                normalized.sortedBy { slotOrder().indexOf(it) }
+                    .joinToString(" / ") { "${it.labelJa()}（${it.hintJa()}）" }
+            }
             Text(
-                text = "時間帯: ${timeSlot.hintJa()}",
+                text = "時間帯: $hintText",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -750,22 +783,13 @@ private fun SuggestionTagsRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                val slotOrder = listOf(
-                    SuggestionTimeSlot.Anytime,
-                    SuggestionTimeSlot.Dawn,
-                    SuggestionTimeSlot.Morning,
-                    SuggestionTimeSlot.Noon,
-                    SuggestionTimeSlot.Afternoon,
-                    SuggestionTimeSlot.Evening,
-                    SuggestionTimeSlot.Night,
-                    SuggestionTimeSlot.LateNight,
-                )
-                for (slot in slotOrder) {
+                val slots = normalizeTimeSlots(timeSlots)
+                slotOrder().forEach { slot ->
                     SuggestionTagChip(
                         label = slot.labelJa(),
-                        selected = timeSlot == slot,
+                        selected = slots.contains(slot),
                         enabled = interactive,
-                        onClick = { onTimeSlotChange(slot) },
+                        onClick = { onToggleTimeSlot(slot) },
                     )
                 }
             }
@@ -839,7 +863,18 @@ private fun SuggestionTagsRow(
     }
 }
 
-fun SuggestionTimeSlot.labelJa(): String = when (this) {
+private fun slotOrder(): List<SuggestionTimeSlot> = listOf(
+    SuggestionTimeSlot.Anytime,
+    SuggestionTimeSlot.Dawn,
+    SuggestionTimeSlot.Morning,
+    SuggestionTimeSlot.Noon,
+    SuggestionTimeSlot.Afternoon,
+    SuggestionTimeSlot.Evening,
+    SuggestionTimeSlot.Night,
+    SuggestionTimeSlot.LateNight,
+)
+
+private fun SuggestionTimeSlot.labelJa(): String = when (this) {
     SuggestionTimeSlot.Anytime -> "いつでも"
     SuggestionTimeSlot.Dawn -> "早朝"
     SuggestionTimeSlot.Morning -> "午前"
@@ -850,7 +885,8 @@ fun SuggestionTimeSlot.labelJa(): String = when (this) {
     SuggestionTimeSlot.LateNight -> "深夜"
 }
 
-fun SuggestionTimeSlot.hintJa(): String = when (this) {
+private fun SuggestionTimeSlot.hintJa(): String = when (this) {
+    SuggestionTimeSlot.Anytime -> "いつでも"
     SuggestionTimeSlot.Dawn -> "4〜7時ごろ"
     SuggestionTimeSlot.Morning -> "8〜11時ごろ"
     SuggestionTimeSlot.Noon -> "11〜14時ごろ"
@@ -858,5 +894,24 @@ fun SuggestionTimeSlot.hintJa(): String = when (this) {
     SuggestionTimeSlot.Evening -> "17〜19時ごろ"
     SuggestionTimeSlot.Night -> "19〜23時ごろ"
     SuggestionTimeSlot.LateNight -> "23〜3時ごろ"
-    SuggestionTimeSlot.Anytime -> "いつでも"
+}
+
+private fun normalizeTimeSlots(slots: Set<SuggestionTimeSlot>): Set<SuggestionTimeSlot> {
+    if (slots.isEmpty()) return setOf(SuggestionTimeSlot.Anytime)
+    if (slots.contains(SuggestionTimeSlot.Anytime)) return setOf(SuggestionTimeSlot.Anytime)
+    return slots
+}
+
+private fun toggleTimeSlots(
+    current: Set<SuggestionTimeSlot>,
+    tapped: SuggestionTimeSlot,
+): Set<SuggestionTimeSlot> {
+    val normalized = normalizeTimeSlots(current)
+    return if (tapped == SuggestionTimeSlot.Anytime) {
+        setOf(SuggestionTimeSlot.Anytime)
+    } else {
+        val base = normalized - SuggestionTimeSlot.Anytime
+        val next = if (base.contains(tapped)) base - tapped else base + tapped
+        normalizeTimeSlots(next)
+    }
 }

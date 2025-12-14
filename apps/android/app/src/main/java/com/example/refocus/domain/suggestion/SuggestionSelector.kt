@@ -71,13 +71,14 @@ class SuggestionSelector(
         minutesElapsed: Long
     ): Double {
         // --- 1. 時間帯のマッチング係数 ---
-        val timeMultiplier = when (suggestion.timeSlot) {
-            SuggestionTimeSlot.Anytime -> 1.0
-            else -> {
-                val w = timeSlotWeightModel.weight(suggestion.timeSlot, nowMillis) // 0..1
-                if (w < MIN_TIME_WEIGHT) return 0.0
-                w * 2.0 // ピーク時は旧実装の「一致=2.0」と同等
-            }
+        val slots = suggestion.timeSlots
+        val timeMultiplier = if (slots.isEmpty() || slots.contains(SuggestionTimeSlot.Anytime)) {
+            1.0
+        } else {
+            // 複数スロットのうち「最も今に合うもの」を採用（max 集約）
+            val wMax = slots.maxOf { slot -> timeSlotWeightModel.weight(slot, nowMillis) }
+            if (wMax < MIN_TIME_WEIGHT) return 0.0
+            wMax * 2.0 // ピーク時は旧実装の一致(=2.0)相当
         }
 
         // --- 2. 優先度の基礎点 (ベーススコア) ---

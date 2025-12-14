@@ -42,14 +42,18 @@ enum class TimerColorMode {
  * - title: ユーザーが入力したテキスト
  * - createdAtMillis: 作成時刻
  * - kind: 休憩/やりたいこと/タスク などの種別（将来利用）
- * - timeSlot: 好ましい時間帯（将来利用）
+ * - timeSlots: 好ましい時間帯（複数選択）
+ *
+ * timeSlots のルール:
+ * - 空は不可（空になったら {Anytime} に正規化）
+ * - Anytime は他と排他的（含まれていたら {Anytime} に正規化）
  */
 data class Suggestion(
     val id: Long = 0L,
     val title: String,
     val createdAtMillis: Long,
     val kind: SuggestionMode = SuggestionMode.Generic,
-    val timeSlot: SuggestionTimeSlot = SuggestionTimeSlot.Anytime,
+    val timeSlots: Set<SuggestionTimeSlot> = setOf(SuggestionTimeSlot.Anytime),
     val durationTag: SuggestionDurationTag = SuggestionDurationTag.Medium,
     val priority: SuggestionPriority = SuggestionPriority.Normal,
 )

@@ -25,10 +25,10 @@ interface SuggestionDao {
 
     @Query(
         "UPDATE suggestions " +
-                "SET timeSlot = :timeSlot, durationTag = :durationTag, priority = :priority " +
+                "SET timeSlots = :timeSlots, durationTag = :durationTag, priority = :priority " +
                 "WHERE id = :id"
     )
-    suspend fun updateTags(id: Long, timeSlot: String, durationTag: String, priority: String)
+    suspend fun updateTags(id: Long, timeSlots: String, durationTag: String, priority: String)
 
     @Query("DELETE FROM suggestions WHERE id = :id")
     suspend fun deleteById(id: Long)

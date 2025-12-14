@@ -47,7 +47,7 @@ class SuggestionsRepository(
      */
     suspend fun addSuggestion(
         title: String,
-        timeSlot: SuggestionTimeSlot,
+        timeSlots: Set<SuggestionTimeSlot>,
         durationTag: SuggestionDurationTag,
         priority: SuggestionPriority,
     ): Suggestion {
@@ -59,7 +59,7 @@ class SuggestionsRepository(
             title = normalizedTitle,
             createdAtMillis = now,
             kind = SuggestionMode.Generic.name,
-            timeSlot = timeSlot.name,
+            timeSlots = serializeTimeSlots(timeSlots),
             durationTag = durationTag.name,
             priority = priority.name,
         )
@@ -75,13 +75,13 @@ class SuggestionsRepository(
 
     suspend fun updateSuggestionTags(
         id: Long,
-        timeSlot: SuggestionTimeSlot,
+        timeSlots: Set<SuggestionTimeSlot>,
         durationTag: SuggestionDurationTag,
         priority: SuggestionPriority,
     ) {
         suggestionDao.updateTags(
             id = id,
-            timeSlot = timeSlot.name,
+            timeSlots = serializeTimeSlots(timeSlots),
             durationTag = durationTag.name,
             priority = priority.name,
         )
@@ -93,11 +93,36 @@ class SuggestionsRepository(
 
     private fun normalizeTitle(title: String): String = title.trim()
 
+    /**
+     * timeSlots 正規化ルール:
+     * - 空なら {Anytime}
+     * - Anytime が含まれていたら {Anytime}
+     */
+    private fun normalizeTimeSlots(slots: Set<SuggestionTimeSlot>): Set<SuggestionTimeSlot> {
+        if (slots.isEmpty()) return setOf(SuggestionTimeSlot.Anytime)
+        if (slots.contains(SuggestionTimeSlot.Anytime)) return setOf(SuggestionTimeSlot.Anytime)
+        return slots
+    }
+
+    /**
+     * 例: "Morning|Afternoon|Night"
+     */
+    private fun serializeTimeSlots(slots: Set<SuggestionTimeSlot>): String {
+        val normalized = normalizeTimeSlots(slots)
+        return normalized.joinToString(separator = "|") { it.name }
+    }
+
+    private fun deserializeTimeSlots(raw: String): Set<SuggestionTimeSlot> {
+        val tokens = raw.split("|").map { it.trim() }.filter { it.isNotEmpty() }
+        val parsed = tokens.mapNotNull { token ->
+            runCatching { SuggestionTimeSlot.valueOf(token) }.getOrNull()
+        }.toSet()
+        return normalizeTimeSlots(parsed)
+    }
+
     private fun SuggestionEntity.toModel(): Suggestion {
         val kindEnum = runCatching { SuggestionMode.valueOf(kind) }
             .getOrDefault(SuggestionMode.Generic)
-        val slotEnum = runCatching { SuggestionTimeSlot.valueOf(timeSlot) }
-            .getOrDefault(SuggestionTimeSlot.Anytime)
         val durationEnum = runCatching { SuggestionDurationTag.valueOf(durationTag) }
             .getOrDefault(SuggestionDurationTag.Medium)
         val priorityEnum = runCatching { SuggestionPriority.valueOf(priority) }
@@ -107,7 +132,7 @@ class SuggestionsRepository(
             title = title,
             createdAtMillis = createdAtMillis,
             kind = kindEnum,
-            timeSlot = slotEnum,
+            timeSlots = deserializeTimeSlots(timeSlots),
             durationTag = durationEnum,
             priority = priorityEnum,
         )
