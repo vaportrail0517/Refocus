@@ -7,7 +7,7 @@ import com.example.refocus.core.model.SessionEventType
  * Start / Pause / Resume / End のイベント列から
  * 「実際にアプリを使っていた時間」の合計を求めるユーティリティ。
  *
- * Repository / Stats / Overlay などから共通で利用する。
+ * Repository / DefaultStatsUseCase / Overlay などから共通で利用する。
  */
 object SessionDurationCalculator {
 

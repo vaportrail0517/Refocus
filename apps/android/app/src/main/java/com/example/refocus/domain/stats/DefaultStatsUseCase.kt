@@ -31,7 +31,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class Stats @Inject constructor(
+class DefaultStatsUseCase @Inject constructor(
     private val timelineRepository: TimelineRepository,
     private val settingsRepository: SettingsRepository,
     private val targetsRepository: TargetsRepository,
@@ -75,7 +75,8 @@ class Stats @Inject constructor(
         val endOfDayExclusive = date.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
 
         // 「その日の終わり」か「今時点」のうち早い方を上限として扱う
-        val nowMillisForDay = minOf(timeSource.nowMillis(), endOfDayExclusive - 1)
+        // endOfDayExclusive は「翌日の 0:00（排他的）」として扱う
+        val nowMillisForDay = minOf(timeSource.nowMillis(), endOfDayExclusive)
 
         val settings = settingsRepository.observeOverlaySettings().first()
         val targets = targetsRepository.observeTargets().first()
@@ -194,27 +195,14 @@ class Stats @Inject constructor(
         }
 
         val periods = mutableListOf<MonitoringPeriod>()
-        var monitoring = false
-        var currentStart: Long? = null
-
-        val clampedEvents = events
-            .filter { it.timestampMillis in startOfDay until endOfDayExclusive }
-            .sortedBy { it.timestampMillis }
-
-        for (event in clampedEvents) {
+        fun applyStateChange(event: TimelineEvent) {
             when (event) {
                 is ServiceLifecycleEvent -> {
-                    serviceRunning = when (event.state) {
-                        ServiceState.Started -> true
-                        ServiceState.Stopped -> false
-                    }
+                    serviceRunning = (event.state == ServiceState.Started)
                 }
 
                 is ScreenEvent -> {
-                    screenOn = when (event.state) {
-                        ScreenState.On -> true
-                        ScreenState.Off -> false
-                    }
+                    screenOn = (event.state == ScreenState.On)
                 }
 
                 is PermissionEvent -> {
@@ -223,42 +211,45 @@ class Stats @Inject constructor(
 
                 else -> Unit
             }
-
+        }
+        // 1) 日付開始より前のイベントで「初期状態」を復元する
+        //    （サービスが前日から動き続けている/画面ONのまま/権限Granted済み、など）
+        val sorted = events.sortedBy { it.timestampMillis }
+        for (event in sorted) {
+            if (event.timestampMillis >= startOfDay) break
+            applyStateChange(event)
+        }
+        // 2) 日付開始時点ですでに監視可能なら startOfDay から開始
+        var monitoring = isMonitoring()
+        var currentStart: Long? = if (monitoring) startOfDay else null
+        // 3) 当日イベントを流して ON/OFF を切り替える
+        for (event in sorted) {
+            if (event.timestampMillis < startOfDay) continue
+            if (event.timestampMillis >= endOfDayExclusive) break
+            val wasMonitoring = monitoring
+            applyStateChange(event)
             val newMonitoring = isMonitoring()
-
-            // OFF → ON になった瞬間に開始
-            if (!monitoring && newMonitoring) {
-                currentStart = event.timestampMillis
+            // OFF → ON
+            if (!wasMonitoring && newMonitoring) {
+                currentStart = maxOf(event.timestampMillis, startOfDay)
             }
-            // ON → OFF になった瞬間に終了
-            else if (monitoring && !newMonitoring) {
-                val end = event.timestampMillis
+            // ON → OFF
+            else if (wasMonitoring && !newMonitoring) {
                 val start = currentStart ?: startOfDay
+                val end = event.timestampMillis
                 if (end > start) {
-                    periods.add(
-                        MonitoringPeriod(
-                            startMillis = start,
-                            endMillis = end,
-                        )
-                    )
+                    periods += MonitoringPeriod(startMillis = start, endMillis = end)
                 }
                 currentStart = null
             }
-
             monitoring = newMonitoring
         }
-
-        // 日中の最後まで ON のままの場合は、now か その日の終端までで閉じる
+        // 4) 当日終端（または now）まで監視が続く場合は閉じる
         if (monitoring) {
             val start = currentStart ?: startOfDay
-            val end = minOf(nowMillis, endOfDayExclusive - 1)
+            val end = minOf(nowMillis, endOfDayExclusive)
             if (end > start) {
-                periods.add(
-                    MonitoringPeriod(
-                        startMillis = start,
-                        endMillis = end,
-                    )
-                )
+                periods += MonitoringPeriod(startMillis = start, endMillis = end)
             }
         }
 

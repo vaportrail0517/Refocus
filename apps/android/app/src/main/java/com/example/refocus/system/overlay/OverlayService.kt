@@ -30,9 +30,12 @@ import com.example.refocus.system.permissions.PermissionHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -177,19 +180,20 @@ class OverlayService : LifecycleService() {
     }
 
     override fun onDestroy() {
-        isRunning = false
-        overlayCoordinator.stop()
-        serviceScope.cancel()
-        unregisterScreenReceiver()
-        super.onDestroy()
-
-        lifecycleScope.launch {
-            try {
-                eventRecorder.onServiceStopped()
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to record service stop event", e)
+        runBlocking {
+            withContext(NonCancellable + Dispatchers.IO) {
+                try {
+                    eventRecorder.onServiceStopped()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to record service stop event", e)
+                }
             }
         }
+        isRunning = false
+        overlayCoordinator.stop()
+        unregisterScreenReceiver()
+        serviceScope.cancel()
+        super.onDestroy()
     }
 
     override fun onBind(intent: Intent): IBinder? {

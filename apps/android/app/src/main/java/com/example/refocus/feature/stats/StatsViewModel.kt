@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.DailyStats
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.domain.stats.Stats
+import com.example.refocus.domain.stats.DefaultStatsUseCase
 import com.example.refocus.system.appinfo.AppLabelResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +27,7 @@ enum class StatsRange {
 
 @HiltViewModel
 class StatsViewModel @Inject constructor(
-    private val stats: Stats,
+    private val stats: DefaultStatsUseCase,
     private val timeSource: TimeSource,
     private val appLabelResolver: AppLabelResolver,
 ) : ViewModel() {
