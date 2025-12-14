@@ -1,6 +1,6 @@
 package com.example.refocus.system.overlay
 
-import com.example.refocus.core.model.Settings
+import com.example.refocus.core.model.Customize
 import com.example.refocus.domain.overlay.OverlayUiGateway
 import com.example.refocus.domain.overlay.SuggestionOverlayUiModel
 import kotlinx.coroutines.CoroutineScope
@@ -18,9 +18,9 @@ class WindowOverlayUiGateway(
     private val suggestionOverlayController: SuggestionOverlayController,
 ) : OverlayUiGateway {
 
-    override fun applySettings(settings: Settings) {
+    override fun applySettings(customize: Customize) {
         scope.launch(Dispatchers.Main) {
-            timerOverlayController.overlaySettings = settings
+            timerOverlayController.overlayCustomize = customize
         }
     }
 

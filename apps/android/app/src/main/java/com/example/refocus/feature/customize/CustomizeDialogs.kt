@@ -2,8 +2,8 @@ package com.example.refocus.feature.customize
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import com.example.refocus.core.model.OverlayColorMode
-import com.example.refocus.core.model.OverlayGrowthMode
+import com.example.refocus.core.model.TimerColorMode
+import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.util.formatDurationMilliSeconds
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.ui.components.ColorPickerDialog
@@ -267,12 +267,12 @@ fun SuggestionInteractionLockoutDialog(
 
 @Composable
 fun GrowthModeDialog(
-    current: OverlayGrowthMode,
-    onConfirm: (OverlayGrowthMode) -> Unit,
+    current: TimerGrowthMode,
+    onConfirm: (TimerGrowthMode) -> Unit,
     onDismiss: () -> Unit,
 ) {
     data class GrowthOption(
-        val mode: OverlayGrowthMode,
+        val mode: TimerGrowthMode,
         val label: String,
         val description: String,
     )
@@ -280,22 +280,22 @@ fun GrowthModeDialog(
     val options = remember {
         listOf(
             GrowthOption(
-                OverlayGrowthMode.Linear,
+                TimerGrowthMode.Linear,
                 "線形",
                 "時間に比例して一定のペースで大きくなります。"
             ),
             GrowthOption(
-                OverlayGrowthMode.FastToSlow,
+                TimerGrowthMode.FastToSlow,
                 "スローイン（初め速く→だんだん遅く）",
                 "序盤でぐっと大きくなり、その後はゆっくり変化します。"
             ),
             GrowthOption(
-                OverlayGrowthMode.SlowToFast,
+                TimerGrowthMode.SlowToFast,
                 "スローアウト（初め遅く→だんだん速く）",
                 "最初は控えめで、長く使うほど目立つようになります。"
             ),
             GrowthOption(
-                OverlayGrowthMode.SlowFastSlow,
+                TimerGrowthMode.SlowFastSlow,
                 "スローインアウト",
                 "真ん中の時間帯で一番ペースが速くなります。"
             ),
@@ -318,12 +318,12 @@ fun GrowthModeDialog(
 
 @Composable
 fun ColorModeDialog(
-    current: OverlayColorMode,
-    onConfirm: (OverlayColorMode) -> Unit,
+    current: TimerColorMode,
+    onConfirm: (TimerColorMode) -> Unit,
     onDismiss: () -> Unit,
 ) {
     data class ColorModeOption(
-        val mode: OverlayColorMode,
+        val mode: TimerColorMode,
         val label: String,
         val description: String,
     )
@@ -331,17 +331,17 @@ fun ColorModeDialog(
     val options = remember {
         listOf(
             ColorModeOption(
-                OverlayColorMode.Fixed,
+                TimerColorMode.Fixed,
                 "単色",
                 "タイマーの背景色を一色で固定します。"
             ),
             ColorModeOption(
-                OverlayColorMode.GradientTwo,
+                TimerColorMode.GradientTwo,
                 "2色グラデーション",
                 "開始色から終了色へ、時間に応じて滑らかに変化します。"
             ),
             ColorModeOption(
-                OverlayColorMode.GradientThree,
+                TimerColorMode.GradientThree,
                 "3色グラデーション",
                 "開始色 → 中間色 → 終了色と、時間に応じて変化します。"
             ),

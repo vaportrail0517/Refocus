@@ -106,7 +106,7 @@ fun HomeRoute(
 
                 if (!hasCorePermissions) {
                     val latest = customizeViewModel.uiState.value
-                    if (latest.settings.overlayEnabled || isServiceRunning) {
+                    if (latest.customize.overlayEnabled || isServiceRunning) {
                         customizeViewModel.updateOverlayEnabled(false)
                         context.stopOverlayService()
                         isServiceRunning = false
@@ -121,7 +121,7 @@ fun HomeRoute(
     Scaffold(
         topBar = {
             HomeTopBar(
-                isRunning = isServiceRunning && settingsUiState.settings.overlayEnabled,
+                isRunning = isServiceRunning && settingsUiState.customize.overlayEnabled,
                 hasCorePermissions = hasCorePermissions,
                 onToggleRunning = { wantRunning ->
                     if (!hasCorePermissions) {

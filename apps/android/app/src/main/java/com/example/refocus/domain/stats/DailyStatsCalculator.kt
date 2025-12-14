@@ -2,11 +2,11 @@ package com.example.refocus.domain.stats
 
 import com.example.refocus.core.model.AppUsageStats
 import com.example.refocus.core.model.DailyStats
-import com.example.refocus.core.model.MonitoringPeriod
 import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionPart
 import com.example.refocus.core.model.SessionStats
+import com.example.refocus.domain.timeline.MonitoringPeriod
 import com.example.refocus.domain.timeline.MonitoringProjector.buildTimeBuckets
 import com.example.refocus.domain.timeline.MonitoringProjector.sumMonitoringMinutesForDay
 import com.example.refocus.domain.timeline.MonitoringProjector.sumMonitoringWithTargetMinutes

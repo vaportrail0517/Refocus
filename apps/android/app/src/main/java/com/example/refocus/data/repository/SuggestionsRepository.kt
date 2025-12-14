@@ -2,7 +2,7 @@ package com.example.refocus.data.repository
 
 import com.example.refocus.core.model.Suggestion
 import com.example.refocus.core.model.SuggestionDurationTag
-import com.example.refocus.core.model.SuggestionKind
+import com.example.refocus.core.model.SuggestionMode
 import com.example.refocus.core.model.SuggestionPriority
 import com.example.refocus.core.model.SuggestionTimeSlot
 import com.example.refocus.core.util.TimeSource
@@ -58,7 +58,7 @@ class SuggestionsRepository(
             id = 0L,
             title = normalizedTitle,
             createdAtMillis = now,
-            kind = SuggestionKind.Generic.name,
+            kind = SuggestionMode.Generic.name,
             timeSlot = timeSlot.name,
             durationTag = durationTag.name,
             priority = priority.name,
@@ -94,8 +94,8 @@ class SuggestionsRepository(
     private fun normalizeTitle(title: String): String = title.trim()
 
     private fun SuggestionEntity.toModel(): Suggestion {
-        val kindEnum = runCatching { SuggestionKind.valueOf(kind) }
-            .getOrDefault(SuggestionKind.Generic)
+        val kindEnum = runCatching { SuggestionMode.valueOf(kind) }
+            .getOrDefault(SuggestionMode.Generic)
         val slotEnum = runCatching { SuggestionTimeSlot.valueOf(timeSlot) }
             .getOrDefault(SuggestionTimeSlot.Anytime)
         val durationEnum = runCatching { SuggestionDurationTag.valueOf(durationTag) }

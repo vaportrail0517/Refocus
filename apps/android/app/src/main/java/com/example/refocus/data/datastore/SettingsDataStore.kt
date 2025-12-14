@@ -9,11 +9,11 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.example.refocus.core.model.OverlayColorMode
-import com.example.refocus.core.model.OverlayGrowthMode
-import com.example.refocus.core.model.OverlayTouchMode
-import com.example.refocus.core.model.Settings
-import com.example.refocus.core.model.SettingsPreset
+import com.example.refocus.core.model.Customize
+import com.example.refocus.core.model.CustomizePreset
+import com.example.refocus.core.model.TimerColorMode
+import com.example.refocus.core.model.TimerGrowthMode
+import com.example.refocus.core.model.TimerTouchMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -63,7 +63,7 @@ class SettingsDataStore(
         val SETTINGS_PRESET = intPreferencesKey("settings_preset")
     }
 
-    val settingsFlow: Flow<Settings> =
+    val customizeFlow: Flow<Customize> =
         context.settingsDataStore.data
             .catch { e ->
                 if (e is IOException) {
@@ -80,7 +80,7 @@ class SettingsDataStore(
      * 現在のプリセット種別を流す Flow。
      * 保存されていない場合は Default 扱いとする。
      */
-    val presetFlow: Flow<SettingsPreset> = context.settingsDataStore.data
+    val presetFlow: Flow<CustomizePreset> = context.settingsDataStore.data
         .catch { e ->
             if (e is IOException) {
                 emit(emptyPreferences())
@@ -89,12 +89,12 @@ class SettingsDataStore(
             }
         }
         .map { prefs ->
-            val ordinal = prefs[Keys.SETTINGS_PRESET] ?: SettingsPreset.Default.ordinal
-            SettingsPreset.entries.getOrNull(ordinal) ?: SettingsPreset.Default
+            val ordinal = prefs[Keys.SETTINGS_PRESET] ?: CustomizePreset.Default.ordinal
+            CustomizePreset.entries.getOrNull(ordinal) ?: CustomizePreset.Default
         }
 
     suspend fun update(
-        transform: (Settings) -> Settings
+        transform: (Customize) -> Customize
     ) {
         context.settingsDataStore.edit { prefs ->
             // まず現在値（保存値＋デフォルト）を Customize にデコード
@@ -136,7 +136,7 @@ class SettingsDataStore(
     /**
      * プリセット種別だけを更新する。
      */
-    suspend fun setPreset(preset: SettingsPreset) {
+    suspend fun setPreset(preset: CustomizePreset) {
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.SETTINGS_PRESET] = preset.ordinal
         }
@@ -146,13 +146,13 @@ class SettingsDataStore(
      * Preferences -> Customize の変換を 1 箇所に集約。
      * fallback はすべて Customize() のデフォルトを見る。
      */
-    private fun Preferences.toOverlaySettings(): Settings {
-        // Customize() のデフォルトは SettingsConfig.SettingsDefaults を参照している
-        val base = Settings()
+    private fun Preferences.toOverlaySettings(): Customize {
+        // Customize() のデフォルトは SettingsConfig.CustomizeDefaults を参照している
+        val base = Customize()
 
         val touchModeOrdinal = this[Keys.TOUCH_MODE] ?: base.touchMode.ordinal
-        val touchMode = OverlayTouchMode.entries.getOrNull(touchModeOrdinal)
-            ?: OverlayTouchMode.Drag
+        val touchMode = TimerTouchMode.entries.getOrNull(touchModeOrdinal)
+            ?: TimerTouchMode.Drag
 
         return base.copy(
             gracePeriodMillis = this[Keys.GRACE_PERIOD_MS]
@@ -175,10 +175,10 @@ class SettingsDataStore(
                 ?: base.positionY,
             touchMode = touchMode,
             growthMode = this[Keys.GROWTH_MODE]
-                ?.let { OverlayGrowthMode.values().getOrNull(it) }
+                ?.let { TimerGrowthMode.values().getOrNull(it) }
                 ?: base.growthMode,
             colorMode = this[Keys.COLOR_MODE]
-                ?.let { OverlayColorMode.values().getOrNull(it) }
+                ?.let { TimerColorMode.values().getOrNull(it) }
                 ?: base.colorMode,
             fixedColorArgb = this[Keys.FIXED_COLOR_ARGB] ?: base.fixedColorArgb,
             gradientStartColorArgb = this[Keys.GRADIENT_START_COLOR_ARGB]

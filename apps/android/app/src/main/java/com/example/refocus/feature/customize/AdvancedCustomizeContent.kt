@@ -1,8 +1,8 @@
 package com.example.refocus.feature.customize
 
 import androidx.compose.runtime.Composable
-import com.example.refocus.core.model.OverlayColorMode
-import com.example.refocus.core.model.OverlayGrowthMode
+import com.example.refocus.core.model.TimerColorMode
+import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.util.formatDurationMilliSecondsOrNull
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.ui.components.SectionCard
@@ -27,7 +27,7 @@ fun AdvancedCustomizeContent(
     onOpenGradientMiddleColorDialog: () -> Unit,
     onOpenGradientEndColorDialog: () -> Unit,
 ) {
-    val settings = uiState.settings
+    val settings = uiState.customize
 
     // 一番上に「基本設定に戻る」行を置いておく（＋将来 AppBar を載せてもよい）
     SectionCard(title = "基本カスタマイズ") {
@@ -65,16 +65,16 @@ fun AdvancedCustomizeContent(
         SettingRow(
             title = "タイマーの成長モード",
             subtitle = when (settings.growthMode) {
-                OverlayGrowthMode.Linear ->
+                TimerGrowthMode.Linear ->
                     "線形：時間に比例して一定のペースで大きくなります。"
 
-                OverlayGrowthMode.FastToSlow ->
+                TimerGrowthMode.FastToSlow ->
                     "スローイン：序盤でぐっと大きくなり、その後はゆっくり変化します。"
 
-                OverlayGrowthMode.SlowToFast ->
+                TimerGrowthMode.SlowToFast ->
                     "スローアウト：最初は控えめで、長く使うほど目立つようになります。"
 
-                OverlayGrowthMode.SlowFastSlow ->
+                TimerGrowthMode.SlowFastSlow ->
                     "スローインアウト：真ん中あたりで一番ペースが速くなります。"
             },
             onClick = onOpenGrowthModeDialog,
@@ -84,20 +84,20 @@ fun AdvancedCustomizeContent(
         SettingRow(
             title = "タイマーの色モード",
             subtitle = when (settings.colorMode) {
-                OverlayColorMode.Fixed ->
+                TimerColorMode.Fixed ->
                     "単色：背景色を一色で固定します。"
 
-                OverlayColorMode.GradientTwo ->
+                TimerColorMode.GradientTwo ->
                     "2色グラデーション：開始色から終了色へ変化します。"
 
-                OverlayColorMode.GradientThree ->
+                TimerColorMode.GradientThree ->
                     "3色グラデーション：開始・中間・終了の3色で変化します。"
             },
             onClick = onOpenColorModeDialog,
         )
         // --- 色の詳細設定（モードに応じて表示） ---
         when (settings.colorMode) {
-            OverlayColorMode.Fixed -> {
+            TimerColorMode.Fixed -> {
                 SettingRow(
                     title = "単色の色を選ぶ",
                     subtitle = colorSubtitle(settings.fixedColorArgb, "デフォルトの色を使用中"),
@@ -105,7 +105,7 @@ fun AdvancedCustomizeContent(
                 )
             }
 
-            OverlayColorMode.GradientTwo -> {
+            TimerColorMode.GradientTwo -> {
                 SettingRow(
                     title = "開始色（短時間側）",
                     subtitle = colorSubtitle(
@@ -124,7 +124,7 @@ fun AdvancedCustomizeContent(
                 )
             }
 
-            OverlayColorMode.GradientThree -> {
+            TimerColorMode.GradientThree -> {
                 SettingRow(
                     title = "開始色",
                     subtitle = colorSubtitle(

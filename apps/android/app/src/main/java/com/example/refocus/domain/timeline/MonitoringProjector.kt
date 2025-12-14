@@ -1,8 +1,17 @@
 package com.example.refocus.domain.timeline
 
-import com.example.refocus.core.model.MonitoringPeriod
 import com.example.refocus.core.model.SessionPart
 import com.example.refocus.core.model.TimeBucketStats
+
+/**
+ * Refocus が「監視できていた時間帯」を表すモデル。
+ * OverlayService が起動している間などを 1 レコードとする。
+ */
+data class MonitoringPeriod(
+    val startMillis: Long,
+    val endMillis: Long?, // null = まだ継続中
+)
+
 
 /**
  * MonitoringPeriod と SessionPart から、

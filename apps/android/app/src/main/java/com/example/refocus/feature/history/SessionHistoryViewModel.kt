@@ -4,10 +4,10 @@ import android.app.Application
 import android.content.pm.PackageManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionStats
 import com.example.refocus.core.model.SessionStatus
-import com.example.refocus.core.model.Settings
 import com.example.refocus.core.model.TimelineEvent
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.core.util.formatDurationMilliSeconds
@@ -85,14 +85,14 @@ class SessionHistoryViewModel @Inject constructor(
             ) { events, settings, targets, foregroundPackage ->
                 CombinedInput(
                     events = events,
-                    settings = settings,
+                    customize = settings,
                     targets = targets,
                     foregroundPackage = foregroundPackage,
                 )
             }.collectLatest { input ->
                 buildUiState(
                     events = input.events,
-                    settings = input.settings,
+                    customize = input.customize,
                     targets = input.targets,
                     foregroundPackage = input.foregroundPackage,
                 )
@@ -102,14 +102,14 @@ class SessionHistoryViewModel @Inject constructor(
 
     private data class CombinedInput(
         val events: List<TimelineEvent>,
-        val settings: Settings,
+        val customize: Customize,
         val targets: Set<String>,
         val foregroundPackage: String?,
     )
 
     private fun buildUiState(
         events: List<TimelineEvent>,
-        settings: Settings,
+        customize: Customize,
         targets: Set<String>,
         foregroundPackage: String?,
     ) {
@@ -127,7 +127,7 @@ class SessionHistoryViewModel @Inject constructor(
         val sessionsWithEvents = SessionProjector.projectSessions(
             events = events,
             targetPackages = targets,
-            stopGracePeriodMillis = settings.gracePeriodMillis,
+            stopGracePeriodMillis = customize.gracePeriodMillis,
             nowMillis = nowMillis,
         )
 

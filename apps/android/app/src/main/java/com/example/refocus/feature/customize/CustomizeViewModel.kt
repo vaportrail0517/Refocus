@@ -3,19 +3,19 @@ package com.example.refocus.feature.customize
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.refocus.config.SettingsBasicPresets.withFontPreset
-import com.example.refocus.config.SettingsBasicPresets.withGracePreset
-import com.example.refocus.config.SettingsBasicPresets.withSuggestionTriggerPreset
-import com.example.refocus.config.SettingsBasicPresets.withTimeToMaxPreset
-import com.example.refocus.core.model.FontPreset
-import com.example.refocus.core.model.GracePreset
-import com.example.refocus.core.model.OverlayColorMode
-import com.example.refocus.core.model.OverlayGrowthMode
-import com.example.refocus.core.model.OverlayTouchMode
-import com.example.refocus.core.model.Settings
-import com.example.refocus.core.model.SettingsPreset
-import com.example.refocus.core.model.SuggestionTriggerPreset
-import com.example.refocus.core.model.TimeToMaxPreset
+import com.example.refocus.config.CustomizeBasicPresets.withFontPreset
+import com.example.refocus.config.CustomizeBasicPresets.withGracePreset
+import com.example.refocus.config.CustomizeBasicPresets.withSuggestionTriggerPreset
+import com.example.refocus.config.CustomizeBasicPresets.withTimeToMaxPreset
+import com.example.refocus.config.FontPreset
+import com.example.refocus.config.GracePreset
+import com.example.refocus.config.SuggestionTriggerPreset
+import com.example.refocus.config.TimeToMaxPreset
+import com.example.refocus.core.model.Customize
+import com.example.refocus.core.model.CustomizePreset
+import com.example.refocus.core.model.TimerColorMode
+import com.example.refocus.core.model.TimerGrowthMode
+import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.domain.app.AppDataResetter
 import com.example.refocus.domain.timeline.EventRecorder
@@ -36,15 +36,15 @@ class CustomizeViewModel @Inject constructor(
 ) : AndroidViewModel(application) {
 
     data class UiState(
-        val settings: Settings,
-        val preset: SettingsPreset = SettingsPreset.Default,
+        val customize: Customize,
+        val preset: CustomizePreset = CustomizePreset.Default,
         val isLoading: Boolean = true,
     )
 
     private val _uiState = MutableStateFlow(
         UiState(
-            settings = Settings(),
-            preset = SettingsPreset.Default,
+            customize = Customize(),
+            preset = CustomizePreset.Default,
             isLoading = true,
         )
     )
@@ -57,7 +57,7 @@ class CustomizeViewModel @Inject constructor(
                 settingsRepository.observeSettingsPreset(),
             ) { settings, preset ->
                 UiState(
-                    settings = settings,
+                    customize = settings,
                     preset = preset,
                     isLoading = false,
                 )
@@ -71,12 +71,12 @@ class CustomizeViewModel @Inject constructor(
      * 「プリセット = Custom」として設定値を更新する共通ヘルパ。
      * 同じパターンの関数を大量に書かなくてよくなる。
      */
-    private fun updateSettingsAsCustom(transform: Settings.() -> Settings) {
+    private fun updateSettingsAsCustom(transform: Customize.() -> Customize) {
         viewModelScope.launch {
             settingsRepository.updateOverlaySettings { current ->
                 current.transform()
             }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
+            settingsRepository.setSettingsPreset(CustomizePreset.Custom)
             eventRecorder.onSettingsChanged(
                 key = "overlaySettingsCustom",
                 newValueDescription = null,  // 詳細を入れたければここに入れる
@@ -103,13 +103,13 @@ class CustomizeViewModel @Inject constructor(
     fun updateTimeToMaxMinutes(minutes: Int) =
         updateSettingsAsCustom { copy(timeToMaxMinutes = minutes) }
 
-    fun updateOverlayTouchMode(mode: OverlayTouchMode) =
+    fun updateOverlayTouchMode(mode: TimerTouchMode) =
         updateSettingsAsCustom { copy(touchMode = mode) }
 
-    fun updateGrowthMode(mode: OverlayGrowthMode) =
+    fun updateGrowthMode(mode: TimerGrowthMode) =
         updateSettingsAsCustom { copy(growthMode = mode) }
 
-    fun updateColorMode(mode: OverlayColorMode) =
+    fun updateColorMode(mode: TimerColorMode) =
         updateSettingsAsCustom { copy(colorMode = mode) }
 
     fun updateFixedColorArgb(argb: Int) =
@@ -200,10 +200,10 @@ class CustomizeViewModel @Inject constructor(
             settingsRepository.updateOverlaySettings { current ->
                 current.withFontPreset(preset)
             }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
+            settingsRepository.setSettingsPreset(CustomizePreset.Custom)
             eventRecorder.onSettingsChanged(
                 key = "settingsPreset",
-                newValueDescription = SettingsPreset.Custom.name,
+                newValueDescription = CustomizePreset.Custom.name,
             )
         }
     }
@@ -214,10 +214,10 @@ class CustomizeViewModel @Inject constructor(
             settingsRepository.updateOverlaySettings { current ->
                 current.withTimeToMaxPreset(preset)
             }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
+            settingsRepository.setSettingsPreset(CustomizePreset.Custom)
             eventRecorder.onSettingsChanged(
                 key = "settingsPreset",
-                newValueDescription = SettingsPreset.Custom.name,
+                newValueDescription = CustomizePreset.Custom.name,
             )
         }
     }
@@ -228,10 +228,10 @@ class CustomizeViewModel @Inject constructor(
             settingsRepository.updateOverlaySettings { current ->
                 current.withGracePreset(preset)
             }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
+            settingsRepository.setSettingsPreset(CustomizePreset.Custom)
             eventRecorder.onSettingsChanged(
                 key = "settingsPreset",
-                newValueDescription = SettingsPreset.Custom.name,
+                newValueDescription = CustomizePreset.Custom.name,
             )
         }
     }
@@ -242,10 +242,10 @@ class CustomizeViewModel @Inject constructor(
             settingsRepository.updateOverlaySettings { current ->
                 current.withSuggestionTriggerPreset(preset)
             }
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
+            settingsRepository.setSettingsPreset(CustomizePreset.Custom)
             eventRecorder.onSettingsChanged(
                 key = "settingsPreset",
-                newValueDescription = SettingsPreset.Custom.name,
+                newValueDescription = CustomizePreset.Custom.name,
             )
         }
     }
@@ -254,10 +254,10 @@ class CustomizeViewModel @Inject constructor(
 
     /**
      * 設定プリセットを適用する。
-     * - Default / Debug: SettingsPresetValues 由来の値に置き換え
+     * - Default / Debug: CustomizePresetValues 由来の値に置き換え
      * - Custom: 現在の値は維持しつつ、preset 種別だけ Custom にする
      */
-    fun applyPreset(preset: SettingsPreset) {
+    fun applyPreset(preset: CustomizePreset) {
         viewModelScope.launch {
             settingsRepository.applyPreset(preset)
             eventRecorder.onSettingsChanged(
@@ -273,7 +273,7 @@ class CustomizeViewModel @Inject constructor(
      */
     fun setPresetCustom() {
         viewModelScope.launch {
-            settingsRepository.setSettingsPreset(SettingsPreset.Custom)
+            settingsRepository.setSettingsPreset(CustomizePreset.Custom)
         }
     }
 

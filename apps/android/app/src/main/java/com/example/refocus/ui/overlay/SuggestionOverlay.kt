@@ -31,14 +31,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import com.example.refocus.core.model.OverlaySuggestionMode
+import com.example.refocus.core.model.SuggestionMode
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 @Composable
 fun SuggestionOverlay(
     title: String,
-    mode: OverlaySuggestionMode,
+    mode: SuggestionMode,
     modifier: Modifier = Modifier.Companion,
     autoDismissMillis: Long = 8_000L,
     interactionLockoutMillis: Long = 400L,
@@ -51,14 +51,14 @@ fun SuggestionOverlay(
     val bodyText: String
 
     when (mode) {
-        OverlaySuggestionMode.Goal -> {
+        SuggestionMode.Generic -> {
             // 「一息つく」より「これをやってみよう」に寄せる
             headerText = "そろそろ、これをやってみませんか？"
             labelText = "やりたいこと"
             bodyText = "このまま続ける前に、一度やりたいことに時間を使ってみるのもおすすめです。"
         }
 
-        OverlaySuggestionMode.Rest -> {
+        SuggestionMode.Rest -> {
             // ヘッダは「休憩のきっかけ」っぽく、タイトルとは別の役割にする
             headerText = "一休みしませんか？"
             labelText = "休憩の提案"

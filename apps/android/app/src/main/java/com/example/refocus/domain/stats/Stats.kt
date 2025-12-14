@@ -1,7 +1,7 @@
 package com.example.refocus.domain.stats
 
+import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.DailyStats
-import com.example.refocus.core.model.MonitoringPeriod
 import com.example.refocus.core.model.PermissionEvent
 import com.example.refocus.core.model.PermissionKind
 import com.example.refocus.core.model.PermissionState
@@ -13,13 +13,13 @@ import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionPart
 import com.example.refocus.core.model.SessionStats
-import com.example.refocus.core.model.Settings
 import com.example.refocus.core.model.TimelineEvent
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.data.repository.TargetsRepository
 import com.example.refocus.data.repository.TimelineRepository
 import com.example.refocus.domain.session.SessionPartGenerator
+import com.example.refocus.domain.timeline.MonitoringPeriod
 import com.example.refocus.domain.timeline.SessionProjector
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -59,7 +59,7 @@ class Stats @Inject constructor(
             buildDailyStatsForDate(
                 date = today,
                 events = events,
-                settings = settings,
+                customize = settings,
                 targets = targets,
                 nowMillis = nowMillis,
             )
@@ -88,7 +88,7 @@ class Stats @Inject constructor(
         return buildDailyStatsForDate(
             date = date,
             events = events,
-            settings = settings,
+            customize = settings,
             targets = targets,
             nowMillis = nowMillisForDay,
         )
@@ -100,7 +100,7 @@ class Stats @Inject constructor(
     private fun buildDailyStatsForDate(
         date: LocalDate,
         events: List<TimelineEvent>,
-        settings: Settings,
+        customize: Customize,
         targets: Set<String>,
         nowMillis: Long,
     ): DailyStats? {
@@ -110,7 +110,7 @@ class Stats @Inject constructor(
         val sessionsWithEvents = SessionProjector.projectSessions(
             events = events,
             targetPackages = targets,
-            stopGracePeriodMillis = settings.gracePeriodMillis,
+            stopGracePeriodMillis = customize.gracePeriodMillis,
             nowMillis = nowMillis,
         )
 

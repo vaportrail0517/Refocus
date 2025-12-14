@@ -10,7 +10,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.example.refocus.core.model.OverlaySuggestionMode
+import com.example.refocus.core.model.SuggestionMode
 import com.example.refocus.ui.overlay.SuggestionOverlay
 import com.example.refocus.ui.theme.RefocusTheme
 
@@ -24,7 +24,7 @@ class SuggestionOverlayController(
 
     fun showSuggestionOverlay(
         title: String,
-        mode: OverlaySuggestionMode,
+        mode: SuggestionMode,
         autoDismissMillis: Long,
         interactionLockoutMillis: Long,
         onSnoozeLater: () -> Unit,

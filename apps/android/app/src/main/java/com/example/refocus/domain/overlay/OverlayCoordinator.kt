@@ -1,12 +1,10 @@
 package com.example.refocus.domain.overlay
 
 import android.util.Log
-import com.example.refocus.core.model.OverlayEvent
-import com.example.refocus.core.model.OverlayState
-import com.example.refocus.core.model.OverlaySuggestionMode
+import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.SessionEventType
-import com.example.refocus.core.model.Settings
 import com.example.refocus.core.model.SuggestionDecision
+import com.example.refocus.core.model.SuggestionMode
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.data.repository.SuggestionsRepository
@@ -71,7 +69,7 @@ class OverlayCoordinator(
     /**
      * 「この論理セッションに対する提案ゲート」。
      * - disabledForThisSession: このセッションではもう提案しない
-     * - lastDecisionAtMillis: Snooze/Dismiss が最後に行われた時刻（クールダウンは Settings から再解釈）
+     * - lastDecisionAtMillis: Snooze/Dismiss が最後に行われた時刻（クールダウンは Customize から再解釈）
      */
     private data class SessionSuggestionGate(
         val disabledForThisSession: Boolean = false,
@@ -91,7 +89,7 @@ class OverlayCoordinator(
     private var overlayPackage: String? = null
 
     @Volatile
-    private var overlaySettings: Settings = Settings()
+    private var overlayCustomize: Customize = Customize()
 
     @Volatile
     private var showSuggestionJob: Job? = null
@@ -111,7 +109,7 @@ class OverlayCoordinator(
     private val stateMachine = OverlayStateMachine()
 
     // SettingsDataStore からの設定 Flow を shareIn して共有する
-    private val settingsFlow: SharedFlow<Settings> =
+    private val customizeFlow: SharedFlow<Customize> =
         settingsRepository.observeOverlaySettings()
             .shareIn(
                 scope = scope,
@@ -254,7 +252,7 @@ class OverlayCoordinator(
             oldState is OverlayState.Disabled &&
                     newState is OverlayState.Idle &&
                     event is OverlayEvent.SettingsChanged -> {
-                Log.d(TAG, "Overlay re-enabled by settings")
+                Log.d(TAG, "Overlay re-enabled by customize")
             }
 
             else -> {
@@ -266,11 +264,11 @@ class OverlayCoordinator(
     private fun observeOverlaySettings() {
         scope.launch {
             try {
-                settingsFlow.collect { settings ->
+                customizeFlow.collect { settings ->
                     // 変更前の設定を保存
-                    val oldSettings = overlaySettings
-                    // 先に overlaySettings を更新
-                    overlaySettings = settings
+                    val oldSettings = overlayCustomize
+                    // 先に overlayCustomize を更新
+                    overlayCustomize = settings
                     // 設定変更イベントとしてタイムラインに記録
                     dispatchEvent(OverlayEvent.SettingsChanged(settings))
                     // UI 側の見た目反映
@@ -289,7 +287,7 @@ class OverlayCoordinator(
                             // 変更前 tracker が残っていても投影したいので force=true で復元
                             val bootstrap = computeBootstrapFromTimeline(
                                 packageName = pkg,
-                                settings = settings,
+                                customize = settings,
                                 nowMillis = nowMillis,
                                 force = true,
                             )
@@ -328,7 +326,7 @@ class OverlayCoordinator(
     private fun startMonitoringForeground() {
         scope.launch {
             val targetsFlow = targetsRepository.observeTargets()
-            val foregroundSampleFlow = settingsFlow
+            val foregroundSampleFlow = customizeFlow
                 .flatMapLatest { settings ->
                     foregroundAppMonitor.foregroundSampleFlow(
                         pollingIntervalMs = settings.pollingIntervalMillis
@@ -477,20 +475,20 @@ class OverlayCoordinator(
         nowMillis: Long,
         nowElapsed: Long
     ) {
-        val settings = overlaySettings
+        val settings = overlayCustomize
         val grace = settings.gracePeriodMillis
 
         // まだ OverlaySessionTracker がこの app を知らない場合だけ、
         //    Timeline から「論理セッションの累積時間」を初期値として取得
 //        val initialFromTimeline = computeInitialElapsedFromTimelineIfNeeded(
 //            packageName = packageName,
-//            settings = settings,
+//            customize = customize,
 //            nowMillis = nowMillis,
 //        )
 
         val bootstrap = computeBootstrapFromTimeline(
             packageName = packageName,
-            settings = settings,
+            customize = settings,
             nowMillis = nowMillis,
             force = false,
         )
@@ -553,18 +551,18 @@ class OverlayCoordinator(
         }
     }
 
-    private fun suggestionTimeoutMillis(settings: Settings): Long {
-        val seconds = settings.suggestionTimeoutSeconds.coerceAtLeast(0)
+    private fun suggestionTimeoutMillis(customize: Customize): Long {
+        val seconds = customize.suggestionTimeoutSeconds.coerceAtLeast(0)
         return seconds.toLong() * 1_000L
     }
 
-    private fun suggestionCooldownMillis(settings: Settings): Long {
-        val seconds = settings.suggestionCooldownSeconds.coerceAtLeast(0)
+    private fun suggestionCooldownMillis(customize: Customize): Long {
+        val seconds = customize.suggestionCooldownSeconds.coerceAtLeast(0)
         return seconds.toLong() * 1_000L
     }
 
-    private fun suggestionInteractionLockoutMillis(settings: Settings): Long {
-        return settings.suggestionInteractionLockoutMillis.coerceAtLeast(0L)
+    private fun suggestionInteractionLockoutMillis(customize: Customize): Long {
+        return customize.suggestionInteractionLockoutMillis.coerceAtLeast(0L)
     }
 
     private fun handleSuggestionSnooze() {
@@ -661,7 +659,7 @@ class OverlayCoordinator(
         val input = SuggestionEngine.Input(
             elapsedMillis = elapsed,
             sinceForegroundMillis = sinceForegroundMs,
-            settings = overlaySettings,
+            customize = overlayCustomize,
             lastDecisionElapsedMillis = sessionSuggestionGate.lastDecisionElapsedMillis,
             isOverlayShown = isSuggestionOverlayShown,
             disabledForThisSession = sessionSuggestionGate.disabledForThisSession,
@@ -679,7 +677,7 @@ class OverlayCoordinator(
                 )
                 val hasSuggestion = selected != null
 
-                if (!hasSuggestion && !overlaySettings.restSuggestionEnabled) {
+                if (!hasSuggestion && !overlayCustomize.restSuggestionEnabled) {
                     Log.d(TAG, "No suggestion and restSuggestion disabled, skip overlay")
                     return@launch
                 }
@@ -687,13 +685,13 @@ class OverlayCoordinator(
                 val (title, mode, suggestionId) = if (selected != null) {
                     Triple(
                         selected.title,
-                        OverlaySuggestionMode.Goal,
+                        SuggestionMode.Generic,
                         selected.id,
                     )
                 } else {
                     Triple(
                         "画面から少し離れて休憩する",
-                        OverlaySuggestionMode.Rest,
+                        SuggestionMode.Rest,
                         0L,
                     )
                 }
@@ -703,9 +701,9 @@ class OverlayCoordinator(
                     SuggestionOverlayUiModel(
                         title = title,
                         mode = mode,
-                        autoDismissMillis = suggestionTimeoutMillis(overlaySettings),
+                        autoDismissMillis = suggestionTimeoutMillis(overlayCustomize),
                         interactionLockoutMillis = suggestionInteractionLockoutMillis(
-                            overlaySettings
+                            overlayCustomize
                         ),
                         onSnoozeLater = { handleSuggestionSnoozeLater() },
                         onDisableThisSession = { handleSuggestionDisableThisSession() },
@@ -754,7 +752,7 @@ class OverlayCoordinator(
      */
     private suspend fun computeBootstrapFromTimeline(
         packageName: String,
-        settings: Settings,
+        customize: Customize,
         nowMillis: Long,
         force: Boolean,
     ): SessionBootstrapFromTimeline? {
@@ -771,7 +769,7 @@ class OverlayCoordinator(
         val sessionsWithEvents = SessionProjector.projectSessions(
             events = events,
             targetPackages = setOf(packageName),
-            stopGracePeriodMillis = settings.gracePeriodMillis,
+            stopGracePeriodMillis = customize.gracePeriodMillis,
             nowMillis = nowMillis,
         )
         val last = sessionsWithEvents.lastOrNull() ?: return null

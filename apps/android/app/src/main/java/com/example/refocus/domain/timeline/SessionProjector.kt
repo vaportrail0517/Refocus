@@ -12,6 +12,7 @@ import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionEventType
 import com.example.refocus.core.model.SettingsChangedEvent
+import com.example.refocus.core.model.SuggestionDecision
 import com.example.refocus.core.model.SuggestionDecisionEvent
 import com.example.refocus.core.model.SuggestionShownEvent
 import com.example.refocus.core.model.TargetAppsChangedEvent
@@ -276,13 +277,13 @@ object SessionProjector {
                 is SuggestionDecisionEvent -> {
                     // 操作も同様に「アクティブなセッション」に付与する
                     val t = when (event.decision) {
-                        com.example.refocus.core.model.SuggestionDecision.Snoozed ->
+                        SuggestionDecision.Snoozed ->
                             SessionEventType.SuggestionSnoozed
 
-                        com.example.refocus.core.model.SuggestionDecision.Dismissed ->
+                        SuggestionDecision.Dismissed ->
                             SessionEventType.SuggestionDismissed
 
-                        com.example.refocus.core.model.SuggestionDecision.DisabledForSession ->
+                        SuggestionDecision.DisabledForSession ->
                             SessionEventType.SuggestionDisabledForSession
                     }
                     appendEventIfActive(event.packageName, t, ts)

@@ -1,6 +1,6 @@
 package com.example.refocus.domain.suggestion
 
-import com.example.refocus.core.model.Settings
+import com.example.refocus.core.model.Customize
 
 /**
  * 「今、提案カードを出すべきかどうか」を判定する純粋ロジック。
@@ -13,7 +13,7 @@ class SuggestionEngine {
     data class Input(
         val elapsedMillis: Long,
         val sinceForegroundMillis: Long,
-        val settings: Settings,
+        val customize: Customize,
         val lastDecisionElapsedMillis: Long?,
         val isOverlayShown: Boolean,
         val disabledForThisSession: Boolean,
@@ -26,7 +26,7 @@ class SuggestionEngine {
         if (input.isOverlayShown) return false
         if (input.disabledForThisSession) return false
 
-        val s = input.settings
+        val s = input.customize
         if (!s.suggestionEnabled) return false
 
         val triggerMs = suggestionTriggerThresholdMillis(s)
@@ -46,20 +46,20 @@ class SuggestionEngine {
         return true
     }
 
-    private fun suggestionCooldownMillis(settings: Settings): Long {
-        val seconds = settings.suggestionCooldownSeconds.coerceAtLeast(0)
+    private fun suggestionCooldownMillis(customize: Customize): Long {
+        val seconds = customize.suggestionCooldownSeconds.coerceAtLeast(0)
         return seconds.toLong() * 1_000L
     }
 
-    private fun suggestionTriggerThresholdMillis(settings: Settings): Long {
-        if (!settings.suggestionEnabled) return Long.MAX_VALUE
-        val seconds = settings.suggestionTriggerSeconds
+    private fun suggestionTriggerThresholdMillis(customize: Customize): Long {
+        if (!customize.suggestionEnabled) return Long.MAX_VALUE
+        val seconds = customize.suggestionTriggerSeconds
         if (seconds <= 0) return Long.MAX_VALUE
         return seconds.toLong() * 1_000L
     }
 
-    private fun suggestionForegroundStableThresholdMillis(settings: Settings): Long {
-        val seconds = settings.suggestionForegroundStableSeconds.coerceAtLeast(0)
+    private fun suggestionForegroundStableThresholdMillis(customize: Customize): Long {
+        val seconds = customize.suggestionForegroundStableSeconds.coerceAtLeast(0)
         return seconds.toLong() * 1_000L
     }
 }
