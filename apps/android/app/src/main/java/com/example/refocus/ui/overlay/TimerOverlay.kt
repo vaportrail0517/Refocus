@@ -1,23 +1,34 @@
 package com.example.refocus.ui.overlay
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.util.formatDurationForTimerBubble
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @Composable
 fun TimerOverlay(
@@ -54,8 +65,51 @@ fun TimerOverlay(
         customize = customize
     )
 
+    // アニメーション用ステート
+    val animOffsetX = remember { Animatable(0f) }
+    val animOffsetY = remember { Animatable(0f) }
+    val animRotation = remember { Animatable(0f) }
+    val animAlpha = remember { Animatable(1f) }
+
+    // トリガー: デバッグ用に20秒経過で発火 (本来は animatedProgress >= 0.99f)
+    val timeUp = elapsedMillis >= 20_000L
+
+    LaunchedEffect(timeUp) {
+        if (timeUp) {
+            // 1. 移動 (画面中央へ移動のシミュレーション: とりあえず右下に大きく動かす)
+            // ※ 画面中央の座標を知るにはBoxWithConstraintsやConfigurationが必要ですが、
+            //    まずは簡易実装として固定オフセットで移動させます。
+            val moveDuration = 500
+            launch { animOffsetX.animateTo(100f, tween(moveDuration)) }
+            launch { animOffsetY.animateTo(300f, tween(moveDuration)) }
+            delay(moveDuration.toLong())
+
+            // 2. 高速回転 (10回転 = 3600度)
+            animRotation.animateTo(
+                targetValue = 3600f,
+                animationSpec = tween(durationMillis = 2000, easing = LinearEasing)
+            )
+
+            // 3. 点滅 (3回)
+            repeat(3) {
+                animAlpha.animateTo(0.2f, tween(150))
+                animAlpha.animateTo(1f, tween(150))
+            }
+
+            // 4. 元の位置に戻る
+            launch { animOffsetX.animateTo(0f, tween(moveDuration)) }
+            launch { animOffsetY.animateTo(0f, tween(moveDuration)) }
+            
+            // 回転のリセット
+            animRotation.snapTo(0f)
+        }
+    }
+
     Box(
         modifier = modifier
+            .offset { IntOffset(animOffsetX.value.roundToInt(), animOffsetY.value.roundToInt()) }
+            .rotate(animRotation.value)
+            .alpha(animAlpha.value)
             .shadow(
                 elevation = 4.dp,
                 shape = MaterialTheme.shapes.medium,
