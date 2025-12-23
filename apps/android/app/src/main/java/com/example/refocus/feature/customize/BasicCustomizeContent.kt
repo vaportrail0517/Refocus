@@ -64,6 +64,7 @@ fun BasicCustomizeContent(
             onClick = onOpenTimerTimeModeDialog,
         )
 
+
         val dragEnabled = settings.touchMode == TimerTouchMode.Drag
         SettingRow(
             title = "タイマーのタッチ操作",

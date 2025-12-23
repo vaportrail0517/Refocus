@@ -49,6 +49,17 @@ enum class TimerTimeMode {
 }
 
 /**
+ * タイマーの演出（サイズ・色など）に使う時間基準。
+ *
+ * - SessionElapsed: 論理セッションの経過時間を使う（セッション開始で 0 から）
+ * - FollowDisplayTime: 「タイマーに表示する時間」と同じ時間基準を使う
+ */
+enum class TimerVisualTimeBasis {
+    SessionElapsed,
+    FollowDisplayTime,
+}
+
+/**
  * 「やりたいこと」を表すモデル。
  *
  * - id: 永続化用の一意ID（Room の主キーと対応）

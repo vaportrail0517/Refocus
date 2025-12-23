@@ -42,8 +42,11 @@ class TimerOverlayController(
     // Compose が監視するステート本体
     private var overlayCustomizeState by mutableStateOf(Customize())
 
-    // Compose が監視する経過時間（TimerOverlay にそのまま渡す）
-    private var elapsedMillis by mutableStateOf(0L)
+    // Compose が監視する表示用時間（TimerOverlay の文字列に使う）
+    private var displayMillis by mutableStateOf(0L)
+
+    // Compose が監視する演出用時間（サイズ・色などに使う）
+    private var visualMillis by mutableStateOf(0L)
 
     // 経過時間を更新するためのジョブ
     private var timerJob: Job? = null
@@ -127,8 +130,10 @@ class TimerOverlayController(
     }
 
     fun showTimer(
-        // SessionManager から経過時間をもらうための provider
-        elapsedMillisProvider: (Long) -> Long,
+        // 文字列として表示する時間
+        displayMillisProvider: (Long) -> Long,
+        // 色やサイズなどの演出に使う時間
+        visualMillisProvider: (Long) -> Long,
         onPositionChanged: ((Int, Int) -> Unit)? = null
     ) {
         if (overlayView != null) {
@@ -139,17 +144,23 @@ class TimerOverlayController(
         val settings = overlayCustomize
         onPositionChangedCallback = onPositionChanged
 
-        // 表示開始時に経過時間をリセット
-        elapsedMillis = 0L
+        // 初回表示時から値が 0 に見えてしまうのを避けるため、
+        // provider から即時に 1 回だけ取得して表示する
+        run {
+            val nowElapsed = timeSource.elapsedRealtime()
+            displayMillis = displayMillisProvider(nowElapsed).coerceAtLeast(0L)
+            visualMillis = visualMillisProvider(nowElapsed).coerceAtLeast(0L)
+        }
 
         // 既存のジョブがあれば止める
         timerJob?.cancel()
 
-        // コルーチンで 200ms ごとに elapsedMillis を更新
+        // コルーチンで 200ms ごとに displayMillis / visualMillis を更新
         timerJob = scope.launch {
             while (isActive) {
                 val nowElapsed = timeSource.elapsedRealtime()
-                elapsedMillis = elapsedMillisProvider(nowElapsed)
+                displayMillis = displayMillisProvider(nowElapsed).coerceAtLeast(0L)
+                visualMillis = visualMillisProvider(nowElapsed).coerceAtLeast(0L)
                 delay(200L)
             }
         }
@@ -185,7 +196,8 @@ class TimerOverlayController(
                 RefocusTheme {
                     TimerOverlay(
                         customize = overlayCustomizeState,
-                        elapsedMillis = elapsedMillis,
+                        displayMillis = displayMillis,
+                        visualMillis = visualMillis,
                     )
                 }
             }
@@ -209,7 +221,8 @@ class TimerOverlayController(
         // 経過時間更新ジョブを停止
         timerJob?.cancel()
         timerJob = null
-        elapsedMillis = 0L
+        displayMillis = 0L
+        visualMillis = 0L
 
         val view = overlayView ?: return
         try {

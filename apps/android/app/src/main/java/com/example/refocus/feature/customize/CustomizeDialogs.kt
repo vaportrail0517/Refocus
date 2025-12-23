@@ -5,6 +5,7 @@ import androidx.compose.runtime.remember
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.model.TimerTimeMode
+import com.example.refocus.core.model.TimerVisualTimeBasis
 import com.example.refocus.core.util.formatDurationMilliSeconds
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.ui.components.ColorPickerDialog
@@ -19,6 +20,7 @@ sealed interface CustomizeDialogType {
     data object FontRange : CustomizeDialogType
     data object TimeToMax : CustomizeDialogType
     data object TimerTimeDisplayMode : CustomizeDialogType
+    data object TimerVisualTimeBasis : CustomizeDialogType
     data object SuggestionTriggerTime : CustomizeDialogType
     data object SuggestionForegroundStable : CustomizeDialogType
     data object SuggestionCooldown : CustomizeDialogType
@@ -194,6 +196,47 @@ fun TimerTimeModeDialog(
         optionLabel = { it.label },
         optionDescription = { it.description },
         onConfirm = { onConfirm(it.mode) },
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+fun TimerVisualTimeBasisDialog(
+    current: TimerVisualTimeBasis,
+    onConfirm: (TimerVisualTimeBasis) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    data class Option(
+        val basis: TimerVisualTimeBasis,
+        val label: String,
+        val description: String,
+    )
+
+    val options = remember {
+        listOf(
+            Option(
+                TimerVisualTimeBasis.SessionElapsed,
+                "セッション経過時間（論理）",
+                "色とサイズの変化を、論理セッションの経過時間に基づいて行います。新しいセッション開始で 0 から始まります。"
+            ),
+            Option(
+                TimerVisualTimeBasis.FollowDisplayTime,
+                "表示している時間",
+                "タイマーに表示している時間と同じ基準で、色とサイズが変化します。"
+            ),
+        )
+    }
+
+    val initial = options.firstOrNull { it.basis == current } ?: options.first()
+
+    SingleChoiceDialog(
+        title = "色とサイズの変化の基準",
+        description = "タイマーの色やサイズが、どの時間を基準に変化するかを選びます。",
+        options = options,
+        initialSelection = initial,
+        optionLabel = { it.label },
+        optionDescription = { it.description },
+        onConfirm = { onConfirm(it.basis) },
         onDismiss = onDismiss,
     )
 }

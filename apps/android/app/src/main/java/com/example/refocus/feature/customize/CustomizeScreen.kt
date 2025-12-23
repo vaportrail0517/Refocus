@@ -166,6 +166,7 @@ fun CustomizeScreen(
                         activeDialog = CustomizeDialogType.FontRange
                     },
                     onOpenTimeToMaxDialog = { activeDialog = CustomizeDialogType.TimeToMax },
+                    onOpenTimerVisualTimeBasisDialog = { activeDialog = CustomizeDialogType.TimerVisualTimeBasis },
                     onOpenSuggestionTriggerDialog = {
                         activeDialog = CustomizeDialogType.SuggestionTriggerTime
                     },
@@ -253,6 +254,17 @@ fun CustomizeScreen(
                         current = uiState.customize.timerTimeMode,
                         onConfirm = { mode ->
                             viewModel.updateTimerTimeMode(mode)
+                            activeDialog = null
+                        },
+                        onDismiss = { activeDialog = null },
+                    )
+                }
+
+                CustomizeDialogType.TimerVisualTimeBasis -> {
+                    TimerVisualTimeBasisDialog(
+                        current = uiState.customize.timerVisualTimeBasis,
+                        onConfirm = { basis ->
+                            viewModel.updateTimerVisualTimeBasis(basis)
                             activeDialog = null
                         },
                         onDismiss = { activeDialog = null },

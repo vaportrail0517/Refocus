@@ -27,11 +27,13 @@ interface OverlayUiGateway {
     /**
      * タイマーオーバーレイ表示。
      *
-     * @param elapsedMillisProvider SessionManager などから経過時間を取得する関数
+     * @param displayMillisProvider 表示用の時間を取得する関数
+     * @param visualMillisProvider 演出用の時間を取得する関数
      * @param onPositionChanged ドラッグ後の位置変更をドメイン側に伝えるコールバック
      */
     fun showTimer(
-        elapsedMillisProvider: (Long) -> Long,
+        displayMillisProvider: (Long) -> Long,
+        visualMillisProvider: (Long) -> Long,
         onPositionChanged: (x: Int, y: Int) -> Unit,
     )
 

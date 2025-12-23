@@ -25,12 +25,14 @@ class WindowOverlayUiGateway(
     }
 
     override fun showTimer(
-        elapsedMillisProvider: (Long) -> Long,
+        displayMillisProvider: (Long) -> Long,
+        visualMillisProvider: (Long) -> Long,
         onPositionChanged: (x: Int, y: Int) -> Unit,
     ) {
         scope.launch(Dispatchers.Main) {
             timerOverlayController.showTimer(
-                elapsedMillisProvider = elapsedMillisProvider,
+                displayMillisProvider = displayMillisProvider,
+                visualMillisProvider = visualMillisProvider,
                 onPositionChanged = onPositionChanged,
             )
         }

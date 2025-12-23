@@ -3,6 +3,7 @@ package com.example.refocus.feature.customize
 import androidx.compose.runtime.Composable
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
+import com.example.refocus.core.model.TimerVisualTimeBasis
 import com.example.refocus.core.util.formatDurationMilliSecondsOrNull
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.ui.components.SectionCard
@@ -15,6 +16,7 @@ fun AdvancedCustomizeContent(
     onOpenGraceDialog: () -> Unit,
     onOpenFontDialog: () -> Unit,
     onOpenTimeToMaxDialog: () -> Unit,
+    onOpenTimerVisualTimeBasisDialog: () -> Unit,
     onOpenSuggestionTriggerDialog: () -> Unit,
     onOpenSuggestionForegroundStableDialog: () -> Unit,
     onOpenSuggestionCooldownDialog: () -> Unit,
@@ -48,6 +50,21 @@ fun AdvancedCustomizeContent(
                 "現在: 対象アプリを離れてから${formattedGraceTime}以内に戻れば同じセッションとみなします。"
             },
             onClick = onOpenGraceDialog,
+        )
+    }
+
+
+    SectionCard(title = "タイマーの変化") {
+        SettingRow(
+            title = "色とサイズの変化の基準",
+            subtitle = when (settings.timerVisualTimeBasis) {
+                TimerVisualTimeBasis.SessionElapsed ->
+                    "現在: 論理セッションの経過時間を基準に、色とサイズが変化します。"
+
+                TimerVisualTimeBasis.FollowDisplayTime ->
+                    "現在: タイマーに表示している時間を基準に、色とサイズが変化します。"
+            },
+            onClick = onOpenTimerVisualTimeBasisDialog,
         )
     }
 

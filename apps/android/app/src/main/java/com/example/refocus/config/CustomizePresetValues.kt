@@ -17,6 +17,7 @@ object CustomizePresetValues {
         positionY = CustomizeDefaults.POSITION_Y,
         touchMode = CustomizeDefaults.TOUCH_MODE,
         timerTimeMode = CustomizeDefaults.TIMER_TIME_MODE,
+        timerVisualTimeBasis = CustomizeDefaults.TIMER_VISUAL_TIME_BASIS,
         growthMode = CustomizeDefaults.GROWTH_MODE,
         colorMode = CustomizeDefaults.COLOR_MODE,
         fixedColorArgb = CustomizeDefaults.FIXED_COLOR_ARGB,
@@ -50,6 +51,7 @@ object CustomizePresetValues {
         positionX = CustomizeDefaults.POSITION_X,
         positionY = CustomizeDefaults.POSITION_Y,
         timerTimeMode = CustomizeDefaults.TIMER_TIME_MODE,
+        timerVisualTimeBasis = CustomizeDefaults.TIMER_VISUAL_TIME_BASIS,
 
         growthMode = TimerGrowthMode.SlowFastSlow,
         colorMode = TimerColorMode.GradientThree,

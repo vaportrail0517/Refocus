@@ -3,6 +3,7 @@ package com.example.refocus.domain.overlay
 import android.util.Log
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerTimeMode
+import com.example.refocus.core.model.TimerVisualTimeBasis
 import com.example.refocus.core.model.SessionEventType
 import com.example.refocus.core.model.SuggestionDecision
 import com.example.refocus.core.model.SuggestionMode
@@ -684,7 +685,7 @@ class OverlayCoordinator(
 
 
     private fun showTimerForPackage(packageName: String) {
-        val elapsedProvider: (Long) -> Long = { nowElapsedRealtime ->
+        val displayMillisProvider: (Long) -> Long = { nowElapsedRealtime ->
             when (overlayCustomize.timerTimeMode) {
                 TimerTimeMode.SessionElapsed -> {
                     sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
@@ -699,9 +700,23 @@ class OverlayCoordinator(
                 }
             }
         }
+
+        val visualMillisProvider: (Long) -> Long = { nowElapsedRealtime ->
+            when (overlayCustomize.timerVisualTimeBasis) {
+                TimerVisualTimeBasis.SessionElapsed -> {
+                    sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
+                }
+
+                TimerVisualTimeBasis.FollowDisplayTime -> {
+                    displayMillisProvider(nowElapsedRealtime)
+                }
+            }
+        }
+
         timerVisibleState.value = true
         uiController.showTimer(
-            elapsedMillisProvider = elapsedProvider,
+            displayMillisProvider = displayMillisProvider,
+            visualMillisProvider = visualMillisProvider,
             onPositionChanged = ::onOverlayPositionChanged
         )
     }

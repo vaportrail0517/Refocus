@@ -23,13 +23,14 @@ import com.example.refocus.core.util.formatDurationForTimerBubble
 fun TimerOverlay(
     modifier: Modifier = Modifier,
     customize: Customize,
-    elapsedMillis: Long,
+    displayMillis: Long,
+    visualMillis: Long,
 ) {
-    val elapsedMinutes = elapsedMillis / 1000f / 60f
+    val visualMinutes = visualMillis / 1000f / 60f
 
     // 0〜1 の進行度（timeToMaxMinutes に対する割合）
     val p = if (customize.timeToMaxMinutes > 0) {
-        (elapsedMinutes / customize.timeToMaxMinutes).coerceIn(0f, 1f)
+        (visualMinutes / customize.timeToMaxMinutes).coerceIn(0f, 1f)
     } else {
         1f
     }
@@ -68,7 +69,7 @@ fun TimerOverlay(
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Text(
-            text = formatDurationForTimerBubble(elapsedMillis),
+            text = formatDurationForTimerBubble(displayMillis),
             color = textColor,
             fontSize = fontSizeSp.sp
         )
