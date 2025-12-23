@@ -16,6 +16,7 @@ import com.example.refocus.domain.session.SessionDurationCalculator
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
+import com.example.refocus.domain.settings.SettingsCommand
 import com.example.refocus.domain.timeline.SessionProjector
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import java.time.Instant
@@ -55,6 +56,7 @@ class OverlayCoordinator(
     private val timeSource: TimeSource,
     private val targetsRepository: TargetsRepository,
     private val settingsRepository: SettingsRepository,
+    private val settingsCommand: SettingsCommand,
     private val suggestionsRepository: SuggestionsRepository,
     private val foregroundAppMonitor: ForegroundAppMonitor,
     private val suggestionEngine: SuggestionEngine,
@@ -729,9 +731,13 @@ class OverlayCoordinator(
     private fun onOverlayPositionChanged(x: Int, y: Int) {
         scope.launch {
             try {
-                settingsRepository.updateOverlaySettings { current ->
-                    current.copy(positionX = x, positionY = y)
-                }
+                settingsCommand.setOverlayPosition(
+                    x = x,
+                    y = y,
+                    source = "overlay",
+                    reason = "drag",
+                    recordEvent = false,
+                )
             } catch (e: Exception) {
                 RefocusLog.e(TAG, e) { "Failed to save overlay position" }
             }

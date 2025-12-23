@@ -8,7 +8,7 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.app.MainActivity
-import com.example.refocus.data.repository.SettingsRepository
+import com.example.refocus.domain.settings.SettingsCommand
 import com.example.refocus.system.overlay.OverlayService
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.overlay.stopOverlayService
@@ -29,7 +29,7 @@ class RefocusTileService : TileService() {
     }
 
     @Inject
-    lateinit var settingsRepository: SettingsRepository
+    lateinit var settingsCommand: SettingsCommand
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -52,9 +52,9 @@ class RefocusTileService : TileService() {
         if (currentlyRunning) {
             scope.launch {
                 try {
-                    settingsRepository.setOverlayEnabled(false)
+                    settingsCommand.setOverlayEnabled(enabled = false, source = "tile", reason = "toggle_off")
                 } catch (e: Exception) {
-                    RefocusLog.e(TAG, e) { "Failed to set overlayEnabled=false" }
+                    RefocusLog.e(TAG, e) { "Failed to set overlayEnabled=false via SettingsCommand" }
                 }
                 context.stopOverlayService()
                 // サービスの onDestroy より先に UI を更新できるように，期待値で反映する．
@@ -63,9 +63,9 @@ class RefocusTileService : TileService() {
         } else {
             scope.launch {
                 try {
-                    settingsRepository.setOverlayEnabled(true)
+                    settingsCommand.setOverlayEnabled(enabled = true, source = "tile", reason = "toggle_on")
                 } catch (e: Exception) {
-                    RefocusLog.e(TAG, e) { "Failed to set overlayEnabled=true" }
+                    RefocusLog.e(TAG, e) { "Failed to set overlayEnabled=true via SettingsCommand" }
                 }
                 context.startOverlayService()
                 // startForegroundService 直後は isRunning の更新が遅れる可能性があるため，期待値で反映する．

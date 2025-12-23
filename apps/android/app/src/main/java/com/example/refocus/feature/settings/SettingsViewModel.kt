@@ -7,7 +7,7 @@ import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.CustomizePreset
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.domain.app.AppDataResetter
-import com.example.refocus.domain.timeline.EventRecorder
+import com.example.refocus.domain.settings.SettingsCommand
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,8 +20,8 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     application: Application,
     private val settingsRepository: SettingsRepository,
+    private val settingsCommand: SettingsCommand,
     private val appDataResetter: AppDataResetter,
-    private val eventRecorder: EventRecorder,
 ) : AndroidViewModel(application) {
 
     data class UiState(
@@ -60,20 +60,18 @@ class SettingsViewModel @Inject constructor(
 
     fun updateOverlayEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setOverlayEnabled(enabled)
-            eventRecorder.onSettingsChanged(
-                key = "overlayEnabled",
-                newValueDescription = enabled.toString(),
+            settingsCommand.setOverlayEnabled(
+                enabled = enabled,
+                source = "ui_settings",
             )
         }
     }
 
     fun updateAutoStartOnBoot(enabled: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setAutoStartOnBoot(enabled)
-            eventRecorder.onSettingsChanged(
-                key = "autoStartOnBoot",
-                newValueDescription = enabled.toString(),
+            settingsCommand.setAutoStartOnBoot(
+                enabled = enabled,
+                source = "ui_settings",
             )
         }
     }

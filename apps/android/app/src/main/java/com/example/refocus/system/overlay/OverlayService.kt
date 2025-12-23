@@ -25,6 +25,7 @@ import com.example.refocus.domain.overlay.OverlayCoordinator
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
+import com.example.refocus.domain.settings.SettingsCommand
 import com.example.refocus.system.appinfo.AppLabelResolver
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import com.example.refocus.system.notification.OverlayNotificationUiState
@@ -40,6 +41,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -73,6 +75,9 @@ class OverlayService : LifecycleService() {
 
     @Inject
     lateinit var settingsRepository: SettingsRepository
+
+    @Inject
+    lateinit var settingsCommand: SettingsCommand
 
     @Inject
     lateinit var suggestionsRepository: SuggestionsRepository
@@ -188,6 +193,7 @@ class OverlayService : LifecycleService() {
             timeSource = timeSource,
             targetsRepository = targetsRepository,
             settingsRepository = settingsRepository,
+            settingsCommand = settingsCommand,
             suggestionsRepository = suggestionsRepository,
             foregroundAppMonitor = foregroundAppMonitor,
             suggestionEngine = suggestionEngine,
@@ -206,7 +212,7 @@ class OverlayService : LifecycleService() {
             RefocusLog.w("Service") { "canRunOverlay = false. stopSelf()" }
             lifecycleScope.launch {
                 try {
-                    settingsRepository.setOverlayEnabled(false)
+                    settingsCommand.setOverlayEnabled(enabled = false, source = "service", reason = "core_permission_missing")
                 } catch (_: Exception) {
                 }
                 stopSelf()
@@ -233,15 +239,18 @@ class OverlayService : LifecycleService() {
             ACTION_TOGGLE_TOUCH_MODE -> {
                 serviceScope.launch {
                     try {
-                        settingsRepository.updateOverlaySettings { current ->
-                            current.copy(
-                                touchMode = if (current.touchMode == TimerTouchMode.Drag) {
-                                    TimerTouchMode.PassThrough
-                                } else {
-                                    TimerTouchMode.Drag
-                                }
-                            )
+                        val current = settingsRepository.observeOverlaySettings().first()
+                        val newTouchMode = if (current.touchMode == TimerTouchMode.Drag) {
+                            TimerTouchMode.PassThrough
+                        } else {
+                            TimerTouchMode.Drag
                         }
+                        settingsCommand.setTouchMode(
+                            mode = newTouchMode,
+                            source = "service_notification",
+                            reason = "toggle_touch_mode",
+                            markPresetCustom = false,
+                        )
                     } catch (e: Exception) {
                         RefocusLog.e("Service", e) { "Failed to toggle touch mode" }
                     }
@@ -398,7 +407,7 @@ class OverlayService : LifecycleService() {
 
         lifecycleScope.launch {
             try {
-                settingsRepository.setOverlayEnabled(false)
+                settingsCommand.setOverlayEnabled(enabled = false, source = "service", reason = "user_stop")
             } catch (_: Exception) {
             }
             stopSelf()

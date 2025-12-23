@@ -14,6 +14,7 @@ import com.example.refocus.data.repository.TargetsRepository
 import com.example.refocus.data.repository.TimelineRepository
 import com.example.refocus.data.repository.TimelineRepositoryImpl
 import com.example.refocus.domain.app.AppDataResetter
+import com.example.refocus.domain.settings.SettingsCommand
 import com.example.refocus.domain.timeline.EventRecorder
 import dagger.Module
 import dagger.Provides
@@ -65,12 +66,12 @@ object RepositoryModule {
     @Singleton
     fun provideAppDataResetter(
         database: RefocusDatabase,
-        settingsRepository: SettingsRepository,
+        settingsCommand: SettingsCommand,
         targetsRepository: TargetsRepository,
         onboardingRepository: OnboardingRepository,
     ): AppDataResetter = AppDataResetter(
         database = database,
-        settingsRepository = settingsRepository,
+        settingsCommand = settingsCommand,
         targetsRepository = targetsRepository,
         onboardingRepository = onboardingRepository,
     )

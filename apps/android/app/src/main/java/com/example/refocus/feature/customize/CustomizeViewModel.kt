@@ -20,7 +20,7 @@ import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.domain.app.AppDataResetter
-import com.example.refocus.domain.timeline.EventRecorder
+import com.example.refocus.domain.settings.SettingsCommand
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,8 +33,8 @@ import javax.inject.Inject
 class CustomizeViewModel @Inject constructor(
     application: Application,
     private val settingsRepository: SettingsRepository,
+    private val settingsCommand: SettingsCommand,
     private val appDataResetter: AppDataResetter,
-    private val eventRecorder: EventRecorder,
 ) : AndroidViewModel(application) {
 
     data class UiState(
@@ -73,215 +73,258 @@ class CustomizeViewModel @Inject constructor(
      * 「プリセット = Custom」として設定値を更新する共通ヘルパ。
      * 同じパターンの関数を大量に書かなくてよくなる。
      */
-    private fun updateSettingsAsCustom(transform: Customize.() -> Customize) {
+    private fun updateSettingsAsCustom(
+        key: String,
+        newValueDescription: String?,
+        transform: Customize.() -> Customize,
+    ) {
         viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
+            settingsCommand.updateCustomize(
+                key = key,
+                newValueDescription = newValueDescription,
+                source = "ui_customize",
+                markPresetCustom = true,
+            ) { current ->
                 current.transform()
             }
-            settingsRepository.setSettingsPreset(CustomizePreset.Custom)
-            eventRecorder.onSettingsChanged(
-                key = "overlaySettingsCustom",
-                newValueDescription = null,  // 詳細を入れたければここに入れる
-            )
+        }
+    }
+
+    private fun updateSettingsWithoutPresetChange(
+        key: String,
+        newValueDescription: String?,
+        transform: Customize.() -> Customize,
+    ) {
+        viewModelScope.launch {
+            settingsCommand.updateCustomize(
+                key = key,
+                newValueDescription = newValueDescription,
+                source = "ui_customize",
+                markPresetCustom = false,
+            ) { current ->
+                current.transform()
+            }
         }
     }
 
     // --- セッション / 監視設定 ---
 
     fun updateGracePeriodMillis(ms: Long) =
-        updateSettingsAsCustom { copy(gracePeriodMillis = ms) }
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.GracePeriodMillis,
+            newValueDescription = ms.toString(),
+        ) { copy(gracePeriodMillis = ms) }
 
     fun updatePollingIntervalMillis(ms: Long) =
-        updateSettingsAsCustom { copy(pollingIntervalMillis = ms) }
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.PollingIntervalMillis,
+            newValueDescription = ms.toString(),
+        ) { copy(pollingIntervalMillis = ms) }
 
-    // --- オーバーレイ見た目 ---
+    // --- タイマーの見た目 ---
 
-    fun updateMinFontSizeSp(minSp: Float) =
-        updateSettingsAsCustom { copy(minFontSizeSp = minSp) }
+    fun updateMinFontSizeSp(sp: Float) =
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.MinFontSizeSp,
+            newValueDescription = sp.toString(),
+        ) { copy(minFontSizeSp = sp) }
 
-    fun updateMaxFontSizeSp(maxSp: Float) =
-        updateSettingsAsCustom { copy(maxFontSizeSp = maxSp) }
+    fun updateMaxFontSizeSp(sp: Float) =
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.MaxFontSizeSp,
+            newValueDescription = sp.toString(),
+        ) { copy(maxFontSizeSp = sp) }
 
     fun updateTimeToMaxMinutes(minutes: Int) =
-        updateSettingsAsCustom { copy(timeToMaxMinutes = minutes) }
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.TimeToMaxMinutes,
+            newValueDescription = minutes.toString(),
+        ) { copy(timeToMaxMinutes = minutes) }
 
-    fun updateOverlayTouchMode(mode: TimerTouchMode) =
-        updateSettingsAsCustom { copy(touchMode = mode) }
-
-    fun updateTimerTimeMode(mode: TimerTimeMode) =
-        updateSettingsAsCustom { copy(timerTimeMode = mode) }
-
-    fun updateTimerVisualTimeBasis(basis: TimerVisualTimeBasis) =
-        updateSettingsAsCustom { copy(timerVisualTimeBasis = basis) }
-
-    fun updateGrowthMode(mode: TimerGrowthMode) =
-        updateSettingsAsCustom { copy(growthMode = mode) }
-
-    fun updateColorMode(mode: TimerColorMode) =
-        updateSettingsAsCustom { copy(colorMode = mode) }
-
-    fun updateFixedColorArgb(argb: Int) =
-        updateSettingsAsCustom { copy(fixedColorArgb = argb) }
-
-    fun updateGradientStartColorArgb(argb: Int) =
-        updateSettingsAsCustom { copy(gradientStartColorArgb = argb) }
-
-    fun updateGradientMiddleColorArgb(argb: Int) =
-        updateSettingsAsCustom { copy(gradientMiddleColorArgb = argb) }
-
-    fun updateGradientEndColorArgb(argb: Int) =
-        updateSettingsAsCustom { copy(gradientEndColorArgb = argb) }
-
-    fun updateOverlayPosition(x: Int, y: Int) {
-        // 位置変更はプリセット種別を変えなくてよいなら、あえて Custom にしない。
+    fun updateOverlayTouchMode(mode: TimerTouchMode) {
         viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.copy(positionX = x, positionY = y)
-            }
+            settingsCommand.setTouchMode(
+                mode = mode,
+                source = "ui_customize",
+                markPresetCustom = true,
+            )
         }
     }
 
-    // --- 有効/無効・起動関連 ---
+    fun updateTimerTimeMode(mode: TimerTimeMode) {
+        viewModelScope.launch {
+            settingsCommand.setTimerTimeMode(
+                mode = mode,
+                source = "ui_customize",
+                markPresetCustom = true,
+            )
+        }
+    }
+
+    fun updateTimerVisualTimeBasis(basis: TimerVisualTimeBasis) {
+        viewModelScope.launch {
+            settingsCommand.setTimerVisualTimeBasis(
+                basis = basis,
+                source = "ui_customize",
+                markPresetCustom = true,
+            )
+        }
+    }
+
+    fun updateGrowthMode(mode: TimerGrowthMode) =
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.GrowthMode,
+            newValueDescription = mode.name,
+        ) { copy(growthMode = mode) }
+
+    fun updateColorMode(mode: TimerColorMode) =
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.ColorMode,
+            newValueDescription = mode.name,
+        ) { copy(colorMode = mode) }
+
+    fun updateFixedColorArgb(argb: Int) =
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.FixedColorArgb,
+            newValueDescription = "0x${argb.toUInt().toString(16)}",
+        ) { copy(fixedColorArgb = argb) }
+
+    fun updateGradientStartColorArgb(argb: Int) =
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.GradientStartColorArgb,
+            newValueDescription = "0x${argb.toUInt().toString(16)}",
+        ) { copy(gradientStartColorArgb = argb) }
+
+    fun updateGradientMiddleColorArgb(argb: Int) =
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.GradientMiddleColorArgb,
+            newValueDescription = "0x${argb.toUInt().toString(16)}",
+        ) { copy(gradientMiddleColorArgb = argb) }
+
+    fun updateGradientEndColorArgb(argb: Int) =
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.GradientEndColorArgb,
+            newValueDescription = "0x${argb.toUInt().toString(16)}",
+        ) { copy(gradientEndColorArgb = argb) }
+
+    fun updateOverlayPosition(x: Int, y: Int) {
+        viewModelScope.launch {
+            settingsCommand.setOverlayPosition(
+                x = x,
+                y = y,
+                source = "ui_customize",
+                reason = "drag",
+                recordEvent = false,
+            )
+        }
+    }
+
+    // --- 有効化 / 自動起動 ---
 
     fun updateOverlayEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setOverlayEnabled(enabled)
-            eventRecorder.onSettingsChanged(
-                key = "overlayEnabled",
-                newValueDescription = enabled.toString(),
+            settingsCommand.setOverlayEnabled(
+                enabled = enabled,
+                source = "ui_customize",
             )
         }
     }
 
     fun updateAutoStartOnBoot(enabled: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setAutoStartOnBoot(enabled)
-            eventRecorder.onSettingsChanged(
-                key = "autoStartOnBoot",
-                newValueDescription = enabled.toString(),
+            settingsCommand.setAutoStartOnBoot(
+                enabled = enabled,
+                source = "ui_customize",
             )
         }
     }
 
-    // --- 提案機能（Suggestion） ---
+    // --- 提案設定 ---
 
-    fun updateSuggestionEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setSuggestionEnabled(enabled)
-            eventRecorder.onSettingsChanged(
-                key = "suggestionEnabled",
-                newValueDescription = enabled.toString(),
-            )
-        }
-    }
+    fun updateSuggestionEnabled(enabled: Boolean) =
+        updateSettingsWithoutPresetChange(
+            key = SettingsCommand.Keys.SuggestionEnabled,
+            newValueDescription = enabled.toString(),
+        ) { copy(suggestionEnabled = enabled) }
 
-    fun updateRestSuggestionEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setRestSuggestionEnabled(enabled)
-            eventRecorder.onSettingsChanged(
-                key = "restSuggestionEnabled",
-                newValueDescription = enabled.toString(),
-            )
-        }
-    }
+    fun updateRestSuggestionEnabled(enabled: Boolean) =
+        updateSettingsWithoutPresetChange(
+            key = SettingsCommand.Keys.RestSuggestionEnabled,
+            newValueDescription = enabled.toString(),
+        ) { copy(restSuggestionEnabled = enabled) }
 
     fun updateSuggestionTriggerSeconds(seconds: Int) =
-        updateSettingsAsCustom { copy(suggestionTriggerSeconds = seconds) }
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.SuggestionTriggerSeconds,
+            newValueDescription = seconds.toString(),
+        ) { copy(suggestionTriggerSeconds = seconds) }
 
     fun updateSuggestionForegroundStableSeconds(seconds: Int) =
-        updateSettingsAsCustom { copy(suggestionForegroundStableSeconds = seconds) }
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.SuggestionForegroundStableSeconds,
+            newValueDescription = seconds.toString(),
+        ) { copy(suggestionForegroundStableSeconds = seconds) }
 
     fun updateSuggestionCooldownSeconds(seconds: Int) =
-        updateSettingsAsCustom { copy(suggestionCooldownSeconds = seconds) }
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.SuggestionCooldownSeconds,
+            newValueDescription = seconds.toString(),
+        ) { copy(suggestionCooldownSeconds = seconds) }
 
     fun updateSuggestionTimeoutSeconds(seconds: Int) =
-        updateSettingsAsCustom { copy(suggestionTimeoutSeconds = seconds) }
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.SuggestionTimeoutSeconds,
+            newValueDescription = seconds.toString(),
+        ) { copy(suggestionTimeoutSeconds = seconds) }
 
-    fun updateSuggestionInteractionLockoutMillis(millis: Long) =
-        updateSettingsAsCustom { copy(suggestionInteractionLockoutMillis = millis) }
+    fun updateSuggestionInteractionLockoutMillis(ms: Long) =
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.SuggestionInteractionLockoutMillis,
+            newValueDescription = ms.toString(),
+        ) { copy(suggestionInteractionLockoutMillis = ms) }
 
-    // --- プリセット適用（部分プリセット） ---
+    // --- プリセット ---
 
-    /** フォントサイズのプリセットを適用（小さめ / ふつう / 大きめ） */
-    fun applyFontPreset(preset: FontPreset) {
-        viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.withFontPreset(preset)
-            }
-            settingsRepository.setSettingsPreset(CustomizePreset.Custom)
-            eventRecorder.onSettingsChanged(
-                key = "settingsPreset",
-                newValueDescription = CustomizePreset.Custom.name,
-            )
-        }
-    }
+    fun applyFontPreset(preset: FontPreset) =
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.FontPreset,
+            newValueDescription = preset.name,
+        ) { withFontPreset(preset) }
 
-    /** 最大サイズまでの時間プリセットを適用（速い / 普通 / ゆっくり） */
-    fun applyTimeToMaxPreset(preset: TimeToMaxPreset) {
-        viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.withTimeToMaxPreset(preset)
-            }
-            settingsRepository.setSettingsPreset(CustomizePreset.Custom)
-            eventRecorder.onSettingsChanged(
-                key = "settingsPreset",
-                newValueDescription = CustomizePreset.Custom.name,
-            )
-        }
-    }
+    fun applyTimeToMaxPreset(preset: TimeToMaxPreset) =
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.TimeToMaxPreset,
+            newValueDescription = preset.name,
+        ) { withTimeToMaxPreset(preset) }
 
-    /** グレース期間プリセットを適用（短め / ふつう / 長め） */
-    fun applyGracePreset(preset: GracePreset) {
-        viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.withGracePreset(preset)
-            }
-            settingsRepository.setSettingsPreset(CustomizePreset.Custom)
-            eventRecorder.onSettingsChanged(
-                key = "settingsPreset",
-                newValueDescription = CustomizePreset.Custom.name,
-            )
-        }
-    }
+    fun applyGracePreset(preset: GracePreset) =
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.GracePreset,
+            newValueDescription = preset.name,
+        ) { withGracePreset(preset) }
 
-    /** 提案トリガ時間プリセットを適用（短/中/長） */
-    fun applySuggestionTriggerPreset(preset: SuggestionTriggerPreset) {
-        viewModelScope.launch {
-            settingsRepository.updateOverlaySettings { current ->
-                current.withSuggestionTriggerPreset(preset)
-            }
-            settingsRepository.setSettingsPreset(CustomizePreset.Custom)
-            eventRecorder.onSettingsChanged(
-                key = "settingsPreset",
-                newValueDescription = CustomizePreset.Custom.name,
-            )
-        }
-    }
+    fun applySuggestionTriggerPreset(preset: SuggestionTriggerPreset) =
+        updateSettingsAsCustom(
+            key = SettingsCommand.Keys.SuggestionTriggerPreset,
+            newValueDescription = preset.name,
+        ) { withSuggestionTriggerPreset(preset) }
 
-    // --- 全体プリセット（Default / Debug / Custom） ---
-
-    /**
-     * 設定プリセットを適用する。
-     * - Default / Debug: CustomizePresetValues 由来の値に置き換え
-     * - Custom: 現在の値は維持しつつ、preset 種別だけ Custom にする
-     */
     fun applyPreset(preset: CustomizePreset) {
         viewModelScope.launch {
-            settingsRepository.applyPreset(preset)
-            eventRecorder.onSettingsChanged(
-                key = "settingsPreset",
-                newValueDescription = preset.name,
+            settingsCommand.applyPreset(
+                preset = preset,
+                source = "ui_customize",
             )
         }
     }
 
-    /**
-     * 値は変えずにプリセット種別だけ Custom にしたい場合。
-     * （ユーザーが個別項目を変更した直後に呼ぶなど）
-     */
     fun setPresetCustom() {
         viewModelScope.launch {
-            settingsRepository.setSettingsPreset(CustomizePreset.Custom)
+            settingsCommand.setSettingsPresetIfNeeded(
+                preset = CustomizePreset.Custom,
+                source = "ui_customize",
+                reason = "set_preset_custom",
+            )
         }
     }
 
