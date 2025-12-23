@@ -9,6 +9,7 @@ import com.example.refocus.config.SuggestionTriggerPreset
 import com.example.refocus.config.TimeToMaxPreset
 import com.example.refocus.core.model.CustomizePreset
 import com.example.refocus.core.model.TimerTouchMode
+import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.util.formatDurationMilliSecondsOrNull
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.ui.components.PresetOption
@@ -20,6 +21,7 @@ import com.example.refocus.ui.components.SettingRow
 fun BasicCustomizeContent(
     uiState: CustomizeViewModel.UiState,
     viewModel: CustomizeViewModel,
+    onOpenTimerTimeModeDialog: () -> Unit,
     onOpenAdvanced: () -> Unit,
 ) {
     val settings = uiState.customize
@@ -52,6 +54,16 @@ fun BasicCustomizeContent(
 
     // --- タイマー（プリセット） ---
     SectionCard(title = "タイマー") {
+        SettingRow(
+            title = "タイマーに表示する時間",
+            subtitle = when (settings.timerTimeMode) {
+                TimerTimeMode.SessionElapsed -> "現在: セッションの経過時間を表示します。"
+                TimerTimeMode.TodayThisTarget -> "現在: このアプリの今日の累計使用時間を表示します。"
+                TimerTimeMode.TodayAllTargets -> "現在: 全対象アプリの今日の累計使用時間を表示します。"
+            },
+            onClick = onOpenTimerTimeModeDialog,
+        )
+
         val dragEnabled = settings.touchMode == TimerTouchMode.Drag
         SettingRow(
             title = "タイマーのタッチ操作",

@@ -327,6 +327,14 @@ class OverlayService : LifecycleService() {
                 }
         }
 
+        serviceScope.launch {
+            settingsRepository.observeOverlaySettings()
+                .map { it.timerTimeMode }
+                .collect {
+                    notificationRefresh.tryEmit(Unit)
+                }
+        }
+
         // 1 秒ごとの経過時間更新
         serviceScope.launch {
             while (isActive) {
@@ -361,7 +369,7 @@ class OverlayService : LifecycleService() {
             )
         } else {
             val label = appLabelResolver.labelOf(pkg) ?: pkg
-            val elapsedMillis = overlayCoordinator.currentElapsedMillis() ?: 0L
+            val elapsedMillis = overlayCoordinator.currentTimerDisplayMillis() ?: 0L
             OverlayNotificationUiState(
                 isTracking = true,
                 trackingAppLabel = label,

@@ -149,6 +149,9 @@ fun CustomizeScreen(
                 BasicCustomizeContent(
                     uiState = uiState,
                     viewModel = viewModel,
+                    onOpenTimerTimeModeDialog = {
+                        activeDialog = CustomizeDialogType.TimerTimeDisplayMode
+                    },
                     onOpenAdvanced = { isAdvancedMode = true },
                 )
             } else {
@@ -163,7 +166,6 @@ fun CustomizeScreen(
                         activeDialog = CustomizeDialogType.FontRange
                     },
                     onOpenTimeToMaxDialog = { activeDialog = CustomizeDialogType.TimeToMax },
-                    onOpenTimerTimeModeDialog = { activeDialog = CustomizeDialogType.TimerTimeDisplayMode },
                     onOpenSuggestionTriggerDialog = {
                         activeDialog = CustomizeDialogType.SuggestionTriggerTime
                     },

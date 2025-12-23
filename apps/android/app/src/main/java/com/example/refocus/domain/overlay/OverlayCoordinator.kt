@@ -123,6 +123,9 @@ class OverlayCoordinator(
     @Volatile
     private var dailyUsageSnapshot: DailyUsageSnapshot? = null
 
+    @Volatile
+    private var dailyUsageRefreshJob: Job? = null
+
     private val stateMachine = OverlayStateMachine()
 
     // SettingsDataStore からの設定 Flow を shareIn して共有する
@@ -166,6 +169,54 @@ class OverlayCoordinator(
         val pkg = trackingPackageState.value ?: return null
         return sessionTracker.computeElapsedFor(pkg, timeSource.elapsedRealtime())
     }
+
+    /**
+     * 通知など、オーバーレイ表示以外から参照される「タイマー表示時間」。
+     * 現在の timerTimeMode に応じて、オーバーレイと同じ意味の時間を返す。
+     *
+     * - SessionElapsed: 現在の論理セッション経過時間
+     * - TodayThisTarget: このアプリの今日の累計使用時間
+     * - TodayAllTargets: 全対象アプリの今日の累計使用時間
+     */
+    fun currentTimerDisplayMillis(): Long? {
+        val pkg = trackingPackageState.value ?: return null
+        return when (overlayCustomize.timerTimeMode) {
+            TimerTimeMode.SessionElapsed -> {
+                sessionTracker.computeElapsedFor(pkg, timeSource.elapsedRealtime())
+            }
+
+            TimerTimeMode.TodayThisTarget -> {
+                requestDailyUsageSnapshotRefreshIfNeeded()
+                dailyUsageSnapshot?.perPackageMillis?.get(pkg) ?: 0L
+            }
+
+            TimerTimeMode.TodayAllTargets -> {
+                requestDailyUsageSnapshotRefreshIfNeeded()
+                dailyUsageSnapshot?.allTargetsMillis ?: 0L
+            }
+        }
+    }
+
+    private fun requestDailyUsageSnapshotRefreshIfNeeded() {
+        if (overlayCustomize.timerTimeMode == TimerTimeMode.SessionElapsed) return
+        val nowMillis = timeSource.nowMillis()
+        val existing = dailyUsageSnapshot
+        if (existing != null && nowMillis - existing.computedAtMillis < 1_000L) return
+
+        val job = dailyUsageRefreshJob
+        if (job != null && job.isActive) return
+
+        dailyUsageRefreshJob = scope.launch {
+            try {
+                refreshDailyUsageSnapshotIfNeeded(
+                    targetPackages = lastTargetPackages,
+                    nowMillis = nowMillis,
+                )
+            } catch (_: Exception) {
+            }
+        }
+    }
+
 
     /**
      * 現在計測中の論理セッションに対して、オーバーレイタイマーの表示をトグルする。
