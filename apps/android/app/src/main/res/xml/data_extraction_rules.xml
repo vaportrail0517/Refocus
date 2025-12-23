@@ -1,19 +1,18 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and Customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Refocus は「端末内完結」を要件とするため，Cloud Backup / Device-to-device transfer の対象を除外する．
+  Android 12 (API 31) 以降では dataExtractionRules が使われる．
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="file" path="." />
     </cloud-backup>
-    <!--
+
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
+        <exclude domain="device_file" path="." />
     </device-transfer>
-    -->
 </data-extraction-rules>
