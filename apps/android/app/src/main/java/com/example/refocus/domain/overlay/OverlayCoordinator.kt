@@ -459,6 +459,7 @@ class OverlayCoordinator(
 
             var lastForegroundRaw: String? = null
             var lastSample: ForegroundAppMonitor.ForegroundSample? = null
+            var lastScreenOn: Boolean? = null
 
             val tickFlow = tickerFlow(periodMs = 1_000L)
             combine(
@@ -471,7 +472,15 @@ class OverlayCoordinator(
             }.collect { (targets, sample, isScreenOn) ->
                 val foregroundRaw = sample.packageName
                 val foregroundPackage = if (isScreenOn) foregroundRaw else null
-                RefocusLog.d(TAG) { "combine: raw=$foregroundRaw, gen=${sample.generation}, screenOn=$isScreenOn, effective=$foregroundPackage, targets=$targets" }
+
+                // 1秒tickerでのcombineがあるため，ログは変化時に限定する
+                val shouldLog = foregroundRaw != lastForegroundRaw || isScreenOn != lastScreenOn
+                if (shouldLog) {
+                    RefocusLog.d(TAG) {
+                        "foreground: raw=$foregroundRaw, gen=${sample.generation}, screenOn=$isScreenOn, effective=$foregroundPackage, targets=$targets"
+                    }
+                    lastScreenOn = isScreenOn
+                }
 
                 if (foregroundRaw != lastForegroundRaw) {
                     lastForegroundRaw = foregroundRaw

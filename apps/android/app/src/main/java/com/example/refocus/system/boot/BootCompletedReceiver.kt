@@ -37,8 +37,15 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 }
 
                 val settings = settingsRepository.observeOverlaySettings().first()
+
                 if (!settings.autoStartOnBoot) {
                     RefocusLog.d("Boot") { "autoStartOnBoot=false → skip" }
+                    return@launch
+                }
+
+                // ユーザが OFF にしている場合は，端末再起動で勝手に起動しない
+                if (!settings.overlayEnabled) {
+                    RefocusLog.d("Boot") { "overlayEnabled=false → skip auto start" }
                     return@launch
                 }
 
@@ -46,12 +53,10 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 val hasCorePermissions = PermissionHelper.hasAllCorePermissions(context)
                 if (!hasCorePermissions) {
                     RefocusLog.d("Boot") { "missing core permissions (usage/overlay) → skip auto start" }
-                    // overlayEnabled を無理に true にしない
                     return@launch
                 }
 
-                // 再起動時自動起動が ON かつ 権限も揃っている場合のみ起動
-                settingsRepository.setOverlayEnabled(true)
+                // 再起動時自動起動が ON かつ overlayEnabled=true かつ 権限も揃っている場合のみ起動
                 RefocusLog.d("Boot") { "BOOT_COMPLETED → start OverlayService" }
                 context.startOverlayService()
             } catch (e: Exception) {

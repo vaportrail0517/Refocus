@@ -10,11 +10,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.data.repository.TargetsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -46,34 +48,39 @@ class AppListViewModel @Inject constructor(
 
     private fun load() {
         viewModelScope.launch {
-            val launchIntent = Intent(Intent.ACTION_MAIN).apply {
-                addCategory(Intent.CATEGORY_LAUNCHER)
-            }
-            val activities: List<ResolveInfo> = pm.queryIntentActivities(launchIntent, 0)
             val currentTargets = targetsRepository.observeTargets().first()
             selected.value = currentTargets
-            val usageMap = queryUsageTime()
-            val appList = activities
-                .filter { resolveInfo ->
-                    resolveInfo.activityInfo.packageName != selfPackageName
+
+            // パッケージ一覧取得・UsageStats照会・アイコン読み込みは重いので Main から退避する
+            val appList = withContext(Dispatchers.Default) {
+                val launchIntent = Intent(Intent.ACTION_MAIN).apply {
+                    addCategory(Intent.CATEGORY_LAUNCHER)
                 }
-                .map { info ->
-                    val label = info.loadLabel(pm).toString()
-                    val pkg = info.activityInfo.packageName
-                    val usage = usageMap[pkg] ?: 0L
-                    val icon = try {
-                        info.loadIcon(pm)
-                    } catch (e: Exception) {
-                        null
+                val activities: List<ResolveInfo> = pm.queryIntentActivities(launchIntent, 0)
+                val usageMap = queryUsageTime()
+                activities
+                    .filter { resolveInfo ->
+                        resolveInfo.activityInfo.packageName != selfPackageName
                     }
-                    AppUiModel(
-                        label = label,
-                        packageName = pkg,
-                        usageTimeMs = usage,
-                        isSelected = pkg in currentTargets,
-                        icon = icon
-                    )
-                }.sortedByDescending { it.usageTimeMs }
+                    .map { info ->
+                        val label = info.loadLabel(pm).toString()
+                        val pkg = info.activityInfo.packageName
+                        val usage = usageMap[pkg] ?: 0L
+                        val icon = try {
+                            info.loadIcon(pm)
+                        } catch (_: Exception) {
+                            null
+                        }
+                        AppUiModel(
+                            label = label,
+                            packageName = pkg,
+                            usageTimeMs = usage,
+                            isSelected = pkg in currentTargets,
+                            icon = icon
+                        )
+                    }
+                    .sortedByDescending { it.usageTimeMs }
+            }
 
             _apps.value = appList
         }

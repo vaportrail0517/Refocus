@@ -20,6 +20,7 @@ import com.example.refocus.core.util.TimeSource
 import com.example.refocus.ui.overlay.TimerOverlay
 import com.example.refocus.ui.theme.RefocusTheme
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -156,7 +157,8 @@ class TimerOverlayController(
         timerJob?.cancel()
 
         // コルーチンで 200ms ごとに displayMillis / visualMillis を更新
-        timerJob = scope.launch {
+        // Compose の state 更新は Main のみで行う（Snapshot 競合・不定クラッシュ回避）
+        timerJob = scope.launch(Dispatchers.Main.immediate) {
             while (isActive) {
                 val nowElapsed = timeSource.elapsedRealtime()
                 displayMillis = displayMillisProvider(nowElapsed).coerceAtLeast(0L)
