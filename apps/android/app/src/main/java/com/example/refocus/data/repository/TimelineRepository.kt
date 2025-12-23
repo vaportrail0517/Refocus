@@ -35,6 +35,33 @@ interface TimelineRepository {
         zoneId: ZoneId,
     ): List<TimelineEvent>
 
+    /**
+     * 指定区間のイベントを Flow で購読する。
+     *
+     * 大量データでの UI 劣化を避けるため，「全件購読」を基本禁止にし，
+     * 画面ごとに必要な期間だけ購読する。
+     */
+    fun observeEventsBetween(
+        startMillis: Long,
+        endMillis: Long,
+    ): Flow<List<TimelineEvent>>
+
+    /**
+     * ウィンドウ購読の起点より前の状態復元に使う「種イベント」を返す。
+     *
+     * 例：
+     * - ServiceLifecycle の直前状態
+     * - Screen の直前状態
+     * - ForegroundApp の直前状態
+     * - Permission の直前状態（permission kind ごと）
+     */
+    suspend fun getSeedEventsBefore(beforeMillis: Long): List<TimelineEvent>
+
+    /**
+     * 互換用（既存コードが残っている間だけ）。
+     * 新規コードでは observeEventsBetween を使う。
+     */
+    @Deprecated("全件購読は性能劣化の原因になるため，observeEventsBetween を使う")
     fun observeEvents(): Flow<List<TimelineEvent>>
 }
 
@@ -64,6 +91,44 @@ class TimelineRepositoryImpl(
         return getEvents(start, end)
     }
 
+    override fun observeEventsBetween(
+        startMillis: Long,
+        endMillis: Long,
+    ): Flow<List<TimelineEvent>> {
+        return dao.observeEventsBetween(startMillis, endMillis)
+            .map { list -> list.mapNotNull { it.toDomain() } }
+    }
+
+    override suspend fun getSeedEventsBefore(beforeMillis: Long): List<TimelineEvent> {
+        // 状態復元に必要な最小限の「直前イベント」を拾う。
+        // 完璧なスナップショットではなく，ウィンドウ購読の欠損を埋めるための保険。
+        val seedEntities = mutableListOf<TimelineEventEntity>()
+
+        dao.getLatestEventOfKindBefore(KIND_SERVICE, beforeMillis)?.let { seedEntities += it }
+        dao.getLatestEventOfKindBefore(KIND_SCREEN, beforeMillis)?.let { seedEntities += it }
+        dao.getLatestEventOfKindBefore(KIND_FOREGROUND_APP, beforeMillis)?.let { seedEntities += it }
+
+        // Permission は permissionKind ごとに直前 1 件が欲しい。
+        // SQL 側で group by するより，件数が小さいことを前提に Kotlin 側でユニーク化する。
+        val recentPerms = dao.getLatestEventsOfKindBefore(
+            kind = KIND_PERMISSION,
+            beforeMillis = beforeMillis,
+            limit = 32,
+        )
+        val pickedPermissionKinds = mutableSetOf<String>()
+        for (e in recentPerms) {
+            val k = e.permissionKind ?: continue
+            if (pickedPermissionKinds.add(k)) {
+                seedEntities += e
+            }
+        }
+
+        return seedEntities
+            .mapNotNull { it.toDomain() }
+            .sortedBy { it.timestampMillis }
+    }
+
+    @Deprecated("全件購読は性能劣化の原因になるため，observeEventsBetween を使う")
     override fun observeEvents(): Flow<List<TimelineEvent>> {
         return dao.observeAllEvents()
             .map { list -> list.mapNotNull { it.toDomain() } }

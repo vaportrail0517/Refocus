@@ -23,11 +23,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @HiltViewModel
@@ -39,6 +41,8 @@ class SessionHistoryViewModel @Inject constructor(
     private val foregroundAppMonitor: ForegroundAppMonitor,
     private val timeSource: TimeSource,
 ) : AndroidViewModel(application) {
+
+    private val historyLookbackMillis: Long = TimeUnit.DAYS.toMillis(30)
 
     data class PauseResumeUiModel(
         val pausedAtText: String,
@@ -72,13 +76,21 @@ class SessionHistoryViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            val nowMillis = timeSource.nowMillis()
+            val windowStart = (nowMillis - historyLookbackMillis).coerceAtLeast(0L)
+
             // foreground の Flow に初期値 null を付与
             val foregroundFlow = foregroundAppMonitor
                 .foregroundAppFlow(pollingIntervalMs = 1_000L)
                 .onStart { emit(null) }
 
             combine(
-                timelineRepository.observeEvents(),
+                timelineRepository
+                    .observeEventsBetween(windowStart, Long.MAX_VALUE)
+                    .mapLatest { windowEvents ->
+                        val seed = timelineRepository.getSeedEventsBefore(windowStart)
+                        (seed + windowEvents).sortedBy { it.timestampMillis }
+                    },
                 settingsRepository.observeOverlaySettings(),
                 targetsRepository.observeTargets(),
                 foregroundFlow,

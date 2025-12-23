@@ -15,9 +15,18 @@ import com.example.refocus.domain.session.SessionPartGenerator
 import com.example.refocus.domain.timeline.MonitoringPeriod
 import com.example.refocus.domain.timeline.MonitoringStateProjector
 import com.example.refocus.domain.timeline.SessionProjector
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.isActive
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -35,28 +44,64 @@ class DefaultStatsUseCase @Inject constructor(
     private val zoneId: ZoneId = ZoneId.systemDefault()
 
     /**
+     * 日次統計のために「日付境界を跨ぐセッション」や直前状態を拾うための巻き戻し幅。
+     *
+     * 大きすぎると集計コストが上がり，小さすぎると 0:00 直前開始のセッションが欠ける。
+     * 現状は安全側に倒して 36 時間とする。
+     */
+    private val statsLookbackMillis: Long = 36L * 60L * 60L * 1_000L
+
+    /**
+     * 日付変化を検知するための低頻度 ticker。
+     *
+     * UI 表示の「今日」が日付跨ぎで壊れないための保険であり，1 秒更新は意図していない。
+     */
+    private fun dayFlow(tickMillis: Long = 60_000L): Flow<LocalDate> =
+        flow {
+            while (currentCoroutineContext().isActive) {
+                emit(timeSource.nowMillis())
+                delay(tickMillis)
+            }
+        }
+            .onStart { emit(timeSource.nowMillis()) }
+            .map { millis ->
+                Instant.ofEpochMilli(millis).atZone(zoneId).toLocalDate()
+            }
+            .distinctUntilChanged()
+
+    /**
      * 今日 1 日分の統計を監視する Flow。
      *
      * タイムラインイベント / 設定 / 対象アプリが更新される度に再計算される。
      */
     fun observeTodayStats(): Flow<DailyStats?> =
         combine(
-            timelineRepository.observeEvents(),
             settingsRepository.observeOverlaySettings(),
             targetsRepository.observeTargets(),
-        ) { events, settings, targets ->
-            val nowMillis = timeSource.nowMillis()
-            val today = Instant.ofEpochMilli(nowMillis)
-                .atZone(zoneId)
-                .toLocalDate()
+            dayFlow(),
+        ) { settings, targets, today ->
+            Triple(settings, targets, today)
+        }.flatMapLatest { (settings, targets, today) ->
+            val startOfDay = today.atStartOfDay(zoneId).toInstant().toEpochMilli()
+            val endOfDayExclusive = today.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+            val windowStart = (startOfDay - statsLookbackMillis).coerceAtLeast(0L)
 
-            buildDailyStatsForDate(
-                date = today,
-                events = events,
-                customize = settings,
-                targets = targets,
-                nowMillis = nowMillis,
-            )
+            timelineRepository.observeEventsBetween(windowStart, endOfDayExclusive)
+                .mapLatest { windowEvents ->
+                    val seed = timelineRepository.getSeedEventsBefore(windowStart)
+                    val merged = mergeSeedAndWindow(seed, windowEvents)
+
+                    val nowMillis = timeSource.nowMillis()
+                    val nowMillisForDay = minOf(nowMillis, endOfDayExclusive)
+
+                    buildDailyStatsForDate(
+                        date = today,
+                        events = merged,
+                        customize = settings,
+                        targets = targets,
+                        nowMillis = nowMillisForDay,
+                    )
+                }
         }
 
     /**
@@ -75,9 +120,12 @@ class DefaultStatsUseCase @Inject constructor(
         val settings = settingsRepository.observeOverlaySettings().first()
         val targets = targetsRepository.observeTargets().first()
 
-        // その日より前に確定した状態（サービス稼働・権限・直前foreground等）も必要なので
-        // 0..endOfDay まで取って「その日の解釈」を構築する
-        val events = timelineRepository.getEvents(0L, endOfDayExclusive)
+        // その日より前に確定した状態（サービス稼働・権限・直前foreground等）を拾うため，
+        // 「日付境界を跨ぐ可能性がある範囲」だけ取得し，直前の状態イベントを seed として補う。
+        val windowStart = (startOfDay - statsLookbackMillis).coerceAtLeast(0L)
+        val seed = timelineRepository.getSeedEventsBefore(windowStart)
+        val windowEvents = timelineRepository.getEvents(windowStart, endOfDayExclusive)
+        val events = mergeSeedAndWindow(seed, windowEvents)
         if (events.isEmpty()) return null
 
         return buildDailyStatsForDate(
@@ -160,5 +208,16 @@ class DefaultStatsUseCase @Inject constructor(
             zoneId = zoneId,
             nowMillis = nowMillis,
         )
+    }
+
+    private fun mergeSeedAndWindow(
+        seedEvents: List<TimelineEvent>,
+        windowEvents: List<TimelineEvent>,
+    ): List<TimelineEvent> {
+        if (seedEvents.isEmpty()) return windowEvents
+        if (windowEvents.isEmpty()) return seedEvents
+        // seed は windowStart より前のみのため，単純連結で良い。
+        // 念のため時系列に整列する。
+        return (seedEvents + windowEvents).sortedBy { it.timestampMillis }
     }
 }
