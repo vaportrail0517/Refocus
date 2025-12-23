@@ -19,8 +19,8 @@ android {
         applicationId = "com.example.refocus"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6       // APK配布時に毎回インクリメント
-        versionName = "0.4.3" // (大きな区切り・互換性のない変更).(後方互換ありの機能追加).(バグ修正など)
+        versionCode = 7       // APK配布時に毎回インクリメント
+        versionName = "0.5.0" // (大きな区切り・互換性のない変更).(後方互換ありの機能追加).(バグ修正など)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
