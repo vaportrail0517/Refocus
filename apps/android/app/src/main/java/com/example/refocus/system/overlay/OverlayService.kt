@@ -40,6 +40,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
@@ -327,8 +329,15 @@ class OverlayService : LifecycleService() {
                 }
         }
 
+        val overlaySettingsShared = settingsRepository.observeOverlaySettings()
+            .shareIn(
+                scope = serviceScope,
+                started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+                replay = 1,
+            )
+
         serviceScope.launch {
-            settingsRepository.observeOverlaySettings()
+            overlaySettingsShared
                 .map { it.touchMode }
                 .collect { mode ->
                     notificationTouchMode = mode
@@ -337,7 +346,7 @@ class OverlayService : LifecycleService() {
         }
 
         serviceScope.launch {
-            settingsRepository.observeOverlaySettings()
+            overlaySettingsShared
                 .map { it.timerTimeMode }
                 .collect {
                     notificationRefresh.tryEmit(Unit)

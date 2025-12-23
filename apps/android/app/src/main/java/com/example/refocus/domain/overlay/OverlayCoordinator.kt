@@ -216,7 +216,8 @@ class OverlayCoordinator(
                     targetPackages = runtimeState.value.lastTargetPackages,
                     nowMillis = nowMillis,
                 )
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                RefocusLog.e(TAG, e) { "Failed to refresh daily usage snapshot" }
             }
         }
     }

@@ -160,16 +160,16 @@ class SettingsDataStore(
 
         val touchModeOrdinal = this[Keys.TOUCH_MODE] ?: base.touchMode.ordinal
         val touchMode = TimerTouchMode.entries.getOrNull(touchModeOrdinal)
-            ?: TimerTouchMode.Drag
+            ?: base.touchMode
 
         val timerTimeModeOrdinal = this[Keys.TIMER_TIME_MODE] ?: base.timerTimeMode.ordinal
         val timerTimeMode = TimerTimeMode.entries.getOrNull(timerTimeModeOrdinal)
-            ?: TimerTimeMode.SessionElapsed
+            ?: base.timerTimeMode
 
         val timerVisualTimeBasisOrdinal = this[Keys.TIMER_VISUAL_TIME_BASIS]
             ?: base.timerVisualTimeBasis.ordinal
         val timerVisualTimeBasis = TimerVisualTimeBasis.entries.getOrNull(timerVisualTimeBasisOrdinal)
-            ?: TimerVisualTimeBasis.SessionElapsed
+            ?: base.timerVisualTimeBasis
 
         return base.copy(
             gracePeriodMillis = this[Keys.GRACE_PERIOD_MS]

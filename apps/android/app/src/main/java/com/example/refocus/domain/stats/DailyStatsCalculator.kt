@@ -48,19 +48,20 @@ object DailyStatsCalculator {
         bucketSizeMinutes: Int = 30,
     ): DailyStats {
         // 1. この日に関係するセッション
+        val statsById = sessionStats.associateBy { it.id }
+
         val sessionsOnDate = sessions.filter { session ->
-            val stats = sessionStats.find { it.id == session.id } ?: return@filter false
+            val sessionId = session.id ?: return@filter false
+            val stats = statsById[sessionId] ?: return@filter false
             val startDate = Instant.ofEpochMilli(stats.startedAtMillis)
                 .atZone(zoneId).toLocalDate()
-            val endDate = stats.endedAtMillis?.let {
-                Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate()
-            } ?: startDate
+            val endMillisForDate = stats.endedAtMillis ?: nowMillis
+            val endDate = Instant.ofEpochMilli(endMillisForDate)
+                .atZone(zoneId).toLocalDate()
             !targetDate.isBefore(startDate) && !targetDate.isAfter(endDate)
         }
 
-        val statsOnDate = sessionStats.filter { stats ->
-            sessionsOnDate.any { it.id == stats.id }
-        }
+        val statsOnDate = sessionsOnDate.mapNotNull { it.id?.let(statsById::get) }
 
         val sessionCount = statsOnDate.size
         val averageDuration =
