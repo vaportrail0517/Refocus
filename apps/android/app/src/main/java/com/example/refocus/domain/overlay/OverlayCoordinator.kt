@@ -28,8 +28,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.isActive
@@ -378,9 +380,11 @@ class OverlayCoordinator(
         scope.launch {
             val targetsFlow = targetsRepository.observeTargets()
             val foregroundSampleFlow = customizeFlow
-                .flatMapLatest { settings ->
+                .map { it.pollingIntervalMillis }
+                .distinctUntilChanged()
+                .flatMapLatest { interval ->
                     foregroundAppMonitor.foregroundSampleFlow(
-                        pollingIntervalMs = settings.pollingIntervalMillis
+                        pollingIntervalMs = interval
                     )
                 }
             val screenOnFlow = screenOnState
@@ -814,7 +818,7 @@ class OverlayCoordinator(
 
     /**
      * まだ OverlaySessionTracker に state がないパッケージについて、
-     * 自前の Timeline + SessionProjector を使って
+     * 自前の Timeline SessionProjector を使って
      * 「今の設定に従った論理セッションの累積時間」を計算する。
      *
      * - 停止猶予時間を伸ばした結果、昔のセッションが「くっついて 1 本になった」場合、
