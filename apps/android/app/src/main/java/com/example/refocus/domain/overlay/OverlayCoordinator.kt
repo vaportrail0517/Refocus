@@ -1,6 +1,6 @@
 package com.example.refocus.domain.overlay
 
-import android.util.Log
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
@@ -247,7 +247,7 @@ class OverlayCoordinator(
     fun onScreenOff() {
         val nowMillis = timeSource.nowMillis()
         val nowElapsed = timeSource.elapsedRealtime()
-        Log.d(TAG, "onScreenOff: screen off event")
+        RefocusLog.d(TAG) { "onScreenOff: screen off event" }
         dispatchEvent(
             OverlayEvent.ScreenOff(
                 nowMillis = nowMillis,
@@ -302,7 +302,7 @@ class OverlayCoordinator(
             return
         }
         overlayState = newState
-        Log.d(TAG, "overlayState: $oldState -> $newState by $event")
+        RefocusLog.d(TAG) { "overlayState: $oldState -> $newState by $event" }
         handleStateChange(oldState, newState, event)
     }
 
@@ -372,7 +372,7 @@ class OverlayCoordinator(
             oldState is OverlayState.Disabled &&
                     newState is OverlayState.Idle &&
                     event is OverlayEvent.SettingsChanged -> {
-                Log.d(TAG, "Overlay re-enabled by customize")
+                RefocusLog.d(TAG) { "Overlay re-enabled by customize" }
             }
 
             else -> {
@@ -400,10 +400,7 @@ class OverlayCoordinator(
                     // 停止猶予時間が変わったかどうかを判定
                     val graceChanged = settings.gracePeriodMillis != oldSettings.gracePeriodMillis
                     if (graceChanged) {
-                        Log.d(
-                            TAG,
-                            "gracePeriodMillis changed: ${oldSettings.gracePeriodMillis} -> ${settings.gracePeriodMillis}"
-                        )
+                        RefocusLog.d(TAG) { "gracePeriodMillis changed: ${oldSettings.gracePeriodMillis} -> ${settings.gracePeriodMillis}" }
                         // 「今表示中のターゲット」について、変更後の停止猶予で論理セッションを再解釈して追従する
                         val pkg = overlayPackage
                         if (pkg != null && overlayState is OverlayState.Tracking && screenOnState.value) {
@@ -434,7 +431,7 @@ class OverlayCoordinator(
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "observeOverlaySettings failed", e)
+                RefocusLog.e(TAG, e) { "observeOverlaySettings failed" }
             }
         }
     }
@@ -474,10 +471,7 @@ class OverlayCoordinator(
             }.collect { (targets, sample, isScreenOn) ->
                 val foregroundRaw = sample.packageName
                 val foregroundPackage = if (isScreenOn) foregroundRaw else null
-                Log.d(
-                    TAG,
-                    "combine: raw=$foregroundRaw, gen=${sample.generation}, screenOn=$isScreenOn, effective=$foregroundPackage, targets=$targets"
-                )
+                RefocusLog.d(TAG) { "combine: raw=$foregroundRaw, gen=${sample.generation}, screenOn=$isScreenOn, effective=$foregroundPackage, targets=$targets" }
 
                 if (foregroundRaw != lastForegroundRaw) {
                     lastForegroundRaw = foregroundRaw
@@ -488,7 +482,7 @@ class OverlayCoordinator(
                             eventRecorder.onForegroundAppChanged(foregroundRaw)
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "Failed to record foreground app change: $foregroundRaw", e)
+                        RefocusLog.e(TAG, e) { "Failed to record foreground app change: $foregroundRaw" }
                     }
                 }
 
@@ -522,10 +516,7 @@ class OverlayCoordinator(
                                 packageName = foregroundRaw,
                                 nowElapsedRealtime = nowElapsed
                             )
-                            Log.d(
-                                TAG,
-                                "Foreground reconfirmed for $foregroundRaw -> reset stable timer only"
-                            )
+                            RefocusLog.d(TAG) { "Foreground reconfirmed for $foregroundRaw -> reset stable timer only" }
                         }
                     }
 
@@ -591,7 +582,7 @@ class OverlayCoordinator(
                         )
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error in startMonitoring loop", e)
+                    RefocusLog.e(TAG, e) { "Error in startMonitoring loop" }
                     withContext(Dispatchers.Main) {
                         uiController.hideTimer()
                         uiController.hideSuggestion()
@@ -733,7 +724,7 @@ class OverlayCoordinator(
                     current.copy(positionX = x, positionY = y)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to save overlay position", e)
+                RefocusLog.e(TAG, e) { "Failed to save overlay position" }
             }
         }
     }
@@ -836,7 +827,7 @@ class OverlayCoordinator(
 
         val pkg = overlayPackage
         if (pkg == null) {
-            Log.w(TAG, "handleSuggestionSnooze: overlayPackage=null; gate not updated")
+            RefocusLog.w(TAG) { "handleSuggestionSnooze: overlayPackage=null; gate not updated" }
             return
         }
 
@@ -844,9 +835,9 @@ class OverlayCoordinator(
         val elapsed = sessionTracker.computeElapsedFor(pkg, nowElapsed)
         if (elapsed != null) {
             sessionSuggestionGate = sessionSuggestionGate.copy(lastDecisionElapsedMillis = elapsed)
-            Log.d(TAG, "Suggestion decision recorded at sessionElapsed=$elapsed ms")
+            RefocusLog.d(TAG) { "Suggestion decision recorded at sessionElapsed=$elapsed ms" }
         } else {
-            Log.w(TAG, "handleSuggestionSnooze: no tracker state for $pkg; gate not updated")
+            RefocusLog.w(TAG) { "handleSuggestionSnooze: no tracker state for $pkg; gate not updated" }
         }
     }
 
@@ -863,7 +854,7 @@ class OverlayCoordinator(
                         decision = SuggestionDecision.Snoozed,
                     )
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to record SuggestionSnoozed for $pkg", e)
+                    RefocusLog.e(TAG, e) { "Failed to record SuggestionSnoozed for $pkg" }
                 }
             }
         }
@@ -883,7 +874,7 @@ class OverlayCoordinator(
                         decision = SuggestionDecision.Dismissed,
                     )
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to record SuggestionDismissed for $pkg", e)
+                    RefocusLog.e(TAG, e) { "Failed to record SuggestionDismissed for $pkg" }
                 }
             }
         }
@@ -903,7 +894,7 @@ class OverlayCoordinator(
                     decision = SuggestionDecision.DisabledForSession,
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to record SuggestionDisabledForSession for $packageName", e)
+                RefocusLog.e(TAG, e) { "Failed to record SuggestionDisabledForSession for $packageName" }
             }
         }
 
@@ -944,7 +935,7 @@ class OverlayCoordinator(
                 val hasSuggestion = selected != null
 
                 if (!hasSuggestion && !overlayCustomize.restSuggestionEnabled) {
-                    Log.d(TAG, "No suggestion and restSuggestion disabled, skip overlay")
+                    RefocusLog.d(TAG) { "No suggestion and restSuggestion disabled, skip overlay" }
                     return@launch
                 }
 
@@ -977,7 +968,7 @@ class OverlayCoordinator(
                     )
                 )
                 if (!shown) {
-                    Log.w(TAG, "Suggestion overlay was NOT shown (addView failed etc). Will retry.")
+                    RefocusLog.w(TAG) { "Suggestion overlay was NOT shown (addView failed etc). Will retry." }
                     return@launch
                 }
                 isSuggestionOverlayShown = true
@@ -988,10 +979,10 @@ class OverlayCoordinator(
                         suggestionId = suggestionId,
                     )
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to record SuggestionShown for $pkg", e)
+                    RefocusLog.e(TAG, e) { "Failed to record SuggestionShown for $pkg" }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to show suggestion overlay for $packageName", e)
+                RefocusLog.e(TAG, e) { "Failed to show suggestion overlay for $packageName" }
                 isSuggestionOverlayShown = false
                 currentSuggestionId = null
             } finally {

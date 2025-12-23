@@ -1,5 +1,7 @@
 package com.example.refocus.feature.home
 
+import android.app.Activity
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -83,6 +85,7 @@ fun HomeRoute(
     targetsViewModel: HomeViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val statsUiState = statsViewModel.uiState.collectAsStateWithLifecycle().value
@@ -92,19 +95,33 @@ fun HomeRoute(
 
     var usageGranted by remember { mutableStateOf(PermissionHelper.hasUsageAccess(context)) }
     var overlayGranted by remember { mutableStateOf(PermissionHelper.hasOverlayPermission(context)) }
+    var notificationGranted by remember {
+        mutableStateOf(
+            PermissionHelper.hasNotificationPermission(
+                context
+            )
+        )
+    }
     var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
 
     val hasCorePermissions = usageGranted && overlayGranted
+    val showNotificationWarning = hasCorePermissions && !notificationGranted
 
     // 画面復帰時に権限とサービス状態を更新
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                usageGranted = PermissionHelper.hasUsageAccess(context)
-                overlayGranted = PermissionHelper.hasOverlayPermission(context)
+                val latestUsageGranted = PermissionHelper.hasUsageAccess(context)
+                val latestOverlayGranted = PermissionHelper.hasOverlayPermission(context)
+                val latestNotificationGranted = PermissionHelper.hasNotificationPermission(context)
+
+                usageGranted = latestUsageGranted
+                overlayGranted = latestOverlayGranted
+                notificationGranted = latestNotificationGranted
                 isServiceRunning = OverlayService.isRunning
 
-                if (!hasCorePermissions) {
+                val latestHasCorePermissions = latestUsageGranted && latestOverlayGranted
+                if (!latestHasCorePermissions) {
                     val latest = customizeViewModel.uiState.value
                     if (latest.customize.overlayEnabled || isServiceRunning) {
                         customizeViewModel.updateOverlayEnabled(false)
@@ -149,9 +166,16 @@ fun HomeRoute(
             appLabelByPackage = statsUiState.appLabelByPackage,
             targetApps = targetApps,
             hasCorePermissions = hasCorePermissions,
+            showNotificationWarning = showNotificationWarning,
             innerPadding = innerPadding,
             onOpenStatsDetail = onOpenStatsDetail,
             onOpenPermissionFixFlow = onOpenPermissionFixFlow,
+            onOpenNotificationSettings = {
+                val a = activity
+                if (a != null) {
+                    PermissionHelper.openNotificationSettings(a)
+                }
+            },
             onOpenAppSelect = onOpenAppSelect,
         )
     }
@@ -201,9 +225,11 @@ private fun HomeContent(
     appLabelByPackage: Map<String, String>,
     targetApps: List<HomeViewModel.TargetAppUiModel>,
     hasCorePermissions: Boolean,
+    showNotificationWarning: Boolean,
     innerPadding: PaddingValues,
     onOpenStatsDetail: (StatsDetailSection) -> Unit,
     onOpenPermissionFixFlow: () -> Unit,
+    onOpenNotificationSettings: () -> Unit,
     onOpenAppSelect: () -> Unit,
 ) {
     LazyColumn(
@@ -214,10 +240,22 @@ private fun HomeContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            if (!hasCorePermissions) {
-                PermissionWarningCard(
-                    onClick = onOpenPermissionFixFlow,
-                )
+            if (!hasCorePermissions || showNotificationWarning) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    if (!hasCorePermissions) {
+                        PermissionWarningCard(
+                            onClick = onOpenPermissionFixFlow,
+                        )
+                    }
+                    if (showNotificationWarning) {
+                        NotificationWarningCard(
+                            onClick = onOpenNotificationSettings,
+                        )
+                    }
+                }
             }
         }
 
@@ -277,6 +315,45 @@ fun PermissionWarningCard(
         }
     }
 }
+
+@Composable
+fun NotificationWarningCard(
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Warning,
+                contentDescription = "通知が無効です",
+            )
+            Column {
+                Text(
+                    text = "通知が無効です",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = "通知が無効なので常駐通知は表示されません．サービスは動作します．タップして通知設定へ移動します．",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
+}
+
 
 /*
  * フォーカス

@@ -2,7 +2,7 @@ package com.example.refocus.system.overlay
 
 import android.content.Context
 import android.graphics.PixelFormat
-import android.util.Log
+import com.example.refocus.core.logging.RefocusLog
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -137,7 +137,7 @@ class TimerOverlayController(
         onPositionChanged: ((Int, Int) -> Unit)? = null
     ) {
         if (overlayView != null) {
-            Log.d("TimerOverlayController", "showTimer: already showing")
+            RefocusLog.d("TimerOverlay") { "showTimer: already showing" }
             return
         }
 
@@ -213,7 +213,15 @@ class TimerOverlayController(
         try {
             windowManager.addView(composeView, params)
         } catch (e: Exception) {
-            Log.e("TimerOverlayController", "showTimer: addView failed", e)
+            RefocusLog.e("TimerOverlay", e) { "showTimer: addView failed" }
+            // addView が失敗した場合は内部状態を巻き戻して，次回 showTimer が正常に動くようにする
+            overlayView = null
+            layoutParams = null
+            onPositionChangedCallback = null
+            timerJob?.cancel()
+            timerJob = null
+            displayMillis = 0L
+            visualMillis = 0L
         }
     }
 
@@ -230,9 +238,9 @@ class TimerOverlayController(
                 view.setContent { } // 空のコンテンツを set → 既存 Composition が dispose される
             }
             windowManager.removeView(view)
-            Log.d("TimerOverlayController", "hideTimer: removeView success")
+            RefocusLog.d("TimerOverlay") { "hideTimer: removeView success" }
         } catch (e: Exception) {
-            Log.e("TimerOverlayController", "hideTimer: removeView failed", e)
+            RefocusLog.e("TimerOverlay", e) { "hideTimer: removeView failed" }
         } finally {
             overlayView = null
             layoutParams = null

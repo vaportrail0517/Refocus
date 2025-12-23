@@ -5,7 +5,7 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.util.Log
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.util.TimeSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -67,7 +67,7 @@ class ForegroundAppMonitor(
         // よくある SystemUI のパッケージも念のため含めておく
         result += "com.android.systemui"
 
-        Log.d(TAG, "homePackages = $result")
+        RefocusLog.d("Foreground") { "homePackages = $result" }
         return result
     }
 
@@ -104,7 +104,7 @@ class ForegroundAppMonitor(
         initialLookbackMs: Long = 10_000L
     ): Flow<ForegroundSample> = flow {
         if (usageStatsManager == null) {
-            Log.w(TAG, "UsageStatsManager is null, cannot monitor foreground app")
+            RefocusLog.w("Foreground") { "UsageStatsManager is null, cannot monitor foreground app" }
             emit(ForegroundSample(packageName = null, generation = 0L))
             while (true) delay(pollingIntervalMs)
         }
@@ -172,9 +172,9 @@ UsageEvents.Event.ACTIVITY_PAUSED -> {
                         }
                     }
                 } catch (e: SecurityException) {
-                    Log.e(TAG, "queryEvents failed (missing Usage Access permission?)", e)
+                    RefocusLog.wRateLimited("Foreground", "queryEvents_security", 60_000L, e) { "queryEvents failed (missing Usage Access permission?)" }
                 } catch (e: Exception) {
-                    Log.e(TAG, "queryEvents failed", e)
+                    RefocusLog.wRateLimited("Foreground", "queryEvents_generic", 60_000L, e) { "queryEvents failed" }
                 }
             }
 // home-like 遷移を見たが BACKGROUND 取り逃がしが疑われる場合のフォールバック

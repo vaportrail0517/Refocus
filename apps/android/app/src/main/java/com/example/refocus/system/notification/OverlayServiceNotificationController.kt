@@ -10,7 +10,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Process
-import android.util.Log
+import com.example.refocus.core.logging.RefocusLog
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.refocus.R
@@ -60,7 +60,7 @@ class OverlayServiceNotificationController(
         } catch (e: SecurityException) {
             // POST_NOTIFICATIONS が拒否されている場合などは notify が失敗しうる．
             // Refocus は通知なしでも動作させる方針なので，例外は握りつぶす．
-            Log.w(TAG, "Failed to post notification (permission missing?)", e)
+            RefocusLog.wRateLimited("Notification", "post_failed", 60_000L, e) { "Failed to post notification (permission missing?)" }
         }
     }
 
@@ -69,7 +69,7 @@ class OverlayServiceNotificationController(
         try {
             NotificationManagerCompat.from(context).cancel(notificationId)
         } catch (e: SecurityException) {
-            Log.w(TAG, "Failed to cancel notification (permission missing?)", e)
+            RefocusLog.wRateLimited("Notification", "cancel_failed", 60_000L, e) { "Failed to cancel notification (permission missing?)" }
         }
     }
 

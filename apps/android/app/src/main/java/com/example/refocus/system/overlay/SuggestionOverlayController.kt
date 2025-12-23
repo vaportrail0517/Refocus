@@ -2,7 +2,7 @@ package com.example.refocus.system.overlay
 
 import android.content.Context
 import android.graphics.PixelFormat
-import android.util.Log
+import com.example.refocus.core.logging.RefocusLog
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -32,7 +32,7 @@ class SuggestionOverlayController(
         onDismissOnly: () -> Unit,
     ): Boolean {
         if (suggestionView != null) {
-            Log.d("SuggestionOverlayController", "showSuggestionOverlay: already showing")
+            RefocusLog.d("SuggestionOverlay") { "showSuggestionOverlay: already showing" }
             return true
         }
 
@@ -80,7 +80,7 @@ class SuggestionOverlayController(
             suggestionView = composeView
             return true
         } catch (e: Exception) {
-            Log.e("SuggestionOverlayController", "showSuggestionOverlay: addView failed", e)
+            RefocusLog.e("SuggestionOverlay", e) { "showSuggestionOverlay: addView failed" }
             suggestionView = null
             return false
         }
@@ -91,7 +91,7 @@ class SuggestionOverlayController(
         try {
             windowManager.removeView(view)
         } catch (e: Exception) {
-            Log.e("SuggestionOverlayController", "hideSuggestionOverlay: removeView failed", e)
+            RefocusLog.e("SuggestionOverlay", e) { "hideSuggestionOverlay: removeView failed" }
         } finally {
             suggestionView = null
         }

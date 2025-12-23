@@ -10,7 +10,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.service.quicksettings.TileService
-import android.util.Log
+import com.example.refocus.core.logging.RefocusLog
 import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
@@ -123,7 +123,7 @@ class OverlayService : LifecycleService() {
             when (intent.action) {
                 Intent.ACTION_SCREEN_OFF,
                 Intent.ACTION_SHUTDOWN -> {
-                    Log.d(TAG, "ACTION_SCREEN_OFF / SHUTDOWN received")
+                    RefocusLog.d("Service") { "ACTION_SCREEN_OFF / SHUTDOWN received" }
                     overlayCoordinator.setScreenOn(false)
                     overlayCoordinator.onScreenOff()
 
@@ -131,21 +131,21 @@ class OverlayService : LifecycleService() {
                         try {
                             eventRecorder.onScreenOff()
                         } catch (e: Exception) {
-                            Log.e(TAG, "Failed to record screen off event", e)
+                            RefocusLog.e("Service", e) { "Failed to record screen off event" }
                         }
                     }
                 }
 
                 Intent.ACTION_USER_PRESENT,
                 Intent.ACTION_SCREEN_ON -> {
-                    Log.d(TAG, "ACTION_USER_PRESENT / SCREEN_ON received")
+                    RefocusLog.d("Service") { "ACTION_USER_PRESENT / SCREEN_ON received" }
                     overlayCoordinator.setScreenOn(true)
 
                     lifecycleScope.launch {
                         try {
                             eventRecorder.onScreenOn()
                         } catch (e: Exception) {
-                            Log.e(TAG, "Failed to record screen on event", e)
+                            RefocusLog.e("Service", e) { "Failed to record screen on event" }
                         }
                     }
                 }
@@ -156,13 +156,13 @@ class OverlayService : LifecycleService() {
     override fun onCreate() {
         super.onCreate()
         isRunning = true
-        Log.d(TAG, "onCreate")
+        RefocusLog.d("Service") { "onCreate" }
 
         lifecycleScope.launch {
             try {
                 eventRecorder.onServiceStarted()
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to record service start event", e)
+                RefocusLog.e("Service", e) { "Failed to record service start event" }
             }
         }
 
@@ -203,7 +203,7 @@ class OverlayService : LifecycleService() {
         requestTileStateRefresh()
 
         if (!canRunOverlay()) {
-            Log.w(TAG, "canRunOverlay = false. stopSelf()")
+            RefocusLog.w("Service") { "canRunOverlay = false. stopSelf()" }
             lifecycleScope.launch {
                 try {
                     settingsRepository.setOverlayEnabled(false)
@@ -243,7 +243,7 @@ class OverlayService : LifecycleService() {
                             )
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "Failed to toggle touch mode", e)
+                        RefocusLog.e("Service", e) { "Failed to toggle touch mode" }
                     }
                 }
             }
@@ -257,7 +257,7 @@ class OverlayService : LifecycleService() {
                 try {
                     eventRecorder.onServiceStopped()
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to record service stop event", e)
+                    RefocusLog.e("Service", e) { "Failed to record service stop event" }
                 }
             }
         }
@@ -383,9 +383,9 @@ class OverlayService : LifecycleService() {
             notificationController.notify(NOTIFICATION_ID, state)
         } catch (e: SecurityException) {
             // Android 13+ で通知権限が拒否されている場合など
-            Log.w(TAG, "Notification update blocked", e)
+            RefocusLog.w("Service", e) { "Notification update blocked" }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to update notification", e)
+            RefocusLog.e("Service", e) { "Failed to update notification" }
         }
     }
 
@@ -421,7 +421,7 @@ class OverlayService : LifecycleService() {
 
     private fun canRunOverlay(): Boolean {
         val hasCore = PermissionHelper.hasAllCorePermissions(this)
-        Log.d(TAG, "canRunOverlay: hasCore=$hasCore")
+        RefocusLog.d("Service") { "canRunOverlay: hasCore=$hasCore" }
         return hasCore
     }
 
@@ -455,7 +455,7 @@ class OverlayService : LifecycleService() {
         try {
             unregisterReceiver(screenReceiver)
         } catch (e: IllegalArgumentException) {
-            Log.w(TAG, "unregisterScreenReceiver failed", e)
+            RefocusLog.w("Service", e) { "unregisterScreenReceiver failed" }
         }
         screenReceiverRegistered = false
     }

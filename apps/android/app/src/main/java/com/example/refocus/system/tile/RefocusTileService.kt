@@ -6,7 +6,7 @@ import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import android.util.Log
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.app.MainActivity
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.system.overlay.OverlayService
@@ -43,7 +43,7 @@ class RefocusTileService : TileService() {
 
         val context = applicationContext
         if (!PermissionHelper.hasAllCorePermissions(context)) {
-            Log.d(TAG, "Core permissions missing. Open app.")
+            RefocusLog.d(TAG) { "Core permissions missing. Open app." }
             openApp()
             return
         }
@@ -54,7 +54,7 @@ class RefocusTileService : TileService() {
                 try {
                     settingsRepository.setOverlayEnabled(false)
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to set overlayEnabled=false", e)
+                    RefocusLog.e(TAG, e) { "Failed to set overlayEnabled=false" }
                 }
                 context.stopOverlayService()
                 // サービスの onDestroy より先に UI を更新できるように，期待値で反映する．
@@ -65,7 +65,7 @@ class RefocusTileService : TileService() {
                 try {
                     settingsRepository.setOverlayEnabled(true)
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to set overlayEnabled=true", e)
+                    RefocusLog.e(TAG, e) { "Failed to set overlayEnabled=true" }
                 }
                 context.startOverlayService()
                 // startForegroundService 直後は isRunning の更新が遅れる可能性があるため，期待値で反映する．

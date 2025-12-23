@@ -1,9 +1,9 @@
 package com.example.refocus.app.navigation
 
 import android.app.Activity
-import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import com.example.refocus.core.logging.RefocusLog
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -139,7 +139,7 @@ fun RefocusNavHost(
                     activity?.finishAffinity()
                 },
                 onOpenApp = {
-                    Log.d("NavGraphs", "ONBOARDING_FINISH onOpenApp → startOverlayService")
+                    RefocusLog.d("NavGraphs") { "ONBOARDING_FINISH onOpenApp → startOverlayService" }
                     context.startOverlayService()
                     navController.navigate(Destinations.HOME) {
                         popUpTo(Destinations.APP_SELECT) { inclusive = true }
