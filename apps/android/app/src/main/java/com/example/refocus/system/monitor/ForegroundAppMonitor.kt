@@ -27,6 +27,11 @@ class ForegroundAppMonitor(
 
     companion object {
         private const val TAG = "ForegroundAppMonitor"
+
+        // home-like（Launcher / SystemUI）への遷移を見たとき，
+        // MOVE_TO_BACKGROUND を取り逃がしていても前面判定が古いまま残り続けないようにするための確認猶予．
+        // 短すぎると通知シェード操作などで不要に null になりやすい．
+        private const val HOME_LIKE_CONFIRM_DELAY_MS: Long = 1_200L
     }
 
     /**
@@ -110,6 +115,23 @@ class ForegroundAppMonitor(
         val events = UsageEvents.Event()
         var currentTop: String? = null
         var generation: Long = 0L
+
+// home-like 遷移を観測した後，短時間だけ「離脱確定」を待つための pending．
+// pending 中に別の通常アプリが RESUMED / FOREGROUND されたらキャンセルする．
+var pendingNullAtMillis: Long? = null
+var pendingNullForTop: String? = null
+
+fun clearPendingNull() {
+    pendingNullAtMillis = null
+    pendingNullForTop = null
+}
+
+fun schedulePendingNull(nowMillis: Long) {
+    if (pendingNullAtMillis != null) return
+    if (currentTop == null) return
+    pendingNullAtMillis = nowMillis + HOME_LIKE_CONFIRM_DELAY_MS
+    pendingNullForTop = currentTop
+}
         while (true) {
             val now = timeSource.nowMillis()
             val usm = usageStatsManager
@@ -120,24 +142,29 @@ class ForegroundAppMonitor(
                         usageEvents.getNextEvent(events)
                         val pkg = events.packageName ?: continue
                         when (events.eventType) {
-                            UsageEvents.Event.MOVE_TO_FOREGROUND -> {
-                                // SystemUI / Launcher が「前面」として出ることがあるが、
-                                // それは通知シェードやオーバーレイ操作などで
-                                // 実際のアプリが BACKGROUND に落ちていないケースを含む。
-                                // ここで currentTop を null にすると誤判定でタイマーが消えるため、
-                                // home-like は currentTop を上書きしない（離脱確定は BACKGROUND 側で判定）。
-                                if (!isHomeLikePackage(pkg)) {
-                                    currentTop = pkg
-                                    generation += 1L
-                                }
-                            }
+                            UsageEvents.Event.MOVE_TO_FOREGROUND,
+UsageEvents.Event.ACTIVITY_RESUMED -> {
+    // SystemUI / Launcher が「前面」として出ることがある．
+    // ただし，ここで即座に currentTop=null にすると通知シェード等で誤判定しやすい．
+    // そのため home-like は「pending を立てる」だけにして，
+    // 短い猶予後も別アプリへの遷移が見えなければ null へフォールバックする．
+    if (isHomeLikePackage(pkg)) {
+        schedulePendingNull(now)
+    } else {
+        clearPendingNull()
+        currentTop = pkg
+        generation += 1L
+    }
+}
 
-                            UsageEvents.Event.MOVE_TO_BACKGROUND -> {
-                                // いま前面扱いしているアプリが BACKGROUND に落ちたら前面なし
-                                if (pkg == currentTop) {
-                                    currentTop = null
-                                }
-                            }
+                            UsageEvents.Event.MOVE_TO_BACKGROUND,
+UsageEvents.Event.ACTIVITY_PAUSED -> {
+    // いま前面扱いしているアプリが BACKGROUND に落ちたら前面なし
+    if (pkg == currentTop) {
+        clearPendingNull()
+        currentTop = null
+    }
+}
 
                             else -> {
                                 // それ以外のイベントは無視
@@ -150,6 +177,16 @@ class ForegroundAppMonitor(
                     Log.e(TAG, "queryEvents failed", e)
                 }
             }
+// home-like 遷移を見たが BACKGROUND 取り逃がしが疑われる場合のフォールバック
+val pendingAt = pendingNullAtMillis
+val pendingFor = pendingNullForTop
+if (pendingAt != null && pendingFor != null && now >= pendingAt) {
+    if (currentTop == pendingFor) {
+        currentTop = null
+    }
+    clearPendingNull()
+}
+
             lastCheckedTime = now
             val sample = ForegroundSample(packageName = currentTop, generation = generation)
             if (lastEmitted == null || sample != lastEmitted) {
