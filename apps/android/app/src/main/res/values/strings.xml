@@ -8,14 +8,14 @@
     <string name="notification_text_waiting">対象アプリを監視中</string>
     <string name="notification_title_tracking">%1$sを計測中</string>
     <string name="notification_text_elapsed">経過 %1$s</string>
-    <string name="notification_line_overlay_visible">オーバーレイ: 表示中</string>
-    <string name="notification_line_overlay_hidden">オーバーレイ: 非表示（このセッション）</string>
+    <string name="notification_line_overlay_visible">タイマー: 表示中</string>
+    <string name="notification_line_overlay_hidden">タイマー: 非表示（このセッション）</string>
     <string name="notification_line_touch_mode_drag">表示モード: ドラッグ</string>
     <string name="notification_line_touch_mode_passthrough">表示モード: 透過</string>
 
     <string name="notification_action_stop">停止</string>
-    <string name="notification_action_hide_timer">オーバーレイを非表示にする（このセッション）</string>
-    <string name="notification_action_show_timer">オーバーレイを表示する</string>
+    <string name="notification_action_hide_timer">タイマーを非表示</string>
+    <string name="notification_action_show_timer">タイマーを表示</string>
     <string name="notification_action_toggle_touch_mode">表示モード切替</string>
 
     <string name="qs_tile_refocus_label">Refocus</string>
