@@ -10,6 +10,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
+    <!-- Android 13+ の通知権限（任意） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
@@ -42,12 +45,26 @@
             android:name=".system.overlay.OverlayService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:foregroundServiceType="specialUse">
 
-        <!-- ★ specialUse のサブタイプ: 任意の文字列で OK（Play Console 申請と対応させる） -->
-        <property
-            android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-            android:value="overlay_usage_timer" />
+            <!-- Android 14+ specialUse: サブタイプ（Play Consoleの申請内容と対応させる） -->
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="overlay_usage_timer" />
+        </service>
+
+        <!-- クイック設定タイル（起動・停止） -->
+        <service
+            android:name=".system.tile.RefocusTileService"
+            android:exported="true"
+            android:label="@string/qs_tile_refocus_label"
+            android:icon="@drawable/ic_qs_refocus"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
 
         <receiver
             android:name=".system.boot.BootCompletedReceiver"

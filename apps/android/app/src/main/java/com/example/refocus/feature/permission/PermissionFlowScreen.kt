@@ -1,7 +1,10 @@
 package com.example.refocus.feature.permission
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
@@ -10,6 +13,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -19,10 +23,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.refocus.system.permissions.PermissionHelper
 import com.example.refocus.ui.components.OnboardingPage
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 
 enum class PermissionType {
     UsageAccess,
     Overlay,
+    Notifications,
 }
 
 data class PermissionStep(
@@ -32,11 +39,7 @@ data class PermissionStep(
 /**
  * コア権限（Usage / Overlay）を順番に案内するフロー。
  *
- * 利用箇所:
- * - オンボーディング中: [com.example.refocus.app.navigation.Destinations.PERMISSION_FLOW]
- * - 設定からの権限修復: [com.example.refocus.app.navigation.Destinations.PERMISSION_FLOW_FIX]
- *
- * onFlowFinished の遷移先だけを呼び出し側で変えることで、同じ UI を再利用する。
+ * 追加で Android 13+ では通知権限（任意）も案内する。
  */
 @Composable
 fun PermissionFlowScreen(
@@ -47,10 +50,13 @@ fun PermissionFlowScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val steps = remember {
-        listOf(
-            PermissionStep(PermissionType.UsageAccess),
-            PermissionStep(PermissionType.Overlay)
-        )
+        buildList {
+            add(PermissionStep(PermissionType.UsageAccess))
+            add(PermissionStep(PermissionType.Overlay))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(PermissionStep(PermissionType.Notifications))
+            }
+        }
     }
 
     var currentIndex by remember { mutableIntStateOf(0) }
@@ -95,8 +101,6 @@ fun PermissionFlowScreen(
         }
     }
 
-    // ここから UI 部分（権限ごとにページを分割）
-
     when (currentStep.type) {
         PermissionType.UsageAccess -> {
             UsageAccessPermissionPage(
@@ -127,8 +131,38 @@ fun PermissionFlowScreen(
                 }
             )
         }
-    }
 
+        PermissionType.Notifications -> {
+            val requestLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestPermission(),
+                onResult = { granted ->
+                    if (granted) {
+                        moveToNextStep(
+                            stepsSize = steps.size,
+                            currentIndex = currentIndex,
+                            setIndex = { currentIndex = it }
+                        )
+                    }
+                }
+            )
+
+            NotificationPermissionPage(
+                onRequestPermission = {
+                    requestLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                },
+                onOpenSettings = {
+                    PermissionHelper.openNotificationSettings(activity)
+                },
+                onSkip = {
+                    moveToNextStep(
+                        stepsSize = steps.size,
+                        currentIndex = currentIndex,
+                        setIndex = { currentIndex = it }
+                    )
+                }
+            )
+        }
+    }
 }
 
 @Composable
@@ -144,7 +178,7 @@ private fun UsageAccessPermissionPage(
         secondaryButtonText = "あとで設定する",
         onSecondaryClick = onSkip
     ) {
-        Spacer(modifier = Modifier.Companion.height(24.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         PermissionDetailCard(
             title = "使用状況アクセスの設定手順",
@@ -171,7 +205,7 @@ private fun OverlayPermissionPage(
         secondaryButtonText = "あとで設定する",
         onSecondaryClick = onSkip
     ) {
-        Spacer(modifier = Modifier.Companion.height(24.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         PermissionDetailCard(
             title = "オーバーレイ表示の設定手順",
@@ -185,15 +219,50 @@ private fun OverlayPermissionPage(
     }
 }
 
+@Composable
+private fun NotificationPermissionPage(
+    onRequestPermission: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onSkip: () -> Unit
+) {
+    OnboardingPage(
+        title = "通知（任意）",
+        description = "Refocus の常駐通知を表示するために必要です。通知を許可すると、計測中のアプリ名や経過時間、操作ボタンを通知から使えます。",
+        primaryButtonText = "通知を許可する",
+        onPrimaryClick = onRequestPermission,
+        secondaryButtonText = "あとで設定する",
+        onSecondaryClick = onSkip
+    ) {
+        Spacer(modifier = Modifier.height(24.dp))
+
+        PermissionDetailCard(
+            title = "通知の設定について",
+            steps = listOf(
+                "この権限は任意です（Refocus 自体は動作します）。",
+                "拒否した場合でも、あとから設定画面の「通知」から許可できます。",
+                "許可できない場合は次のボタンから通知設定を確認してください。"
+            )
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        TextButton(onClick = onOpenSettings) {
+            Text(text = "通知設定を開く")
+        }
+    }
+}
 
 private fun allPermissionsGranted(context: Context): Boolean {
-    return PermissionHelper.hasAllCorePermissions(context)
+    val coreGranted = PermissionHelper.hasAllCorePermissions(context)
+    val notifGranted = PermissionHelper.hasNotificationPermission(context)
+    return coreGranted && notifGranted
 }
 
 private fun isGranted(context: Context, type: PermissionType): Boolean =
     when (type) {
         PermissionType.UsageAccess -> PermissionHelper.hasUsageAccess(context)
         PermissionType.Overlay -> PermissionHelper.hasOverlayPermission(context)
+        PermissionType.Notifications -> PermissionHelper.hasNotificationPermission(context)
     }
 
 private fun moveToNextStep(

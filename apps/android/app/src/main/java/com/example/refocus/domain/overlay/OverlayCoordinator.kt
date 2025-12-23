@@ -28,8 +28,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.isActive
@@ -121,12 +123,55 @@ class OverlayCoordinator(
 
     val screenOnFlow: StateFlow<Boolean> get() = screenOnState
 
+
+    private val trackingPackageState = MutableStateFlow<String?>(null)
+    val trackingPackageFlow: StateFlow<String?> get() = trackingPackageState
+
+    private val timerVisibleState = MutableStateFlow(false)
+    val timerVisibleFlow: StateFlow<Boolean> get() = timerVisibleState
+
+    /**
+     * 「この論理セッションだけ」オーバーレイタイマーを非表示にするためのフラグ。
+     * キーは packageName。
+     */
+    private val timerSuppressedForSession: MutableMap<String, Boolean> = mutableMapOf()
+
     /**
      * 外側から「画面ON/OFF」を伝えるためのメソッド。
      * BroadcastReceiver 側から呼ばれる。
      */
     fun setScreenOn(isOn: Boolean) {
         screenOnState.value = isOn
+    }
+
+
+    fun currentTrackingPackage(): String? = trackingPackageState.value
+
+    fun currentElapsedMillis(): Long? {
+        val pkg = trackingPackageState.value ?: return null
+        return sessionTracker.computeElapsedFor(pkg, timeSource.elapsedRealtime())
+    }
+
+    /**
+     * 現在計測中の論理セッションに対して、オーバーレイタイマーの表示をトグルする。
+     *
+     * 戻り値: トグル後に「表示」なら true。
+     */
+    @Synchronized
+    fun toggleTimerVisibilityForCurrentSession(): Boolean {
+        val pkg = overlayPackage ?: return false
+        val suppressed = timerSuppressedForSession[pkg] == true
+        val newSuppressed = !suppressed
+        timerSuppressedForSession[pkg] = newSuppressed
+
+        return if (newSuppressed) {
+            uiController.hideTimer()
+            timerVisibleState.value = false
+            false
+        } else {
+            showTimerForPackage(pkg)
+            true
+        }
     }
 
     /**
@@ -144,6 +189,8 @@ class OverlayCoordinator(
         )
         // 現在の前面アプリ情報はリセット
         currentForegroundPackage = null
+        trackingPackageState.value = null
+        timerVisibleState.value = false
     }
 
     /**
@@ -166,6 +213,9 @@ class OverlayCoordinator(
         overlayState = OverlayState.Idle
         currentForegroundPackage = null
         overlayPackage = null
+        trackingPackageState.value = null
+        timerVisibleState.value = false
+        timerSuppressedForSession.clear()
         sessionSuggestionGate = SessionSuggestionGate()
         // オーバーレイ用セッションもクリア
         sessionTracker.clear()
@@ -240,10 +290,13 @@ class OverlayCoordinator(
             // 何らかの理由で Disabled に落ちたとき（overlayEnabled=false など）
             newState is OverlayState.Disabled -> {
                 overlayPackage = null
+                trackingPackageState.value = null
+                timerVisibleState.value = false
                 uiController.hideTimer()
                 uiController.hideSuggestion()
                 clearSuggestionOverlayState()
 
+                timerSuppressedForSession.clear()
                 sessionTracker.clear()
                 sessionSuggestionGate = SessionSuggestionGate()
             }
@@ -327,9 +380,11 @@ class OverlayCoordinator(
         scope.launch {
             val targetsFlow = targetsRepository.observeTargets()
             val foregroundSampleFlow = customizeFlow
-                .flatMapLatest { settings ->
+                .map { it.pollingIntervalMillis }
+                .distinctUntilChanged()
+                .flatMapLatest { interval ->
                     foregroundAppMonitor.foregroundSampleFlow(
-                        pollingIntervalMs = settings.pollingIntervalMillis
+                        pollingIntervalMs = interval
                     )
                 }
             val screenOnFlow = screenOnState
@@ -503,18 +558,20 @@ class OverlayCoordinator(
             // セッション開始時のゲートは「投影された論理セッションが継続ならそのゲートを引き継ぐ」
             sessionSuggestionGate =
                 if (bootstrap?.isOngoingSession == true) bootstrap.gate else SessionSuggestionGate()
+
+            // 「このセッションのみ非表示」フラグは新規セッション開始時にリセットする
+            timerSuppressedForSession[packageName] = false
         }
 
         overlayPackage = packageName
+        trackingPackageState.value = packageName
 
-        val elapsedProvider: (Long) -> Long = { nowElapsedRealtime ->
-            sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
+        if (isTimerSuppressedForCurrentSession(packageName)) {
+            timerVisibleState.value = false
+            uiController.hideTimer()
+        } else {
+            showTimerForPackage(packageName)
         }
-
-        uiController.showTimer(
-            elapsedMillisProvider = elapsedProvider,
-            onPositionChanged = ::onOverlayPositionChanged
-        )
     }
 
 
@@ -526,6 +583,8 @@ class OverlayCoordinator(
         // 先にオーバーレイを閉じる
         if (overlayPackage == packageName) {
             overlayPackage = null
+            trackingPackageState.value = null
+            timerVisibleState.value = false
             uiController.hideTimer()
             uiController.hideSuggestion()
             clearSuggestionOverlayState()
@@ -536,6 +595,22 @@ class OverlayCoordinator(
 
         // ここでは suggestionDisabledForCurrentSession はリセットしない
         //    （猶予時間内の一時離脱は同一セッション扱いにしたい）
+    }
+
+
+    private fun showTimerForPackage(packageName: String) {
+        val elapsedProvider: (Long) -> Long = { nowElapsedRealtime ->
+            sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
+        }
+        timerVisibleState.value = true
+        uiController.showTimer(
+            elapsedMillisProvider = elapsedProvider,
+            onPositionChanged = ::onOverlayPositionChanged
+        )
+    }
+
+    private fun isTimerSuppressedForCurrentSession(packageName: String): Boolean {
+        return timerSuppressedForSession[packageName] == true
     }
 
 
@@ -743,7 +818,7 @@ class OverlayCoordinator(
 
     /**
      * まだ OverlaySessionTracker に state がないパッケージについて、
-     * 自前の Timeline + SessionProjector を使って
+     * 自前の Timeline SessionProjector を使って
      * 「今の設定に従った論理セッションの累積時間」を計算する。
      *
      * - 停止猶予時間を伸ばした結果、昔のセッションが「くっついて 1 本になった」場合、

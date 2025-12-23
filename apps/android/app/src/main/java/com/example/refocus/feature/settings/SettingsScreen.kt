@@ -2,6 +2,10 @@ package com.example.refocus.feature.settings
 
 import android.app.Activity
 import android.content.Context
+import android.Manifest
+import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -54,9 +58,17 @@ fun SettingsScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var usageGranted by remember { mutableStateOf(PermissionHelper.hasUsageAccess(context)) }
     var overlayGranted by remember { mutableStateOf(PermissionHelper.hasOverlayPermission(context)) }
+    var notificationGranted by remember { mutableStateOf(PermissionHelper.hasNotificationPermission(context)) }
     var activeDialog by remember { mutableStateOf<SettingsDialogType?>(null) }
     var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
     val hasCorePermissions = usageGranted && overlayGranted
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { _ ->
+            notificationGranted = PermissionHelper.hasNotificationPermission(context)
+        }
+    )
 
     // 画面復帰時に権限状態を更新
     DisposableEffect(lifecycleOwner) {
@@ -64,6 +76,7 @@ fun SettingsScreen(
             if (event == Lifecycle.Event.ON_RESUME) {
                 usageGranted = PermissionHelper.hasUsageAccess(context)
                 overlayGranted = PermissionHelper.hasOverlayPermission(context)
+                notificationGranted = PermissionHelper.hasNotificationPermission(context)
                 isServiceRunning = OverlayService.isRunning
                 val corePermissions = usageGranted && overlayGranted
                 if (!corePermissions) {
@@ -122,6 +135,7 @@ fun SettingsScreen(
                 uiState = uiState,
                 usageGranted = usageGranted,
                 overlayGranted = overlayGranted,
+                notificationGranted = notificationGranted,
                 hasCorePermissions = hasCorePermissions,
                 isServiceRunning = isServiceRunning,
                 onServiceRunningChange = { isServiceRunning = it },
@@ -130,6 +144,14 @@ fun SettingsScreen(
                     activeDialog = SettingsDialogType.CorePermissionRequired
                 },
                 onResetAllData = { activeDialog = SettingsDialogType.AppDataReset },
+                onRequestNotificationPermission = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                },
+                onOpenNotificationSettings = {
+                    activity?.let { PermissionHelper.openNotificationSettings(it) }
+                },
                 viewModel = viewModel,
                 context = context,
                 activity = activity,
@@ -174,12 +196,15 @@ fun SettingsContent(
     uiState: SettingsViewModel.UiState,
     usageGranted: Boolean,
     overlayGranted: Boolean,
+    notificationGranted: Boolean,
     hasCorePermissions: Boolean,
     isServiceRunning: Boolean,
     onServiceRunningChange: (Boolean) -> Unit,
     onOpenAppSelect: () -> Unit,
     onRequireCorePermission: () -> Unit,
     onResetAllData: () -> Unit,
+    onRequestNotificationPermission: () -> Unit,
+    onOpenNotificationSettings: () -> Unit,
     viewModel: SettingsViewModel,
     context: Context,
     activity: Activity?,
@@ -216,6 +241,25 @@ fun SettingsContent(
             },
             onClick = {
                 activity?.let { PermissionHelper.openOverlaySettings(it) }
+            }
+        )
+
+        SettingRow(
+            title = "通知",
+            subtitle = "（任意）常駐通知に計測状態と操作ボタンを表示します。",
+            trailing = {
+                Switch(
+                    checked = notificationGranted,
+                    onCheckedChange = null,
+                    enabled = true
+                )
+            },
+            onClick = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !notificationGranted) {
+                    onRequestNotificationPermission()
+                } else {
+                    onOpenNotificationSettings()
+                }
             }
         )
     }
