@@ -16,6 +16,7 @@ object CustomizePresetValues {
         positionX = CustomizeDefaults.POSITION_X,
         positionY = CustomizeDefaults.POSITION_Y,
         touchMode = CustomizeDefaults.TOUCH_MODE,
+        timerTimeMode = CustomizeDefaults.TIMER_TIME_MODE,
         growthMode = CustomizeDefaults.GROWTH_MODE,
         colorMode = CustomizeDefaults.COLOR_MODE,
         fixedColorArgb = CustomizeDefaults.FIXED_COLOR_ARGB,
@@ -48,6 +49,7 @@ object CustomizePresetValues {
         // 位置・タッチモードも「その時の状態」だが、基準値として CustomizeDefaults を踏襲
         positionX = CustomizeDefaults.POSITION_X,
         positionY = CustomizeDefaults.POSITION_Y,
+        timerTimeMode = CustomizeDefaults.TIMER_TIME_MODE,
 
         growthMode = TimerGrowthMode.SlowFastSlow,
         colorMode = TimerColorMode.GradientThree,

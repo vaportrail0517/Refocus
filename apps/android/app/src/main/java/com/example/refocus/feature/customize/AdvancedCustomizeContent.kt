@@ -3,6 +3,7 @@ package com.example.refocus.feature.customize
 import androidx.compose.runtime.Composable
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
+import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.util.formatDurationMilliSecondsOrNull
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.ui.components.SectionCard
@@ -15,6 +16,7 @@ fun AdvancedCustomizeContent(
     onOpenGraceDialog: () -> Unit,
     onOpenFontDialog: () -> Unit,
     onOpenTimeToMaxDialog: () -> Unit,
+    onOpenTimerTimeModeDialog: () -> Unit,
     onOpenSuggestionTriggerDialog: () -> Unit,
     onOpenSuggestionForegroundStableDialog: () -> Unit,
     onOpenSuggestionCooldownDialog: () -> Unit,
@@ -48,6 +50,18 @@ fun AdvancedCustomizeContent(
                 "現在: 対象アプリを離れてから${formattedGraceTime}以内に戻れば同じセッションとみなします。"
             },
             onClick = onOpenGraceDialog,
+        )
+    }
+
+    SectionCard(title = "タイマー表示") {
+        SettingRow(
+            title = "表示する時間",
+            subtitle = when (settings.timerTimeMode) {
+                TimerTimeMode.SessionElapsed -> "現在: セッションの経過時間を表示します。"
+                TimerTimeMode.TodayThisTarget -> "現在: このアプリの今日の累計使用時間を表示します。"
+                TimerTimeMode.TodayAllTargets -> "現在: 全対象アプリの今日の累計使用時間を表示します。"
+            },
+            onClick = onOpenTimerTimeModeDialog,
         )
     }
 

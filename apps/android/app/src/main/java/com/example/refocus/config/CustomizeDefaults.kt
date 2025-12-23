@@ -3,6 +3,7 @@ package com.example.refocus.config
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.model.TimerTouchMode
+import com.example.refocus.core.model.TimerTimeMode
 
 object CustomizeDefaults {
     // --- セッション・監視 ---
@@ -16,6 +17,7 @@ object CustomizeDefaults {
     const val POSITION_X: Int = 24
     const val POSITION_Y: Int = 120
     val TOUCH_MODE: TimerTouchMode = TimerTouchMode.PassThrough
+    val TIMER_TIME_MODE: TimerTimeMode = TimerTimeMode.SessionElapsed
 
     val GROWTH_MODE: TimerGrowthMode = TimerGrowthMode.SlowToFast
     val COLOR_MODE: TimerColorMode = TimerColorMode.GradientThree

@@ -41,6 +41,7 @@ class SettingsRepository(
                         positionX = current.positionX,
                         positionY = current.positionY,
                         touchMode = current.touchMode,
+                        timerTimeMode = current.timerTimeMode,
                     )
                 }
                 dataStore.setPreset(CustomizePreset.Default)
@@ -54,6 +55,7 @@ class SettingsRepository(
                         positionX = current.positionX,
                         positionY = current.positionY,
                         touchMode = current.touchMode,
+                        timerTimeMode = current.timerTimeMode,
                     )
                 }
                 dataStore.setPreset(CustomizePreset.Debug)

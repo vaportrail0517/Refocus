@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
+import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.util.formatDurationMilliSeconds
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.ui.components.ColorPickerDialog
@@ -17,6 +18,7 @@ sealed interface CustomizeDialogType {
     data object PollingInterval : CustomizeDialogType
     data object FontRange : CustomizeDialogType
     data object TimeToMax : CustomizeDialogType
+    data object TimerTimeDisplayMode : CustomizeDialogType
     data object SuggestionTriggerTime : CustomizeDialogType
     data object SuggestionForegroundStable : CustomizeDialogType
     data object SuggestionCooldown : CustomizeDialogType
@@ -146,6 +148,52 @@ fun TimeToMaxDialog(
         minValue = 1,
         maxValue = 720,
         onConfirm = onConfirm,
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+fun TimerTimeModeDialog(
+    current: TimerTimeMode,
+    onConfirm: (TimerTimeMode) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    data class Option(
+        val mode: TimerTimeMode,
+        val label: String,
+        val description: String,
+    )
+
+    val options = remember {
+        listOf(
+            Option(
+                TimerTimeMode.SessionElapsed,
+                "セッションの経過時間",
+                "今開いている対象アプリの論理セッションがどれくらい続いているかを表示します。"
+            ),
+            Option(
+                TimerTimeMode.TodayThisTarget,
+                "このアプリの今日の累計使用時間",
+                "この対象アプリを今日どれくらい使ったかの合計を表示します。"
+            ),
+            Option(
+                TimerTimeMode.TodayAllTargets,
+                "全対象アプリの今日の累計使用時間",
+                "対象アプリ全体を今日どれくらい使ったかの合計を表示します。"
+            ),
+        )
+    }
+
+    val initial = options.firstOrNull { it.mode == current } ?: options.first()
+
+    SingleChoiceDialog(
+        title = "タイマーに表示する時間",
+        description = "オーバーレイに表示する時間の種類を選びます。",
+        options = options,
+        initialSelection = initial,
+        optionLabel = { it.label },
+        optionDescription = { it.description },
+        onConfirm = { onConfirm(it.mode) },
         onDismiss = onDismiss,
     )
 }

@@ -14,6 +14,7 @@ import com.example.refocus.core.model.CustomizePreset
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.model.TimerTouchMode
+import com.example.refocus.core.model.TimerTimeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -36,6 +37,8 @@ class SettingsDataStore(
         val POSITION_X = intPreferencesKey("overlay_position_x")
         val POSITION_Y = intPreferencesKey("overlay_position_y")
         val TOUCH_MODE = intPreferencesKey("overlay_touch_mode")
+
+        val TIMER_TIME_MODE = intPreferencesKey("timer_time_mode")
 
         val GROWTH_MODE = intPreferencesKey("growth_mode")
         val COLOR_MODE = intPreferencesKey("color_mode")
@@ -114,6 +117,8 @@ class SettingsDataStore(
             prefs[Keys.POSITION_Y] = updated.positionY
             prefs[Keys.TOUCH_MODE] = updated.touchMode.ordinal
 
+            prefs[Keys.TIMER_TIME_MODE] = updated.timerTimeMode.ordinal
+
             prefs[Keys.GROWTH_MODE] = updated.growthMode.ordinal
             prefs[Keys.COLOR_MODE] = updated.colorMode.ordinal
             prefs[Keys.FIXED_COLOR_ARGB] = updated.fixedColorArgb
@@ -154,6 +159,10 @@ class SettingsDataStore(
         val touchMode = TimerTouchMode.entries.getOrNull(touchModeOrdinal)
             ?: TimerTouchMode.Drag
 
+        val timerTimeModeOrdinal = this[Keys.TIMER_TIME_MODE] ?: base.timerTimeMode.ordinal
+        val timerTimeMode = TimerTimeMode.entries.getOrNull(timerTimeModeOrdinal)
+            ?: TimerTimeMode.SessionElapsed
+
         return base.copy(
             gracePeriodMillis = this[Keys.GRACE_PERIOD_MS]
                 ?: base.gracePeriodMillis,
@@ -174,6 +183,7 @@ class SettingsDataStore(
             positionY = this[Keys.POSITION_Y]
                 ?: base.positionY,
             touchMode = touchMode,
+            timerTimeMode = timerTimeMode,
             growthMode = this[Keys.GROWTH_MODE]
                 ?.let { TimerGrowthMode.values().getOrNull(it) }
                 ?: base.growthMode,

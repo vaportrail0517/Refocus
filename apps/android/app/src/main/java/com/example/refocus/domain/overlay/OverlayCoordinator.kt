@@ -2,6 +2,7 @@ package com.example.refocus.domain.overlay
 
 import android.util.Log
 import com.example.refocus.core.model.Customize
+import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.SessionEventType
 import com.example.refocus.core.model.SuggestionDecision
 import com.example.refocus.core.model.SuggestionMode
@@ -16,6 +17,8 @@ import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
 import com.example.refocus.domain.timeline.SessionProjector
 import com.example.refocus.system.monitor.ForegroundAppMonitor
+import java.time.Instant
+import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -107,6 +110,18 @@ class OverlayCoordinator(
 
     @Volatile
     private var overlayState: OverlayState = OverlayState.Idle
+
+    @Volatile
+    private var lastTargetPackages: Set<String> = emptySet()
+
+    private data class DailyUsageSnapshot(
+        val computedAtMillis: Long,
+        val perPackageMillis: Map<String, Long>,
+        val allTargetsMillis: Long,
+    )
+
+    @Volatile
+    private var dailyUsageSnapshot: DailyUsageSnapshot? = null
 
     private val stateMachine = OverlayStateMachine()
 
@@ -322,6 +337,10 @@ class OverlayCoordinator(
                     val oldSettings = overlayCustomize
                     // 先に overlayCustomize を更新
                     overlayCustomize = settings
+                    // タイマー表示モードが変わった場合は、日次集計キャッシュを無効化する
+                    if (settings.timerTimeMode != oldSettings.timerTimeMode) {
+                        dailyUsageSnapshot = null
+                    }
                     // 設定変更イベントとしてタイムラインに記録
                     dispatchEvent(OverlayEvent.SettingsChanged(settings))
                     // UI 側の見た目反映
@@ -424,6 +443,14 @@ class OverlayCoordinator(
                 try {
                     val nowMillis = timeSource.nowMillis()
                     val nowElapsed = timeSource.elapsedRealtime()
+                    lastTargetPackages = targets
+                    // 日次集計表示モードの場合のみ、必要に応じてキャッシュを更新する
+                    if (overlayCustomize.timerTimeMode != TimerTimeMode.SessionElapsed) {
+                        refreshDailyUsageSnapshotIfNeeded(
+                            targetPackages = targets,
+                            nowMillis = nowMillis,
+                        )
+                    }
                     // --- 追加: 「同一パッケージだが前面復帰した」を検知して、前面安定だけリセットする ---
                     val prevSample = lastSample
                     lastSample = sample
@@ -566,6 +593,13 @@ class OverlayCoordinator(
         overlayPackage = packageName
         trackingPackageState.value = packageName
 
+        if (settings.timerTimeMode != TimerTimeMode.SessionElapsed) {
+            refreshDailyUsageSnapshotIfNeeded(
+                targetPackages = lastTargetPackages,
+                nowMillis = nowMillis,
+            )
+        }
+
         if (isTimerSuppressedForCurrentSession(packageName)) {
             timerVisibleState.value = false
             uiController.hideTimer()
@@ -600,7 +634,19 @@ class OverlayCoordinator(
 
     private fun showTimerForPackage(packageName: String) {
         val elapsedProvider: (Long) -> Long = { nowElapsedRealtime ->
-            sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
+            when (overlayCustomize.timerTimeMode) {
+                TimerTimeMode.SessionElapsed -> {
+                    sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
+                }
+
+                TimerTimeMode.TodayThisTarget -> {
+                    dailyUsageSnapshot?.perPackageMillis?.get(packageName) ?: 0L
+                }
+
+                TimerTimeMode.TodayAllTargets -> {
+                    dailyUsageSnapshot?.allTargetsMillis ?: 0L
+                }
+            }
         }
         timerVisibleState.value = true
         uiController.showTimer(
@@ -624,6 +670,85 @@ class OverlayCoordinator(
                 Log.e(TAG, "Failed to save overlay position", e)
             }
         }
+    }
+
+    private suspend fun refreshDailyUsageSnapshotIfNeeded(
+        targetPackages: Set<String>,
+        nowMillis: Long,
+    ) {
+        // TimerTimeMode が SessionElapsed の場合はここを呼ばない前提だが、念のためガード
+        if (overlayCustomize.timerTimeMode == TimerTimeMode.SessionElapsed) return
+        if (targetPackages.isEmpty()) {
+            dailyUsageSnapshot = DailyUsageSnapshot(
+                computedAtMillis = nowMillis,
+                perPackageMillis = emptyMap(),
+                allTargetsMillis = 0L,
+            )
+            return
+        }
+
+        val existing = dailyUsageSnapshot
+        // 日次集計は 1 秒程度の粒度で十分なので、過剰な DB 参照を避ける
+        if (existing != null && nowMillis - existing.computedAtMillis < 1_000L) return
+
+        val zone = ZoneId.systemDefault()
+        val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
+        val startOfDayMillis = today.atStartOfDay(zone).toInstant().toEpochMilli()
+
+        // 日付またぎや猶予時間を考慮して、少し前からイベントを取ってくる
+        val lookbackStartMillis = startOfDayMillis - BOOTSTRAP_LOOKBACK_HOURS * 60L * 60L * 1_000L
+
+        val events = withContext(Dispatchers.IO) {
+            timelineRepository.getEvents(lookbackStartMillis, nowMillis)
+        }
+
+        val sessions = SessionProjector.projectSessions(
+            events = events,
+            targetPackages = targetPackages,
+            stopGracePeriodMillis = overlayCustomize.gracePeriodMillis,
+            nowMillis = nowMillis,
+        )
+
+        val perPkg = mutableMapOf<String, Long>()
+        var all = 0L
+
+        for (s in sessions) {
+            val pkg = s.session.packageName
+            val durationToday = computeTodayDurationMillis(
+                sessionEvents = s.events,
+                nowMillis = nowMillis,
+                startOfDayMillis = startOfDayMillis,
+            )
+            if (durationToday <= 0L) continue
+            perPkg[pkg] = (perPkg[pkg] ?: 0L) + durationToday
+            all += durationToday
+        }
+
+        dailyUsageSnapshot = DailyUsageSnapshot(
+            computedAtMillis = nowMillis,
+            perPackageMillis = perPkg.toMap(),
+            allTargetsMillis = all,
+        )
+    }
+
+    private fun computeTodayDurationMillis(
+        sessionEvents: List<com.example.refocus.core.model.SessionEvent>,
+        nowMillis: Long,
+        startOfDayMillis: Long,
+    ): Long {
+        // 1) セッションからアクティブ区間を作る
+        val segments = SessionDurationCalculator.buildActiveSegments(
+            events = sessionEvents,
+            nowMillis = nowMillis,
+        )
+        // 2) 今日の範囲にクリップして足し合わせる
+        var sum = 0L
+        for (seg in segments) {
+            val start = maxOf(seg.startMillis, startOfDayMillis)
+            val end = seg.endMillis
+            if (end > start) sum += (end - start)
+        }
+        return sum.coerceAtLeast(0L)
     }
 
     private fun suggestionTimeoutMillis(customize: Customize): Long {

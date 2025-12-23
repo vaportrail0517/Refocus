@@ -16,6 +16,7 @@ import com.example.refocus.core.model.CustomizePreset
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.model.TimerTouchMode
+import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.domain.app.AppDataResetter
 import com.example.refocus.domain.timeline.EventRecorder
@@ -105,6 +106,9 @@ class CustomizeViewModel @Inject constructor(
 
     fun updateOverlayTouchMode(mode: TimerTouchMode) =
         updateSettingsAsCustom { copy(touchMode = mode) }
+
+    fun updateTimerTimeMode(mode: TimerTimeMode) =
+        updateSettingsAsCustom { copy(timerTimeMode = mode) }
 
     fun updateGrowthMode(mode: TimerGrowthMode) =
         updateSettingsAsCustom { copy(growthMode = mode) }

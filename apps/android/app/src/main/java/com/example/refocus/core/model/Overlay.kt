@@ -36,6 +36,19 @@ enum class TimerColorMode {
 }
 
 /**
+ * タイマーに表示する時間のモード。
+ *
+ * - SessionElapsed: 現在の論理セッションの経過時間（従来）
+ * - TodayThisTarget: 現在表示中の対象アプリの「今日の累計使用時間」
+ * - TodayAllTargets: 全対象アプリの「今日の累計使用時間」
+ */
+enum class TimerTimeMode {
+    SessionElapsed,
+    TodayThisTarget,
+    TodayAllTargets,
+}
+
+/**
  * 「やりたいこと」を表すモデル。
  *
  * - id: 永続化用の一意ID（Room の主キーと対応）

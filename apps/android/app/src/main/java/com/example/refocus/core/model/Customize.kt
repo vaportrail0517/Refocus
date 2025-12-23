@@ -14,6 +14,7 @@ data class Customize(
     val positionX: Int = CustomizeDefaults.POSITION_X,
     val positionY: Int = CustomizeDefaults.POSITION_Y,
     val touchMode: TimerTouchMode = CustomizeDefaults.TOUCH_MODE,
+    val timerTimeMode: TimerTimeMode = CustomizeDefaults.TIMER_TIME_MODE,
 
     val growthMode: TimerGrowthMode = CustomizeDefaults.GROWTH_MODE,
     val colorMode: TimerColorMode = CustomizeDefaults.COLOR_MODE,
