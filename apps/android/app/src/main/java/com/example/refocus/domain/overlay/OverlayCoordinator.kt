@@ -39,6 +39,8 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -90,14 +92,10 @@ class OverlayCoordinator(
         val gate: SessionSuggestionGate,
     )
 
-    @Volatile
-    private var currentForegroundPackage: String? = null
+    private val runtimeState = MutableStateFlow(OverlayRuntimeState())
 
-    @Volatile
-    private var overlayPackage: String? = null
+    val runtimeStateFlow: StateFlow<OverlayRuntimeState> get() = runtimeState
 
-    @Volatile
-    private var overlayCustomize: Customize = Customize()
 
     @Volatile
     private var showSuggestionJob: Job? = null
@@ -111,11 +109,6 @@ class OverlayCoordinator(
     @Volatile
     private var currentSuggestionId: Long? = null
 
-    @Volatile
-    private var overlayState: OverlayState = OverlayState.Idle
-
-    @Volatile
-    private var lastTargetPackages: Set<String> = emptySet()
 
     private data class DailyUsageSnapshot(
         val computedAtMillis: Long,
@@ -140,36 +133,44 @@ class OverlayCoordinator(
                 replay = 1
             )
 
-    private val screenOnState = MutableStateFlow(true)
+    private val screenOnFlowInternal: StateFlow<Boolean> =
+        runtimeState
+            .map { it.isScreenOn }
+            .distinctUntilChanged()
+            .stateIn(scope, SharingStarted.Eagerly, runtimeState.value.isScreenOn)
 
-    val screenOnFlow: StateFlow<Boolean> get() = screenOnState
+    val screenOnFlow: StateFlow<Boolean> get() = screenOnFlowInternal
 
+    private val trackingPackageFlowInternal: StateFlow<String?> =
+        runtimeState
+            .map { it.trackingPackage }
+            .distinctUntilChanged()
+            .stateIn(scope, SharingStarted.Eagerly, runtimeState.value.trackingPackage)
 
-    private val trackingPackageState = MutableStateFlow<String?>(null)
-    val trackingPackageFlow: StateFlow<String?> get() = trackingPackageState
+    val trackingPackageFlow: StateFlow<String?> get() = trackingPackageFlowInternal
 
-    private val timerVisibleState = MutableStateFlow(false)
-    val timerVisibleFlow: StateFlow<Boolean> get() = timerVisibleState
+    private val timerVisibleFlowInternal: StateFlow<Boolean> =
+        runtimeState
+            .map { it.timerVisible }
+            .distinctUntilChanged()
+            .stateIn(scope, SharingStarted.Eagerly, runtimeState.value.timerVisible)
 
-    /**
-     * 「この論理セッションだけ」オーバーレイタイマーを非表示にするためのフラグ。
-     * キーは packageName。
-     */
-    private val timerSuppressedForSession: MutableMap<String, Boolean> = mutableMapOf()
+    val timerVisibleFlow: StateFlow<Boolean> get() = timerVisibleFlowInternal
+
 
     /**
      * 外側から「画面ON/OFF」を伝えるためのメソッド。
      * BroadcastReceiver 側から呼ばれる。
      */
     fun setScreenOn(isOn: Boolean) {
-        screenOnState.value = isOn
+        runtimeState.update { it.copy(isScreenOn = isOn) }
     }
 
 
-    fun currentTrackingPackage(): String? = trackingPackageState.value
+    fun currentTrackingPackage(): String? = runtimeState.value.trackingPackage
 
     fun currentElapsedMillis(): Long? {
-        val pkg = trackingPackageState.value ?: return null
+        val pkg = runtimeState.value.trackingPackage ?: return null
         return sessionTracker.computeElapsedFor(pkg, timeSource.elapsedRealtime())
     }
 
@@ -182,8 +183,8 @@ class OverlayCoordinator(
      * - TodayAllTargets: 全対象アプリの今日の累計使用時間
      */
     fun currentTimerDisplayMillis(): Long? {
-        val pkg = trackingPackageState.value ?: return null
-        return when (overlayCustomize.timerTimeMode) {
+        val pkg = runtimeState.value.trackingPackage ?: return null
+        return when (runtimeState.value.customize.timerTimeMode) {
             TimerTimeMode.SessionElapsed -> {
                 sessionTracker.computeElapsedFor(pkg, timeSource.elapsedRealtime())
             }
@@ -201,7 +202,7 @@ class OverlayCoordinator(
     }
 
     private fun requestDailyUsageSnapshotRefreshIfNeeded() {
-        if (overlayCustomize.timerTimeMode == TimerTimeMode.SessionElapsed) return
+        if (runtimeState.value.customize.timerTimeMode == TimerTimeMode.SessionElapsed) return
         val nowMillis = timeSource.nowMillis()
         val existing = dailyUsageSnapshot
         if (existing != null && nowMillis - existing.computedAtMillis < 1_000L) return
@@ -212,7 +213,7 @@ class OverlayCoordinator(
         dailyUsageRefreshJob = scope.launch {
             try {
                 refreshDailyUsageSnapshotIfNeeded(
-                    targetPackages = lastTargetPackages,
+                    targetPackages = runtimeState.value.lastTargetPackages,
                     nowMillis = nowMillis,
                 )
             } catch (_: Exception) {
@@ -228,14 +229,17 @@ class OverlayCoordinator(
      */
     @Synchronized
     fun toggleTimerVisibilityForCurrentSession(): Boolean {
-        val pkg = overlayPackage ?: return false
-        val suppressed = timerSuppressedForSession[pkg] == true
+        val pkg = runtimeState.value.overlayPackage ?: return false
+        val suppressed = runtimeState.value.timerSuppressedForSession[pkg] == true
         val newSuppressed = !suppressed
-        timerSuppressedForSession[pkg] = newSuppressed
+
+        runtimeState.update {
+            it.copy(timerSuppressedForSession = it.timerSuppressedForSession + (pkg to newSuppressed))
+        }
 
         return if (newSuppressed) {
             uiController.hideTimer()
-            timerVisibleState.value = false
+            runtimeState.update { it.copy(timerVisible = false) }
             false
         } else {
             showTimerForPackage(pkg)
@@ -243,6 +247,9 @@ class OverlayCoordinator(
         }
     }
 
+    /**
+     * 画面OFF時に呼び出す。前面にいた対象アプリを「離脱」として扱う。
+     */
     /**
      * 画面OFF時に呼び出す。前面にいた対象アプリを「離脱」として扱う。
      */
@@ -257,9 +264,14 @@ class OverlayCoordinator(
             )
         )
         // 現在の前面アプリ情報はリセット
-        currentForegroundPackage = null
-        trackingPackageState.value = null
-        timerVisibleState.value = false
+        runtimeState.update {
+            it.copy(
+                currentForegroundPackage = null,
+                overlayPackage = null,
+                trackingPackage = null,
+                timerVisible = false,
+            )
+        }
     }
 
     /**
@@ -279,12 +291,19 @@ class OverlayCoordinator(
         uiController.hideTimer()
         uiController.hideSuggestion()
         clearSuggestionOverlayState()
-        overlayState = OverlayState.Idle
-        currentForegroundPackage = null
-        overlayPackage = null
-        trackingPackageState.value = null
-        timerVisibleState.value = false
-        timerSuppressedForSession.clear()
+
+        runtimeState.update {
+            it.copy(
+                currentForegroundPackage = null,
+                overlayPackage = null,
+                trackingPackage = null,
+                timerVisible = false,
+                overlayState = OverlayState.Idle,
+                lastTargetPackages = emptySet(),
+                timerSuppressedForSession = emptyMap(),
+            )
+        }
+
         sessionSuggestionGate = SessionSuggestionGate()
         // オーバーレイ用セッションもクリア
         sessionTracker.clear()
@@ -297,13 +316,13 @@ class OverlayCoordinator(
      */
     @Synchronized
     private fun dispatchEvent(event: OverlayEvent) {
-        val oldState = overlayState
+        val oldState = runtimeState.value.overlayState
         val newState = stateMachine.transition(oldState, event)
         if (newState == oldState) {
             // 状態変化がない場合は何もしない
             return
         }
-        overlayState = newState
+        runtimeState.update { it.copy(overlayState = newState) }
         RefocusLog.d(TAG) { "overlayState: $oldState -> $newState by $event" }
         handleStateChange(oldState, newState, event)
     }
@@ -358,14 +377,18 @@ class OverlayCoordinator(
 
             // 何らかの理由で Disabled に落ちたとき（overlayEnabled=false など）
             newState is OverlayState.Disabled -> {
-                overlayPackage = null
-                trackingPackageState.value = null
-                timerVisibleState.value = false
+                runtimeState.update {
+                    it.copy(
+                        overlayPackage = null,
+                        trackingPackage = null,
+                        timerVisible = false,
+                        timerSuppressedForSession = emptyMap(),
+                    )
+                }
                 uiController.hideTimer()
                 uiController.hideSuggestion()
                 clearSuggestionOverlayState()
 
-                timerSuppressedForSession.clear()
                 sessionTracker.clear()
                 sessionSuggestionGate = SessionSuggestionGate()
             }
@@ -388,9 +411,9 @@ class OverlayCoordinator(
             try {
                 customizeFlow.collect { settings ->
                     // 変更前の設定を保存
-                    val oldSettings = overlayCustomize
-                    // 先に overlayCustomize を更新
-                    overlayCustomize = settings
+                    val oldSettings = runtimeState.value.customize
+                    // 先に customize スナップショットを更新（Provider などが最新設定を読めるようにする）
+                    runtimeState.update { it.copy(customize = settings) }
                     // タイマー表示モードが変わった場合は、日次集計キャッシュを無効化する
                     if (settings.timerTimeMode != oldSettings.timerTimeMode) {
                         dailyUsageSnapshot = null
@@ -404,8 +427,9 @@ class OverlayCoordinator(
                     if (graceChanged) {
                         RefocusLog.d(TAG) { "gracePeriodMillis changed: ${oldSettings.gracePeriodMillis} -> ${settings.gracePeriodMillis}" }
                         // 「今表示中のターゲット」について、変更後の停止猶予で論理セッションを再解釈して追従する
-                        val pkg = overlayPackage
-                        if (pkg != null && overlayState is OverlayState.Tracking && screenOnState.value) {
+                        val pkg = runtimeState.value.overlayPackage
+                        val stateSnapshot = runtimeState.value
+                        if (pkg != null && stateSnapshot.overlayState is OverlayState.Tracking && stateSnapshot.isScreenOn) {
                             val nowMillis = timeSource.nowMillis()
                             // 変更前 tracker が残っていても投影したいので force=true で復元
                             val bootstrap = computeBootstrapFromTimeline(
@@ -457,7 +481,7 @@ class OverlayCoordinator(
                         pollingIntervalMs = interval
                     )
                 }
-            val screenOnFlow = screenOnState
+            val screenOnFlow = screenOnFlowInternal
 
             var lastForegroundRaw: String? = null
             var lastSample: ForegroundAppMonitor.ForegroundSample? = null
@@ -500,9 +524,12 @@ class OverlayCoordinator(
                 try {
                     val nowMillis = timeSource.nowMillis()
                     val nowElapsed = timeSource.elapsedRealtime()
-                    lastTargetPackages = targets
+                    val prevTargets = runtimeState.value.lastTargetPackages
+                    if (prevTargets != targets) {
+                        runtimeState.update { it.copy(lastTargetPackages = targets) }
+                    }
                     // 日次集計表示モードの場合のみ、必要に応じてキャッシュを更新する
-                    if (overlayCustomize.timerTimeMode != TimerTimeMode.SessionElapsed) {
+                    if (runtimeState.value.customize.timerTimeMode != TimerTimeMode.SessionElapsed) {
                         refreshDailyUsageSnapshotIfNeeded(
                             targetPackages = targets,
                             nowMillis = nowMillis,
@@ -517,11 +544,11 @@ class OverlayCoordinator(
                                 prevSample?.packageName == foregroundRaw &&
                                 prevSample.generation != sample.generation
                     if (reconfirmed) {
-                        val stateSnapshot = overlayState
+                        val stateSnapshot = runtimeState.value.overlayState
                         // Tracking 中かつ、いま見ているターゲットと一致しているときだけ適用
                         if (stateSnapshot is OverlayState.Tracking &&
                             stateSnapshot.packageName == foregroundRaw &&
-                            overlayPackage == foregroundRaw
+                            runtimeState.value.overlayPackage == foregroundRaw
                         ) {
                             sessionTracker.onForegroundReconfirmed(
                                 packageName = foregroundRaw,
@@ -531,11 +558,13 @@ class OverlayCoordinator(
                         }
                     }
 
-                    val previous = currentForegroundPackage
+                    val previous = runtimeState.value.currentForegroundPackage
                     val prevIsTarget = previous != null && previous in targets
                     val nowIsTarget = foregroundPackage != null && foregroundPackage in targets
 
-                    currentForegroundPackage = foregroundPackage
+                    if (previous != foregroundPackage) {
+                        runtimeState.update { it.copy(currentForegroundPackage = foregroundPackage) }
+                    }
 
                     when {
                         // 非対象 → 対象
@@ -584,7 +613,7 @@ class OverlayCoordinator(
                     }
 
                     // Suggestion は「Tracking 中だけ」評価する
-                    val stateSnapshot = overlayState
+                    val stateSnapshot = runtimeState.value.overlayState
                     if (stateSnapshot is OverlayState.Tracking && foregroundPackage != null) {
                         maybeShowSuggestionIfNeeded(
                             packageName = foregroundPackage,
@@ -598,7 +627,7 @@ class OverlayCoordinator(
                         uiController.hideTimer()
                         uiController.hideSuggestion()
                     }
-                    overlayPackage = null
+                    runtimeState.update { it.copy(overlayPackage = null, trackingPackage = null, timerVisible = false) }
                     clearSuggestionOverlayState()
                     sessionSuggestionGate = SessionSuggestionGate()
                 }
@@ -611,7 +640,7 @@ class OverlayCoordinator(
         nowMillis: Long,
         nowElapsed: Long
     ) {
-        val settings = overlayCustomize
+        val settings = runtimeState.value.customize
         val grace = settings.gracePeriodMillis
 
         // まだ OverlaySessionTracker がこの app を知らない場合だけ、
@@ -641,21 +670,27 @@ class OverlayCoordinator(
                 if (bootstrap?.isOngoingSession == true) bootstrap.gate else SessionSuggestionGate()
 
             // 「このセッションのみ非表示」フラグは新規セッション開始時にリセットする
-            timerSuppressedForSession[packageName] = false
+            runtimeState.update {
+                it.copy(timerSuppressedForSession = it.timerSuppressedForSession + (packageName to false))
+            }
         }
 
-        overlayPackage = packageName
-        trackingPackageState.value = packageName
+        runtimeState.update {
+            it.copy(
+                overlayPackage = packageName,
+                trackingPackage = packageName,
+            )
+        }
 
         if (settings.timerTimeMode != TimerTimeMode.SessionElapsed) {
             refreshDailyUsageSnapshotIfNeeded(
-                targetPackages = lastTargetPackages,
+                targetPackages = runtimeState.value.lastTargetPackages,
                 nowMillis = nowMillis,
             )
         }
 
         if (isTimerSuppressedForCurrentSession(packageName)) {
-            timerVisibleState.value = false
+            runtimeState.update { it.copy(timerVisible = false) }
             uiController.hideTimer()
         } else {
             showTimerForPackage(packageName)
@@ -669,10 +704,14 @@ class OverlayCoordinator(
         nowElapsed: Long
     ) {
         // 先にオーバーレイを閉じる
-        if (overlayPackage == packageName) {
-            overlayPackage = null
-            trackingPackageState.value = null
-            timerVisibleState.value = false
+        if (runtimeState.value.overlayPackage == packageName) {
+            runtimeState.update {
+                it.copy(
+                    overlayPackage = null,
+                    trackingPackage = null,
+                    timerVisible = false,
+                )
+            }
             uiController.hideTimer()
             uiController.hideSuggestion()
             clearSuggestionOverlayState()
@@ -688,7 +727,7 @@ class OverlayCoordinator(
 
     private fun showTimerForPackage(packageName: String) {
         val displayMillisProvider: (Long) -> Long = { nowElapsedRealtime ->
-            when (overlayCustomize.timerTimeMode) {
+            when (runtimeState.value.customize.timerTimeMode) {
                 TimerTimeMode.SessionElapsed -> {
                     sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
                 }
@@ -704,7 +743,7 @@ class OverlayCoordinator(
         }
 
         val visualMillisProvider: (Long) -> Long = { nowElapsedRealtime ->
-            when (overlayCustomize.timerVisualTimeBasis) {
+            when (runtimeState.value.customize.timerVisualTimeBasis) {
                 TimerVisualTimeBasis.SessionElapsed -> {
                     sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
                 }
@@ -715,7 +754,7 @@ class OverlayCoordinator(
             }
         }
 
-        timerVisibleState.value = true
+        runtimeState.update { it.copy(timerVisible = true) }
         uiController.showTimer(
             displayMillisProvider = displayMillisProvider,
             visualMillisProvider = visualMillisProvider,
@@ -724,7 +763,7 @@ class OverlayCoordinator(
     }
 
     private fun isTimerSuppressedForCurrentSession(packageName: String): Boolean {
-        return timerSuppressedForSession[packageName] == true
+        return runtimeState.value.timerSuppressedForSession[packageName] == true
     }
 
 
@@ -749,7 +788,7 @@ class OverlayCoordinator(
         nowMillis: Long,
     ) {
         // TimerTimeMode が SessionElapsed の場合はここを呼ばない前提だが、念のためガード
-        if (overlayCustomize.timerTimeMode == TimerTimeMode.SessionElapsed) return
+        if (runtimeState.value.customize.timerTimeMode == TimerTimeMode.SessionElapsed) return
         if (targetPackages.isEmpty()) {
             dailyUsageSnapshot = DailyUsageSnapshot(
                 computedAtMillis = nowMillis,
@@ -777,7 +816,7 @@ class OverlayCoordinator(
         val sessions = SessionProjector.projectSessions(
             events = events,
             targetPackages = targetPackages,
-            stopGracePeriodMillis = overlayCustomize.gracePeriodMillis,
+            stopGracePeriodMillis = runtimeState.value.customize.gracePeriodMillis,
             nowMillis = nowMillis,
         )
 
@@ -840,7 +879,7 @@ class OverlayCoordinator(
     private fun handleSuggestionSnooze() {
         clearSuggestionOverlayState()
 
-        val pkg = overlayPackage
+        val pkg = runtimeState.value.overlayPackage
         if (pkg == null) {
             RefocusLog.w(TAG) { "handleSuggestionSnooze: overlayPackage=null; gate not updated" }
             return
@@ -857,7 +896,7 @@ class OverlayCoordinator(
     }
 
     private fun handleSuggestionSnoozeLater() {
-        val pkg = overlayPackage
+        val pkg = runtimeState.value.overlayPackage
         val suggestionId = currentSuggestionId ?: 0L
 
         if (pkg != null) {
@@ -877,7 +916,7 @@ class OverlayCoordinator(
     }
 
     private fun handleSuggestionDismissOnly() {
-        val pkg = overlayPackage
+        val pkg = runtimeState.value.overlayPackage
         val suggestionId = currentSuggestionId ?: 0L
 
         if (pkg != null) {
@@ -898,7 +937,7 @@ class OverlayCoordinator(
 
     private fun handleSuggestionDisableThisSession() {
         clearSuggestionOverlayState()
-        val packageName = overlayPackage ?: return
+        val packageName = runtimeState.value.overlayPackage ?: return
         val suggestionId = currentSuggestionId ?: 0L
 
         scope.launch {
@@ -931,7 +970,7 @@ class OverlayCoordinator(
         val input = SuggestionEngine.Input(
             elapsedMillis = elapsed,
             sinceForegroundMillis = sinceForegroundMs,
-            customize = overlayCustomize,
+            customize = runtimeState.value.customize,
             lastDecisionElapsedMillis = sessionSuggestionGate.lastDecisionElapsedMillis,
             isOverlayShown = isSuggestionOverlayShown,
             disabledForThisSession = sessionSuggestionGate.disabledForThisSession,
@@ -949,7 +988,7 @@ class OverlayCoordinator(
                 )
                 val hasSuggestion = selected != null
 
-                if (!hasSuggestion && !overlayCustomize.restSuggestionEnabled) {
+                if (!hasSuggestion && !runtimeState.value.customize.restSuggestionEnabled) {
                     RefocusLog.d(TAG) { "No suggestion and restSuggestion disabled, skip overlay" }
                     return@launch
                 }
@@ -968,14 +1007,14 @@ class OverlayCoordinator(
                     )
                 }
 
-                val pkg = overlayPackage ?: packageName
+                val pkg = runtimeState.value.overlayPackage ?: packageName
                 val shown = uiController.showSuggestion(
                     SuggestionOverlayUiModel(
                         title = title,
                         mode = mode,
-                        autoDismissMillis = suggestionTimeoutMillis(overlayCustomize),
+                        autoDismissMillis = suggestionTimeoutMillis(runtimeState.value.customize),
                         interactionLockoutMillis = suggestionInteractionLockoutMillis(
-                            overlayCustomize
+                            runtimeState.value.customize
                         ),
                         onSnoozeLater = { handleSuggestionSnoozeLater() },
                         onDisableThisSession = { handleSuggestionDisableThisSession() },
