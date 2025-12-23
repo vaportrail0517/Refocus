@@ -1,6 +1,9 @@
 package com.example.refocus.system.tile
 
+import android.annotation.SuppressLint
+import android.app.PendingIntent
 import android.content.Intent
+import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
@@ -54,7 +57,8 @@ class RefocusTileService : TileService() {
                     Log.e(TAG, "Failed to set overlayEnabled=false", e)
                 }
                 context.stopOverlayService()
-                updateTile()
+                // サービスの onDestroy より先に UI を更新できるように，期待値で反映する．
+                updateTile(runningOverride = false)
             }
         } else {
             scope.launch {
@@ -64,7 +68,8 @@ class RefocusTileService : TileService() {
                     Log.e(TAG, "Failed to set overlayEnabled=true", e)
                 }
                 context.startOverlayService()
-                updateTile()
+                // startForegroundService 直後は isRunning の更新が遅れる可能性があるため，期待値で反映する．
+                updateTile(runningOverride = true)
             }
         }
     }
@@ -74,18 +79,31 @@ class RefocusTileService : TileService() {
         scope.cancel()
     }
 
+    @SuppressLint("StartActivityAndCollapseDeprecated")
     private fun openApp() {
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
-        startActivityAndCollapse(intent)
+        // startActivityAndCollapse(Intent) は deprecated なので，新APIが使える場合は PendingIntent 版を使う．
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            startActivityAndCollapse(pendingIntent)
+        } else {
+            @Suppress("DEPRECATION")
+            startActivityAndCollapse(intent)
+        }
     }
 
-    private fun updateTile() {
+    private fun updateTile(runningOverride: Boolean? = null) {
         val tile = qsTile ?: return
 
         val enabled = PermissionHelper.hasAllCorePermissions(applicationContext)
-        val running = OverlayService.isRunning
+        val running = runningOverride ?: OverlayService.isRunning
 
         tile.state = when {
             !enabled -> Tile.STATE_UNAVAILABLE

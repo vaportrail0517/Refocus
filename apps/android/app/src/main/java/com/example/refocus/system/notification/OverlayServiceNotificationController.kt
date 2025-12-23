@@ -1,11 +1,16 @@
 package com.example.refocus.system.notification
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.Process
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.refocus.R
@@ -27,6 +32,7 @@ class OverlayServiceNotificationController(
 
     companion object {
         const val CHANNEL_ID: String = "overlay_service_channel"
+        private const val TAG: String = "OverlayServiceNotif"
 
         private const val REQUEST_CONTENT = 200
         private const val REQUEST_STOP = 201
@@ -48,7 +54,34 @@ class OverlayServiceNotificationController(
 
     fun notify(notificationId: Int, state: OverlayNotificationUiState) {
         ensureChannel()
-        NotificationManagerCompat.from(context).notify(notificationId, build(state))
+        if (!canPostNotifications()) return
+        try {
+            NotificationManagerCompat.from(context).notify(notificationId, build(state))
+        } catch (e: SecurityException) {
+            // POST_NOTIFICATIONS が拒否されている場合などは notify が失敗しうる．
+            // Refocus は通知なしでも動作させる方針なので，例外は握りつぶす．
+            Log.w(TAG, "Failed to post notification (permission missing?)", e)
+        }
+    }
+
+    fun cancel(notificationId: Int) {
+        if (!canPostNotifications()) return
+        try {
+            NotificationManagerCompat.from(context).cancel(notificationId)
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Failed to cancel notification (permission missing?)", e)
+        }
+    }
+
+    private fun canPostNotifications(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+        // Lint 対応: dangerous permission なので，呼び出し前に明示的にチェックする．
+        val result = context.checkPermission(
+            Manifest.permission.POST_NOTIFICATIONS,
+            Process.myPid(),
+            Process.myUid(),
+        )
+        return result == PackageManager.PERMISSION_GRANTED
     }
 
     fun build(state: OverlayNotificationUiState): Notification {
@@ -100,11 +133,15 @@ class OverlayServiceNotificationController(
             builder.setStyle(style)
         }
 
-        builder.addAction(
-            0,
-            context.getString(R.string.notification_action_stop),
-            servicePendingIntent(OverlayService.ACTION_STOP, REQUEST_STOP)
-        )
+        // 対象アプリ計測中は「停止」を出さない．
+        // 対象アプリに集中している最中に誤タップで止める事故を防ぐ意図もある．
+        if (!state.isTracking) {
+            builder.addAction(
+                0,
+                context.getString(R.string.notification_action_stop),
+                servicePendingIntent(OverlayService.ACTION_STOP, REQUEST_STOP)
+            )
+        }
 
         if (state.isTracking) {
             val toggleTimerLabel = if (state.isTimerVisible) {

@@ -105,6 +105,9 @@ class OverlayService : LifecycleService() {
     private val notificationRefresh = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     @Volatile
+    private var isStopping: Boolean = false
+
+    @Volatile
     private var notificationTrackingPackage: String? = null
 
     @Volatile
@@ -219,6 +222,7 @@ class OverlayService : LifecycleService() {
         when (intent?.action) {
             ACTION_STOP -> {
                 stopFromUserAction()
+                return START_NOT_STICKY
             }
 
             ACTION_TOGGLE_TIMER_VISIBILITY -> {
@@ -258,6 +262,11 @@ class OverlayService : LifecycleService() {
             }
         }
         isRunning = false
+        isStopping = true
+
+        // 念のため，Foreground 通知を確実に消す
+        removeForegroundNotification()
+
         overlayCoordinator.stop()
         unregisterScreenReceiver()
         requestTileStateRefresh()
@@ -339,6 +348,8 @@ class OverlayService : LifecycleService() {
     }
 
     private fun publishNotification() {
+        if (isStopping) return
+
         val pkg = notificationTrackingPackage
         val state = if (pkg == null) {
             OverlayNotificationUiState(
@@ -371,12 +382,32 @@ class OverlayService : LifecycleService() {
     }
 
     private fun stopFromUserAction() {
+        if (isStopping) return
+        isStopping = true
+
+        // 先に通知を消して，ユーザー操作の体感を良くする
+        removeForegroundNotification()
+
         lifecycleScope.launch {
             try {
                 settingsRepository.setOverlayEnabled(false)
             } catch (_: Exception) {
             }
             stopSelf()
+        }
+    }
+
+    private fun removeForegroundNotification() {
+        // Foreground 状態を外し，通知を取り除く．
+        // NotificationManager による通常通知更新も行っているため，cancel も併用して確実に消す．
+        try {
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        } catch (_: Exception) {
+        }
+
+        try {
+            notificationController.cancel(NOTIFICATION_ID)
+        } catch (_: Exception) {
         }
     }
 
