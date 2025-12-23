@@ -37,6 +37,12 @@ data class TimelineEventEntity(
     val permissionState: String? = null,
     val screenState: String? = null,
 
-    // その他の情報（設定変更内容など）は文字列でざっくり保持
+    // 任意の追加情報（例: 対象アプリ一覧をカンマ区切りで保存する等）
     val extra: String? = null,
+
+    // key/value 形式の追加情報（例: 設定変更）
+    // 以前は extra に "key=value" のように埋め込んでいたが，
+    // 将来の拡張や解析を容易にするために正規化して保存する．
+    val extraKey: String? = null,
+    val extraValue: String? = null,
 )

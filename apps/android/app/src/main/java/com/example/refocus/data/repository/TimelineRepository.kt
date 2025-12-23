@@ -132,7 +132,8 @@ class TimelineRepositoryImpl(
                 id = id ?: 0L,
                 timestampMillis = baseTimestamp,
                 kind = KIND_SETTINGS_CHANGED,
-                extra = "$key=${newValueDescription.orEmpty()}",
+                extraKey = key,
+                extraValue = newValueDescription,
             )
         }
     }
@@ -205,12 +206,19 @@ class TimelineRepositoryImpl(
                 )
             }
 
-            KIND_SETTINGS_CHANGED -> SettingsChangedEvent(
-                id = id,
-                timestampMillis = timestampMillis,
-                key = extra?.substringBefore("=") ?: "unknown",
-                newValueDescription = extra?.substringAfter("=", ""),
-            )
+            KIND_SETTINGS_CHANGED -> {
+                // v9 以降は extraKey/extraValue を正として使う．
+                // v8 以前のDBを読み込む場合に備え，extra("key=value") 形式もフォールバックする．
+                val fallbackKey = extra?.substringBefore("=")
+                val fallbackValue = extra?.substringAfter("=", "")
+
+                SettingsChangedEvent(
+                    id = id,
+                    timestampMillis = timestampMillis,
+                    key = extraKey ?: fallbackKey ?: "unknown",
+                    newValueDescription = extraValue ?: fallbackValue,
+                )
+            }
 
             else -> null
         }

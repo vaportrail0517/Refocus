@@ -5,6 +5,7 @@ import android.content.pm.ApplicationInfo
 import androidx.room.Room
 import com.example.refocus.data.db.RefocusDatabase
 import com.example.refocus.data.db.REFOCUS_DB_NAME
+import com.example.refocus.data.db.MIGRATION_8_9
 import com.example.refocus.data.db.dao.SuggestionDao
 import com.example.refocus.data.db.dao.TimelineEventDao
 import dagger.Module
@@ -28,6 +29,7 @@ object DatabaseModule {
             RefocusDatabase::class.java,
             REFOCUS_DB_NAME
         )
+            .addMigrations(MIGRATION_8_9)
 
         val isDebuggable =
             (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
