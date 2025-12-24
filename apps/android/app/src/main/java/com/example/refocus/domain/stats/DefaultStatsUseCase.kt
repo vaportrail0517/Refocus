@@ -98,7 +98,8 @@ class DefaultStatsUseCase @Inject constructor(
                         date = today,
                         events = merged,
                         customize = settings,
-                        targets = targets,
+                        // セッション投影は TargetAppsChangedEvent から「当時の対象集合」を復元するため，
+            // 現在の targets をフィルタとして渡さない。
                         nowMillis = nowMillisForDay,
                     )
                 }
@@ -118,7 +119,6 @@ class DefaultStatsUseCase @Inject constructor(
         val nowMillisForDay = minOf(timeSource.nowMillis(), endOfDayExclusive)
 
         val settings = settingsRepository.observeOverlaySettings().first()
-        val targets = targetsRepository.observeTargets().first()
 
         // その日より前に確定した状態（サービス稼働・権限・直前foreground等）を拾うため，
         // 「日付境界を跨ぐ可能性がある範囲」だけ取得し，直前の状態イベントを seed として補う。
@@ -132,7 +132,8 @@ class DefaultStatsUseCase @Inject constructor(
             date = date,
             events = events,
             customize = settings,
-            targets = targets,
+            // セッション投影は TargetAppsChangedEvent から「当時の対象集合」を復元するため，
+            // 現在の targets をフィルタとして渡さない。
             nowMillis = nowMillisForDay,
         )
     }
@@ -144,7 +145,6 @@ class DefaultStatsUseCase @Inject constructor(
         date: LocalDate,
         events: List<TimelineEvent>,
         customize: Customize,
-        targets: Set<String>,
         nowMillis: Long,
     ): DailyStats? {
         if (events.isEmpty()) return null
@@ -152,7 +152,6 @@ class DefaultStatsUseCase @Inject constructor(
         // 1) セッションを再構成（SessionProjector の現状シグネチャに合わせる）
         val sessionsWithEvents = SessionProjector.projectSessions(
             events = events,
-            targetPackages = targets,
             stopGracePeriodMillis = customize.gracePeriodMillis,
             nowMillis = nowMillis,
         )

@@ -107,6 +107,7 @@ class TimelineRepositoryImpl(
         dao.getLatestEventOfKindBefore(KIND_SERVICE, beforeMillis)?.let { seedEntities += it }
         dao.getLatestEventOfKindBefore(KIND_SCREEN, beforeMillis)?.let { seedEntities += it }
         dao.getLatestEventOfKindBefore(KIND_FOREGROUND_APP, beforeMillis)?.let { seedEntities += it }
+        dao.getLatestEventOfKindBefore(KIND_TARGET_APPS_CHANGED, beforeMillis)?.let { seedEntities += it }
 
         // Permission は permissionKind ごとに直前 1 件が欲しい。
         // SQL 側で group by するより，件数が小さいことを前提に Kotlin 側でユニーク化する。

@@ -34,14 +34,12 @@ object SessionProjector {
 
     /**
      * @param events   時刻昇順のイベント列（同一 timestamp の順序は問わない）
-     * @param targetPackages 対象アプリの packageName セット
      * @param stopGracePeriodMillis 停止猶予時間
      * @param nowMillis 「いま」の時刻。停止猶予をまたいで復帰していないセッションは
      *                  この時刻までに十分時間が経っていれば終了扱いにする。
      */
     fun projectSessions(
         events: List<TimelineEvent>,
-        targetPackages: Set<String>,
         stopGracePeriodMillis: Long,
         nowMillis: Long,
     ): List<SessionWithEvents> {
@@ -50,7 +48,14 @@ object SessionProjector {
         var screenOn: Boolean = true
         var monitoringEnabled: Boolean = true
         var serviceRunning: Boolean = true
+
+        // TargetAppsChangedEvent から復元される「その時点の対象アプリ集合」。
+        // seed（ウィンドウ開始より前の直前イベント）を events に含めることで，
+        // ウィンドウ内の ForegroundAppEvent も正しく解釈できる。
+        var currentTargetPackages: Set<String> = emptySet()
         val permissionStates = mutableMapOf<PermissionKind, PermissionState>()
+
+        fun isTarget(pkg: String?): Boolean = pkg != null && pkg in currentTargetPackages
 
         // app -> アクティブなセッション状態
         data class ActiveState(
@@ -89,7 +94,7 @@ object SessionProjector {
         }
 
         fun startSession(pkg: String, ts: Long) {
-            if (pkg !in targetPackages) return
+            if (pkg !in currentTargetPackages) return
             if (activeSessions.containsKey(pkg)) return
 
             val id = nextSessionId++
@@ -168,6 +173,7 @@ object SessionProjector {
 
         fun resumeCurrentForeground(ts: Long) {
             val pkg = currentForeground ?: return
+            if (!isTarget(pkg)) return
             val state = activeSessions[pkg] ?: return
             // 画面 ON / 再フォアグラウンドで復帰
             state.lastInactiveAtMillis = null
@@ -226,8 +232,8 @@ object SessionProjector {
                     val prev = currentForeground
                     val newPkg = event.packageName
 
-                    // 前の前面アプリが対象だった場合は「離脱」とみなす
-                    if (prev != null && prev != newPkg && prev in targetPackages) {
+                    // 前の前面アプリが「その時点で対象」だった場合は「離脱」とみなす
+                    if (prev != null && prev != newPkg && isTarget(prev)) {
                         markInactive(prev, ts)
                     }
 
@@ -235,11 +241,12 @@ object SessionProjector {
 
                     if (screenOn && monitoringEnabled) {
                         val fg = currentForeground
-                        if (fg != null && fg in targetPackages) {
-                            if (!activeSessions.containsKey(fg)) {
+                        if (isTarget(fg)) {
+                            val pkg = fg!!
+                            if (!activeSessions.containsKey(pkg)) {
                                 // 停止猶予内に復帰していれば ActiveState が残っているはず、
                                 // そうでなければ新しいセッションを開始
-                                startSession(fg, ts)
+                                startSession(pkg, ts)
                             } else {
                                 // すでにセッション中なら Resume 扱い
                                 resumeCurrentForeground(ts)
@@ -259,10 +266,17 @@ object SessionProjector {
                 }
 
                 is TargetAppsChangedEvent -> {
-                    // 対象から外れたアプリのセッションを終了扱いにする
+                    // その時点の対象集合を更新する（セッション境界の正はこの集合によって決まる）
+                    currentTargetPackages = event.targetPackages
+
+                    // 安全策：もし対象から外れたアプリのセッションが残っていたら，ここで閉じる
+                    // （通常は Refocus 操作中に対象変更するため，対象アプリを前面で計測中のケースは起きにくい想定）
                     activeSessions.keys
-                        .filter { it !in event.targetPackages }
-                        .forEach { pkg -> endSession(pkg, ts) }
+                        .filter { it !in currentTargetPackages }
+                        .forEach { pkg ->
+                            markInactive(pkg, ts)
+                            endSession(pkg, ts)
+                        }
                 }
 
                 is SuggestionShownEvent -> {

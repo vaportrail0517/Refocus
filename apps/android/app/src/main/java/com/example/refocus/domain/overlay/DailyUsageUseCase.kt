@@ -238,7 +238,6 @@ class DailyUsageUseCase(
         val (perPkg, all) = withContext(Dispatchers.Default) {
             val sessions = SessionProjector.projectSessions(
                 events = events,
-                targetPackages = targetPackages,
                 stopGracePeriodMillis = customize.gracePeriodMillis,
                 nowMillis = nowMillis,
             )

@@ -39,20 +39,25 @@ class SessionBootstrapper(
         val startMillis = (nowMillis - lookbackHours * 60L * 60L * 1000L)
             .coerceAtLeast(0L)
 
-        val events = timelineRepository.getEvents(
+        // startMillis より前の TargetAppsChanged などを seed として補い，
+        // ウィンドウ内の ForegroundAppEvent を「当時の対象集合」で解釈できるようにする。
+        val seed = timelineRepository.getSeedEventsBefore(startMillis)
+        val windowEvents = timelineRepository.getEvents(
             startMillis = startMillis,
             endMillis = nowMillis,
         )
+        val events = (seed + windowEvents).sortedBy { it.timestampMillis }
         if (events.isEmpty()) return null
 
         val sessionsWithEvents = SessionProjector.projectSessions(
             events = events,
-            targetPackages = setOf(packageName),
             stopGracePeriodMillis = customize.gracePeriodMillis,
             nowMillis = nowMillis,
         )
 
-        val last = sessionsWithEvents.lastOrNull() ?: return null
+        val last = sessionsWithEvents
+            .filter { it.session.packageName == packageName }
+            .lastOrNull() ?: return null
 
         // End が入っている = 論理セッションは閉じている
         val ended = last.events.any { it.type == SessionEventType.End }

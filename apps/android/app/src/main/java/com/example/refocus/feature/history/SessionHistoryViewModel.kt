@@ -138,7 +138,6 @@ class SessionHistoryViewModel @Inject constructor(
         // TimelineEvent からセッションを再構成
         val sessionsWithEvents = SessionProjector.projectSessions(
             events = events,
-            targetPackages = targets,
             stopGracePeriodMillis = customize.gracePeriodMillis,
             nowMillis = nowMillis,
         )
