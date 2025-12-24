@@ -161,6 +161,7 @@ class OverlayCoordinator(
     fun currentTimerDisplayMillis(): Long? {
         val pkg = runtimeState.value.trackingPackage ?: return null
         val customize = runtimeState.value.customize
+        val nowMillis = timeSource.nowMillis()
 
         return when (customize.timerTimeMode) {
             TimerTimeMode.SessionElapsed -> {
@@ -171,6 +172,7 @@ class OverlayCoordinator(
                 dailyUsageUseCase.requestRefreshIfNeeded(
                     customize = customize,
                     targetPackages = runtimeState.value.lastTargetPackages,
+                    nowMillis = nowMillis,
                 )
                 dailyUsageUseCase.getTodayThisTargetMillis(pkg)
             }
@@ -179,6 +181,7 @@ class OverlayCoordinator(
                 dailyUsageUseCase.requestRefreshIfNeeded(
                     customize = customize,
                     targetPackages = runtimeState.value.lastTargetPackages,
+                    nowMillis = nowMillis,
                 )
                 dailyUsageUseCase.getTodayAllTargetsMillis()
             }
@@ -398,6 +401,9 @@ class OverlayCoordinator(
                             "gracePeriodMillis changed: ${oldSettings.gracePeriodMillis} -> ${settings.gracePeriodMillis}"
                         }
 
+                        // 停止猶予時間が変わると，日次累計の再投影結果も変わり得るためキャッシュを無効化する
+                        dailyUsageUseCase.invalidate()
+
                         // 「今表示中のターゲット」について，変更後の停止猶予で論理セッションを再解釈して追従する
                         val pkg = runtimeState.value.overlayPackage
                         val stateSnapshot = runtimeState.value
@@ -476,8 +482,8 @@ class OverlayCoordinator(
             )
         }
 
-        // 日次集計表示モードの場合のみ，必要に応じてキャッシュを更新する
-        dailyUsageUseCase.refreshIfNeeded(
+        // 日次集計表示モードの場合のみ，必要に応じてスナップショット更新を要求する（非同期）
+        dailyUsageUseCase.requestRefreshIfNeeded(
             customize = settings,
             targetPackages = runtimeState.value.lastTargetPackages,
             nowMillis = nowMillis,

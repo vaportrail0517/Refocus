@@ -120,14 +120,16 @@ class ForegroundTrackingOrchestrator(
                         runtimeState.update { it.copy(lastTargetPackages = targets) }
                     }
 
-                    // 日次集計表示モードの場合のみ，必要に応じてキャッシュを更新
-                    if (runtimeState.value.customize.timerTimeMode != TimerTimeMode.SessionElapsed) {
-                        dailyUsageUseCase.refreshIfNeeded(
-                            customize = runtimeState.value.customize,
-                            targetPackages = targets,
-                            nowMillis = nowMillis,
-                        )
-                    }
+                    // 日次表示モードの場合は，
+                    // - スナップショット更新（低頻度）
+                    // - ランタイム加算（高頻度）
+                    // の二段構えで追従し，毎秒 DB を叩かないようにする．
+                    dailyUsageUseCase.onTick(
+                        customize = runtimeState.value.customize,
+                        targetPackages = targets,
+                        activePackageName = foregroundPackage,
+                        nowMillis = nowMillis,
+                    )
 
                     // 「同一パッケージだが前面復帰した」を検知して，前面安定だけリセット
                     val prevSample = lastSample
