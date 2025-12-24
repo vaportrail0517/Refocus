@@ -8,6 +8,7 @@ import com.example.refocus.core.model.ScreenEvent
 import com.example.refocus.core.model.ScreenState
 import com.example.refocus.core.model.ServiceLifecycleEvent
 import com.example.refocus.core.model.ServiceState
+import com.example.refocus.core.model.ServiceConfigEvent
 import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionEventType
@@ -300,6 +301,8 @@ object SessionProjector {
                 }
 
                 is SettingsChangedEvent -> Unit // セッション境界には影響させない
+
+                is ServiceConfigEvent -> Unit // サービス設定変更はセッション境界には影響させない
             }
         }
 

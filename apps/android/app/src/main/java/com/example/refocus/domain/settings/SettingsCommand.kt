@@ -5,6 +5,8 @@ import com.example.refocus.core.model.CustomizePreset
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
+import com.example.refocus.core.model.ServiceConfigKind
+import com.example.refocus.core.model.ServiceConfigState
 import com.example.refocus.data.repository.SettingsRepository
 import com.example.refocus.domain.timeline.EventRecorder
 import javax.inject.Inject
@@ -18,6 +20,10 @@ import kotlinx.coroutines.flow.first
  * - UI 外 (Service / Tile / Receiver 等) からの設定更新でも SettingsChangedEvent を必ず残す
  * - 同値更新は無視し，タイムラインのノイズを減らす
  * - source / reason を付与し，後から「なぜ変わったか」を追えるようにする
+
+ *
+ * 例外
+ * - overlayEnabled / autoStartOnBoot は SettingsChangedEvent ではなく ServiceConfigEvent として記録する
  *
  * NOTE:
  * - タイムライン再構成の「解釈」では設定値を参照しない前提のため，
@@ -172,31 +178,52 @@ class SettingsCommand @Inject constructor(
         reason: String? = null,
         recordEvent: Boolean = true,
     ) {
-        updateCustomize(
+        val changed = updateCustomize(
             key = Keys.OverlayEnabled,
             newValueDescription = enabled.toString(),
             source = source,
             reason = reason,
             markPresetCustom = false,
-            recordEvent = recordEvent,
+            // overlayEnabled は Service 設定として扱うため，SettingsChangedEvent では記録しない
+            recordEvent = false,
         ) { current ->
             current.copy(overlayEnabled = enabled)
         }
+
+        if (changed && recordEvent) {
+            eventRecorder.onServiceConfigChanged(
+                config = ServiceConfigKind.OverlayEnabled,
+                state = if (enabled) ServiceConfigState.Enabled else ServiceConfigState.Disabled,
+                meta = buildValueDescription(value = null, source = source, reason = reason),
+            )
+        }
     }
+
 
     suspend fun setAutoStartOnBoot(
         enabled: Boolean,
         source: String,
         reason: String? = null,
+        recordEvent: Boolean = true,
     ) {
-        updateCustomize(
+        val changed = updateCustomize(
             key = Keys.AutoStartOnBoot,
             newValueDescription = enabled.toString(),
             source = source,
             reason = reason,
             markPresetCustom = false,
+            // autoStartOnBoot は Service 設定として扱うため，SettingsChangedEvent では記録しない
+            recordEvent = false,
         ) { current ->
             current.copy(autoStartOnBoot = enabled)
+        }
+
+        if (changed && recordEvent) {
+            eventRecorder.onServiceConfigChanged(
+                config = ServiceConfigKind.AutoStartOnBoot,
+                state = if (enabled) ServiceConfigState.Enabled else ServiceConfigState.Disabled,
+                meta = buildValueDescription(value = null, source = source, reason = reason),
+            )
         }
     }
 

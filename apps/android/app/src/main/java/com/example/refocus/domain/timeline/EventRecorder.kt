@@ -6,6 +6,9 @@ import com.example.refocus.core.model.PermissionKind
 import com.example.refocus.core.model.PermissionState
 import com.example.refocus.core.model.ScreenEvent
 import com.example.refocus.core.model.ScreenState
+import com.example.refocus.core.model.ServiceConfigEvent
+import com.example.refocus.core.model.ServiceConfigKind
+import com.example.refocus.core.model.ServiceConfigState
 import com.example.refocus.core.model.ServiceLifecycleEvent
 import com.example.refocus.core.model.ServiceState
 import com.example.refocus.core.model.SettingsChangedEvent
@@ -43,6 +46,21 @@ class EventRecorder(
             ServiceLifecycleEvent(
                 timestampMillis = now(),
                 state = ServiceState.Stopped,
+            )
+        )
+    }
+
+    suspend fun onServiceConfigChanged(
+        config: ServiceConfigKind,
+        state: ServiceConfigState,
+        meta: String? = null,
+    ) {
+        timelineRepository.append(
+            ServiceConfigEvent(
+                timestampMillis = now(),
+                config = config,
+                state = state,
+                meta = meta,
             )
         )
     }

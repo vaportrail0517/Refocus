@@ -6,6 +6,9 @@ import com.example.refocus.core.model.PermissionKind
 import com.example.refocus.core.model.PermissionState
 import com.example.refocus.core.model.ScreenEvent
 import com.example.refocus.core.model.ScreenState
+import com.example.refocus.core.model.ServiceConfigEvent
+import com.example.refocus.core.model.ServiceConfigKind
+import com.example.refocus.core.model.ServiceConfigState
 import com.example.refocus.core.model.ServiceLifecycleEvent
 import com.example.refocus.core.model.ServiceState
 import com.example.refocus.core.model.SettingsChangedEvent
@@ -141,6 +144,15 @@ class TimelineRepositoryImpl(
         val baseTimestamp = timestampMillis
 
         return when (this) {
+            is ServiceConfigEvent -> TimelineEventEntity(
+                id = id ?: 0L,
+                timestampMillis = baseTimestamp,
+                kind = KIND_SERVICE_CONFIG,
+                extraKey = config.name,
+                extraValue = state.name,
+                extra = meta,
+            )
+
             is ServiceLifecycleEvent -> TimelineEventEntity(
                 id = id ?: 0L,
                 timestampMillis = baseTimestamp,
@@ -206,6 +218,18 @@ class TimelineRepositoryImpl(
 
     private fun TimelineEventEntity.toDomain(): TimelineEvent? {
         return when (kind) {
+            KIND_SERVICE_CONFIG -> {
+                val config = extraKey?.let { ServiceConfigKind.valueOf(it) } ?: return null
+                val state = extraValue?.let { ServiceConfigState.valueOf(it) } ?: return null
+                ServiceConfigEvent(
+                    id = id,
+                    timestampMillis = timestampMillis,
+                    config = config,
+                    state = state,
+                    meta = extra,
+                )
+            }
+
             KIND_SERVICE -> {
                 val state = serviceState?.let { ServiceState.valueOf(it) } ?: return null
                 ServiceLifecycleEvent(
@@ -291,6 +315,7 @@ class TimelineRepositoryImpl(
     }
 
     companion object {
+        private const val KIND_SERVICE_CONFIG = "ServiceConfig"
         private const val KIND_SERVICE = "ServiceLifecycle"
         private const val KIND_PERMISSION = "Permission"
         private const val KIND_SCREEN = "Screen"
