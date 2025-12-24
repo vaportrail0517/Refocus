@@ -31,10 +31,12 @@ import com.example.refocus.system.monitor.ForegroundAppMonitor
 import com.example.refocus.system.notification.OverlayNotificationUiState
 import com.example.refocus.system.notification.OverlayServiceNotificationController
 import com.example.refocus.system.permissions.PermissionHelper
+import com.example.refocus.system.permissions.PermissionStateWatcher
 import com.example.refocus.system.tile.RefocusTileService
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -97,6 +99,9 @@ class OverlayService : LifecycleService() {
     lateinit var eventRecorder: EventRecorder
 
     @Inject
+    lateinit var permissionStateWatcher: PermissionStateWatcher
+
+    @Inject
     lateinit var timelineRepository: TimelineRepository
 
     @Inject
@@ -110,6 +115,8 @@ class OverlayService : LifecycleService() {
     private lateinit var notificationController: OverlayServiceNotificationController
 
     private val notificationRefresh = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    private var permissionWatchJob: Job? = null
 
     @Volatile
     private var isStopping: Boolean = false
@@ -147,6 +154,11 @@ class OverlayService : LifecycleService() {
                 Intent.ACTION_SCREEN_ON -> {
                     RefocusLog.d("Service") { "ACTION_USER_PRESENT / SCREEN_ON received" }
                     overlayCoordinator.setScreenOn(true)
+
+                    // 設定画面から戻ってきたタイミングなどで権限が変わっている可能性がある
+                    serviceScope.launch {
+                        checkAndHandleCorePermissions(reason = "screen_on")
+                    }
 
                     lifecycleScope.launch {
                         try {
@@ -214,7 +226,12 @@ class OverlayService : LifecycleService() {
             RefocusLog.w("Service") { "canRunOverlay = false. stopSelf()" }
             lifecycleScope.launch {
                 try {
-                    settingsCommand.setOverlayEnabled(enabled = false, source = "service", reason = "core_permission_missing")
+                    // サービスが起動できない状況でも，権限状態の変化はタイムラインに残す
+                    try {
+                        permissionStateWatcher.checkAndRecord()
+                    } catch (_: Exception) {
+                    }
+                    settingsCommand.setOverlayEnabled(enabled = false, source = "service", reason = "core_permission_missing", recordEvent = false)
                 } catch (_: Exception) {
                 }
                 stopSelf()
@@ -223,7 +240,50 @@ class OverlayService : LifecycleService() {
         }
 
         registerScreenReceiver()
+
+        // 権限状態の変化を継続的に検知し，失効時はフェイルセーフに停止する
+        startPermissionWatchLoop()
+
         overlayCoordinator.start()
+    }
+
+    private fun startPermissionWatchLoop() {
+        if (permissionWatchJob != null) return
+        permissionWatchJob = serviceScope.launch {
+            // 初回チェック
+            checkAndHandleCorePermissions(reason = "service_start")
+
+            // 以降は定期的に確認（差分イベントは watcher 側で抑制される）
+            while (isActive) {
+                delay(30_000)
+                checkAndHandleCorePermissions(reason = "periodic")
+            }
+        }
+    }
+
+    private suspend fun checkAndHandleCorePermissions(reason: String) {
+        if (isStopping) return
+
+        val snapshot = try {
+            permissionStateWatcher.checkAndRecord()
+        } catch (e: Exception) {
+            RefocusLog.e("Service", e) { "Permission check/record failed ($reason)" }
+            return
+        }
+
+        if (!snapshot.hasAllCorePermissions()) {
+            RefocusLog.w("Service") { "core permissions missing ($reason) -> stopSelf()" }
+            try {
+                settingsCommand.setOverlayEnabled(
+                    enabled = false,
+                    source = "service",
+                    reason = "core_permission_missing",
+                    recordEvent = false,
+                )
+            } catch (_: Exception) {
+            }
+            stopSelf()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

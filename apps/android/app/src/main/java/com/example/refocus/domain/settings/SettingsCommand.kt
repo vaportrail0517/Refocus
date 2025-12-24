@@ -170,6 +170,7 @@ class SettingsCommand @Inject constructor(
         enabled: Boolean,
         source: String,
         reason: String? = null,
+        recordEvent: Boolean = true,
     ) {
         updateCustomize(
             key = Keys.OverlayEnabled,
@@ -177,6 +178,7 @@ class SettingsCommand @Inject constructor(
             source = source,
             reason = reason,
             markPresetCustom = false,
+            recordEvent = recordEvent,
         ) { current ->
             current.copy(overlayEnabled = enabled)
         }
