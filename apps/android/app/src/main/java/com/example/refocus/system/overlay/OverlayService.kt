@@ -144,7 +144,6 @@ class OverlayService : LifecycleService() {
         notificationDriver = OverlayServiceNotificationDriver(
             scope = serviceScope,
             overlayCoordinator = overlayCoordinator,
-            settingsRepository = settingsRepository,
             appLabelResolver = appLabelResolver,
             notificationController = notificationController,
             notificationId = NOTIFICATION_ID,
@@ -206,7 +205,6 @@ class OverlayService : LifecycleService() {
             actionToggleTimerVisibility = ACTION_TOGGLE_TIMER_VISIBILITY,
             actionToggleTouchMode = ACTION_TOGGLE_TOUCH_MODE,
             onStopRequested = ::stopFromUserAction,
-            onNotificationRefreshRequested = { notificationDriver?.requestRefresh() },
         )
 
         overlayCoordinator.start()

@@ -19,7 +19,6 @@ internal class OverlayServiceIntentHandler(
     private val actionToggleTimerVisibility: String,
     private val actionToggleTouchMode: String,
     private val onStopRequested: () -> Unit,
-    private val onNotificationRefreshRequested: () -> Unit,
 ) {
     fun handle(intent: Intent?): Boolean {
         when (intent?.action) {
@@ -30,7 +29,6 @@ internal class OverlayServiceIntentHandler(
 
             actionToggleTimerVisibility -> {
                 overlayCoordinator.toggleTimerVisibilityForCurrentSession()
-                onNotificationRefreshRequested()
                 return true
             }
 

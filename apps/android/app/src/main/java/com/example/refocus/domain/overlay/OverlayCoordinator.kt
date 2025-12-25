@@ -16,15 +16,18 @@ import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -130,6 +133,49 @@ class OverlayCoordinator(
 
     val timerVisibleFlow: StateFlow<Boolean> get() = timerVisibleFlowInternal
 
+    /**
+     * 通知や system 層の描画は「単一の表示状態」だけを購読する．
+     * 時間経過で変化する値（表示時間）は tick により 1 秒ごとに更新される．
+     */
+    private val presentationTick = MutableStateFlow(0L)
+
+    @Volatile
+    private var presentationTickJob: Job? = null
+
+    private val presentationStateFlowInternal: StateFlow<OverlayPresentationState> =
+        combine(
+            trackingPackageFlowInternal,
+            timerVisibleFlowInternal,
+            customizeFlow.map { it.touchMode }.distinctUntilChanged(),
+            customizeFlow.map { it.timerTimeMode }.distinctUntilChanged(),
+            presentationTick,
+        ) { trackingPkg, timerVisible, touchMode, timerTimeMode, _ ->
+            val displayMillis = trackingPkg?.let { timerDisplayCalculator.currentTimerDisplayMillis(it) }
+            OverlayPresentationState(
+                trackingPackage = trackingPkg,
+                timerDisplayMillis = displayMillis,
+                isTimerVisible = trackingPkg != null && timerVisible,
+                touchMode = touchMode,
+                timerTimeMode = timerTimeMode,
+            )
+        }.stateIn(
+            scope = scope,
+            started = SharingStarted.Eagerly,
+            initialValue = OverlayPresentationState(
+                trackingPackage = runtimeState.value.trackingPackage,
+                timerDisplayMillis = runtimeState.value.trackingPackage?.let {
+                    timerDisplayCalculator.currentTimerDisplayMillis(it)
+                },
+                isTimerVisible = runtimeState.value.trackingPackage != null && runtimeState.value.timerVisible,
+                touchMode = runtimeState.value.customize.touchMode,
+                timerTimeMode = runtimeState.value.customize.timerTimeMode,
+            ),
+        )
+
+    val presentationStateFlow: StateFlow<OverlayPresentationState> get() = presentationStateFlowInternal
+
+    fun currentPresentationState(): OverlayPresentationState = presentationStateFlowInternal.value
+
     private val foregroundTrackingOrchestrator = ForegroundTrackingOrchestrator(
         scope = scope,
         timeSource = timeSource,
@@ -227,6 +273,7 @@ class OverlayCoordinator(
      * OverlayService.onCreate から呼ばれる想定．
      */
     fun start() {
+        startPresentationTicker()
         observeOverlaySettings()
         foregroundTrackingOrchestrator.start(
             customizeFlow = customizeFlow,
@@ -239,6 +286,9 @@ class OverlayCoordinator(
      * オーバーレイ表示を片付ける．
      */
     fun stop() {
+        presentationTickJob?.cancel()
+        presentationTickJob = null
+
         uiController.hideTimer()
         uiController.hideSuggestion()
         suggestionOrchestrator.onDisabled()
@@ -258,6 +308,19 @@ class OverlayCoordinator(
         // オーバーレイ用セッションもクリア
         sessionTracker.clear()
         // scope 自体のキャンセルは Service 側で行う
+    }
+
+    private fun startPresentationTicker() {
+        if (presentationTickJob?.isActive == true) return
+        presentationTickJob = scope.launch {
+            while (isActive) {
+                delay(1_000)
+                // 計測中のみ 1 秒 tick を進める（通知用の表示値を更新するため）
+                if (runtimeState.value.trackingPackage != null) {
+                    presentationTick.update { it + 1 }
+                }
+            }
+        }
     }
 
     /**
