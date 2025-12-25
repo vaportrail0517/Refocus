@@ -7,7 +7,7 @@ import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
 import com.example.refocus.core.model.ServiceConfigKind
 import com.example.refocus.core.model.ServiceConfigState
-import com.example.refocus.data.repository.SettingsRepository
+import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.timeline.EventRecorder
 import javax.inject.Inject
 import javax.inject.Singleton

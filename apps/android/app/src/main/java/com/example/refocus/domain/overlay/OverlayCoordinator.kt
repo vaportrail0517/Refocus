@@ -5,15 +5,15 @@ import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.data.repository.SettingsRepository
-import com.example.refocus.data.repository.SuggestionsRepository
-import com.example.refocus.data.repository.TargetsRepository
-import com.example.refocus.data.repository.TimelineRepository
+import com.example.refocus.domain.gateway.ForegroundAppObserver
+import com.example.refocus.domain.repository.SettingsRepository
+import com.example.refocus.domain.repository.SuggestionsRepository
+import com.example.refocus.domain.repository.TargetsRepository
+import com.example.refocus.domain.repository.TimelineRepository
 import com.example.refocus.domain.settings.SettingsCommand
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
-import com.example.refocus.system.monitor.ForegroundAppMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,7 +42,7 @@ class OverlayCoordinator(
     private val settingsRepository: SettingsRepository,
     private val settingsCommand: SettingsCommand,
     private val suggestionsRepository: SuggestionsRepository,
-    private val foregroundAppMonitor: ForegroundAppMonitor,
+    private val foregroundAppObserver: ForegroundAppObserver,
     private val suggestionEngine: SuggestionEngine,
     private val suggestionSelector: SuggestionSelector,
     private val uiController: OverlayUiGateway,
@@ -126,7 +126,7 @@ class OverlayCoordinator(
         scope = scope,
         timeSource = timeSource,
         targetsRepository = targetsRepository,
-        foregroundAppMonitor = foregroundAppMonitor,
+        foregroundAppObserver = foregroundAppObserver,
         runtimeState = runtimeState,
         sessionTracker = sessionTracker,
         dailyUsageUseCase = dailyUsageUseCase,

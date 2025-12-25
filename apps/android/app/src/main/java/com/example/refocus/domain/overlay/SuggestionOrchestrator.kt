@@ -4,7 +4,7 @@ import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.SuggestionDecision
 import com.example.refocus.core.model.SuggestionMode
-import com.example.refocus.data.repository.SuggestionsRepository
+import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder

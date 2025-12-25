@@ -11,9 +11,9 @@ import com.example.refocus.core.model.SessionStatus
 import com.example.refocus.core.model.TimelineEvent
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.core.util.formatDurationMilliSeconds
-import com.example.refocus.data.repository.SettingsRepository
-import com.example.refocus.data.repository.TargetsRepository
-import com.example.refocus.data.repository.TimelineRepository
+import com.example.refocus.domain.repository.SettingsRepository
+import com.example.refocus.domain.repository.TargetsRepository
+import com.example.refocus.domain.repository.TimelineRepository
 import com.example.refocus.domain.stats.SessionStatsCalculator
 import com.example.refocus.domain.timeline.SessionProjector
 import com.example.refocus.system.monitor.ForegroundAppMonitor

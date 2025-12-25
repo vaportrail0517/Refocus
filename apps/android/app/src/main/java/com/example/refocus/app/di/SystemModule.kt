@@ -3,7 +3,8 @@ package com.example.refocus.app.di
 import android.content.Context
 import com.example.refocus.core.util.SystemTimeSource
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.data.repository.TimelineRepository
+import com.example.refocus.domain.gateway.ForegroundAppObserver
+import com.example.refocus.domain.repository.TimelineRepository
 import com.example.refocus.domain.suggestion.GaussianCircularTimeSlotWeightModel
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
@@ -12,6 +13,7 @@ import com.example.refocus.domain.timeline.EventRecorder
 import com.example.refocus.system.appinfo.AndroidAppLabelResolver
 import com.example.refocus.system.appinfo.AppLabelResolver
 import com.example.refocus.system.monitor.ForegroundAppMonitor
+import com.example.refocus.system.monitor.ForegroundAppObserverImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,6 +35,12 @@ object SystemModule {
         @ApplicationContext context: Context,
         timeSource: TimeSource
     ): ForegroundAppMonitor = ForegroundAppMonitor(context, timeSource)
+
+    @Provides
+    @Singleton
+    fun provideForegroundAppObserver(
+        monitor: ForegroundAppMonitor,
+    ): ForegroundAppObserver = ForegroundAppObserverImpl(monitor)
 
     @Provides
     @Singleton

@@ -3,9 +3,9 @@ package com.example.refocus.domain.overlay
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerTimeMode
-import com.example.refocus.data.repository.TargetsRepository
+import com.example.refocus.domain.gateway.ForegroundAppObserver
+import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.domain.timeline.EventRecorder
-import com.example.refocus.system.monitor.ForegroundAppMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -38,7 +38,7 @@ class ForegroundTrackingOrchestrator(
     private val scope: CoroutineScope,
     private val timeSource: com.example.refocus.core.util.TimeSource,
     private val targetsRepository: TargetsRepository,
-    private val foregroundAppMonitor: ForegroundAppMonitor,
+    private val foregroundAppObserver: ForegroundAppObserver,
     private val runtimeState: MutableStateFlow<OverlayRuntimeState>,
     private val sessionTracker: OverlaySessionTracker,
     private val dailyUsageUseCase: DailyUsageUseCase,
@@ -69,13 +69,13 @@ class ForegroundTrackingOrchestrator(
                 .map { it.pollingIntervalMillis }
                 .distinctUntilChanged()
                 .flatMapLatest { interval ->
-                    foregroundAppMonitor.foregroundSampleFlow(
+                    foregroundAppObserver.foregroundSampleFlow(
                         pollingIntervalMs = interval,
                     )
                 }
 
             var lastForegroundRaw: String? = null
-            var lastSample: ForegroundAppMonitor.ForegroundSample? = null
+            var lastSample: ForegroundAppObserver.ForegroundSample? = null
             var lastScreenOn: Boolean? = null
 
             val tickFlow = tickerFlow(periodMs = 1_000L)

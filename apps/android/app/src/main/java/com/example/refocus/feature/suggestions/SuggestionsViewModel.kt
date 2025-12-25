@@ -7,7 +7,7 @@ import com.example.refocus.core.model.Suggestion
 import com.example.refocus.core.model.SuggestionDurationTag
 import com.example.refocus.core.model.SuggestionPriority
 import com.example.refocus.core.model.SuggestionTimeSlot
-import com.example.refocus.data.repository.SuggestionsRepository
+import com.example.refocus.domain.repository.SuggestionsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

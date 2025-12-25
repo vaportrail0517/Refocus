@@ -5,7 +5,7 @@ import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.refocus.data.repository.TargetsRepository
+import com.example.refocus.domain.repository.TargetsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

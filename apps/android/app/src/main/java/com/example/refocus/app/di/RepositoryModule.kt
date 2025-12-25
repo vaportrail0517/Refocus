@@ -1,25 +1,25 @@
 package com.example.refocus.app.di
 
-import android.content.Context
 import com.example.refocus.core.util.TimeSource
+import com.example.refocus.data.datastore.OnboardingDataStore
 import com.example.refocus.data.datastore.SettingsDataStore
 import com.example.refocus.data.datastore.TargetsDataStore
-import com.example.refocus.data.db.RefocusDatabase
 import com.example.refocus.data.db.dao.SuggestionDao
 import com.example.refocus.data.db.dao.TimelineEventDao
-import com.example.refocus.data.repository.OnboardingRepository
-import com.example.refocus.data.repository.SettingsRepository
-import com.example.refocus.data.repository.SuggestionsRepository
-import com.example.refocus.data.repository.TargetsRepository
-import com.example.refocus.data.repository.TimelineRepository
+import com.example.refocus.data.repository.OnboardingRepositoryImpl
+import com.example.refocus.data.repository.SettingsRepositoryImpl
+import com.example.refocus.data.repository.SuggestionsRepositoryImpl
+import com.example.refocus.data.repository.TargetsRepositoryImpl
 import com.example.refocus.data.repository.TimelineRepositoryImpl
-import com.example.refocus.domain.app.AppDataResetter
-import com.example.refocus.domain.settings.SettingsCommand
+import com.example.refocus.domain.repository.OnboardingRepository
+import com.example.refocus.domain.repository.SettingsRepository
+import com.example.refocus.domain.repository.SuggestionsRepository
+import com.example.refocus.domain.repository.TargetsRepository
+import com.example.refocus.domain.repository.TimelineRepository
 import com.example.refocus.domain.timeline.EventRecorder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
@@ -30,28 +30,28 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideOnboardingRepository(
-        @ApplicationContext context: Context,
-    ): OnboardingRepository = OnboardingRepository(context)
+        dataStore: OnboardingDataStore,
+    ): OnboardingRepository = OnboardingRepositoryImpl(dataStore)
 
     @Provides
     @Singleton
     fun provideSettingsRepository(
         dataStore: SettingsDataStore,
-    ): SettingsRepository = SettingsRepository(dataStore)
+    ): SettingsRepository = SettingsRepositoryImpl(dataStore)
 
     @Provides
     @Singleton
     fun provideTargetsRepository(
         dataStore: TargetsDataStore,
         eventRecorder: EventRecorder,
-    ): TargetsRepository = TargetsRepository(dataStore, eventRecorder)
+    ): TargetsRepository = TargetsRepositoryImpl(dataStore, eventRecorder)
 
     @Provides
     @Singleton
     fun provideSuggestionsRepository(
         suggestionDao: SuggestionDao,
         timeSource: TimeSource,
-    ): SuggestionsRepository = SuggestionsRepository(
+    ): SuggestionsRepository = SuggestionsRepositoryImpl(
         suggestionDao = suggestionDao,
         timeSource = timeSource,
     )
@@ -62,17 +62,4 @@ object RepositoryModule {
         timelineEventDao: TimelineEventDao,
     ): TimelineRepository = TimelineRepositoryImpl(timelineEventDao)
 
-    @Provides
-    @Singleton
-    fun provideAppDataResetter(
-        database: RefocusDatabase,
-        settingsCommand: SettingsCommand,
-        targetsRepository: TargetsRepository,
-        onboardingRepository: OnboardingRepository,
-    ): AppDataResetter = AppDataResetter(
-        database = database,
-        settingsCommand = settingsCommand,
-        targetsRepository = targetsRepository,
-        onboardingRepository = onboardingRepository,
-    )
 }

@@ -17,7 +17,7 @@ import com.example.refocus.core.model.SuggestionDecisionEvent
 import com.example.refocus.core.model.SuggestionShownEvent
 import com.example.refocus.core.model.TargetAppsChangedEvent
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.data.repository.TimelineRepository
+import com.example.refocus.domain.repository.TimelineRepository
 
 /**
  * System 層からのイベントを一元的に記録するためのユーティリティ。

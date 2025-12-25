@@ -4,8 +4,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.example.refocus.core.logging.RefocusLog
-import com.example.refocus.data.repository.OnboardingRepository
-import com.example.refocus.data.repository.SettingsRepository
+import com.example.refocus.domain.repository.OnboardingRepository
+import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
 import dagger.hilt.android.AndroidEntryPoint

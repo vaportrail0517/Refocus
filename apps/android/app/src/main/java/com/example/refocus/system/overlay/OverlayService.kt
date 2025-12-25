@@ -17,17 +17,17 @@ import androidx.lifecycle.lifecycleScope
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.core.util.formatDurationForTimerBubble
-import com.example.refocus.data.repository.SettingsRepository
-import com.example.refocus.data.repository.SuggestionsRepository
-import com.example.refocus.data.repository.TargetsRepository
-import com.example.refocus.data.repository.TimelineRepository
+import com.example.refocus.domain.gateway.ForegroundAppObserver
+import com.example.refocus.domain.repository.SettingsRepository
+import com.example.refocus.domain.repository.SuggestionsRepository
+import com.example.refocus.domain.repository.TargetsRepository
+import com.example.refocus.domain.repository.TimelineRepository
 import com.example.refocus.domain.overlay.OverlayCoordinator
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
 import com.example.refocus.domain.settings.SettingsCommand
 import com.example.refocus.system.appinfo.AppLabelResolver
-import com.example.refocus.system.monitor.ForegroundAppMonitor
 import com.example.refocus.system.notification.OverlayNotificationUiState
 import com.example.refocus.system.notification.OverlayServiceNotificationController
 import com.example.refocus.system.permissions.PermissionHelper
@@ -87,7 +87,7 @@ class OverlayService : LifecycleService() {
     lateinit var suggestionsRepository: SuggestionsRepository
 
     @Inject
-    lateinit var foregroundAppMonitor: ForegroundAppMonitor
+    lateinit var foregroundAppObserver: ForegroundAppObserver
 
     @Inject
     lateinit var suggestionEngine: SuggestionEngine
@@ -209,7 +209,7 @@ class OverlayService : LifecycleService() {
             settingsRepository = settingsRepository,
             settingsCommand = settingsCommand,
             suggestionsRepository = suggestionsRepository,
-            foregroundAppMonitor = foregroundAppMonitor,
+            foregroundAppObserver = foregroundAppObserver,
             suggestionEngine = suggestionEngine,
             suggestionSelector = suggestionSelector,
             uiController = overlayUiController,

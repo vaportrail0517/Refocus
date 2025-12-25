@@ -9,7 +9,7 @@ import android.graphics.drawable.Drawable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.logging.RefocusLog
-import com.example.refocus.data.repository.TargetsRepository
+import com.example.refocus.domain.repository.TargetsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow

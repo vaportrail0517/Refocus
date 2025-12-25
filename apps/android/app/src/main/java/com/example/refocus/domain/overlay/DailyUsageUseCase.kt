@@ -3,7 +3,7 @@ package com.example.refocus.domain.overlay
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerTimeMode
-import com.example.refocus.data.repository.TimelineRepository
+import com.example.refocus.domain.repository.TimelineRepository
 import com.example.refocus.domain.session.SessionDurationCalculator
 import com.example.refocus.domain.timeline.SessionProjector
 import java.time.Instant
