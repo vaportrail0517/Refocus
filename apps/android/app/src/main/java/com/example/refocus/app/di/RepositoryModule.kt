@@ -4,13 +4,16 @@ import com.example.refocus.core.util.TimeSource
 import com.example.refocus.data.datastore.OnboardingDataStore
 import com.example.refocus.data.datastore.SettingsDataStore
 import com.example.refocus.data.datastore.TargetsDataStore
+import com.example.refocus.data.db.dao.AppCatalogDao
 import com.example.refocus.data.db.dao.SuggestionDao
 import com.example.refocus.data.db.dao.TimelineEventDao
+import com.example.refocus.data.repository.AppCatalogRepositoryImpl
 import com.example.refocus.data.repository.OnboardingRepositoryImpl
 import com.example.refocus.data.repository.SettingsRepositoryImpl
 import com.example.refocus.data.repository.SuggestionsRepositoryImpl
 import com.example.refocus.data.repository.TargetsRepositoryImpl
 import com.example.refocus.data.repository.TimelineRepositoryImpl
+import com.example.refocus.domain.repository.AppCatalogRepository
 import com.example.refocus.domain.repository.OnboardingRepository
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.SuggestionsRepository
@@ -62,4 +65,9 @@ object RepositoryModule {
         timelineEventDao: TimelineEventDao,
     ): TimelineRepository = TimelineRepositoryImpl(timelineEventDao)
 
+    @Provides
+    @Singleton
+    fun provideAppCatalogRepository(
+        appCatalogDao: AppCatalogDao,
+    ): AppCatalogRepository = AppCatalogRepositoryImpl(appCatalogDao)
 }

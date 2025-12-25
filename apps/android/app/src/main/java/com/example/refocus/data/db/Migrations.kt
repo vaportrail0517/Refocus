@@ -45,3 +45,27 @@ val MIGRATION_8_9: Migration = object : Migration(8, 9) {
         )
     }
 }
+
+/**
+ * v10:
+ * - app_catalog を追加し，一度でも対象にしたアプリの表示名と packageName を永続化する．
+ */
+val MIGRATION_9_10: Migration = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS app_catalog (
+                packageName TEXT NOT NULL,
+                firstTargetedAtMillis INTEGER NOT NULL,
+                firstTargetedLabel TEXT NOT NULL,
+                lastKnownLabel TEXT NOT NULL,
+                lastUpdatedAtMillis INTEGER NOT NULL,
+                PRIMARY KEY(packageName)
+            )
+            """.trimIndent()
+        )
+
+        // 既存の targets をここで埋めることはしない（DataStore 由来で Room からは参照できないため）
+        // 起動時の bootstrap（EnsureAppCatalogForCurrentTargetsUseCase）で補完する．
+    }
+}

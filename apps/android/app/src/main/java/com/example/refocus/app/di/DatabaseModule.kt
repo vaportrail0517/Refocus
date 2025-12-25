@@ -3,9 +3,11 @@ package com.example.refocus.app.di
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import androidx.room.Room
-import com.example.refocus.data.db.RefocusDatabase
-import com.example.refocus.data.db.REFOCUS_DB_NAME
 import com.example.refocus.data.db.MIGRATION_8_9
+import com.example.refocus.data.db.MIGRATION_9_10
+import com.example.refocus.data.db.REFOCUS_DB_NAME
+import com.example.refocus.data.db.RefocusDatabase
+import com.example.refocus.data.db.dao.AppCatalogDao
 import com.example.refocus.data.db.dao.SuggestionDao
 import com.example.refocus.data.db.dao.TimelineEventDao
 import dagger.Module
@@ -29,7 +31,7 @@ object DatabaseModule {
             RefocusDatabase::class.java,
             REFOCUS_DB_NAME
         )
-            .addMigrations(MIGRATION_8_9)
+            .addMigrations(MIGRATION_8_9, MIGRATION_9_10)
 
         val isDebuggable =
             (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
@@ -54,4 +56,8 @@ object DatabaseModule {
     @Provides
     fun provideSuggestionDao(db: RefocusDatabase): SuggestionDao =
         db.suggestionDao()
+
+    @Provides
+    fun provideAppCatalogDao(db: RefocusDatabase): AppCatalogDao =
+        db.appCatalogDao()
 }

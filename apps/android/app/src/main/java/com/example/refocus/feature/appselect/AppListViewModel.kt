@@ -10,6 +10,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.domain.repository.TargetsRepository
+import com.example.refocus.domain.targets.UpdateTargetsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +25,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AppListViewModel @Inject constructor(
     application: Application,
-    private val targetsRepository: TargetsRepository
+    private val targetsRepository: TargetsRepository,
+    private val updateTargetsUseCase: UpdateTargetsUseCase,
 ) : AndroidViewModel(application) {
 
     data class AppUiModel(
@@ -118,7 +120,9 @@ class AppListViewModel @Inject constructor(
 
     fun save(onSaved: () -> Unit) {
         viewModelScope.launch {
-            targetsRepository.setTargets(selected.value)
+            withContext(Dispatchers.Default) {
+                updateTargetsUseCase.updateTargets(selected.value)
+            }
             onSaved()
         }
     }

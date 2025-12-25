@@ -3,6 +3,7 @@ package com.example.refocus.app.di
 import android.content.Context
 import com.example.refocus.core.util.SystemTimeSource
 import com.example.refocus.core.util.TimeSource
+import com.example.refocus.domain.gateway.AppLabelProvider
 import com.example.refocus.domain.gateway.ForegroundAppObserver
 import com.example.refocus.domain.repository.TimelineRepository
 import com.example.refocus.domain.suggestion.GaussianCircularTimeSlotWeightModel
@@ -11,6 +12,7 @@ import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.suggestion.TimeSlotWeightModel
 import com.example.refocus.domain.timeline.EventRecorder
 import com.example.refocus.system.appinfo.AndroidAppLabelResolver
+import com.example.refocus.system.appinfo.AppLabelProviderImpl
 import com.example.refocus.system.appinfo.AppLabelResolver
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import com.example.refocus.system.monitor.ForegroundAppObserverImpl
@@ -68,4 +70,10 @@ object SystemModule {
     fun provideAppLabelResolver(
         @ApplicationContext context: Context,
     ): AppLabelResolver = AndroidAppLabelResolver(context)
+
+    @Provides
+    @Singleton
+    fun provideAppLabelProvider(
+        resolver: AppLabelResolver,
+    ): AppLabelProvider = AppLabelProviderImpl(resolver)
 }
