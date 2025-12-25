@@ -28,6 +28,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -43,6 +44,7 @@ import com.example.refocus.system.overlay.stopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
+import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -215,6 +217,7 @@ fun SettingsContent(
     activity: Activity?,
 ) {
     val settings = uiState.customize
+    val coroutineScope = rememberCoroutineScope()
 
     // --- 権限 ---
     SectionCard(
@@ -293,14 +296,26 @@ fun SettingsContent(
                             onRequireCorePermission()
                             return@Switch
                         }
-                        if (newChecked) {
-                            viewModel.updateOverlayEnabled(true)
-                            context.startOverlayService()
-                            onServiceRunningChange(true)
-                        } else {
-                            viewModel.updateOverlayEnabled(false)
-                            context.stopOverlayService()
-                            onServiceRunningChange(false)
+                        coroutineScope.launch {
+                            if (newChecked) {
+                                try {
+                                    viewModel.setOverlayEnabledAndWait(true)
+                                } catch (_: Exception) {
+                                    // 永続化に失敗した場合は起動しない（設定値とサービス状態を一致させる）．
+                                    onServiceRunningChange(false)
+                                    return@launch
+                                }
+                                context.startOverlayService()
+                                onServiceRunningChange(true)
+                            } else {
+                                try {
+                                    viewModel.setOverlayEnabledAndWait(false)
+                                } catch (_: Exception) {
+                                    // 失敗してもサービスだけは停止する（安全側）．
+                                }
+                                context.stopOverlayService()
+                                onServiceRunningChange(false)
+                            }
                         }
                     }
                 )
@@ -312,14 +327,25 @@ fun SettingsContent(
                 }
                 val currentlyOn = uiState.customize.overlayEnabled && isServiceRunning
                 val turnOn = !currentlyOn
-                if (turnOn) {
-                    viewModel.updateOverlayEnabled(true)
-                    context.startOverlayService()
-                    onServiceRunningChange(true)
-                } else {
-                    viewModel.updateOverlayEnabled(false)
-                    context.stopOverlayService()
-                    onServiceRunningChange(false)
+                coroutineScope.launch {
+                    if (turnOn) {
+                        try {
+                            viewModel.setOverlayEnabledAndWait(true)
+                        } catch (_: Exception) {
+                            onServiceRunningChange(false)
+                            return@launch
+                        }
+                        context.startOverlayService()
+                        onServiceRunningChange(true)
+                    } else {
+                        try {
+                            viewModel.setOverlayEnabledAndWait(false)
+                        } catch (_: Exception) {
+                            // 失敗してもサービスだけは停止する（安全側）．
+                        }
+                        context.stopOverlayService()
+                        onServiceRunningChange(false)
+                    }
                 }
             }
         )

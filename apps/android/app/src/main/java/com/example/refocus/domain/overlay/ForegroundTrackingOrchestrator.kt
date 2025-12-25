@@ -8,6 +8,7 @@ import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.domain.timeline.EventRecorder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -51,6 +53,9 @@ class ForegroundTrackingOrchestrator(
         private const val TAG = "ForegroundTracking"
     }
 
+
+    private var job: Job? = null
+
     private fun tickerFlow(periodMs: Long): Flow<Unit> = flow {
         while (currentCoroutineContext().isActive) {
             emit(Unit)
@@ -63,7 +68,8 @@ class ForegroundTrackingOrchestrator(
         customizeFlow: Flow<Customize>,
         screenOnFlow: StateFlow<Boolean>,
     ) {
-        scope.launch {
+        if (job?.isActive == true) return
+        job = scope.launch {
             val targetsFlow = targetsRepository.observeTargets()
             val foregroundSampleFlow = customizeFlow
                 .map { it.pollingIntervalMillis }
@@ -238,4 +244,10 @@ class ForegroundTrackingOrchestrator(
             }
         }
     }
+
+    fun stop() {
+        job?.cancel()
+        job = null
+    }
+
 }

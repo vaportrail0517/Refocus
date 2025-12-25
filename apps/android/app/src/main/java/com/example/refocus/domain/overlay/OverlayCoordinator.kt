@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -193,6 +194,9 @@ class OverlayCoordinator(
     @Volatile
     private var observeSettingsJob: Job? = null
 
+    @Volatile
+    private var foregroundGateJob: Job? = null
+
     /**
      * 外側から「画面ON/OFF」を伝えるためのメソッド．
      * BroadcastReceiver 側から呼ばれる．
@@ -275,10 +279,27 @@ class OverlayCoordinator(
     fun start() {
         startPresentationTicker()
         observeOverlaySettings()
-        foregroundTrackingOrchestrator.start(
-            customizeFlow = customizeFlow,
-            screenOnFlow = screenOnFlowInternal,
-        )
+        startForegroundTrackingGate()
+    }
+
+    private fun startForegroundTrackingGate() {
+        // overlayEnabled の変化に合わせて前面監視ループを開始・停止する
+        if (foregroundGateJob?.isActive == true) return
+        foregroundGateJob = scope.launch {
+            customizeFlow
+                .map { it.overlayEnabled }
+                .distinctUntilChanged()
+                .collect { enabled ->
+                    if (enabled) {
+                        foregroundTrackingOrchestrator.start(
+                            customizeFlow = customizeFlow,
+                            screenOnFlow = screenOnFlowInternal,
+                        )
+                    } else {
+                        foregroundTrackingOrchestrator.stop()
+                    }
+                }
+        }
     }
 
     /**
@@ -288,6 +309,14 @@ class OverlayCoordinator(
     fun stop() {
         presentationTickJob?.cancel()
         presentationTickJob = null
+
+        observeSettingsJob?.cancel()
+        observeSettingsJob = null
+
+        foregroundGateJob?.cancel()
+        foregroundGateJob = null
+
+        foregroundTrackingOrchestrator.stop()
 
         uiController.hideTimer()
         uiController.hideSuggestion()

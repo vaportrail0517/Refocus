@@ -33,6 +33,7 @@ import com.example.refocus.system.overlay.service.OverlayCorePermissionSuperviso
 import com.example.refocus.system.overlay.service.OverlayScreenStateReceiver
 import com.example.refocus.system.overlay.service.OverlayServiceIntentHandler
 import com.example.refocus.system.overlay.service.OverlayServiceNotificationDriver
+import com.example.refocus.system.overlay.service.OverlayServiceRunSupervisor
 import com.example.refocus.system.tile.RefocusTileService
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -88,6 +89,7 @@ class OverlayService : LifecycleService() {
     private var screenStateReceiver: OverlayScreenStateReceiver? = null
     private var notificationDriver: OverlayServiceNotificationDriver? = null
     private var intentHandler: OverlayServiceIntentHandler? = null
+    private var runSupervisor: OverlayServiceRunSupervisor? = null
 
     @Volatile
     private var isStopping: Boolean = false
@@ -147,6 +149,13 @@ class OverlayService : LifecycleService() {
             appLabelResolver = appLabelResolver,
             notificationController = notificationController,
             notificationId = NOTIFICATION_ID,
+        ).also { it.start() }
+
+        // overlayEnabled=false になったらサービス自体を止めて，監視を完全に停止する
+        runSupervisor = OverlayServiceRunSupervisor(
+            scope = serviceScope,
+            settingsRepository = settingsRepository,
+            onOverlayDisabled = ::stopFromSettingsDisabled,
         ).also { it.start() }
 
         requestTileStateRefresh()
@@ -241,6 +250,8 @@ class OverlayService : LifecycleService() {
 
         screenStateReceiver?.unregister()
         permissionSupervisor?.stop()
+        runSupervisor?.stop()
+        runSupervisor = null
 
         requestTileStateRefresh()
         serviceScope.cancel()
@@ -280,6 +291,21 @@ class OverlayService : LifecycleService() {
             notification,
             type,
         )
+    }
+
+    private fun stopFromSettingsDisabled() {
+        // すでに設定側で overlayEnabled=false になっている前提で，サービスを停止する
+        if (isStopping) return
+        isStopping = true
+
+        // 先に通知更新を止めてから foreground を外す
+        notificationDriver?.stop()
+        removeForegroundNotification()
+
+        // stopSelf は main で呼ぶ
+        lifecycleScope.launch {
+            stopSelf()
+        }
     }
 
     private fun stopFromUserAction() {

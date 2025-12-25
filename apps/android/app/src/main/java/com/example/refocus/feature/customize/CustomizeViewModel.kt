@@ -221,6 +221,18 @@ class CustomizeViewModel @Inject constructor(
 
     // --- 有効化 / 自動起動 ---
 
+    /**
+     * overlayEnabled の永続化が完了するまで待つ（サービス起動と競合させないため）．
+     *
+     * Composable 側では rememberCoroutineScope().launch { ... } から呼び出す想定．
+     */
+    suspend fun setOverlayEnabledAndWait(enabled: Boolean) {
+        settingsCommand.setOverlayEnabled(
+            enabled = enabled,
+            source = "ui_customize",
+        )
+    }
+
     fun updateOverlayEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsCommand.setOverlayEnabled(

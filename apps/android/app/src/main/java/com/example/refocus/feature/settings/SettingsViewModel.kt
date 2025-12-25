@@ -58,6 +58,18 @@ class SettingsViewModel @Inject constructor(
 
     // --- 有効/無効・起動関連 ---
 
+    /**
+     * overlayEnabled の永続化が完了するまで待つ（サービス起動と競合させないため）．
+     *
+     * Composable 側では rememberCoroutineScope().launch { ... } から呼び出す想定．
+     */
+    suspend fun setOverlayEnabledAndWait(enabled: Boolean) {
+        settingsCommand.setOverlayEnabled(
+            enabled = enabled,
+            source = "ui_settings",
+        )
+    }
+
     fun updateOverlayEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsCommand.setOverlayEnabled(

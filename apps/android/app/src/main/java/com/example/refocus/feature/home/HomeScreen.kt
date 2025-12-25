@@ -47,6 +47,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,6 +72,8 @@ import com.example.refocus.system.overlay.OverlayService
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.overlay.stopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,6 +90,7 @@ fun HomeRoute(
     val context = LocalContext.current
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
 
     val statsUiState = statsViewModel.uiState.collectAsStateWithLifecycle().value
     val settingsUiState by customizeViewModel.uiState.collectAsStateWithLifecycle()
@@ -145,14 +149,26 @@ fun HomeRoute(
                         onOpenPermissionFixFlow()
                         return@HomeTopBar
                     }
-                    if (wantRunning) {
-                        customizeViewModel.updateOverlayEnabled(true)
-                        context.startOverlayService()
-                        isServiceRunning = true
-                    } else {
-                        customizeViewModel.updateOverlayEnabled(false)
-                        context.stopOverlayService()
-                        isServiceRunning = false
+                    coroutineScope.launch {
+                        if (wantRunning) {
+                            try {
+                                // 永続化が完了してからサービスを起動する（起動直後に停止監視へ負けるのを防ぐ）．
+                                customizeViewModel.setOverlayEnabledAndWait(true)
+                            } catch (_: Exception) {
+                                isServiceRunning = false
+                                return@launch
+                            }
+                            context.startOverlayService()
+                            isServiceRunning = true
+                        } else {
+                            try {
+                                customizeViewModel.setOverlayEnabledAndWait(false)
+                            } catch (_: Exception) {
+                                // 失敗してもサービスだけは停止する（安全側）．
+                            }
+                            context.stopOverlayService()
+                            isServiceRunning = false
+                        }
                     }
                 },
                 onOpenSettings = onOpenSettings,
