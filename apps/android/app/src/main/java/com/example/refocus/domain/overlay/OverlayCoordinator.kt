@@ -75,6 +75,14 @@ class OverlayCoordinator(
     private val runtimeState = MutableStateFlow(OverlayRuntimeState())
     val runtimeStateFlow: StateFlow<OverlayRuntimeState> get() = runtimeState
 
+    private val timerDisplayCalculator = OverlayTimerDisplayCalculator(
+        timeSource = timeSource,
+        sessionTracker = sessionTracker,
+        dailyUsageUseCase = dailyUsageUseCase,
+        customizeProvider = { runtimeState.value.customize },
+        lastTargetPackagesProvider = { runtimeState.value.lastTargetPackages },
+    )
+
     private val suggestionOrchestrator = SuggestionOrchestrator(
         scope = scope,
         timeSource = timeSource,
@@ -158,35 +166,10 @@ class OverlayCoordinator(
      * 通知など，オーバーレイ表示以外から参照される「タイマー表示時間」．
      * 現在の timerTimeMode に応じて，オーバーレイと同じ意味の時間を返す．
      */
-    fun currentTimerDisplayMillis(): Long? {
-        val pkg = runtimeState.value.trackingPackage ?: return null
-        val customize = runtimeState.value.customize
-        val nowMillis = timeSource.nowMillis()
+    fun currentTimerDisplayMillis(): Long? =
+        timerDisplayCalculator.currentTimerDisplayMillis(runtimeState.value.trackingPackage)
 
-        return when (customize.timerTimeMode) {
-            TimerTimeMode.SessionElapsed -> {
-                sessionTracker.computeElapsedFor(pkg, timeSource.elapsedRealtime())
-            }
 
-            TimerTimeMode.TodayThisTarget -> {
-                dailyUsageUseCase.requestRefreshIfNeeded(
-                    customize = customize,
-                    targetPackages = runtimeState.value.lastTargetPackages,
-                    nowMillis = nowMillis,
-                )
-                dailyUsageUseCase.getTodayThisTargetMillis(pkg)
-            }
-
-            TimerTimeMode.TodayAllTargets -> {
-                dailyUsageUseCase.requestRefreshIfNeeded(
-                    customize = customize,
-                    targetPackages = runtimeState.value.lastTargetPackages,
-                    nowMillis = nowMillis,
-                )
-                dailyUsageUseCase.getTodayAllTargetsMillis()
-            }
-        }
-    }
 
     /**
      * 現在計測中の論理セッションに対して，オーバーレイタイマーの表示をトグルする．
@@ -524,41 +507,17 @@ class OverlayCoordinator(
     }
 
     private fun showTimerForPackage(packageName: String) {
-        val displayMillisProvider: (Long) -> Long = { nowElapsedRealtime ->
-            when (runtimeState.value.customize.timerTimeMode) {
-                TimerTimeMode.SessionElapsed -> {
-                    sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
-                }
-
-                TimerTimeMode.TodayThisTarget -> {
-                    dailyUsageUseCase.getTodayThisTargetMillis(packageName)
-                }
-
-                TimerTimeMode.TodayAllTargets -> {
-                    dailyUsageUseCase.getTodayAllTargetsMillis()
-                }
-            }
-        }
-
-        val visualMillisProvider: (Long) -> Long = { nowElapsedRealtime ->
-            when (runtimeState.value.customize.timerVisualTimeBasis) {
-                TimerVisualTimeBasis.SessionElapsed -> {
-                    sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
-                }
-
-                TimerVisualTimeBasis.FollowDisplayTime -> {
-                    displayMillisProvider(nowElapsedRealtime)
-                }
-            }
-        }
+        val providers = timerDisplayCalculator.createProviders(packageName)
 
         runtimeState.update { it.copy(timerVisible = true) }
         uiController.showTimer(
-            displayMillisProvider = displayMillisProvider,
-            visualMillisProvider = visualMillisProvider,
+            displayMillisProvider = providers.displayMillisProvider,
+            visualMillisProvider = providers.visualMillisProvider,
             onPositionChanged = ::onOverlayPositionChanged,
         )
     }
+
+
 
     private fun isTimerSuppressedForCurrentSession(packageName: String): Boolean {
         return runtimeState.value.timerSuppressedForSession[packageName] == true

@@ -1,53 +1,45 @@
 package com.example.refocus.system.overlay
 
 import android.annotation.SuppressLint
-import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
-import android.os.PowerManager
 import android.service.quicksettings.TileService
-import com.example.refocus.core.logging.RefocusLog
 import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.core.util.formatDurationForTimerBubble
 import com.example.refocus.domain.gateway.ForegroundAppObserver
+import com.example.refocus.domain.overlay.OverlayCoordinator
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.domain.repository.TimelineRepository
-import com.example.refocus.domain.overlay.OverlayCoordinator
+import com.example.refocus.domain.settings.SettingsCommand
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
-import com.example.refocus.domain.settings.SettingsCommand
 import com.example.refocus.system.appinfo.AppLabelResolver
 import com.example.refocus.system.notification.OverlayNotificationUiState
 import com.example.refocus.system.notification.OverlayServiceNotificationController
 import com.example.refocus.system.permissions.PermissionHelper
 import com.example.refocus.system.permissions.PermissionStateWatcher
+import com.example.refocus.system.overlay.service.OverlayCorePermissionSupervisor
+import com.example.refocus.system.overlay.service.OverlayScreenStateReceiver
+import com.example.refocus.system.overlay.service.OverlayServiceIntentHandler
+import com.example.refocus.system.overlay.service.OverlayServiceNotificationDriver
 import com.example.refocus.system.tile.RefocusTileService
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.shareIn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -72,41 +64,18 @@ class OverlayService : LifecycleService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    @Inject
-    lateinit var timeSource: TimeSource
-
-    @Inject
-    lateinit var targetsRepository: TargetsRepository
-
-    @Inject
-    lateinit var settingsRepository: SettingsRepository
-
-    @Inject
-    lateinit var settingsCommand: SettingsCommand
-
-    @Inject
-    lateinit var suggestionsRepository: SuggestionsRepository
-
-    @Inject
-    lateinit var foregroundAppObserver: ForegroundAppObserver
-
-    @Inject
-    lateinit var suggestionEngine: SuggestionEngine
-
-    @Inject
-    lateinit var suggestionSelector: SuggestionSelector
-
-    @Inject
-    lateinit var eventRecorder: EventRecorder
-
-    @Inject
-    lateinit var permissionStateWatcher: PermissionStateWatcher
-
-    @Inject
-    lateinit var timelineRepository: TimelineRepository
-
-    @Inject
-    lateinit var appLabelResolver: AppLabelResolver
+    @Inject lateinit var timeSource: TimeSource
+    @Inject lateinit var targetsRepository: TargetsRepository
+    @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var settingsCommand: SettingsCommand
+    @Inject lateinit var suggestionsRepository: SuggestionsRepository
+    @Inject lateinit var foregroundAppObserver: ForegroundAppObserver
+    @Inject lateinit var suggestionEngine: SuggestionEngine
+    @Inject lateinit var suggestionSelector: SuggestionSelector
+    @Inject lateinit var eventRecorder: EventRecorder
+    @Inject lateinit var permissionStateWatcher: PermissionStateWatcher
+    @Inject lateinit var timelineRepository: TimelineRepository
+    @Inject lateinit var appLabelResolver: AppLabelResolver
 
     private lateinit var timerOverlayController: TimerOverlayController
     private lateinit var suggestionOverlayController: SuggestionOverlayController
@@ -115,74 +84,24 @@ class OverlayService : LifecycleService() {
 
     private lateinit var notificationController: OverlayServiceNotificationController
 
-    private val notificationRefresh = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-
-    private var permissionWatchJob: Job? = null
+    private var permissionSupervisor: OverlayCorePermissionSupervisor? = null
+    private var screenStateReceiver: OverlayScreenStateReceiver? = null
+    private var notificationDriver: OverlayServiceNotificationDriver? = null
+    private var intentHandler: OverlayServiceIntentHandler? = null
 
     @Volatile
     private var isStopping: Boolean = false
 
-    @Volatile
-    private var notificationTrackingPackage: String? = null
-
-    @Volatile
-    private var notificationTimerVisible: Boolean = false
-
-    @Volatile
-    private var notificationTouchMode: TimerTouchMode = TimerTouchMode.Drag
-
-    // 画面 ON/OFF を受け取る BroadcastReceiver
-    private var screenReceiverRegistered: Boolean = false
-    private val screenReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            when (intent.action) {
-                Intent.ACTION_SCREEN_OFF,
-                Intent.ACTION_SHUTDOWN -> {
-                    RefocusLog.d("Service") { "ACTION_SCREEN_OFF / SHUTDOWN received" }
-                    overlayCoordinator.setScreenOn(false)
-                    overlayCoordinator.onScreenOff()
-
-                    lifecycleScope.launch {
-                        try {
-                            eventRecorder.onScreenOff()
-                        } catch (e: Exception) {
-                            RefocusLog.e("Service", e) { "Failed to record screen off event" }
-                        }
-                    }
-                }
-
-                Intent.ACTION_USER_PRESENT,
-                Intent.ACTION_SCREEN_ON -> {
-                    RefocusLog.d("Service") { "ACTION_USER_PRESENT / SCREEN_ON received" }
-                    overlayCoordinator.setScreenOn(true)
-
-                    // 設定画面から戻ってきたタイミングなどで権限が変わっている可能性がある
-                    serviceScope.launch {
-                        checkAndHandleCorePermissions(reason = "screen_on")
-                    }
-
-                    lifecycleScope.launch {
-                        try {
-                            eventRecorder.onScreenOn()
-                        } catch (e: Exception) {
-                            RefocusLog.e("Service", e) { "Failed to record screen on event" }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     override fun onCreate() {
         super.onCreate()
         isRunning = true
-        RefocusLog.d("Service") { "onCreate" }
+        RefocusLog.d(TAG) { "onCreate" }
 
         lifecycleScope.launch {
             try {
                 eventRecorder.onServiceStarted()
             } catch (e: Exception) {
-                RefocusLog.e("Service", e) { "Failed to record service start event" }
+                RefocusLog.e(TAG, e) { "Failed to record service start event" }
             }
         }
 
@@ -194,7 +113,7 @@ class OverlayService : LifecycleService() {
         )
         suggestionOverlayController = SuggestionOverlayController(
             context = this,
-            lifecycleOwner = this
+            lifecycleOwner = this,
         )
 
         overlayUiController = WindowOverlayUiGateway(
@@ -220,18 +139,28 @@ class OverlayService : LifecycleService() {
 
         notificationController = OverlayServiceNotificationController(this)
         startForegroundWithNotification()
-        startNotificationLoops()
+
+        // 通知更新ドライバ
+        notificationDriver = OverlayServiceNotificationDriver(
+            scope = serviceScope,
+            overlayCoordinator = overlayCoordinator,
+            settingsRepository = settingsRepository,
+            appLabelResolver = appLabelResolver,
+            notificationController = notificationController,
+            notificationId = NOTIFICATION_ID,
+        ).also { it.start() }
+
         requestTileStateRefresh()
 
         if (!canRunOverlay()) {
-            RefocusLog.w("Service") { "canRunOverlay = false. stopSelf()" }
+            RefocusLog.w(TAG) { "canRunOverlay = false. stopSelf()" }
             lifecycleScope.launch {
                 try {
                     // サービスが起動できない状況でも，権限状態の変化はタイムラインに残す
                     try {
                         permissionStateWatcher.checkAndRecord()
                     } catch (e: Exception) {
-                        RefocusLog.e("Service", e) { "Failed to check/record permission state before stopping" }
+                        RefocusLog.e(TAG, e) { "Failed to check/record permission state before stopping" }
                     }
                     settingsCommand.setOverlayEnabled(
                         enabled = false,
@@ -240,104 +169,54 @@ class OverlayService : LifecycleService() {
                         recordEvent = false,
                     )
                 } catch (e: Exception) {
-                    RefocusLog.e("Service", e) { "Failed to disable overlay before stopping" }
+                    RefocusLog.e(TAG, e) { "Failed to disable overlay before stopping" }
                 }
                 stopSelf()
             }
             return
         }
 
-        registerScreenReceiver()
-
-        // registerReceiver は sticky ではないため，サービス起動時点の画面状態は取りこぼし得る．
-        // ここで現在の状態を同期して，起動直後に screenOn の初期値が誤らないようにする．
-        syncInitialScreenState()
-
         // 権限状態の変化を継続的に検知し，失効時はフェイルセーフに停止する
-        startPermissionWatchLoop()
+        permissionSupervisor = OverlayCorePermissionSupervisor(
+            scope = serviceScope,
+            permissionStateWatcher = permissionStateWatcher,
+            settingsCommand = settingsCommand,
+            onCorePermissionMissing = { stopSelf() },
+        ).also { it.start() }
+
+        // 画面 ON/OFF 監視
+        screenStateReceiver = OverlayScreenStateReceiver(
+            context = this,
+            scope = serviceScope,
+            overlayCoordinator = overlayCoordinator,
+            eventRecorder = eventRecorder,
+            onScreenOn = { permissionSupervisor?.requestImmediateCheck(reason = "screen_on") },
+        ).also {
+            it.register()
+            it.syncInitialScreenState()
+        }
+
+        // 通知アクションのハンドラ
+        intentHandler = OverlayServiceIntentHandler(
+            scope = serviceScope,
+            overlayCoordinator = overlayCoordinator,
+            settingsRepository = settingsRepository,
+            settingsCommand = settingsCommand,
+            actionStop = ACTION_STOP,
+            actionToggleTimerVisibility = ACTION_TOGGLE_TIMER_VISIBILITY,
+            actionToggleTouchMode = ACTION_TOGGLE_TOUCH_MODE,
+            onStopRequested = ::stopFromUserAction,
+            onNotificationRefreshRequested = { notificationDriver?.requestRefresh() },
+        )
 
         overlayCoordinator.start()
     }
 
-    private fun syncInitialScreenState() {
-        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
-        val isInteractive = pm?.isInteractive ?: true
-        RefocusLog.d(TAG) { "syncInitialScreenState: isInteractive=$isInteractive" }
-        overlayCoordinator.setScreenOn(isInteractive)
-    }
-
-    private fun startPermissionWatchLoop() {
-        if (permissionWatchJob != null) return
-        permissionWatchJob = serviceScope.launch {
-            // 初回チェック
-            checkAndHandleCorePermissions(reason = "service_start")
-
-            // 以降は定期的に確認（差分イベントは watcher 側で抑制される）
-            while (isActive) {
-                delay(30_000)
-                checkAndHandleCorePermissions(reason = "periodic")
-            }
-        }
-    }
-
-    private suspend fun checkAndHandleCorePermissions(reason: String) {
-        if (isStopping) return
-
-        val snapshot = try {
-            permissionStateWatcher.checkAndRecord()
-        } catch (e: Exception) {
-            RefocusLog.e("Service", e) { "Permission check/record failed ($reason)" }
-            return
-        }
-
-        if (!snapshot.hasAllCorePermissions()) {
-            RefocusLog.w("Service") { "core permissions missing ($reason) -> stopSelf()" }
-            try {
-                settingsCommand.setOverlayEnabled(
-                    enabled = false,
-                    source = "service",
-                    reason = "core_permission_missing",
-                    recordEvent = false,
-                )
-            } catch (e: Exception) {
-                RefocusLog.e("Service", e) { "Failed to disable overlay on missing permissions ($reason)" }
-            }
-            stopSelf()
-        }
-    }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_STOP -> {
-                stopFromUserAction()
-                return START_NOT_STICKY
-            }
-
-            ACTION_TOGGLE_TIMER_VISIBILITY -> {
-                overlayCoordinator.toggleTimerVisibilityForCurrentSession()
-                notificationRefresh.tryEmit(Unit)
-            }
-
-            ACTION_TOGGLE_TOUCH_MODE -> {
-                serviceScope.launch {
-                    try {
-                        val current = settingsRepository.observeOverlaySettings().first()
-                        val newTouchMode = if (current.touchMode == TimerTouchMode.Drag) {
-                            TimerTouchMode.PassThrough
-                        } else {
-                            TimerTouchMode.Drag
-                        }
-                        settingsCommand.setTouchMode(
-                            mode = newTouchMode,
-                            source = "service_notification",
-                            reason = "toggle_touch_mode",
-                            markPresetCustom = false,
-                        )
-                    } catch (e: Exception) {
-                        RefocusLog.e("Service", e) { "Failed to toggle touch mode" }
-                    }
-                }
-            }
+        val handled = intentHandler?.handle(intent) == true
+        if (handled) {
+            // STOP は sticky で復帰させない
+            if (intent?.action == ACTION_STOP) return START_NOT_STICKY
         }
         return super.onStartCommand(intent, flags, startId)
     }
@@ -348,18 +227,23 @@ class OverlayService : LifecycleService() {
                 try {
                     eventRecorder.onServiceStopped()
                 } catch (e: Exception) {
-                    RefocusLog.e("Service", e) { "Failed to record service stop event" }
+                    RefocusLog.e(TAG, e) { "Failed to record service stop event" }
                 }
             }
         }
+
         isRunning = false
         isStopping = true
 
         // 念のため，Foreground 通知を確実に消す
+        notificationDriver?.stop()
         removeForegroundNotification()
 
         overlayCoordinator.stop()
-        unregisterScreenReceiver()
+
+        screenStateReceiver?.unregister()
+        permissionSupervisor?.stop()
+
         requestTileStateRefresh()
         serviceScope.cancel()
         super.onDestroy()
@@ -400,114 +284,19 @@ class OverlayService : LifecycleService() {
         )
     }
 
-    private fun startNotificationLoops() {
-        // 状態の購読
-        serviceScope.launch {
-            overlayCoordinator.trackingPackageFlow
-                .collect { pkg ->
-                    notificationTrackingPackage = pkg
-                    notificationRefresh.tryEmit(Unit)
-                }
-        }
-
-        serviceScope.launch {
-            overlayCoordinator.timerVisibleFlow
-                .collect { visible ->
-                    notificationTimerVisible = visible
-                    notificationRefresh.tryEmit(Unit)
-                }
-        }
-
-        val overlaySettingsShared = settingsRepository.observeOverlaySettings()
-            .shareIn(
-                scope = serviceScope,
-                started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
-                replay = 1,
-            )
-
-        serviceScope.launch {
-            overlaySettingsShared
-                .map { it.touchMode }
-                .collect { mode ->
-                    notificationTouchMode = mode
-                    notificationRefresh.tryEmit(Unit)
-                }
-        }
-
-        serviceScope.launch {
-            overlaySettingsShared
-                .map { it.timerTimeMode }
-                .collect {
-                    notificationRefresh.tryEmit(Unit)
-                }
-        }
-
-        // 1 秒ごとの経過時間更新
-        serviceScope.launch {
-            while (isActive) {
-                delay(1_000)
-                if (notificationTrackingPackage != null) {
-                    notificationRefresh.tryEmit(Unit)
-                }
-            }
-        }
-
-        // 通知を実際に更新する単一ループ
-        serviceScope.launch {
-            notificationRefresh.collect {
-                publishNotification()
-            }
-        }
-
-        notificationRefresh.tryEmit(Unit)
-    }
-
-    private fun publishNotification() {
-        if (isStopping) return
-
-        val pkg = notificationTrackingPackage
-        val state = if (pkg == null) {
-            OverlayNotificationUiState(
-                isTracking = false,
-                trackingAppLabel = null,
-                elapsedLabel = null,
-                isTimerVisible = false,
-                touchMode = notificationTouchMode,
-            )
-        } else {
-            val label = appLabelResolver.labelOf(pkg) ?: pkg
-            val elapsedMillis = overlayCoordinator.currentTimerDisplayMillis() ?: 0L
-            OverlayNotificationUiState(
-                isTracking = true,
-                trackingAppLabel = label,
-                elapsedLabel = formatDurationForTimerBubble(elapsedMillis),
-                isTimerVisible = notificationTimerVisible,
-                touchMode = notificationTouchMode,
-            )
-        }
-
-        try {
-            notificationController.notify(NOTIFICATION_ID, state)
-        } catch (e: SecurityException) {
-            // Android 13+ で通知権限が拒否されている場合など
-            RefocusLog.w("Service", e) { "Notification update blocked" }
-        } catch (e: Exception) {
-            RefocusLog.e("Service", e) { "Failed to update notification" }
-        }
-    }
-
     private fun stopFromUserAction() {
         if (isStopping) return
         isStopping = true
 
-        // 先に通知を消して，ユーザー操作の体感を良くする
+        // 先に通知更新を止め，ユーザー操作の体感を良くする
+        notificationDriver?.stop()
         removeForegroundNotification()
 
         lifecycleScope.launch {
             try {
                 settingsCommand.setOverlayEnabled(enabled = false, source = "service", reason = "user_stop")
             } catch (e: Exception) {
-                RefocusLog.e("Service", e) { "Failed to disable overlay on user stop" }
+                RefocusLog.e(TAG, e) { "Failed to disable overlay on user stop" }
             }
             stopSelf()
         }
@@ -519,19 +308,19 @@ class OverlayService : LifecycleService() {
         try {
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         } catch (e: Exception) {
-            RefocusLog.w("Service", e) { "Failed to stopForeground" }
+            RefocusLog.w(TAG, e) { "Failed to stopForeground" }
         }
 
         try {
             notificationController.cancel(NOTIFICATION_ID)
         } catch (e: Exception) {
-            RefocusLog.w("Service", e) { "Failed to cancel foreground notification" }
+            RefocusLog.w(TAG, e) { "Failed to cancel foreground notification" }
         }
     }
 
     private fun canRunOverlay(): Boolean {
         val hasCore = PermissionHelper.hasAllCorePermissions(this)
-        RefocusLog.d("Service") { "canRunOverlay: hasCore=$hasCore" }
+        RefocusLog.d(TAG) { "canRunOverlay: hasCore=$hasCore" }
         return hasCore
     }
 
@@ -540,35 +329,12 @@ class OverlayService : LifecycleService() {
             try {
                 TileService.requestListeningState(
                     this,
-                    ComponentName(this, RefocusTileService::class.java)
+                    ComponentName(this, RefocusTileService::class.java),
                 )
             } catch (e: Exception) {
-                RefocusLog.w("Service", e) { "Failed to request QS tile state refresh" }
+                RefocusLog.w(TAG, e) { "Failed to request QS tile state refresh" }
             }
         }
-    }
-
-    private fun registerScreenReceiver() {
-        if (screenReceiverRegistered) return
-
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_SCREEN_OFF)
-            addAction(Intent.ACTION_SHUTDOWN)
-            addAction(Intent.ACTION_USER_PRESENT)
-            addAction(Intent.ACTION_SCREEN_ON)
-        }
-        registerReceiver(screenReceiver, filter)
-        screenReceiverRegistered = true
-    }
-
-    private fun unregisterScreenReceiver() {
-        if (!screenReceiverRegistered) return
-        try {
-            unregisterReceiver(screenReceiver)
-        } catch (e: IllegalArgumentException) {
-            RefocusLog.w("Service", e) { "unregisterScreenReceiver failed" }
-        }
-        screenReceiverRegistered = false
     }
 }
 
