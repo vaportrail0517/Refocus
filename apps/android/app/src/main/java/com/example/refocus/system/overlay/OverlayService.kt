@@ -229,10 +229,17 @@ class OverlayService : LifecycleService() {
                     // サービスが起動できない状況でも，権限状態の変化はタイムラインに残す
                     try {
                         permissionStateWatcher.checkAndRecord()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        RefocusLog.e("Service", e) { "Failed to check/record permission state before stopping" }
                     }
-                    settingsCommand.setOverlayEnabled(enabled = false, source = "service", reason = "core_permission_missing", recordEvent = false)
-                } catch (_: Exception) {
+                    settingsCommand.setOverlayEnabled(
+                        enabled = false,
+                        source = "service",
+                        reason = "core_permission_missing",
+                        recordEvent = false,
+                    )
+                } catch (e: Exception) {
+                    RefocusLog.e("Service", e) { "Failed to disable overlay before stopping" }
                 }
                 stopSelf()
             }
@@ -280,7 +287,8 @@ class OverlayService : LifecycleService() {
                     reason = "core_permission_missing",
                     recordEvent = false,
                 )
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                RefocusLog.e("Service", e) { "Failed to disable overlay on missing permissions ($reason)" }
             }
             stopSelf()
         }
@@ -363,11 +371,20 @@ class OverlayService : LifecycleService() {
         )
         val notification = notificationController.build(initial)
 
+        // NOTE:
+        // - Android 14 (API 34) 以降でのみ specialUse を指定する
+        // - それ未満の OS で未知の type を渡すと例外になる可能性があるため，0 を渡す
+        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        } else {
+            0
+        }
+
         ServiceCompat.startForeground(
             this,
             NOTIFICATION_ID,
             notification,
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            type,
         )
     }
 
@@ -477,7 +494,8 @@ class OverlayService : LifecycleService() {
         lifecycleScope.launch {
             try {
                 settingsCommand.setOverlayEnabled(enabled = false, source = "service", reason = "user_stop")
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                RefocusLog.e("Service", e) { "Failed to disable overlay on user stop" }
             }
             stopSelf()
         }
@@ -488,12 +506,14 @@ class OverlayService : LifecycleService() {
         // NotificationManager による通常通知更新も行っているため，cancel も併用して確実に消す．
         try {
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            RefocusLog.w("Service", e) { "Failed to stopForeground" }
         }
 
         try {
             notificationController.cancel(NOTIFICATION_ID)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            RefocusLog.w("Service", e) { "Failed to cancel foreground notification" }
         }
     }
 
@@ -510,7 +530,8 @@ class OverlayService : LifecycleService() {
                     this,
                     ComponentName(this, RefocusTileService::class.java)
                 )
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                RefocusLog.w("Service", e) { "Failed to request QS tile state refresh" }
             }
         }
     }

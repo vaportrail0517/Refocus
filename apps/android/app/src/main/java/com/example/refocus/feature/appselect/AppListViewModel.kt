@@ -8,6 +8,7 @@ import android.content.pm.ResolveInfo
 import android.graphics.drawable.Drawable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.data.repository.TargetsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -68,7 +69,9 @@ class AppListViewModel @Inject constructor(
                         val usage = usageMap[pkg] ?: 0L
                         val icon = try {
                             info.loadIcon(pm)
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            // 一部のアプリで loadIcon が例外を投げることがあるため，UI は継続させる
+                            RefocusLog.w("AppListViewModel", e) { "Failed to load icon for package=$pkg" }
                             null
                         }
                         AppUiModel(

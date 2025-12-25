@@ -17,6 +17,7 @@ import com.example.refocus.core.model.SuggestionDecisionEvent
 import com.example.refocus.core.model.SuggestionShownEvent
 import com.example.refocus.core.model.TargetAppsChangedEvent
 import com.example.refocus.core.model.TimelineEvent
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.data.db.dao.TimelineEventDao
 import com.example.refocus.data.db.entity.TimelineEventEntity
 import kotlinx.coroutines.flow.Flow
@@ -140,6 +141,24 @@ class TimelineRepositoryImpl(
 
     // --- Entity ↔ Domain 変換 ---
 
+    private inline fun <reified T : Enum<T>> safeEnumValueOf(
+        value: String?,
+        kind: String,
+        id: Long,
+        field: String,
+    ): T? {
+        if (value.isNullOrBlank()) return null
+
+        return runCatching { enumValueOf<T>(value) }
+            .getOrElse { e ->
+                // 古い DB / 将来の enum 変更 / 破損データが混ざっても，全体を落とさない
+                RefocusLog.w("TimelineRepository", e) {
+                    "Unknown enum value '$value' for $field (kind=$kind, id=$id)"
+                }
+                null
+            }
+    }
+
     private fun TimelineEvent.toEntity(): TimelineEventEntity {
         val baseTimestamp = timestampMillis
 
@@ -219,8 +238,18 @@ class TimelineRepositoryImpl(
     private fun TimelineEventEntity.toDomain(): TimelineEvent? {
         return when (kind) {
             KIND_SERVICE_CONFIG -> {
-                val config = extraKey?.let { ServiceConfigKind.valueOf(it) } ?: return null
-                val state = extraValue?.let { ServiceConfigState.valueOf(it) } ?: return null
+                val config = safeEnumValueOf<ServiceConfigKind>(
+                    value = extraKey,
+                    kind = kind,
+                    id = id,
+                    field = "ServiceConfigKind",
+                ) ?: return null
+                val state = safeEnumValueOf<ServiceConfigState>(
+                    value = extraValue,
+                    kind = kind,
+                    id = id,
+                    field = "ServiceConfigState",
+                ) ?: return null
                 ServiceConfigEvent(
                     id = id,
                     timestampMillis = timestampMillis,
@@ -231,7 +260,12 @@ class TimelineRepositoryImpl(
             }
 
             KIND_SERVICE -> {
-                val state = serviceState?.let { ServiceState.valueOf(it) } ?: return null
+                val state = safeEnumValueOf<ServiceState>(
+                    value = serviceState,
+                    kind = kind,
+                    id = id,
+                    field = "ServiceState",
+                ) ?: return null
                 ServiceLifecycleEvent(
                     id = id,
                     timestampMillis = timestampMillis,
@@ -240,8 +274,18 @@ class TimelineRepositoryImpl(
             }
 
             KIND_PERMISSION -> {
-                val perm = permissionKind?.let { PermissionKind.valueOf(it) } ?: return null
-                val st = permissionState?.let { PermissionState.valueOf(it) } ?: return null
+                val perm = safeEnumValueOf<PermissionKind>(
+                    value = permissionKind,
+                    kind = kind,
+                    id = id,
+                    field = "PermissionKind",
+                ) ?: return null
+                val st = safeEnumValueOf<PermissionState>(
+                    value = permissionState,
+                    kind = kind,
+                    id = id,
+                    field = "PermissionState",
+                ) ?: return null
                 PermissionEvent(
                     id = id,
                     timestampMillis = timestampMillis,
@@ -251,7 +295,12 @@ class TimelineRepositoryImpl(
             }
 
             KIND_SCREEN -> {
-                val st = screenState?.let { ScreenState.valueOf(it) } ?: return null
+                val st = safeEnumValueOf<ScreenState>(
+                    value = screenState,
+                    kind = kind,
+                    id = id,
+                    field = "ScreenState",
+                ) ?: return null
                 ScreenEvent(
                     id = id,
                     timestampMillis = timestampMillis,
@@ -286,7 +335,12 @@ class TimelineRepositoryImpl(
             KIND_SUGGESTION_DECISION -> {
                 val sid = suggestionId ?: return null
                 val pkg = packageName ?: return null
-                val dec = suggestionDecision?.let { SuggestionDecision.valueOf(it) } ?: return null
+                val dec = safeEnumValueOf<SuggestionDecision>(
+                    value = suggestionDecision,
+                    kind = kind,
+                    id = id,
+                    field = "SuggestionDecision",
+                ) ?: return null
                 SuggestionDecisionEvent(
                     id = id,
                     timestampMillis = timestampMillis,

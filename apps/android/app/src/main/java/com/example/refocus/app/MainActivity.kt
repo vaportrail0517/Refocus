@@ -10,6 +10,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import com.example.refocus.app.navigation.RefocusNavHost
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.system.permissions.PermissionStateWatcher
 import com.example.refocus.ui.theme.RefocusTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -43,7 +44,8 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             try {
                 permissionStateWatcher.checkAndRecord()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                RefocusLog.e("MainActivity", e) { "Failed to check/record permission state onResume" }
             }
         }
     }
