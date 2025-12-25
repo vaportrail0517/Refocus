@@ -21,14 +21,33 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
+
+enum class TimelineCategory(
+    val label: String,
+) {
+    Foreground("前面アプリ"),
+    Screen("画面"),
+    Permission("権限"),
+    Service("サービス"),
+    ServiceConfig("サービス設定"),
+    TargetApps("対象アプリ"),
+    Suggestion("提案"),
+    Settings("設定"),
+    Other("その他"),
+}
 
 @HiltViewModel
 class TimelineHistoryViewModel @Inject constructor(
@@ -38,60 +57,167 @@ class TimelineHistoryViewModel @Inject constructor(
     private val timeSource: TimeSource,
 ) : ViewModel() {
 
+    data class CategoryUiModel(
+        val category: TimelineCategory,
+        val label: String,
+        val selected: Boolean,
+    )
+
     data class RowUiModel(
         val id: Long?,
+        val hour: Int,
         val timeText: String,
         val title: String,
         val detail: String?,
+        val category: TimelineCategory,
     )
 
     data class UiState(
-        val rows: List<RowUiModel> = emptyList(),
         val isLoading: Boolean = true,
+        val selectedDate: LocalDate = LocalDate.ofEpochDay(0),
+        val selectedDateText: String = "",
+        val selectedDateUtcMillis: Long = 0L,
+        val canGoNext: Boolean = false,
+        val isAllCategoriesSelected: Boolean = true,
+        val categories: List<CategoryUiModel> = emptyList(),
+        val rows: List<RowUiModel> = emptyList(),
         val rangeText: String = "",
+        val countText: String = "",
     )
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
+    private val zoneId = ZoneId.systemDefault()
+
+    private val selectedDate = MutableStateFlow(
+        Instant.ofEpochMilli(timeSource.nowMillis()).atZone(zoneId).toLocalDate()
+    )
+
+    private val selectedCategories = MutableStateFlow(
+        TimelineCategory.entries.toSet()
+    )
+
     private val labelCache = mutableMapOf<String, String>()
 
     private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-    private val dateFormat = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
+    private val dateFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd（EEE）")
+        .withLocale(Locale.JAPAN)
 
     init {
+        val eventsForSelectedDate = selectedDate.flatMapLatest { date ->
+            val (startMillis, endMillis) = toLocalDayRangeMillis(date, zoneId)
+            timelineRepository.observeEventsBetween(startMillis, endMillis)
+        }
+
         viewModelScope.launch {
-            val zone = ZoneId.systemDefault()
-            val startOfTodayMillis = startOfTodayMillis(
-                nowMillis = timeSource.nowMillis(),
-                zoneId = zone,
-            )
+            combine(
+                eventsForSelectedDate,
+                selectedDate,
+                selectedCategories,
+            ) { events, date, categories ->
+                Triple(events, date, categories)
+            }
+                .mapLatest { (events, date, categories) ->
+                    val effectiveCategories = categories.ifEmpty { TimelineCategory.entries.toSet() }
+                    val filtered = events.filter { categoryOf(it) in effectiveCategories }
+                    val rows = buildRows(filtered)
 
-            timelineRepository
-                .observeEventsBetween(startOfTodayMillis, Long.MAX_VALUE)
-                .collectLatest { events ->
-                    val sorted = events.sortedBy { it.timestampMillis }
-                    val rows = buildRows(sorted)
+                    val isAllSelected = effectiveCategories.size == TimelineCategory.entries.size
+                    val categoryUiModels = TimelineCategory.entries.map { cat ->
+                        CategoryUiModel(
+                            category = cat,
+                            label = cat.label,
+                            selected = cat in effectiveCategories,
+                        )
+                    }
 
-                    _uiState.value = UiState(
-                        rows = rows,
+                    val today = Instant.ofEpochMilli(timeSource.nowMillis()).atZone(zoneId).toLocalDate()
+                    val canGoNext = date.isBefore(today)
+
+                    UiState(
                         isLoading = false,
-                        rangeText = "${dateFormat.format(Date(startOfTodayMillis))} のイベント",
+                        selectedDate = date,
+                        selectedDateText = date.format(dateFormatter),
+                        selectedDateUtcMillis = toUtcDateMillis(date),
+                        canGoNext = canGoNext,
+                        isAllCategoriesSelected = isAllSelected,
+                        categories = categoryUiModels,
+                        rows = rows,
+                        rangeText = "${date.format(dateFormatter)} のイベント",
+                        countText = "${rows.size} 件",
                     )
+                }
+                .collect { state ->
+                    _uiState.value = state
                 }
         }
     }
 
+    fun onPreviousDay() {
+        onSelectDate(selectedDate.value.minusDays(1))
+    }
+
+    fun onNextDay() {
+        val today = Instant.ofEpochMilli(timeSource.nowMillis()).atZone(zoneId).toLocalDate()
+        val next = selectedDate.value.plusDays(1)
+        if (!next.isAfter(today)) {
+            onSelectDate(next)
+        }
+    }
+
+    fun onSelectDate(date: LocalDate) {
+        val today = Instant.ofEpochMilli(timeSource.nowMillis()).atZone(zoneId).toLocalDate()
+        selectedDate.value = if (date.isAfter(today)) today else date
+        // 日付が変わるので，ラベルキャッシュは維持しつつ，表示行の生成負荷を下げるためにここでは何もしない
+    }
+
+    fun onSelectAllCategories() {
+        selectedCategories.value = TimelineCategory.entries.toSet()
+    }
+
+    fun onToggleCategory(category: TimelineCategory) {
+        val current = selectedCategories.value
+        val next = current.toMutableSet().apply {
+            if (contains(category)) remove(category) else add(category)
+        }
+
+        // 0 件選択は使い勝手が悪いので「すべて」に戻す
+        selectedCategories.value = if (next.isEmpty()) TimelineCategory.entries.toSet() else next
+    }
+
     private suspend fun buildRows(events: List<TimelineEvent>): List<RowUiModel> {
         if (events.isEmpty()) return emptyList()
-        return events.map { ev ->
-            val (title, detail) = describeEvent(ev)
-            RowUiModel(
-                id = ev.id,
-                timeText = timeFormat.format(Date(ev.timestampMillis)),
-                title = title,
-                detail = detail,
-            )
+        return events
+            .sortedBy { it.timestampMillis }
+            .map { ev ->
+                val category = categoryOf(ev)
+                val (title, detail) = describeEvent(ev)
+                val time = timeFormat.format(Date(ev.timestampMillis))
+                val hour = runCatching { time.substring(0, 2).toInt() }.getOrDefault(0)
+
+                RowUiModel(
+                    id = ev.id,
+                    hour = hour,
+                    timeText = time,
+                    title = title,
+                    detail = detail,
+                    category = category,
+                )
+            }
+    }
+
+    private fun categoryOf(event: TimelineEvent): TimelineCategory {
+        return when (event) {
+            is ForegroundAppEvent -> TimelineCategory.Foreground
+            is ScreenEvent -> TimelineCategory.Screen
+            is PermissionEvent -> TimelineCategory.Permission
+            is ServiceLifecycleEvent -> TimelineCategory.Service
+            is ServiceConfigEvent -> TimelineCategory.ServiceConfig
+            is TargetAppsChangedEvent -> TimelineCategory.TargetApps
+            is SuggestionShownEvent, is SuggestionDecisionEvent -> TimelineCategory.Suggestion
+            is SettingsChangedEvent -> TimelineCategory.Settings
+            else -> TimelineCategory.Other
         }
     }
 
@@ -165,7 +291,7 @@ class TimelineHistoryViewModel @Inject constructor(
             is SettingsChangedEvent -> {
                 "設定変更" to listOfNotNull(
                     event.key,
-                    event.newValueDescription?.takeIf { it.isNotBlank() }?.let { "$it" },
+                    event.newValueDescription?.takeIf { it.isNotBlank() },
                 ).joinToString("，").ifBlank { null }
             }
 
@@ -192,11 +318,16 @@ class TimelineHistoryViewModel @Inject constructor(
         return label
     }
 
-    private fun startOfTodayMillis(
-        nowMillis: Long,
+    private fun toLocalDayRangeMillis(
+        date: LocalDate,
         zoneId: ZoneId,
-    ): Long {
-        val nowDate = Instant.ofEpochMilli(nowMillis).atZone(zoneId).toLocalDate()
-        return nowDate.atStartOfDay(zoneId).toInstant().toEpochMilli()
+    ): Pair<Long, Long> {
+        val start = date.atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val end = date.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+        return start to end
+    }
+
+    private fun toUtcDateMillis(date: LocalDate): Long {
+        return date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
     }
 }

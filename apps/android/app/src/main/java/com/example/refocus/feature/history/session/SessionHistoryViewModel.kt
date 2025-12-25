@@ -1,4 +1,4 @@
-package com.example.refocus.feature.history
+package com.example.refocus.feature.history.session
 
 import android.app.Application
 import android.content.pm.PackageManager

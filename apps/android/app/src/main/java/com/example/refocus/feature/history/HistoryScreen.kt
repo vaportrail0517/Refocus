@@ -22,8 +22,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.refocus.feature.history.timeline.TimelineHistoryContent
-import com.example.refocus.feature.history.timeline.TimelineHistoryViewModel
+import com.example.refocus.feature.history.session.SessionHistoryRoute
+import com.example.refocus.feature.history.timeline.TimelineHistoryRoute
 import kotlinx.coroutines.launch
 
 private enum class HistoryTab(
@@ -36,8 +36,6 @@ private enum class HistoryTab(
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
-    sessionUiState: SessionHistoryViewModel.UiState,
-    timelineUiState: TimelineHistoryViewModel.UiState,
     onNavigateBack: () -> Unit,
 ) {
     val tabs = HistoryTab.entries
@@ -93,8 +91,7 @@ fun HistoryScreen(
             ) { page ->
                 when (tabs[page]) {
                     HistoryTab.Sessions -> {
-                        SessionHistoryContent(
-                            uiState = sessionUiState,
+                        SessionHistoryRoute(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(16.dp),
@@ -102,8 +99,7 @@ fun HistoryScreen(
                     }
 
                     HistoryTab.Timeline -> {
-                        TimelineHistoryContent(
-                            uiState = timelineUiState,
+                        TimelineHistoryRoute(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(16.dp),
