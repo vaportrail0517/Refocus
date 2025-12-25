@@ -15,7 +15,10 @@ import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.domain.repository.TimelineRepository
 import com.example.refocus.domain.stats.SessionStatsCalculator
-import com.example.refocus.domain.timeline.SessionProjector
+import com.example.refocus.domain.timeline.TimelineInterpretationConfig
+import com.example.refocus.domain.timeline.TimelineProjector
+import com.example.refocus.domain.timeline.TimelineWindowEventsLoader
+import java.time.ZoneId
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -74,6 +77,8 @@ class SessionHistoryViewModel @Inject constructor(
 
     private val dateTimeFormat = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
 
+    private val windowLoader = TimelineWindowEventsLoader(timelineRepository)
+
     init {
         viewModelScope.launch {
             val nowMillis = timeSource.nowMillis()
@@ -85,12 +90,7 @@ class SessionHistoryViewModel @Inject constructor(
                 .onStart { emit(null) }
 
             combine(
-                timelineRepository
-                    .observeEventsBetween(windowStart, Long.MAX_VALUE)
-                    .mapLatest { windowEvents ->
-                        val seed = timelineRepository.getSeedEventsBefore(windowStart)
-                        (seed + windowEvents).sortedBy { it.timestampMillis }
-                    },
+                windowLoader.observeWithSeed(windowStartMillis = windowStart, windowEndMillis = Long.MAX_VALUE),
                 settingsRepository.observeOverlaySettings(),
                 targetsRepository.observeTargets(),
                 foregroundFlow,
@@ -135,27 +135,24 @@ class SessionHistoryViewModel @Inject constructor(
 
         val nowMillis = timeSource.nowMillis()
 
-        // TimelineEvent からセッションを再構成
-        val sessionsWithEvents = SessionProjector.projectSessions(
+        // TimelineEvent からセッションとイベント列を再構成（共通プロジェクタに一本化）
+        val projection = TimelineProjector.project(
             events = events,
-            stopGracePeriodMillis = customize.gracePeriodMillis,
+            config = TimelineInterpretationConfig(stopGracePeriodMillis = customize.gracePeriodMillis),
             nowMillis = nowMillis,
+            zoneId = ZoneId.systemDefault(),
         )
 
-        if (sessionsWithEvents.isEmpty()) {
+        val sessions = projection.sessions
+        val eventsMap: Map<Long, List<SessionEvent>> = projection.eventsBySessionId
+
+        if (sessions.isEmpty()) {
             _uiState.value = UiState(
                 sessions = emptyList(),
                 isLoading = false,
             )
             return
         }
-
-        val sessions = sessionsWithEvents.map { it.session }
-        val eventsMap: Map<Long, List<SessionEvent>> =
-            sessionsWithEvents.mapNotNull { swe ->
-                val id = swe.session.id ?: return@mapNotNull null
-                id to swe.events
-            }.toMap()
 
         // domain の集計ロジックで SessionStats を作る
         val statsList: List<SessionStats> = SessionStatsCalculator.buildSessionStats(

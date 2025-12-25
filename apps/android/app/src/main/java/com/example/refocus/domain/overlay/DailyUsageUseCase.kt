@@ -4,8 +4,9 @@ import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.domain.repository.TimelineRepository
-import com.example.refocus.domain.session.SessionDurationCalculator
-import com.example.refocus.domain.timeline.SessionProjector
+import com.example.refocus.domain.timeline.TimelineInterpretationConfig
+import com.example.refocus.domain.timeline.TimelineProjector
+import com.example.refocus.domain.timeline.TimelineWindowEventsLoader
 import java.time.Instant
 import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
@@ -75,6 +76,7 @@ class DailyUsageUseCase(
     }
 
     private val lock = Any()
+    private val windowLoader = TimelineWindowEventsLoader(timelineRepository)
 
     @Volatile
     private var snapshot: DailyUsageSnapshot? = null
@@ -219,43 +221,34 @@ class DailyUsageUseCase(
             return
         }
 
-        // startOfDay 以前の状態復元に必要な「種イベント」＋ 今日のイベントだけを読む．
-        // 大量データの全再投影を避けるため，seed は必要最小限にする．
-        val (seed, todayEvents) = withContext(Dispatchers.IO) {
-            val seedEvents = timelineRepository.getSeedEventsBefore(startOfDayMillis)
-            val events = timelineRepository.getEvents(startOfDayMillis, nowMillis)
-            seedEvents to events
+        // startOfDay 以前の状態復元に必要な seed + 今日のイベントだけを読み，
+        // 同じ投影ロジック（TimelineProjector）で「今日の累計」を再構成する．
+        val maxLookbackMillis = lookbackHours * 60L * 60L * 1_000L
+        val events = withContext(Dispatchers.IO) {
+            windowLoader.loadWithSeed(
+                windowStartMillis = startOfDayMillis,
+                windowEndMillis = nowMillis,
+                seedLookbackMillis = maxLookbackMillis,
+            )
         }
 
-        // 異常に古い seed を避ける（保険）
-        val maxLookbackMillis = lookbackHours * 60L * 60L * 1_000L
-        val minSeedMillis = startOfDayMillis - maxLookbackMillis
-        val filteredSeed = seed.filter { it.timestampMillis >= minSeedMillis }
-
-        val events = (filteredSeed + todayEvents)
-            .sortedBy { it.timestampMillis }
+        val zone = ZoneId.systemDefault()
+        val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
 
         val (perPkg, all) = withContext(Dispatchers.Default) {
-            val sessions = SessionProjector.projectSessions(
+            val projection = TimelineProjector.project(
                 events = events,
-                stopGracePeriodMillis = customize.gracePeriodMillis,
+                config = TimelineInterpretationConfig(stopGracePeriodMillis = customize.gracePeriodMillis),
                 nowMillis = nowMillis,
+                zoneId = zone,
             )
 
-            val per = mutableMapOf<String, Long>()
-            var total = 0L
+            val partsToday = projection.sessionParts.filter { it.date == today }
+            val per = partsToday
+                .groupBy { it.packageName }
+                .mapValues { (_, parts) -> parts.sumOf { it.durationMillis }.coerceAtLeast(0L) }
 
-            for (s in sessions) {
-                val pkg = s.session.packageName
-                val durationToday = computeTodayDurationMillis(
-                    sessionEvents = s.events,
-                    nowMillis = nowMillis,
-                    startOfDayMillis = startOfDayMillis,
-                )
-                if (durationToday <= 0L) continue
-                per[pkg] = (per[pkg] ?: 0L) + durationToday
-                total += durationToday
-            }
+            val total = partsToday.sumOf { it.durationMillis }.coerceAtLeast(0L)
 
             per.toMap() to total
         }
@@ -331,22 +324,4 @@ class DailyUsageUseCase(
         return today.atStartOfDay(zone).toInstant().toEpochMilli()
     }
 
-    private fun computeTodayDurationMillis(
-        sessionEvents: List<com.example.refocus.core.model.SessionEvent>,
-        nowMillis: Long,
-        startOfDayMillis: Long,
-    ): Long {
-        val segments = SessionDurationCalculator.buildActiveSegments(
-            events = sessionEvents,
-            nowMillis = nowMillis,
-        )
-
-        var sum = 0L
-        for (seg in segments) {
-            val start = maxOf(seg.startMillis, startOfDayMillis)
-            val end = seg.endMillis
-            if (end > start) sum += (end - start)
-        }
-        return sum.coerceAtLeast(0L)
-    }
 }

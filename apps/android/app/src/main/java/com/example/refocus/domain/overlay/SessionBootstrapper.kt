@@ -4,7 +4,10 @@ import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.SessionEventType
 import com.example.refocus.domain.repository.TimelineRepository
 import com.example.refocus.domain.session.SessionDurationCalculator
-import com.example.refocus.domain.timeline.SessionProjector
+import com.example.refocus.domain.timeline.TimelineInterpretationConfig
+import com.example.refocus.domain.timeline.TimelineProjector
+import com.example.refocus.domain.timeline.TimelineWindowEventsLoader
+import java.time.ZoneId
 
 /**
  * TimelineEvent の列から，「いまの設定（停止猶予時間など）で解釈した論理セッション」を復元するユースケース。
@@ -17,6 +20,8 @@ class SessionBootstrapper(
     private val timelineRepository: TimelineRepository,
     private val lookbackHours: Long,
 ) {
+
+    private val windowLoader = TimelineWindowEventsLoader(timelineRepository)
 
     /**
      * @param force
@@ -41,21 +46,23 @@ class SessionBootstrapper(
 
         // startMillis より前の TargetAppsChanged などを seed として補い，
         // ウィンドウ内の ForegroundAppEvent を「当時の対象集合」で解釈できるようにする。
-        val seed = timelineRepository.getSeedEventsBefore(startMillis)
-        val windowEvents = timelineRepository.getEvents(
-            startMillis = startMillis,
-            endMillis = nowMillis,
+        // ただし異常に古い seed は避ける（保険）
+        val maxLookbackMillis = lookbackHours * 60L * 60L * 1_000L
+        val events = windowLoader.loadWithSeed(
+            windowStartMillis = startMillis,
+            windowEndMillis = nowMillis,
+            seedLookbackMillis = maxLookbackMillis,
         )
-        val events = (seed + windowEvents).sortedBy { it.timestampMillis }
         if (events.isEmpty()) return null
 
-        val sessionsWithEvents = SessionProjector.projectSessions(
+        val projection = TimelineProjector.project(
             events = events,
-            stopGracePeriodMillis = customize.gracePeriodMillis,
+            config = TimelineInterpretationConfig(stopGracePeriodMillis = customize.gracePeriodMillis),
             nowMillis = nowMillis,
+            zoneId = ZoneId.systemDefault(),
         )
 
-        val last = sessionsWithEvents
+        val last = projection.sessionsWithEvents
             .filter { it.session.packageName == packageName }
             .lastOrNull() ?: return null
 

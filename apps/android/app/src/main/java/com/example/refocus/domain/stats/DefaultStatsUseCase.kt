@@ -11,10 +11,10 @@ import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.domain.repository.TimelineRepository
-import com.example.refocus.domain.session.SessionPartGenerator
 import com.example.refocus.domain.timeline.MonitoringPeriod
-import com.example.refocus.domain.timeline.MonitoringStateProjector
-import com.example.refocus.domain.timeline.SessionProjector
+import com.example.refocus.domain.timeline.TimelineInterpretationConfig
+import com.example.refocus.domain.timeline.TimelineProjector
+import com.example.refocus.domain.timeline.TimelineWindowEventsLoader
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -42,6 +42,7 @@ class DefaultStatsUseCase @Inject constructor(
 ) {
 
     private val zoneId: ZoneId = ZoneId.systemDefault()
+    private val windowLoader = TimelineWindowEventsLoader(timelineRepository)
 
     /**
      * 日次統計のために「日付境界を跨ぐセッション」や直前状態を拾うための巻き戻し幅。
@@ -81,25 +82,25 @@ class DefaultStatsUseCase @Inject constructor(
             dayFlow(),
         ) { settings, targets, today ->
             Triple(settings, targets, today)
-        }.flatMapLatest { (settings, targets, today) ->
+        }.flatMapLatest { (settings, _, today) ->
             val startOfDay = today.atStartOfDay(zoneId).toInstant().toEpochMilli()
             val endOfDayExclusive = today.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
             val windowStart = (startOfDay - statsLookbackMillis).coerceAtLeast(0L)
 
-            timelineRepository.observeEventsBetween(windowStart, endOfDayExclusive)
-                .mapLatest { windowEvents ->
-                    val seed = timelineRepository.getSeedEventsBefore(windowStart)
-                    val merged = mergeSeedAndWindow(seed, windowEvents)
-
+            windowLoader.observeWithSeed(
+                windowStartMillis = windowStart,
+                windowEndMillis = endOfDayExclusive,
+            )
+                .mapLatest { mergedEvents ->
                     val nowMillis = timeSource.nowMillis()
                     val nowMillisForDay = minOf(nowMillis, endOfDayExclusive)
 
                     buildDailyStatsForDate(
                         date = today,
-                        events = merged,
+                        events = mergedEvents,
                         customize = settings,
                         // セッション投影は TargetAppsChangedEvent から「当時の対象集合」を復元するため，
-            // 現在の targets をフィルタとして渡さない。
+                        // 現在の targets をフィルタとして渡さない。
                         nowMillis = nowMillisForDay,
                     )
                 }
@@ -123,9 +124,10 @@ class DefaultStatsUseCase @Inject constructor(
         // その日より前に確定した状態（サービス稼働・権限・直前foreground等）を拾うため，
         // 「日付境界を跨ぐ可能性がある範囲」だけ取得し，直前の状態イベントを seed として補う。
         val windowStart = (startOfDay - statsLookbackMillis).coerceAtLeast(0L)
-        val seed = timelineRepository.getSeedEventsBefore(windowStart)
-        val windowEvents = timelineRepository.getEvents(windowStart, endOfDayExclusive)
-        val events = mergeSeedAndWindow(seed, windowEvents)
+        val events = windowLoader.loadWithSeed(
+            windowStartMillis = windowStart,
+            windowEndMillis = endOfDayExclusive,
+        )
         if (events.isEmpty()) return null
 
         return buildDailyStatsForDate(
@@ -149,19 +151,16 @@ class DefaultStatsUseCase @Inject constructor(
     ): DailyStats? {
         if (events.isEmpty()) return null
 
-        // 1) セッションを再構成（SessionProjector の現状シグネチャに合わせる）
-        val sessionsWithEvents = SessionProjector.projectSessions(
+        val projection = TimelineProjector.project(
             events = events,
-            stopGracePeriodMillis = customize.gracePeriodMillis,
+            config = TimelineInterpretationConfig(stopGracePeriodMillis = customize.gracePeriodMillis),
             nowMillis = nowMillis,
+            zoneId = zoneId,
         )
 
-        val sessions: List<Session> = sessionsWithEvents.map { it.session }
-        val eventsBySessionId: Map<Long, List<SessionEvent>> =
-            sessionsWithEvents.mapNotNull { swe ->
-                val id = swe.session.id ?: return@mapNotNull null
-                id to swe.events
-            }.toMap()
+        val sessions: List<Session> = projection.sessions
+        val eventsBySessionId: Map<Long, List<SessionEvent>> = projection.eventsBySessionId
+        val sessionParts: List<SessionPart> = projection.sessionParts
 
         // 2) SessionStats を生成（SessionStatsCalculator のシグネチャに合わせる）
         // foregroundPackage は日次集計では不要なので null にしている
@@ -173,18 +172,9 @@ class DefaultStatsUseCase @Inject constructor(
                 nowMillis = nowMillis,
             )
 
-        // 3) SessionPart を生成（日付境界の分割は SessionPartGenerator に一本化）
-        val sessionParts: List<SessionPart> =
-            SessionPartGenerator.generateParts(
-                sessions = sessions,
-                eventsBySessionId = eventsBySessionId,
-                nowMillis = nowMillis,
-                zoneId = zoneId,
-            )
-
-        // 4) 監視期間を日ベースで再構成
+        // 3) 監視期間を日ベースで再構成
         val monitoringPeriods: List<MonitoringPeriod> =
-            MonitoringStateProjector.buildMonitoringPeriodsForDate(
+            TimelineProjector.buildMonitoringPeriodsForDate(
                 date = date,
                 zoneId = zoneId,
                 events = events,
@@ -196,7 +186,7 @@ class DefaultStatsUseCase @Inject constructor(
             return null
         }
 
-        // 5) DailyStats を計算（DailyStatsCalculator のシグネチャに完全一致させる）
+        // 4) DailyStats を計算（DailyStatsCalculator のシグネチャに完全一致させる）
         return DailyStatsCalculator.calculateDailyStats(
             sessions = sessions,
             sessionStats = sessionStats,
@@ -207,16 +197,5 @@ class DefaultStatsUseCase @Inject constructor(
             zoneId = zoneId,
             nowMillis = nowMillis,
         )
-    }
-
-    private fun mergeSeedAndWindow(
-        seedEvents: List<TimelineEvent>,
-        windowEvents: List<TimelineEvent>,
-    ): List<TimelineEvent> {
-        if (seedEvents.isEmpty()) return windowEvents
-        if (windowEvents.isEmpty()) return seedEvents
-        // seed は windowStart より前のみのため，単純連結で良い。
-        // 念のため時系列に整列する。
-        return (seedEvents + windowEvents).sortedBy { it.timestampMillis }
     }
 }
