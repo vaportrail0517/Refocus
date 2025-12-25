@@ -238,9 +238,12 @@ class SuggestionOrchestrator(
     }
 
     private fun handleSuggestionDisableThisSession() {
-        clearOverlayState()
         val packageName = overlayPackageProvider() ?: return
         val suggestionId = currentSuggestionId ?: 0L
+
+        // clearOverlayState() によって currentSuggestionId が null に戻るため，
+        // 先に suggestionId を保持してから状態をクリアする．
+        clearOverlayState()
 
         scope.launch {
             try {

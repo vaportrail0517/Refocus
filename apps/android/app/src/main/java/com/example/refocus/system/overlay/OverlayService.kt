@@ -9,6 +9,7 @@ import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.service.quicksettings.TileService
 import com.example.refocus.core.logging.RefocusLog
 import androidx.core.app.ServiceCompat
@@ -248,10 +249,21 @@ class OverlayService : LifecycleService() {
 
         registerScreenReceiver()
 
+        // registerReceiver は sticky ではないため，サービス起動時点の画面状態は取りこぼし得る．
+        // ここで現在の状態を同期して，起動直後に screenOn の初期値が誤らないようにする．
+        syncInitialScreenState()
+
         // 権限状態の変化を継続的に検知し，失効時はフェイルセーフに停止する
         startPermissionWatchLoop()
 
         overlayCoordinator.start()
+    }
+
+    private fun syncInitialScreenState() {
+        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val isInteractive = pm?.isInteractive ?: true
+        RefocusLog.d(TAG) { "syncInitialScreenState: isInteractive=$isInteractive" }
+        overlayCoordinator.setScreenOn(isInteractive)
     }
 
     private fun startPermissionWatchLoop() {
