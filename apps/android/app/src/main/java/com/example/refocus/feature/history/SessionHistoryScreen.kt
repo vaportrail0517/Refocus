@@ -69,36 +69,47 @@ fun SessionHistoryScreen(
         },
         contentWindowInsets = WindowInsets(0.dp),
     ) { innerPadding ->
-        Column(
+        SessionHistoryContent(
+            uiState = uiState,
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(16.dp),
+        )
+    }
+}
+
+@Composable
+fun SessionHistoryContent(
+    uiState: SessionHistoryViewModel.UiState,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        if (uiState.isLoading) {
+            Text(
+                text = "読み込み中...",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            return@Column
+        }
+
+        if (uiState.sessions.isEmpty()) {
+            Text(
+                text = "まだセッション履歴がありません。",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            return@Column
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (uiState.isLoading) {
-                Text(
-                    text = "読み込み中...",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                return@Column
-            }
-
-            if (uiState.sessions.isEmpty()) {
-                Text(
-                    text = "まだセッション履歴がありません。",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                return@Column
-            }
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(uiState.sessions) { session ->
-                    SessionItem(session)
-                }
+            items(uiState.sessions) { session ->
+                SessionItem(session)
             }
         }
     }
