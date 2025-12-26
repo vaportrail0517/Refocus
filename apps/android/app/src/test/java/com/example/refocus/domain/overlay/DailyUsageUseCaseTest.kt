@@ -275,4 +275,54 @@ class DailyUsageUseCaseTest {
         assertEquals(15 * 60 * 1_000L + 1_000L, useCase.getTodayAllTargetsMillis())
     }
 
+
+    @Test
+    fun onTick_clampsLargeGapToAvoidOvercount() = runBlocking<Unit> {
+        val pkgA = "com.example.a"
+
+        val t1 = Instant.parse("2025-01-01T10:00:00Z").toEpochMilli()
+        val t2 = t1 + 10_000L
+
+        val repo = FakeTimelineRepository(initialEvents = emptyList<TimelineEvent>())
+        val timeSource = TestTimeSource(initialNowMillis = t1, initialElapsedRealtime = 0L)
+
+        val useCase = DailyUsageUseCase(
+            scope = CoroutineScope(Dispatchers.Unconfined),
+            timeSource = timeSource,
+            timelineRepository = repo,
+            lookbackHours = 24,
+        )
+
+        val customize = Customize(
+            timerTimeMode = TimerTimeMode.TodayAllTargets,
+            gracePeriodMillis = 0L,
+        )
+
+        // 先に snapshot を作って，onTick が無駄に refresh を起動しない状態にする
+        useCase.refreshIfNeeded(
+            customize = customize,
+            targetPackages = setOf(pkgA),
+            nowMillis = t1,
+        )
+
+        // 1回目の tick で lastTick を設定
+        useCase.onTick(
+            customize = customize,
+            targetPackages = setOf(pkgA),
+            activePackageName = pkgA,
+            nowMillis = t1,
+        )
+
+        // 10 秒空いたとしても，内部では上限（2 秒）で clamp される
+        useCase.onTick(
+            customize = customize,
+            targetPackages = setOf(pkgA),
+            activePackageName = pkgA,
+            nowMillis = t2,
+        )
+
+        assertEquals(2_000L, useCase.getTodayAllTargetsMillis())
+        assertEquals(2_000L, useCase.getTodayThisTargetMillis(pkgA))
+    }
+
 }
