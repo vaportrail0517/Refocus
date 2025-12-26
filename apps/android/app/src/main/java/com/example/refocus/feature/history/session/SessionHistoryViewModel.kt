@@ -1,8 +1,6 @@
 package com.example.refocus.feature.history.session
 
-import android.app.Application
-import android.content.pm.PackageManager
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.SessionEvent
@@ -11,6 +9,7 @@ import com.example.refocus.core.model.SessionStatus
 import com.example.refocus.core.model.TimelineEvent
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.core.util.formatDurationMilliSeconds
+import com.example.refocus.domain.gateway.AppLabelProvider
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.domain.repository.TimelineRepository
@@ -18,7 +17,6 @@ import com.example.refocus.domain.stats.SessionStatsCalculator
 import com.example.refocus.domain.timeline.TimelineInterpretationConfig
 import com.example.refocus.domain.timeline.TimelineProjector
 import com.example.refocus.domain.timeline.TimelineWindowEventsLoader
-import java.time.ZoneId
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,10 +24,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -37,13 +35,13 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SessionHistoryViewModel @Inject constructor(
-    application: Application,
     private val timelineRepository: TimelineRepository,
     private val settingsRepository: SettingsRepository,
     private val targetsRepository: TargetsRepository,
     private val foregroundAppMonitor: ForegroundAppMonitor,
     private val timeSource: TimeSource,
-) : AndroidViewModel(application) {
+    private val appLabelProvider: AppLabelProvider,
+) : ViewModel() {
 
     private val historyLookbackMillis: Long = TimeUnit.DAYS.toMillis(30)
 
@@ -70,10 +68,6 @@ class SessionHistoryViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
-
-    private val appContext = application
-    private val packageManager: PackageManager = application.packageManager
-    private val appNameCache = mutableMapOf<String, String>()
 
     private val dateTimeFormat = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
 
@@ -171,7 +165,7 @@ class SessionHistoryViewModel @Inject constructor(
                     pausedAtText = formatDateTime(pauseStats.pausedAtMillis),
                     resumedAtText = pauseStats.resumedAtMillis?.let { resumed ->
                         formatDateTime(resumed)
-                    }
+                    },
                 )
             }
             SessionUiModel(
@@ -193,15 +187,7 @@ class SessionHistoryViewModel @Inject constructor(
     }
 
     private fun resolveAppName(packageName: String): String {
-        appNameCache[packageName]?.let { return it }
-        return try {
-            val appInfo = packageManager.getApplicationInfo(packageName, 0)
-            val label = packageManager.getApplicationLabel(appInfo).toString()
-            appNameCache[packageName] = label
-            label
-        } catch (e: PackageManager.NameNotFoundException) {
-            packageName
-        }
+        return appLabelProvider.labelOf(packageName)
     }
 
     private fun formatDateTime(millis: Long): String {

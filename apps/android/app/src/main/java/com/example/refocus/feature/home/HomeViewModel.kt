@@ -1,23 +1,26 @@
 package com.example.refocus.feature.home
 
-import android.app.Application
-import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.refocus.domain.gateway.AppLabelProvider
 import com.example.refocus.domain.repository.TargetsRepository
+import com.example.refocus.system.appinfo.AppIconResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    application: Application,
     private val targetsRepository: TargetsRepository,
-) : AndroidViewModel(application) {
+    private val appLabelProvider: AppLabelProvider,
+    private val appIconResolver: AppIconResolver,
+) : ViewModel() {
 
     data class TargetAppUiModel(
         val packageName: String,
@@ -25,30 +28,23 @@ class HomeViewModel @Inject constructor(
         val icon: Drawable?,
     )
 
-    private val pm: PackageManager = application.packageManager
-
     val targetApps: StateFlow<List<TargetAppUiModel>> =
         targetsRepository
             .observeTargets()
-            .map { pkgs: Set<String> ->
-                pkgs.mapNotNull { pkg: String ->
-                    try {
-                        val appInfo = pm.getApplicationInfo(pkg, 0)
-                        val label = pm.getApplicationLabel(appInfo).toString()
-                        val icon = pm.getApplicationIcon(pkg)
+            .mapLatest { pkgs: Set<String> ->
+                withContext(Dispatchers.Default) {
+                    pkgs.map { pkg: String ->
                         TargetAppUiModel(
                             packageName = pkg,
-                            label = label,
-                            icon = icon,
+                            label = appLabelProvider.labelOf(pkg),
+                            icon = appIconResolver.iconOf(pkg),
                         )
-                    } catch (e: Exception) {
-                        null
                     }
                 }
             }
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = emptyList()
+                initialValue = emptyList(),
             )
 }

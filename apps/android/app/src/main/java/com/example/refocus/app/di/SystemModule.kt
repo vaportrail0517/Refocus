@@ -11,9 +11,13 @@ import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.suggestion.TimeSlotWeightModel
 import com.example.refocus.domain.timeline.EventRecorder
+import com.example.refocus.system.appinfo.AndroidAppIconResolver
 import com.example.refocus.system.appinfo.AndroidAppLabelResolver
+import com.example.refocus.system.appinfo.AndroidLaunchableAppProvider
+import com.example.refocus.system.appinfo.AppIconResolver
 import com.example.refocus.system.appinfo.AppLabelProviderImpl
 import com.example.refocus.system.appinfo.AppLabelResolver
+import com.example.refocus.system.appinfo.LaunchableAppProvider
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import com.example.refocus.system.monitor.ForegroundAppObserverImpl
 import dagger.Module
@@ -35,7 +39,7 @@ object SystemModule {
     @Singleton
     fun provideForegroundAppMonitor(
         @ApplicationContext context: Context,
-        timeSource: TimeSource
+        timeSource: TimeSource,
     ): ForegroundAppMonitor = ForegroundAppMonitor(context, timeSource)
 
     @Provides
@@ -55,7 +59,7 @@ object SystemModule {
     @Provides
     @Singleton
     fun provideSuggestionSelector(
-        timeSlotWeightModel: TimeSlotWeightModel
+        timeSlotWeightModel: TimeSlotWeightModel,
     ): SuggestionSelector = SuggestionSelector(timeSlotWeightModel)
 
     @Provides
@@ -76,4 +80,16 @@ object SystemModule {
     fun provideAppLabelProvider(
         resolver: AppLabelResolver,
     ): AppLabelProvider = AppLabelProviderImpl(resolver)
+
+    @Provides
+    @Singleton
+    fun provideAppIconResolver(
+        @ApplicationContext context: Context,
+    ): AppIconResolver = AndroidAppIconResolver(context)
+
+    @Provides
+    @Singleton
+    fun provideLaunchableAppProvider(
+        @ApplicationContext context: Context,
+    ): LaunchableAppProvider = AndroidLaunchableAppProvider(context)
 }
