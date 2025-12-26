@@ -3,10 +3,10 @@ package com.example.refocus.system.permissions
 import android.content.Context
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.PermissionKind
+import com.example.refocus.core.model.PermissionSnapshot
 import com.example.refocus.core.model.PermissionState
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.data.datastore.PermissionSnapshot
-import com.example.refocus.data.datastore.PermissionStateDataStore
+import com.example.refocus.domain.permissions.PermissionSnapshotStore
 import com.example.refocus.domain.timeline.EventRecorder
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -25,7 +25,7 @@ import kotlinx.coroutines.sync.withLock
 class PermissionStateWatcher @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val timeSource: TimeSource,
-    private val permissionStateDataStore: PermissionStateDataStore,
+    private val permissionSnapshotStore: PermissionSnapshotStore,
     private val eventRecorder: EventRecorder,
 ) {
 
@@ -53,13 +53,13 @@ class PermissionStateWatcher @Inject constructor(
             lastCheckedAtMillis = now,
         )
 
-        val previous = permissionStateDataStore.readOrNull()
+        val previous = permissionSnapshotStore.readOrNull()
 
         if (previous == null) {
             // 初回は「現状をタイムラインで説明できる」ように，ベースラインとして 2 種類を記録する．
             recordPermissionEvent(PermissionKind.UsageStats, usageGranted)
             recordPermissionEvent(PermissionKind.Overlay, overlayGranted)
-            permissionStateDataStore.write(current)
+            permissionSnapshotStore.write(current)
             return@withLock current
         }
 
@@ -76,7 +76,7 @@ class PermissionStateWatcher @Inject constructor(
                 recordPermissionEvent(kind, granted)
             }
             // イベント記録が成功した場合のみスナップショット更新（失敗時は次回再試行できる）
-            permissionStateDataStore.write(current)
+            permissionSnapshotStore.write(current)
         }
 
         return@withLock current

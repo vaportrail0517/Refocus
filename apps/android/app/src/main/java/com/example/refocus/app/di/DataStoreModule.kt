@@ -5,6 +5,7 @@ import com.example.refocus.data.datastore.OnboardingDataStore
 import com.example.refocus.data.datastore.PermissionStateDataStore
 import com.example.refocus.data.datastore.SettingsDataStore
 import com.example.refocus.data.datastore.TargetsDataStore
+import com.example.refocus.domain.permissions.PermissionSnapshotStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -36,7 +37,7 @@ object DataStoreModule {
 
     @Provides
     @Singleton
-    fun providePermissionStateDataStore(
+    fun providePermissionSnapshotStore(
         @ApplicationContext context: Context,
-    ): PermissionStateDataStore = PermissionStateDataStore(context)
+    ): PermissionSnapshotStore = PermissionStateDataStore(context)
 }
