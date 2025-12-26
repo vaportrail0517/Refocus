@@ -24,7 +24,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,10 +33,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.refocus.feature.common.permissions.rememberPermissionUiState
 import com.example.refocus.system.overlay.OverlayService
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.overlay.stopOverlayService
@@ -59,52 +56,41 @@ fun SettingsScreen(
     val viewModel: SettingsViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val activity = context as? Activity
-    val lifecycleOwner = LocalLifecycleOwner.current
-    var usageGranted by remember { mutableStateOf(PermissionHelper.hasUsageAccess(context)) }
-    var overlayGranted by remember { mutableStateOf(PermissionHelper.hasOverlayPermission(context)) }
-    var notificationGranted by remember { mutableStateOf(PermissionHelper.hasNotificationPermission(context)) }
     var activeDialog by remember { mutableStateOf<SettingsDialogType?>(null) }
     var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
-    val hasCorePermissions = usageGranted && overlayGranted
+
+    val permissionState = rememberPermissionUiState(
+        onRefreshed = { latest ->
+            isServiceRunning = OverlayService.isRunning
+
+            if (!latest.hasCorePermissions) {
+                val latestState = viewModel.uiState.value
+                // 起動設定 or 実行中サービスが残っていたら OFF に揃える
+                if (latestState.customize.overlayEnabled || isServiceRunning) {
+                    viewModel.updateOverlayEnabled(false)
+                    context.stopOverlayService()
+                    isServiceRunning = false
+                }
+                // 自動起動も OFF に揃える
+                if (latestState.customize.autoStartOnBoot) {
+                    viewModel.updateAutoStartOnBoot(false)
+                }
+            }
+        },
+    )
+
+    val permissions = permissionState.value
+    val hasCorePermissions = permissions.hasCorePermissions
 
     val scrollState = rememberScrollState()
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { _ ->
-            notificationGranted = PermissionHelper.hasNotificationPermission(context)
+            val latest = PermissionHelper.hasNotificationPermission(context)
+            permissionState.value = permissionState.value.copy(notificationGranted = latest)
         }
     )
-
-    // 画面復帰時に権限状態を更新
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                usageGranted = PermissionHelper.hasUsageAccess(context)
-                overlayGranted = PermissionHelper.hasOverlayPermission(context)
-                notificationGranted = PermissionHelper.hasNotificationPermission(context)
-                isServiceRunning = OverlayService.isRunning
-                val corePermissions = usageGranted && overlayGranted
-                if (!corePermissions) {
-                    val latestState = viewModel.uiState.value
-                    // 起動設定 or 実行中サービスが残っていたら OFF に揃える
-                    if (latestState.customize.overlayEnabled || isServiceRunning) {
-                        viewModel.updateOverlayEnabled(false)
-                        context.stopOverlayService()
-                        isServiceRunning = false
-                    }
-                    // 自動起動も OFF に揃える
-                    if (latestState.customize.autoStartOnBoot) {
-                        viewModel.updateAutoStartOnBoot(false)
-                    }
-                }
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
 
     Scaffold(
         modifier = Modifier
@@ -140,9 +126,9 @@ fun SettingsScreen(
         ) {
             SettingsContent(
                 uiState = uiState,
-                usageGranted = usageGranted,
-                overlayGranted = overlayGranted,
-                notificationGranted = notificationGranted,
+                usageGranted = permissions.usageGranted,
+                overlayGranted = permissions.overlayGranted,
+                notificationGranted = permissions.notificationGranted,
                 hasCorePermissions = hasCorePermissions,
                 isServiceRunning = isServiceRunning,
                 onServiceRunningChange = { isServiceRunning = it },

@@ -1,7 +1,6 @@
 package com.example.refocus.feature.home
 
 import android.app.Activity
-
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -43,7 +42,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,9 +56,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.refocus.core.model.DailyStats
 import com.example.refocus.core.util.displayLength
@@ -72,7 +67,7 @@ import com.example.refocus.system.overlay.OverlayService
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.overlay.stopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
-import kotlinx.coroutines.launch
+import com.example.refocus.feature.common.permissions.rememberPermissionUiState
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -89,7 +84,6 @@ fun HomeRoute(
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
-    val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
 
     val statsUiState = statsViewModel.uiState.collectAsStateWithLifecycle().value
@@ -97,47 +91,26 @@ fun HomeRoute(
     val targetAppsState = targetsViewModel.targetApps.collectAsStateWithLifecycle()
     val targetApps = targetAppsState.value
 
-    var usageGranted by remember { mutableStateOf(PermissionHelper.hasUsageAccess(context)) }
-    var overlayGranted by remember { mutableStateOf(PermissionHelper.hasOverlayPermission(context)) }
-    var notificationGranted by remember {
-        mutableStateOf(
-            PermissionHelper.hasNotificationPermission(
-                context
-            )
-        )
-    }
     var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
 
-    val hasCorePermissions = usageGranted && overlayGranted
-    val showNotificationWarning = hasCorePermissions && !notificationGranted
+    val permissionState = rememberPermissionUiState(
+        onRefreshed = { latest ->
+            isServiceRunning = OverlayService.isRunning
 
-    // 画面復帰時に権限とサービス状態を更新
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                val latestUsageGranted = PermissionHelper.hasUsageAccess(context)
-                val latestOverlayGranted = PermissionHelper.hasOverlayPermission(context)
-                val latestNotificationGranted = PermissionHelper.hasNotificationPermission(context)
-
-                usageGranted = latestUsageGranted
-                overlayGranted = latestOverlayGranted
-                notificationGranted = latestNotificationGranted
-                isServiceRunning = OverlayService.isRunning
-
-                val latestHasCorePermissions = latestUsageGranted && latestOverlayGranted
-                if (!latestHasCorePermissions) {
-                    val latest = customizeViewModel.uiState.value
-                    if (latest.customize.overlayEnabled || isServiceRunning) {
-                        customizeViewModel.updateOverlayEnabled(false)
-                        context.stopOverlayService()
-                        isServiceRunning = false
-                    }
+            if (!latest.hasCorePermissions) {
+                val latestCustomize = customizeViewModel.uiState.value
+                if (latestCustomize.customize.overlayEnabled || isServiceRunning) {
+                    customizeViewModel.updateOverlayEnabled(false)
+                    context.stopOverlayService()
+                    isServiceRunning = false
                 }
             }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
+        },
+    )
+
+    val permissions = permissionState.value
+    val hasCorePermissions = permissions.hasCorePermissions
+    val showNotificationWarning = permissions.showNotificationWarning
 
     Scaffold(
         topBar = {

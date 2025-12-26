@@ -1,6 +1,5 @@
 package com.example.refocus.feature.customize
 
-import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,7 +18,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,13 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.refocus.feature.common.permissions.rememberPermissionUiState
 import com.example.refocus.system.overlay.OverlayService
 import com.example.refocus.system.overlay.stopOverlayService
-import com.example.refocus.system.permissions.PermissionHelper
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,10 +42,6 @@ fun CustomizeScreen(
     val viewModel: CustomizeViewModel = hiltViewModel()
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val activity = context as? Activity
-    val lifecycleOwner = LocalLifecycleOwner.current
-    var usageGranted by remember { mutableStateOf(PermissionHelper.hasUsageAccess(context)) }
-    var overlayGranted by remember { mutableStateOf(PermissionHelper.hasOverlayPermission(context)) }
     var activeDialog by remember { mutableStateOf<CustomizeDialogType?>(null) }
     var isAdvancedMode by remember { mutableStateOf(false) }
     var fontRange by remember(
@@ -62,7 +53,6 @@ fun CustomizeScreen(
         )
     }
     var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
-    val hasCorePermissions = PermissionHelper.hasAllCorePermissions(context)
 
     BackHandler(enabled = isAdvancedMode) {
         isAdvancedMode = false
@@ -74,34 +64,26 @@ fun CustomizeScreen(
         scrollState.scrollTo(0)
     }
 
-    // 画面復帰時に権限状態を更新
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                usageGranted = PermissionHelper.hasUsageAccess(context)
-                overlayGranted = PermissionHelper.hasOverlayPermission(context)
-                isServiceRunning = OverlayService.isRunning
-                val hasCorePermissions = usageGranted && overlayGranted
-                if (!hasCorePermissions) {
-                    val latestState = viewModel.uiState.value
-                    // 起動設定 or 実行中サービスが残っていたら OFF に揃える
-                    if (latestState.customize.overlayEnabled || isServiceRunning) {
-                        viewModel.updateOverlayEnabled(false)
-                        context.stopOverlayService()
-                        isServiceRunning = false
-                    }
-                    // 自動起動も OFF に揃える
-                    if (latestState.customize.autoStartOnBoot) {
-                        viewModel.updateAutoStartOnBoot(false)
-                    }
+    // 画面復帰（ON_RESUME）で権限状態を再評価し，権限が欠けていれば安全側に倒す．
+    rememberPermissionUiState(
+        onRefreshed = { latest ->
+            isServiceRunning = OverlayService.isRunning
+
+            if (!latest.hasCorePermissions) {
+                val latestState = viewModel.uiState.value
+                // 起動設定 or 実行中サービスが残っていたら OFF に揃える
+                if (latestState.customize.overlayEnabled || isServiceRunning) {
+                    viewModel.updateOverlayEnabled(false)
+                    context.stopOverlayService()
+                    isServiceRunning = false
+                }
+                // 自動起動も OFF に揃える
+                if (latestState.customize.autoStartOnBoot) {
+                    viewModel.updateAutoStartOnBoot(false)
                 }
             }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
+        },
+    )
 
     Scaffold(
         topBar = {
