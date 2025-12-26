@@ -44,7 +44,7 @@ fun rememberPermissionUiState(
     }
 
     val state = remember(permissionStatusProvider) {
-        mutableStateOf(permissionStatusProvider.readCurrentInstant().toUiState())
+        mutableStateOf(permissionStatusProvider.readCurrentInstant().toPermissionUiState())
     }
 
     // 画面復帰（ON_RESUME）で権限状態を再評価し，必要なら呼び出し側へ通知する．
@@ -53,7 +53,7 @@ fun rememberPermissionUiState(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 coroutineScope.launch {
-                    val latest = permissionStatusProvider.refreshAndRecord().toUiState()
+                    val latest = permissionStatusProvider.refreshAndRecord().toPermissionUiState()
                     state.value = latest
                     onRefreshed(latest)
                 }
@@ -67,7 +67,7 @@ fun rememberPermissionUiState(
 
     // 初回も一度リフレッシュして，ベースライン記録と UI 反映を同期する
     LaunchedEffect(permissionStatusProvider) {
-        val latest = permissionStatusProvider.refreshAndRecord().toUiState()
+        val latest = permissionStatusProvider.refreshAndRecord().toPermissionUiState()
         state.value = latest
         onRefreshed(latest)
     }
@@ -75,7 +75,7 @@ fun rememberPermissionUiState(
     return state
 }
 
-private fun PermissionSnapshot.toUiState(): PermissionUiState {
+fun PermissionSnapshot.toPermissionUiState(): PermissionUiState {
     return PermissionUiState(
         usageGranted = usageGranted,
         overlayGranted = overlayGranted,

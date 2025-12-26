@@ -34,8 +34,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.refocus.feature.common.overlay.rememberOverlayServiceStatusProvider
 import com.example.refocus.feature.common.permissions.rememberPermissionUiState
-import com.example.refocus.system.overlay.OverlayService
+import com.example.refocus.feature.common.permissions.rememberPermissionStatusProvider
+import com.example.refocus.feature.common.permissions.toPermissionUiState
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.overlay.stopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
@@ -56,12 +58,15 @@ fun SettingsScreen(
     val viewModel: SettingsViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val activity = context as? Activity
+    val coroutineScope = rememberCoroutineScope()
+    val overlayServiceStatusProvider = rememberOverlayServiceStatusProvider()
+    val permissionStatusProvider = rememberPermissionStatusProvider()
     var activeDialog by remember { mutableStateOf<SettingsDialogType?>(null) }
-    var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
+    var isServiceRunning by remember { mutableStateOf(overlayServiceStatusProvider.isRunning()) }
 
     val permissionState = rememberPermissionUiState(
         onRefreshed = { latest ->
-            isServiceRunning = OverlayService.isRunning
+            isServiceRunning = overlayServiceStatusProvider.isRunning()
 
             if (!latest.hasCorePermissions) {
                 val latestState = viewModel.uiState.value
@@ -87,8 +92,12 @@ fun SettingsScreen(
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { _ ->
-            val latest = PermissionHelper.hasNotificationPermission(context)
-            permissionState.value = permissionState.value.copy(notificationGranted = latest)
+            // リクエスト結果を受け取ったタイミングで，Watcher 経由で差分検知・記録まで行う．
+            // これにより UI 更新とタイムライン記録の経路を統一できる．
+            coroutineScope.launch {
+                val latest = permissionStatusProvider.refreshAndRecord().toPermissionUiState()
+                permissionState.value = latest
+            }
         }
     )
 

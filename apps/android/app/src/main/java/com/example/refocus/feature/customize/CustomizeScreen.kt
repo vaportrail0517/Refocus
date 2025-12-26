@@ -28,8 +28,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.refocus.feature.common.overlay.rememberOverlayServiceStatusProvider
 import com.example.refocus.feature.common.permissions.rememberPermissionUiState
-import com.example.refocus.system.overlay.OverlayService
 import com.example.refocus.system.overlay.stopOverlayService
 
 
@@ -52,7 +52,10 @@ fun CustomizeScreen(
             uiState.customize.minFontSizeSp..uiState.customize.maxFontSizeSp
         )
     }
-    var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
+    val overlayServiceStatusProvider = rememberOverlayServiceStatusProvider()
+    var isServiceRunning by remember {
+        mutableStateOf(overlayServiceStatusProvider.isRunning())
+    }
 
     BackHandler(enabled = isAdvancedMode) {
         isAdvancedMode = false
@@ -67,7 +70,7 @@ fun CustomizeScreen(
     // 画面復帰（ON_RESUME）で権限状態を再評価し，権限が欠けていれば安全側に倒す．
     rememberPermissionUiState(
         onRefreshed = { latest ->
-            isServiceRunning = OverlayService.isRunning
+            isServiceRunning = overlayServiceStatusProvider.isRunning()
 
             if (!latest.hasCorePermissions) {
                 val latestState = viewModel.uiState.value

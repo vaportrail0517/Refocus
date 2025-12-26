@@ -61,9 +61,9 @@ import com.example.refocus.core.model.DailyStats
 import com.example.refocus.core.util.displayLength
 import com.example.refocus.core.util.formatDurationMilliSeconds
 import com.example.refocus.feature.customize.CustomizeViewModel
+import com.example.refocus.feature.common.overlay.rememberOverlayServiceStatusProvider
 import com.example.refocus.feature.stats.StatsDetailSection
 import com.example.refocus.feature.stats.StatsViewModel
-import com.example.refocus.system.overlay.OverlayService
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.overlay.stopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
@@ -91,11 +91,12 @@ fun HomeRoute(
     val targetAppsState = targetsViewModel.targetApps.collectAsStateWithLifecycle()
     val targetApps = targetAppsState.value
 
-    var isServiceRunning by remember { mutableStateOf(OverlayService.isRunning) }
+    val overlayServiceStatusProvider = rememberOverlayServiceStatusProvider()
+    var isServiceRunning by remember { mutableStateOf(overlayServiceStatusProvider.isRunning()) }
 
     val permissionState = rememberPermissionUiState(
         onRefreshed = { latest ->
-            isServiceRunning = OverlayService.isRunning
+            isServiceRunning = overlayServiceStatusProvider.isRunning()
 
             if (!latest.hasCorePermissions) {
                 val latestCustomize = customizeViewModel.uiState.value
