@@ -1,6 +1,15 @@
 package com.example.refocus.domain.timeline
 
 import com.example.refocus.core.model.TimelineEvent
+import com.example.refocus.core.model.ForegroundAppEvent
+import com.example.refocus.core.model.PermissionEvent
+import com.example.refocus.core.model.PermissionKind
+import com.example.refocus.core.model.PermissionState
+import com.example.refocus.core.model.ScreenEvent
+import com.example.refocus.core.model.ScreenState
+import com.example.refocus.core.model.ServiceLifecycleEvent
+import com.example.refocus.core.model.ServiceState
+import com.example.refocus.core.model.TargetAppsChangedEvent
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -21,33 +30,33 @@ class TimelineProjectorTest {
         val pkg = "com.example.a"
 
         val events = listOf(
-            TimelineEvent.TargetAppsChangedEvent(
+            TargetAppsChangedEvent(
                 timestampMillis = t0,
-                targetPackageNames = setOf(pkg),
+                targetPackages = setOf(pkg),
             ),
-            TimelineEvent.ServiceLifecycleEvent(
+            ServiceLifecycleEvent(
                 timestampMillis = t0,
-                isStarted = true,
+                state = ServiceState.Started,
             ),
-            TimelineEvent.PermissionEvent(
+            PermissionEvent(
                 timestampMillis = t0,
-                permissionType = TimelineEvent.PermissionEvent.PermissionType.UsageStats,
-                isGranted = true,
+                permission = PermissionKind.UsageStats,
+                state = PermissionState.Granted,
             ),
-            TimelineEvent.PermissionEvent(
+            PermissionEvent(
                 timestampMillis = t0,
-                permissionType = TimelineEvent.PermissionEvent.PermissionType.Overlay,
-                isGranted = true,
+                permission = PermissionKind.Overlay,
+                state = PermissionState.Granted,
             ),
-            TimelineEvent.ScreenEvent(
+            ScreenEvent(
                 timestampMillis = t0,
-                isScreenOn = true,
+                state = ScreenState.On,
             ),
-            TimelineEvent.ForegroundAppEvent(
+            ForegroundAppEvent(
                 timestampMillis = tStart,
                 packageName = pkg,
             ),
-            TimelineEvent.ForegroundAppEvent(
+            ForegroundAppEvent(
                 timestampMillis = tPause,
                 packageName = null,
             ),
@@ -82,37 +91,37 @@ class TimelineProjectorTest {
         val pkg = "com.example.a"
 
         val events = listOf(
-            TimelineEvent.TargetAppsChangedEvent(
+            TargetAppsChangedEvent(
                 timestampMillis = t0,
-                targetPackageNames = setOf(pkg),
+                targetPackages = setOf(pkg),
             ),
-            TimelineEvent.ServiceLifecycleEvent(
+            ServiceLifecycleEvent(
                 timestampMillis = t0,
-                isStarted = true,
+                state = ServiceState.Started,
             ),
-            TimelineEvent.PermissionEvent(
+            PermissionEvent(
                 timestampMillis = t0,
-                permissionType = TimelineEvent.PermissionEvent.PermissionType.UsageStats,
-                isGranted = true,
+                permission = PermissionKind.UsageStats,
+                state = PermissionState.Granted,
             ),
-            TimelineEvent.PermissionEvent(
+            PermissionEvent(
                 timestampMillis = t0,
-                permissionType = TimelineEvent.PermissionEvent.PermissionType.Overlay,
-                isGranted = true,
+                permission = PermissionKind.Overlay,
+                state = PermissionState.Granted,
             ),
-            TimelineEvent.ScreenEvent(
+            ScreenEvent(
                 timestampMillis = t0,
-                isScreenOn = true,
+                state = ScreenState.On,
             ),
-            TimelineEvent.ForegroundAppEvent(
+            ForegroundAppEvent(
                 timestampMillis = tStart,
                 packageName = pkg,
             ),
-            TimelineEvent.ForegroundAppEvent(
+            ForegroundAppEvent(
                 timestampMillis = tPause,
                 packageName = null,
             ),
-            TimelineEvent.ForegroundAppEvent(
+            ForegroundAppEvent(
                 timestampMillis = tResume,
                 packageName = pkg,
             ),
@@ -134,4 +143,90 @@ class TimelineProjectorTest {
         assertTrue(eventTypes.contains(com.example.refocus.core.model.SessionEventType.Resume))
         assertFalse(eventTypes.contains(com.example.refocus.core.model.SessionEventType.End))
     }
+
+
+    @Test
+    fun project_interpretationChangesWhenGracePeriodChanges() {
+        val zone = ZoneId.of("UTC")
+        val t0 = Instant.parse("2025-01-01T10:00:00Z").toEpochMilli()
+        val tStart = Instant.parse("2025-01-01T10:01:00Z").toEpochMilli()
+        val tPause = Instant.parse("2025-01-01T10:10:00Z").toEpochMilli()
+        val tResume = Instant.parse("2025-01-01T10:14:30Z").toEpochMilli() // gap 4m30s
+        val now = Instant.parse("2025-01-01T10:20:00Z").toEpochMilli()
+
+        val pkg = "com.example.a"
+
+        val events = listOf(
+            TargetAppsChangedEvent(
+                timestampMillis = t0,
+                targetPackages = setOf(pkg),
+            ),
+            ServiceLifecycleEvent(
+                timestampMillis = t0,
+                state = ServiceState.Started,
+            ),
+            PermissionEvent(
+                timestampMillis = t0,
+                permission = PermissionKind.UsageStats,
+                state = PermissionState.Granted,
+            ),
+            PermissionEvent(
+                timestampMillis = t0,
+                permission = PermissionKind.Overlay,
+                state = PermissionState.Granted,
+            ),
+            ScreenEvent(
+                timestampMillis = t0,
+                state = ScreenState.On,
+            ),
+            ForegroundAppEvent(
+                timestampMillis = tStart,
+                packageName = pkg,
+            ),
+            ForegroundAppEvent(
+                timestampMillis = tPause,
+                packageName = null,
+            ),
+            ForegroundAppEvent(
+                timestampMillis = tResume,
+                packageName = pkg,
+            ),
+        )
+
+        // grace = 5min -> same session (Pause/Resume)
+        val projectionGrace5m = TimelineProjector.project(
+            events = events,
+            config = TimelineInterpretationConfig(stopGracePeriodMillis = 5 * 60 * 1_000L),
+            nowMillis = now,
+            zoneId = zone,
+        )
+        val sessions5m = projectionGrace5m.sessionsWithEvents.filter { it.session.packageName == pkg }
+        assertEquals(1, sessions5m.size)
+        val types5m = sessions5m.single().events.map { it.type }
+        assertTrue(types5m.contains(com.example.refocus.core.model.SessionEventType.Pause))
+        assertTrue(types5m.contains(com.example.refocus.core.model.SessionEventType.Resume))
+
+        // grace = 3min -> split into two sessions
+        val projectionGrace3m = TimelineProjector.project(
+            events = events,
+            config = TimelineInterpretationConfig(stopGracePeriodMillis = 3 * 60 * 1_000L),
+            nowMillis = now,
+            zoneId = zone,
+        )
+        val sessions3m = projectionGrace3m.sessionsWithEvents.filter { it.session.packageName == pkg }
+        assertEquals(2, sessions3m.size)
+
+        // first session should be ended at tPause (inactiveAt) because grace was exceeded by tResume
+        val first = sessions3m.first()
+        val firstTypes = first.events.map { it.type }
+        assertTrue(firstTypes.contains(com.example.refocus.core.model.SessionEventType.Start))
+        assertTrue(firstTypes.contains(com.example.refocus.core.model.SessionEventType.Pause))
+        assertTrue(firstTypes.contains(com.example.refocus.core.model.SessionEventType.End))
+
+        // second session should start at tResume (new session)
+        val second = sessions3m.last()
+        val secondTypes = second.events.map { it.type }
+        assertTrue(secondTypes.contains(com.example.refocus.core.model.SessionEventType.Start))
+    }
+
 }
