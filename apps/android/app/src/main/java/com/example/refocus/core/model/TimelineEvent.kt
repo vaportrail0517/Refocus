@@ -43,7 +43,7 @@ enum class ServiceConfigState {
     Disabled,
 }
 
-/** 必須権限の状態変化 (UsageStats / Overlay など) */
+/** 権限の状態変化 (UsageStats / Overlay / Notification など) */
 data class PermissionEvent(
     override val id: Long? = null,
     override val timestampMillis: Long,
@@ -54,6 +54,7 @@ data class PermissionEvent(
 enum class PermissionKind {
     UsageStats,
     Overlay,
+    Notification,
 }
 
 enum class PermissionState {

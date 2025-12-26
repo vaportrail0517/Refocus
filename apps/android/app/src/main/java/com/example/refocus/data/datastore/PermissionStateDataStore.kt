@@ -25,6 +25,7 @@ class PermissionStateDataStore(
     object Keys {
         val USAGE_GRANTED = booleanPreferencesKey("usage_granted")
         val OVERLAY_GRANTED = booleanPreferencesKey("overlay_granted")
+        val NOTIFICATION_GRANTED = booleanPreferencesKey("notification_granted")
         val LAST_CHECKED_AT = longPreferencesKey("last_checked_at")
     }
 
@@ -41,12 +42,14 @@ class PermissionStateDataStore(
 
         val usage = prefs[Keys.USAGE_GRANTED]
         val overlay = prefs[Keys.OVERLAY_GRANTED]
+        val notif = prefs[Keys.NOTIFICATION_GRANTED]
         val ts = prefs[Keys.LAST_CHECKED_AT]
-        if (usage == null || overlay == null || ts == null) return null
+        if (usage == null || overlay == null || notif == null || ts == null) return null
 
         return PermissionSnapshot(
             usageGranted = usage,
             overlayGranted = overlay,
+            notificationGranted = notif,
             lastCheckedAtMillis = ts,
         )
     }
@@ -55,6 +58,7 @@ class PermissionStateDataStore(
         context.permissionStateDataStore.edit { prefs ->
             prefs[Keys.USAGE_GRANTED] = snapshot.usageGranted
             prefs[Keys.OVERLAY_GRANTED] = snapshot.overlayGranted
+            prefs[Keys.NOTIFICATION_GRANTED] = snapshot.notificationGranted
             prefs[Keys.LAST_CHECKED_AT] = snapshot.lastCheckedAtMillis
         }
     }

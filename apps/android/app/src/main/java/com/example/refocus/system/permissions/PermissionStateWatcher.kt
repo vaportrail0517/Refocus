@@ -1,6 +1,7 @@
 package com.example.refocus.system.permissions
 
 import android.content.Context
+import android.os.Build
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.PermissionKind
 import com.example.refocus.core.model.PermissionSnapshot
@@ -15,7 +16,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * 必須権限（UsageStats / Overlay）の状態変化を検知し，タイムラインへイベントとして記録する．
+ * 権限（UsageStats / Overlay / Notification など）の状態変化を検知し，タイムラインへイベントとして記録する．
  *
  * 設計方針
  * - 「差分検知」に必要な直近スナップショットは DataStore に保持する
@@ -47,18 +48,28 @@ class PermissionStateWatcher @Inject constructor(
             PermissionHelper.hasOverlayPermission(appContext)
         }
 
+        val notificationGranted = safePermissionCheck {
+            PermissionHelper.hasNotificationPermission(appContext)
+        }
+
+        val shouldRecordNotification = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+
         val current = PermissionSnapshot(
             usageGranted = usageGranted,
             overlayGranted = overlayGranted,
+            notificationGranted = notificationGranted,
             lastCheckedAtMillis = now,
         )
 
         val previous = permissionSnapshotStore.readOrNull()
 
         if (previous == null) {
-            // 初回は「現状をタイムラインで説明できる」ように，ベースラインとして 2 種類を記録する．
+            // 初回は「現状をタイムラインで説明できる」ように，ベースラインとして記録する．
             recordPermissionEvent(PermissionKind.UsageStats, usageGranted)
             recordPermissionEvent(PermissionKind.Overlay, overlayGranted)
+            if (shouldRecordNotification) {
+                recordPermissionEvent(PermissionKind.Notification, notificationGranted)
+            }
             permissionSnapshotStore.write(current)
             return@withLock current
         }
@@ -69,6 +80,9 @@ class PermissionStateWatcher @Inject constructor(
         }
         if (previous.overlayGranted != current.overlayGranted) {
             changed.add(PermissionKind.Overlay to current.overlayGranted)
+        }
+        if (shouldRecordNotification && previous.notificationGranted != current.notificationGranted) {
+            changed.add(PermissionKind.Notification to current.notificationGranted)
         }
 
         if (changed.isNotEmpty()) {

@@ -249,6 +249,7 @@ class TimelineHistoryViewModel @Inject constructor(
                 val perm = when (event.permission) {
                     com.example.refocus.core.model.PermissionKind.UsageStats -> "利用状況アクセス"
                     com.example.refocus.core.model.PermissionKind.Overlay -> "オーバーレイ"
+                    com.example.refocus.core.model.PermissionKind.Notification -> "通知"
                 }
                 val state = when (event.state) {
                     com.example.refocus.core.model.PermissionState.Granted -> "許可"

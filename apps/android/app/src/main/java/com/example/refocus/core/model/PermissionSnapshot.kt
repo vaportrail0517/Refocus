@@ -9,6 +9,7 @@ package com.example.refocus.core.model
 data class PermissionSnapshot(
     val usageGranted: Boolean,
     val overlayGranted: Boolean,
+    val notificationGranted: Boolean,
     val lastCheckedAtMillis: Long,
 ) {
     fun hasAllCorePermissions(): Boolean = usageGranted && overlayGranted
