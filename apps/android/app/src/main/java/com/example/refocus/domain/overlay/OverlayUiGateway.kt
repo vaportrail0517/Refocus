@@ -32,6 +32,13 @@ interface OverlayUiGateway {
      * @param onPositionChanged ドラッグ後の位置変更をドメイン側に伝えるコールバック
      */
     fun showTimer(
+        /**
+         * show/hide の呼び出し順序が並び替わった場合でも，古い hide を無視できるようにするためのトークン．
+         * 通常は packageName を渡す．
+         *
+         * null の場合は「順序保護なし」として扱う．
+         */
+        token: String? = null,
         displayMillisProvider: (Long) -> Long,
         visualMillisProvider: (Long) -> Long,
         onPositionChanged: (x: Int, y: Int) -> Unit,
@@ -40,7 +47,13 @@ interface OverlayUiGateway {
     /**
      * タイマーオーバーレイ非表示。
      */
-    fun hideTimer()
+    fun hideTimer(
+        /**
+         * showTimer の token と同一の場合のみ hide を実行する．
+         * null の場合は常に hide を実行する．
+         */
+        token: String? = null,
+    )
 
     /**
      * 提案オーバーレイ表示。

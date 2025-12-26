@@ -25,12 +25,14 @@ class WindowOverlayUiGateway(
     }
 
     override fun showTimer(
+        token: String?,
         displayMillisProvider: (Long) -> Long,
         visualMillisProvider: (Long) -> Long,
         onPositionChanged: (x: Int, y: Int) -> Unit,
     ) {
         scope.launch(Dispatchers.Main) {
             timerOverlayController.showTimer(
+                token = token,
                 displayMillisProvider = displayMillisProvider,
                 visualMillisProvider = visualMillisProvider,
                 onPositionChanged = onPositionChanged,
@@ -38,9 +40,9 @@ class WindowOverlayUiGateway(
         }
     }
 
-    override fun hideTimer() {
+    override fun hideTimer(token: String?) {
         scope.launch(Dispatchers.Main) {
-            timerOverlayController.hideTimer()
+            timerOverlayController.hideTimer(token = token)
         }
     }
 

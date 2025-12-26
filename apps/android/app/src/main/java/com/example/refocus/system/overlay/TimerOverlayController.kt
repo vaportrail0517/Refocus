@@ -40,6 +40,12 @@ class TimerOverlayController(
     // ドラッグで位置を変えたときに呼び出すコールバックを保持しておく
     private var onPositionChangedCallback: ((Int, Int) -> Unit)? = null
 
+    /**
+     * show/hide が非同期に呼ばれて順序が並び替わった場合に，古い hide を無視するためのトークン．
+     * 通常は packageName を使う．
+     */
+    private var currentToken: String? = null
+
     // Compose が監視するステート本体
     private var overlayCustomizeState by mutableStateOf(Customize())
 
@@ -131,27 +137,22 @@ class TimerOverlayController(
     }
 
     fun showTimer(
+        token: String? = null,
         // 文字列として表示する時間
         displayMillisProvider: (Long) -> Long,
         // 色やサイズなどの演出に使う時間
         visualMillisProvider: (Long) -> Long,
         onPositionChanged: ((Int, Int) -> Unit)? = null
     ) {
-        if (overlayView != null) {
-            RefocusLog.d("TimerOverlay") { "showTimer: already showing" }
-            return
-        }
+        if (token != null) currentToken = token
 
         val settings = overlayCustomize
         onPositionChangedCallback = onPositionChanged
 
-        // 初回表示時から値が 0 に見えてしまうのを避けるため、
-        // provider から即時に 1 回だけ取得して表示する
-        run {
-            val nowElapsed = timeSource.elapsedRealtime()
-            displayMillis = displayMillisProvider(nowElapsed).coerceAtLeast(0L)
-            visualMillis = visualMillisProvider(nowElapsed).coerceAtLeast(0L)
-        }
+        // 初回表示時から値が 0 に見えてしまうのを避けるため，provider から即時に 1 回だけ取得して表示する
+        val nowElapsedForInit = timeSource.elapsedRealtime()
+        displayMillis = displayMillisProvider(nowElapsedForInit).coerceAtLeast(0L)
+        visualMillis = visualMillisProvider(nowElapsedForInit).coerceAtLeast(0L)
 
         // 既存のジョブがあれば止める
         timerJob?.cancel()
@@ -165,6 +166,13 @@ class TimerOverlayController(
                 visualMillis = visualMillisProvider(nowElapsed).coerceAtLeast(0L)
                 delay(200L)
             }
+        }
+
+        // すでに表示中の場合でも provider / コールバック / ジョブは更新したい．
+        // 例: 対象アプリ切り替え時に hide/show の順序が並び替わると，前の provider のまま更新されない問題が起きうる．
+        if (overlayView != null) {
+            RefocusLog.d("TimerOverlay") { "showTimer: already showing (updated providers)" }
+            return
         }
 
         val baseFlags =
@@ -220,6 +228,7 @@ class TimerOverlayController(
             overlayView = null
             layoutParams = null
             onPositionChangedCallback = null
+            currentToken = null
             timerJob?.cancel()
             timerJob = null
             displayMillis = 0L
@@ -227,7 +236,14 @@ class TimerOverlayController(
         }
     }
 
-    fun hideTimer() {
+    fun hideTimer(token: String? = null) {
+        // token が指定されている場合は，現在表示中の token と一致するときのみ hide を実行する
+        // （古い hide が新しい show を消してしまうのを防ぐ）
+        if (token != null && token != currentToken) {
+            RefocusLog.d("TimerOverlay") { "hideTimer: ignored (token mismatch)" }
+            return
+        }
+
         // 経過時間更新ジョブを停止
         timerJob?.cancel()
         timerJob = null
@@ -246,6 +262,8 @@ class TimerOverlayController(
         } finally {
             overlayView = null
             layoutParams = null
+            onPositionChangedCallback = null
+            currentToken = null
         }
     }
 

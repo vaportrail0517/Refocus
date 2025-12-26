@@ -586,7 +586,8 @@ class OverlayCoordinator(
                     timerVisible = false,
                 )
             }
-            uiController.hideTimer()
+            // show/hide が非同期に Main へ投げられるため，並び替わりが起きても古い hide が新しい show を消さないようにする
+            uiController.hideTimer(token = packageName)
             uiController.hideSuggestion()
             suggestionOrchestrator.clearOverlayState()
         }
@@ -603,6 +604,7 @@ class OverlayCoordinator(
 
         runtimeState.update { it.copy(timerVisible = true) }
         uiController.showTimer(
+            token = packageName,
             displayMillisProvider = providers.displayMillisProvider,
             visualMillisProvider = providers.visualMillisProvider,
             onPositionChanged = ::onOverlayPositionChanged,

@@ -24,8 +24,8 @@ class OverlaySessionTracker(
         var activeStartElapsedRealtime: Long,
         // 「前面安定時間」の開始点（elapsedRealtime）
         var foregroundStableStartElapsedRealtime: Long,
-        // 猶予判定用（wall clock）
-        var lastLeaveAtMillis: Long?,
+        // 猶予判定用（elapsedRealtime）
+        var lastLeaveAtElapsedRealtime: Long?,
     )
 
     private val states = mutableMapOf<String, State>()
@@ -48,7 +48,6 @@ class OverlaySessionTracker(
         gracePeriodMillis: Long,
         initialElapsedIfNew: Long = 0L,
     ): Boolean {
-        val nowMillis = timeSource.nowMillis()
         val nowElapsed = timeSource.elapsedRealtime()
 
         val existing = states[packageName]
@@ -59,15 +58,15 @@ class OverlaySessionTracker(
                 accumulatedElapsedMillis = initialElapsedIfNew.coerceAtLeast(0L),
                 activeStartElapsedRealtime = nowElapsed,
                 foregroundStableStartElapsedRealtime = nowElapsed,
-                lastLeaveAtMillis = null,
+                lastLeaveAtElapsedRealtime = null,
             )
             // 「ランタイムとしては新規セッション」なので true
             return true
         }
 
-        val lastLeave = existing.lastLeaveAtMillis
+        val lastLeave = existing.lastLeaveAtElapsedRealtime
         val continues =
-            lastLeave != null && (nowMillis - lastLeave) <= gracePeriodMillis
+            lastLeave != null && (nowElapsed - lastLeave) <= gracePeriodMillis
 
         if (!continues) {
             // 猶予時間を超えていたら、ランタイム上は新しいセッションとして扱う。
@@ -80,7 +79,7 @@ class OverlaySessionTracker(
         existing.activeStartElapsedRealtime = nowElapsed
         // 方針B: 前面安定時間も「アプリを開いたら必ずここから」
         existing.foregroundStableStartElapsedRealtime = nowElapsed
-        existing.lastLeaveAtMillis = null
+        existing.lastLeaveAtElapsedRealtime = null
 
         // continues == true なら「継続セッション」なので false を返す
         return !continues
@@ -89,13 +88,13 @@ class OverlaySessionTracker(
     fun onLeaveTargetApp(packageName: String) {
         val state = states[packageName] ?: return
         // すでに leave 済みなら二重加算しない
-        if (state.lastLeaveAtMillis != null) return
+        if (state.lastLeaveAtElapsedRealtime != null) return
         val nowElapsed = timeSource.elapsedRealtime()
         val delta = (nowElapsed - state.activeStartElapsedRealtime)
             .coerceAtLeast(0L)
 
         state.accumulatedElapsedMillis += delta
-        state.lastLeaveAtMillis = timeSource.nowMillis()
+        state.lastLeaveAtElapsedRealtime = nowElapsed
     }
 
     fun computeElapsedFor(
@@ -104,7 +103,7 @@ class OverlaySessionTracker(
     ): Long? {
         val state = states[packageName] ?: return null
         // すでに離脱しているなら「積み上げ済み」だけ返す（= 離脱後に伸びない）
-        if (state.lastLeaveAtMillis != null) return state.accumulatedElapsedMillis
+        if (state.lastLeaveAtElapsedRealtime != null) return state.accumulatedElapsedMillis
         val delta = (nowElapsedRealtime - state.activeStartElapsedRealtime).coerceAtLeast(0L)
         return state.accumulatedElapsedMillis + delta
     }
@@ -114,7 +113,7 @@ class OverlaySessionTracker(
         nowElapsedRealtime: Long,
     ): Long? {
         val state = states[packageName] ?: return null
-        if (state.lastLeaveAtMillis != null) return 0L
+        if (state.lastLeaveAtElapsedRealtime != null) return 0L
         return (nowElapsedRealtime - state.foregroundStableStartElapsedRealtime).coerceAtLeast(0L)
     }
 
