@@ -1,7 +1,6 @@
 package com.example.refocus.feature.settings
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.CustomizePreset
@@ -18,11 +17,10 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    application: Application,
     private val settingsRepository: SettingsRepository,
     private val settingsCommand: SettingsCommand,
     private val appDataResetter: AppDataResetter,
-) : AndroidViewModel(application) {
+) : ViewModel() {
 
     data class UiState(
         val customize: Customize,

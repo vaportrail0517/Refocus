@@ -1,11 +1,9 @@
 package com.example.refocus.feature.onboarding
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.refocus.domain.overlay.OverlayServiceController
 import com.example.refocus.domain.settings.SettingsCommand
-import com.example.refocus.system.overlay.startOverlayService
-import com.example.refocus.system.permissions.PermissionHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -18,12 +16,9 @@ enum class StartMode {
 
 @HiltViewModel
 class OnboardingStartModeViewModel @Inject constructor(
-    application: Application,
-    private val settingsCommand: SettingsCommand
-) : AndroidViewModel(application) {
-
-    private val appContext: Application
-        get() = getApplication()
+    private val settingsCommand: SettingsCommand,
+    private val overlayServiceController: OverlayServiceController,
+) : ViewModel() {
 
     fun applyStartMode(mode: StartMode) {
         viewModelScope.launch {
@@ -31,17 +26,13 @@ class OnboardingStartModeViewModel @Inject constructor(
                 StartMode.AutoAndNow -> {
                     settingsCommand.setOverlayEnabled(enabled = true, source = "onboarding")
                     settingsCommand.setAutoStartOnBoot(enabled = true, source = "onboarding")
-                    if (PermissionHelper.hasAllCorePermissions(appContext)) {
-                        appContext.startOverlayService()
-                    }
+                    overlayServiceController.startIfReady(source = "onboarding_auto_and_now")
                 }
 
                 StartMode.NowOnly -> {
                     settingsCommand.setOverlayEnabled(enabled = true, source = "onboarding")
                     settingsCommand.setAutoStartOnBoot(enabled = false, source = "onboarding")
-                    if (PermissionHelper.hasAllCorePermissions(appContext)) {
-                        appContext.startOverlayService()
-                    }
+                    overlayServiceController.startIfReady(source = "onboarding_now_only")
                 }
 
                 StartMode.Off -> {

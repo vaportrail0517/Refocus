@@ -1,7 +1,6 @@
 package com.example.refocus.feature.entry
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import com.example.refocus.core.logging.RefocusLog
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.domain.targets.EnsureAppCatalogForCurrentTargetsUseCase
@@ -22,10 +21,9 @@ data class EntryUiState(
 
 @HiltViewModel
 class EntryViewModel @Inject constructor(
-    application: Application,
     val onboardingRepository: OnboardingRepository,
     private val ensureAppCatalogForCurrentTargetsUseCase: EnsureAppCatalogForCurrentTargetsUseCase
-) : AndroidViewModel(application) {
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EntryUiState())
     val uiState: StateFlow<EntryUiState> = _uiState.asStateFlow()

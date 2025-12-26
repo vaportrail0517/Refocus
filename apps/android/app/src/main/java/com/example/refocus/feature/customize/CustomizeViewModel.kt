@@ -1,7 +1,6 @@
 package com.example.refocus.feature.customize
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.config.CustomizeBasicPresets.withFontPreset
 import com.example.refocus.config.CustomizeBasicPresets.withGracePreset
@@ -31,11 +30,10 @@ import javax.inject.Inject
 
 @HiltViewModel
 class CustomizeViewModel @Inject constructor(
-    application: Application,
     private val settingsRepository: SettingsRepository,
     private val settingsCommand: SettingsCommand,
     private val appDataResetter: AppDataResetter,
-) : AndroidViewModel(application) {
+) : ViewModel() {
 
     data class UiState(
         val customize: Customize,

@@ -1,7 +1,6 @@
 package com.example.refocus.feature.suggestions
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.Suggestion
 import com.example.refocus.core.model.SuggestionDurationTag
@@ -22,9 +21,8 @@ data class SuggestionsUiState(
 
 @HiltViewModel
 class SuggestionsViewModel @Inject constructor(
-    application: Application,
     private val suggestionsRepository: SuggestionsRepository,
-) : AndroidViewModel(application) {
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SuggestionsUiState())
     val uiState: StateFlow<SuggestionsUiState> = _uiState.asStateFlow()

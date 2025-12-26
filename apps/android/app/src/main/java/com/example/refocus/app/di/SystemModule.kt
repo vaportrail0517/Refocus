@@ -5,6 +5,7 @@ import com.example.refocus.core.util.SystemTimeSource
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.gateway.AppLabelProvider
 import com.example.refocus.domain.gateway.ForegroundAppObserver
+import com.example.refocus.domain.overlay.OverlayServiceController
 import com.example.refocus.domain.repository.TimelineRepository
 import com.example.refocus.domain.suggestion.GaussianCircularTimeSlotWeightModel
 import com.example.refocus.domain.suggestion.SuggestionEngine
@@ -20,6 +21,7 @@ import com.example.refocus.system.appinfo.AppLabelResolver
 import com.example.refocus.system.appinfo.LaunchableAppProvider
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import com.example.refocus.system.monitor.ForegroundAppObserverImpl
+import com.example.refocus.system.overlay.service.OverlayServiceControllerImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -92,4 +94,11 @@ object SystemModule {
     fun provideLaunchableAppProvider(
         @ApplicationContext context: Context,
     ): LaunchableAppProvider = AndroidLaunchableAppProvider(context)
+
+    @Provides
+    @Singleton
+    fun provideOverlayServiceController(
+        @ApplicationContext context: Context,
+    ): OverlayServiceController = OverlayServiceControllerImpl(context)
+
 }
