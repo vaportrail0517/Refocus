@@ -8,10 +8,15 @@ import java.time.Instant
 import java.time.ZoneId
 
 /**
- * Session + Event 列から SessionPart を生成するユーティリティ。
+ * Session + Event 列から SessionPart を生成するユーティリティ．
  *
  * - 日付境界（ローカルタイムの 0:00）でセッションを分割する
- * - 未終了セッション（FINISHED ではないもの）は統計対象外とする
+ * - 未終了セッション（RUNNING / GRACE など）も，nowMillis を仮の終端として切片を生成する
+ *
+ *   統計・日次累計・オーバーレイなど，「いま現在までの使用時間」を扱うために，
+ *   FINISHED だけに限定せず切片を作れるようにしている．
+ *   将来的に「完了セッションのみ」などの目的別フィルタが必要になったら，
+ *   呼び出し側で status を見て制御する．
  */
 object SessionPartGenerator {
 

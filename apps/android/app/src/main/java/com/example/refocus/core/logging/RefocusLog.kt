@@ -31,27 +31,66 @@ object RefocusLog {
         return if (subTag.startsWith(TAG_PREFIX)) subTag else TAG_PREFIX + subTag
     }
 
+    /**
+     * android.util.Log / android.os.SystemClock はローカル JVM の unit test では "not mocked" 例外になる．
+     * その場合でもテストが落ちないように，安全なフォールバックを用意する．
+     */
+    private fun elapsedRealtimeMs(): Long {
+        return try {
+            SystemClock.elapsedRealtime()
+        } catch (e: RuntimeException) {
+            // unit test 実行時のフォールバック（精度より安全性を優先）
+            System.currentTimeMillis()
+        }
+    }
+
+    private fun safeLog(
+        level: Char,
+        subTag: String,
+        message: String,
+        throwable: Throwable? = null
+    ) {
+        val t = tag(subTag)
+        try {
+            when (level) {
+                'd' -> Log.d(t, message)
+                'i' -> Log.i(t, message)
+                'w' -> Log.w(t, message, throwable)
+                'e' -> Log.e(t, message, throwable)
+            }
+        } catch (e: RuntimeException) {
+            // unit test などで android.util.Log が使えない場合
+            val suffix = if (throwable != null) "\n" + throwable.stackTraceToString() else ""
+            val line = "$t [$level] $message$suffix"
+            if (level == 'w' || level == 'e') {
+                System.err.println(line)
+            } else {
+                println(line)
+            }
+        }
+    }
+
     fun d(subTag: String, message: () -> String) {
         if (!debuggable) return
-        Log.d(tag(subTag), message())
+        safeLog('d', subTag, message())
     }
 
     fun d(subTag: String, message: String) = d(subTag) { message }
 
     fun i(subTag: String, message: () -> String) {
-        Log.i(tag(subTag), message())
+        safeLog('i', subTag, message())
     }
 
     fun i(subTag: String, message: String) = i(subTag) { message }
 
     fun w(subTag: String, throwable: Throwable? = null, message: () -> String) {
-        Log.w(tag(subTag), message(), throwable)
+        safeLog('w', subTag, message(), throwable)
     }
 
     fun w(subTag: String, message: String, throwable: Throwable? = null) = w(subTag, throwable) { message }
 
     fun e(subTag: String, throwable: Throwable? = null, message: () -> String) {
-        Log.e(tag(subTag), message(), throwable)
+        safeLog('e', subTag, message(), throwable)
     }
 
     fun e(subTag: String, message: String, throwable: Throwable? = null) = e(subTag, throwable) { message }
@@ -64,7 +103,7 @@ object RefocusLog {
         message: () -> String
     ) {
         val mapKey = tag(subTag) + "#" + key
-        val now = SystemClock.elapsedRealtime()
+        val now = elapsedRealtimeMs()
         val last = lastLoggedAt[mapKey]
         if (last != null && now - last < intervalMs) return
         lastLoggedAt[mapKey] = now

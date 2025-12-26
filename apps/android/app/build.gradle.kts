@@ -93,11 +93,34 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    // Room の migration schema 読み込みは kotlinx.serialization を使う．
+    // kotlinx.serialization の runtime が「Room 側の serializer（Room がビルド時に想定した ABI）」とズレると，
+    // `AbstractMethodError: ... GeneratedSerializer.typeParametersSerializers()` のような実行時エラーで落ちることがある．
+    //
+    // 本プロジェクトでは，Room（room-migration）が 1.8.x 系で生成された serializer を含むため，
+    // runtime 側も 1.8.x に揃えておかないとテスト実行時に
+    // `AbstractMethodError: ... GeneratedSerializer.typeParametersSerializers()` で落ちることがある．
+    // そこで，app（debugRuntimeClasspath）と androidTest の両方で 1.8.1 に揃えて固定する．
+    constraints {
+        val serializationVersion = "1.8.1"
+
+        listOf("implementation", "androidTestImplementation").forEach { conf ->
+            add(conf, "org.jetbrains.kotlinx:kotlinx-serialization-core") {
+                version { strictly(serializationVersion) }
+            }
+            add(conf, "org.jetbrains.kotlinx:kotlinx-serialization-json") {
+                version { strictly(serializationVersion) }
+            }
+            add(conf, "org.jetbrains.kotlinx:kotlinx-serialization-json-okio") {
+                version { strictly(serializationVersion) }
+            }
+        }
+    }
 }
 
 /**

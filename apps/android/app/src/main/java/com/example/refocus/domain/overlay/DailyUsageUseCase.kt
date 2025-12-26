@@ -75,6 +75,11 @@ class DailyUsageUseCase(
         }
     }
 
+    private data class RefreshBaseline(
+        val generation: Long,
+        val runtimeDeltaAtStart: RuntimeDeltaState,
+    )
+
     private val lock = Any()
     private val windowLoader = TimelineWindowEventsLoader(timelineRepository)
 
@@ -84,14 +89,23 @@ class DailyUsageUseCase(
     @Volatile
     private var refreshJob: Job? = null
 
+    // invalidate と refresh の競合を安全に捌くための世代カウンタ
+    @Volatile
+    private var generation: Long = 0L
+
     // スナップショット以降の「ランタイム加算分」
     private var runtimeDelta: RuntimeDeltaState = RuntimeDeltaState.empty()
 
     fun invalidate() {
+        val jobToCancel: Job?
         synchronized(lock) {
+            generation += 1L
             snapshot = null
             runtimeDelta = RuntimeDeltaState.empty()
+            jobToCancel = refreshJob
+            refreshJob = null
         }
+        jobToCancel?.cancel()
     }
 
     /**
@@ -105,6 +119,19 @@ class DailyUsageUseCase(
         activePackageName: String?,
         nowMillis: Long = timeSource.nowMillis(),
     ) {
+        // 日付またぎを検知したら即リセット（跨ぎ dt の混入を防ぐ）
+        // - snapshot がまだ無い（refresh が未完了）状況でも，lastTick の日付で検知できるようにする
+        val dayStartMillisNow = computeStartOfDayMillis(nowMillis)
+        val needsDayReset = synchronized(lock) {
+            val snapshotMismatch = snapshot?.dayStartMillis?.let { it != dayStartMillisNow } ?: false
+            val prevTick = runtimeDelta.lastTickMillis
+            val runtimeMismatch = prevTick?.let { computeStartOfDayMillis(it) != dayStartMillisNow } ?: false
+            snapshotMismatch || runtimeMismatch
+        }
+        if (needsDayReset) {
+            invalidate()
+        }
+
         if (customize.timerTimeMode == TimerTimeMode.SessionElapsed) {
             // 日次モードを使っていないなら加算も更新も不要だが，
             // 復帰時に過大 dt を作らないため lastTick だけ進める．
@@ -115,13 +142,6 @@ class DailyUsageUseCase(
                 )
             }
             return
-        }
-
-        // 日付またぎを検知したら即リセット（跨ぎ dt の混入を防ぐ）
-        val dayStartMillis = computeStartOfDayMillis(nowMillis)
-        val needsDayReset = snapshot?.dayStartMillis?.let { it != dayStartMillis } ?: false
-        if (needsDayReset) {
-            invalidate()
         }
 
         // スナップショットが必要ならバックグラウンドで更新
@@ -156,8 +176,8 @@ class DailyUsageUseCase(
     }
 
     /**
-     * 同期的に値が欲しい箇所（通知更新など）用。
-     * 必要ならバックグラウンドで更新を要求するだけで，ここでは suspend しない。
+     * 同期的に値が欲しい箇所（通知更新など）用．
+     * 必要ならバックグラウンドで更新を要求するだけで，ここでは suspend しない．
      */
     fun requestRefreshIfNeeded(
         customize: Customize,
@@ -165,7 +185,6 @@ class DailyUsageUseCase(
         nowMillis: Long = timeSource.nowMillis(),
     ) {
         if (customize.timerTimeMode == TimerTimeMode.SessionElapsed) return
-
         if (!needsSnapshotRefresh(customize, targetPackages, nowMillis)) return
 
         val job = refreshJob
@@ -179,6 +198,8 @@ class DailyUsageUseCase(
                     nowMillis = nowMillis,
                 )
             } catch (e: Exception) {
+                // invalidate() などで発生するキャンセルは正常系なので，ログを出さずに伝播させる
+                if (e is java.util.concurrent.CancellationException) throw e
                 RefocusLog.w(TAG, e) { "refreshIfNeeded failed" }
             } finally {
                 refreshJob = null
@@ -199,63 +220,58 @@ class DailyUsageUseCase(
         if (customize.timerTimeMode == TimerTimeMode.SessionElapsed) return
         if (!needsSnapshotRefresh(customize, targetPackages, nowMillis)) return
 
+        val baseline: RefreshBaseline = synchronized(lock) {
+            RefreshBaseline(
+                generation = generation,
+                runtimeDeltaAtStart = runtimeDelta,
+            )
+        }
+
         val startOfDayMillis = computeStartOfDayMillis(nowMillis)
 
-        if (targetPackages.isEmpty()) {
-            synchronized(lock) {
-                snapshot = DailyUsageSnapshot(
-                    computedAtMillis = nowMillis,
-                    dayStartMillis = startOfDayMillis,
-                    gracePeriodMillis = customize.gracePeriodMillis,
-                    targetPackages = emptySet(),
-                    perPackageMillis = emptyMap(),
-                    allTargetsMillis = 0L,
-                )
-                // 以降はスナップショット起点で加算したいので，ランタイム加算をリセットする
-                runtimeDelta = runtimeDelta.copy(
-                    lastTickMillis = nowMillis,
-                    perPackageMillis = emptyMap(),
-                    allTargetsMillis = 0L,
+        val computedSnapshot: DailyUsageSnapshot = if (targetPackages.isEmpty()) {
+            DailyUsageSnapshot(
+                computedAtMillis = nowMillis,
+                dayStartMillis = startOfDayMillis,
+                gracePeriodMillis = customize.gracePeriodMillis,
+                targetPackages = emptySet(),
+                perPackageMillis = emptyMap(),
+                allTargetsMillis = 0L,
+            )
+        } else {
+            // startOfDay 以前の状態復元に必要な seed + 今日のイベントだけを読み，
+            // 同じ投影ロジック（TimelineProjector）で「今日の累計」を再構成する．
+            val maxLookbackMillis = lookbackHours * 60L * 60L * 1_000L
+            val events = withContext(Dispatchers.IO) {
+                windowLoader.loadWithSeed(
+                    windowStartMillis = startOfDayMillis,
+                    windowEndMillis = nowMillis,
+                    seedLookbackMillis = maxLookbackMillis,
                 )
             }
-            return
-        }
 
-        // startOfDay 以前の状態復元に必要な seed + 今日のイベントだけを読み，
-        // 同じ投影ロジック（TimelineProjector）で「今日の累計」を再構成する．
-        val maxLookbackMillis = lookbackHours * 60L * 60L * 1_000L
-        val events = withContext(Dispatchers.IO) {
-            windowLoader.loadWithSeed(
-                windowStartMillis = startOfDayMillis,
-                windowEndMillis = nowMillis,
-                seedLookbackMillis = maxLookbackMillis,
-            )
-        }
+            val zone = ZoneId.systemDefault()
+            val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
 
-        val zone = ZoneId.systemDefault()
-        val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
+            val (perPkg, all) = withContext(Dispatchers.Default) {
+                val projection = TimelineProjector.project(
+                    events = events,
+                    config = TimelineInterpretationConfig(stopGracePeriodMillis = customize.gracePeriodMillis),
+                    nowMillis = nowMillis,
+                    zoneId = zone,
+                )
 
-        val (perPkg, all) = withContext(Dispatchers.Default) {
-            val projection = TimelineProjector.project(
-                events = events,
-                config = TimelineInterpretationConfig(stopGracePeriodMillis = customize.gracePeriodMillis),
-                nowMillis = nowMillis,
-                zoneId = zone,
-            )
+                val partsToday = projection.sessionParts.filter { it.date == today }
+                val per = partsToday
+                    .groupBy { it.packageName }
+                    .mapValues { (_, parts) -> parts.sumOf { it.durationMillis }.coerceAtLeast(0L) }
 
-            val partsToday = projection.sessionParts.filter { it.date == today }
-            val per = partsToday
-                .groupBy { it.packageName }
-                .mapValues { (_, parts) -> parts.sumOf { it.durationMillis }.coerceAtLeast(0L) }
+                val total = partsToday.sumOf { it.durationMillis }.coerceAtLeast(0L)
 
-            val total = partsToday.sumOf { it.durationMillis }.coerceAtLeast(0L)
+                per.toMap() to total
+            }
 
-            per.toMap() to total
-        }
-
-        val activePkg = synchronized(lock) { runtimeDelta.activePackageName }
-        synchronized(lock) {
-            snapshot = DailyUsageSnapshot(
+            DailyUsageSnapshot(
                 computedAtMillis = nowMillis,
                 dayStartMillis = startOfDayMillis,
                 gracePeriodMillis = customize.gracePeriodMillis,
@@ -263,12 +279,27 @@ class DailyUsageUseCase(
                 perPackageMillis = perPkg,
                 allTargetsMillis = all,
             )
-            // スナップショットの computedAt を起点にランタイム加算を再開する
-            runtimeDelta = RuntimeDeltaState(
-                lastTickMillis = nowMillis,
-                activePackageName = activePkg,
-                perPackageMillis = emptyMap(),
-                allTargetsMillis = 0L,
+        }
+
+        synchronized(lock) {
+            // invalidate / 日付またぎなどで世代が進んでいたら，古い refresh 結果は捨てる
+            if (baseline.generation != generation) return
+
+            val currentRuntime = runtimeDelta
+
+            // refresh 実行中に積まれた「後続のランタイム加算分」だけを残す
+            // （refresh 対象期間＝nowMillis までの分は snapshot 側に含まれる）
+            val deltaPerPkg = subtractNonNegative(
+                current = currentRuntime.perPackageMillis,
+                baseline = baseline.runtimeDeltaAtStart.perPackageMillis,
+            )
+            val deltaAll = (currentRuntime.allTargetsMillis - baseline.runtimeDeltaAtStart.allTargetsMillis)
+                .coerceAtLeast(0L)
+
+            snapshot = computedSnapshot
+            runtimeDelta = currentRuntime.copy(
+                perPackageMillis = deltaPerPkg,
+                allTargetsMillis = deltaAll,
             )
         }
     }
@@ -316,6 +347,22 @@ class DailyUsageUseCase(
                 )
             }
         }
+    }
+
+    private fun subtractNonNegative(
+        current: Map<String, Long>,
+        baseline: Map<String, Long>,
+    ): Map<String, Long> {
+        if (current.isEmpty()) return emptyMap()
+        if (baseline.isEmpty()) return current
+
+        val out = mutableMapOf<String, Long>()
+        for ((k, v) in current) {
+            val b = baseline[k] ?: 0L
+            val diff = (v - b).coerceAtLeast(0L)
+            if (diff > 0L) out[k] = diff
+        }
+        return out.toMap()
     }
 
     private fun computeStartOfDayMillis(nowMillis: Long): Long {
