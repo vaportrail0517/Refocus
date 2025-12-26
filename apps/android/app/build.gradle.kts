@@ -1,6 +1,7 @@
 import com.android.build.api.variant.impl.VariantOutputImpl
 import java.text.SimpleDateFormat
 import java.util.Date
+import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.android.application)
@@ -97,6 +98,76 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+/**
+ * Domain レイヤの境界を守るための，軽量なガード．
+ *
+ * ここでは「import 文」に限定して禁止依存を検知する．
+ * Kotlin/Java の import 以外（FQCN 直書きなど）は検知できないが，
+ * レイヤ境界の逸脱を早期に止める用途としては十分有効．
+ */
+val domainSourceRoots = listOf(
+    file("src/main/java/com/example/refocus/domain"),
+    file("src/main/kotlin/com/example/refocus/domain"),
+)
+
+tasks.register("checkDomainBoundaries") {
+    group = "verification"
+    description = "Fails if domain layer depends on Android/UI/data layers via imports."
+
+    doLast {
+        // Domain は純 Kotlin を前提にし，Android/UI/データ層へ直接依存しない．
+        val forbiddenImportPrefixes = listOf(
+            "android.",
+            "androidx.",
+            "com.google.android.",
+            "com.example.refocus.data.",
+            "com.example.refocus.feature.",
+            "com.example.refocus.ui.",
+        )
+
+        val violations = mutableListOf<String>()
+
+        domainSourceRoots
+            .filter { it.exists() }
+            .forEach { root ->
+                root.walkTopDown()
+                    .filter { it.isFile && (it.extension == "kt" || it.extension == "java") }
+                    .forEach { file ->
+                        file.useLines { lines ->
+                            lines.forEachIndexed { index, line ->
+                                val trimmed = line.trim()
+                                if (!trimmed.startsWith("import ")) return@forEachIndexed
+
+                                // Kotlin: import a.b.C / Java: import a.b.C;
+                                val imported = trimmed
+                                    .removePrefix("import ")
+                                    .trim()
+                                    .removeSuffix(";")
+
+                                if (forbiddenImportPrefixes.any { imported.startsWith(it) }) {
+                                    violations += "${file.relativeTo(projectDir)}:${index + 1}: $trimmed"
+                                }
+                            }
+                        }
+                    }
+            }
+
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    appendLine("Domain boundary violations found (forbidden imports in domain):")
+                    violations.forEach { appendLine(it) }
+                },
+            )
+        }
+    }
+}
+
+// 既存の CI / 手元チェックの流れに自然に乗せる
+tasks.named("check").configure {
+    dependsOn("checkDomainBoundaries")
 }
 
 androidComponents {
