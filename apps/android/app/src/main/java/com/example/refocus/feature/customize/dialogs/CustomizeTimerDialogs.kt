@@ -51,10 +51,11 @@ fun TimeToMaxDialog(
 ) {
     DurationHmsPickerDialog(
         title = "最大サイズになるまでの時間",
-        description = "フォントが最大サイズになるまでの時間を指定します．",
-        initialSeconds = currentSeconds,
-        minSeconds = 60,
+        description = "フォントが最大サイズになるまでの時間を指定します．0秒を指定すると即座に最大サイズになります．",
+        initialSeconds = currentSeconds.coerceAtLeast(0),
+        minSeconds = 0,
         maxSeconds = 12 * 60 * 60,
+        allowZero = true,
         onConfirm = onConfirm,
         onDismiss = onDismiss,
     )

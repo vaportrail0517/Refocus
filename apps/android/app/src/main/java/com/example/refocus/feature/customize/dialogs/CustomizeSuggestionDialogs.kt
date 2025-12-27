@@ -13,17 +13,15 @@ fun SuggestionTriggerTimeDialog(
 ) {
     DurationHmsPickerDialog(
         title = "提案を出すまでのセッション継続時間",
-        description = "対象アプリを連続して使い始めてから，どれくらい経過したら提案を行うかを設定します．",
-        initialSeconds = currentSeconds.coerceIn(60, 60 * 30),
-        minSeconds = 60,
+        description = "対象アプリを連続して使い始めてから，どれくらい経過したら提案を行うかを設定します．0秒を指定した場合は自動で1秒になります．",
+        initialSeconds = currentSeconds.coerceIn(0, 60 * 30),
+        minSeconds = 0,
         maxSeconds = 60 * 30,
-        onConfirm = { seconds ->
-            onConfirm(seconds)
-        },
+        allowZero = false,
+        onConfirm = onConfirm,
         onDismiss = onDismiss,
     )
 }
-
 
 @Composable
 fun SuggestionForegroundStableDialog(
@@ -33,13 +31,13 @@ fun SuggestionForegroundStableDialog(
 ) {
     LongSliderDialog(
         title = "前面アプリの安定時間",
-        description = "対象アプリが連続して前面に表示されてから，どれくらい安定していたら提案を行うかを設定します．",
-        min = 60L,
+        description = "対象アプリが連続して前面に表示されてから，どれくらい安定していたら提案を行うかを設定します．0秒を指定すると，前面安定を待ちません．",
+        min = 0L,
         max = 60L * 20L,
         step = 60L,
-        initial = currentSeconds.coerceIn(5 * 60, 20 * 60).toLong(),
-        valueLabel = { seconds -> formatDurationSeconds(seconds) },
-        hintLabel = "1〜20分 / 1分刻み",
+        initial = currentSeconds.coerceIn(0, 20 * 60).toLong(),
+        valueLabel = { seconds -> formatDurationSeconds(seconds, zeroLabel = "なし") },
+        hintLabel = "0〜20分 / 1分刻み",
         onConfirm = { selectedSeconds ->
             onConfirm(selectedSeconds.toInt())
         },
@@ -53,18 +51,14 @@ fun SuggestionCooldownDialog(
     onConfirm: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    LongSliderDialog(
+    DurationHmsPickerDialog(
         title = "次の提案までの間隔",
-        description = "一度提案を出してから，次の提案を行うまでどれくらい間隔を空けるかを設定します．",
-        min = 60L,
-        max = 60L * 30L,
-        step = 60L,
-        initial = currentSeconds.coerceIn(60, 60 * 60).toLong(),
-        valueLabel = { seconds -> formatDurationSeconds(seconds) },
-        hintLabel = "1〜30分 / 1分刻み",
-        onConfirm = { selectedSeconds ->
-            onConfirm(selectedSeconds.toInt())
-        },
+        description = "一度提案を出してから，次の提案を行うまでどれくらい間隔を空けるかを設定します．0秒を指定した場合は自動で1秒になります．",
+        initialSeconds = currentSeconds.coerceIn(0, 60 * 30),
+        minSeconds = 0,
+        maxSeconds = 60 * 30,
+        allowZero = false,
+        onConfirm = onConfirm,
         onDismiss = onDismiss,
     )
 }

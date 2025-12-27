@@ -2,8 +2,8 @@ package com.example.refocus.config
 
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
-import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.model.TimerTimeMode
+import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
 
 object CustomizeDefaults {
@@ -12,7 +12,7 @@ object CustomizeDefaults {
     const val POLLING_INTERVAL_MILLIS: Long = 500L
 
     // --- オーバーレイ見た目 ---
-    const val MIN_FONT_SIZE_SP: Float = 16f
+    const val MIN_FONT_SIZE_SP: Float = 24f
     const val MAX_FONT_SIZE_SP: Float = 64f
 
     const val TIME_TO_MAX_SECONDS: Int = 15 * 60

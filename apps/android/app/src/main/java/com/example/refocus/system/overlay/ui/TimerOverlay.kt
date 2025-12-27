@@ -17,7 +17,29 @@ import androidx.compose.ui.unit.dp
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
+import com.example.refocus.core.util.formatDurationForTimerBubble
 import com.example.refocus.core.util.interpolateColor
+
+@Deprecated(
+    message = "Use TimerOverlay(customize, visualMillis, text) instead.",
+    replaceWith = ReplaceWith(
+        "TimerOverlay(customize = customize, visualMillis = visualMillis, text = formatDurationForTimerBubble(displayMillis), modifier = modifier)"
+    ),
+)
+@Composable
+fun TimerOverlay(
+    customize: Customize,
+    displayMillis: Long,
+    visualMillis: Long,
+    modifier: Modifier = Modifier,
+) {
+    TimerOverlay(
+        customize = customize,
+        visualMillis = visualMillis,
+        text = formatDurationForTimerBubble(displayMillis),
+        modifier = modifier,
+    )
+}
 
 @Composable
 fun TimerOverlay(
@@ -31,9 +53,14 @@ fun TimerOverlay(
     val maxSize: Dp = (customize.maxFontSizeSp / 2f).dp
 
     val visualSeconds = visualMillis / 1000f
-    val denomSeconds = customize.timeToMaxSeconds.coerceAtLeast(1).toFloat()
+    val denomSeconds = customize.timeToMaxSeconds
 
-    val raw = (visualSeconds / denomSeconds).coerceIn(0f, 1f)
+    // 0秒なら「即座に最大サイズ」とみなす
+    val raw = if (denomSeconds <= 0) {
+        1f
+    } else {
+        (visualSeconds / denomSeconds.toFloat()).coerceIn(0f, 1f)
+    }
 
     val p = when (customize.growthMode) {
         TimerGrowthMode.Linear -> raw
