@@ -150,9 +150,14 @@ tasks.register("checkDomainBoundaries") {
             "android.",
             "androidx.",
             "com.google.android.",
+            // app/system は Android 実装に寄るため，domain からは直接参照しない
+            "com.example.refocus.app.",
+            "com.example.refocus.system.",
             "com.example.refocus.data.",
             "com.example.refocus.feature.",
             "com.example.refocus.ui.",
+            // プリセットやデフォルト値などの「アプリ設定」は domain へ流れ込ませない
+            "com.example.refocus.config.",
         )
 
         val violations = mutableListOf<String>()
@@ -207,7 +212,8 @@ tasks.register("checkFeatureBoundaries") {
         val forbiddenImportPrefixes = listOf(
             "com.example.refocus.system.",
             "com.example.refocus.data.",
-            "com.example.refocus.app.di.",
+            // feature は app 層へ依存しない（navigation/DI などは app 側が feature を参照する）
+            "com.example.refocus.app.",
         )
 
         val violations = mutableListOf<String>()

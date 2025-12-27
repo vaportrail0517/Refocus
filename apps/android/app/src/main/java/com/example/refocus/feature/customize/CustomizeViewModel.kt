@@ -2,7 +2,6 @@ package com.example.refocus.feature.customize
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.refocus.app.reset.AppDataResetter
 import com.example.refocus.config.CustomizeBasicPresets.withFontPreset
 import com.example.refocus.config.CustomizeBasicPresets.withGracePreset
 import com.example.refocus.config.CustomizeBasicPresets.withSuggestionTriggerPreset
@@ -18,6 +17,7 @@ import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
+import com.example.refocus.domain.reset.AppDataResetter
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.settings.SettingsCommand
 import dagger.hilt.android.lifecycle.HiltViewModel

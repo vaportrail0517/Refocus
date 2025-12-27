@@ -182,7 +182,7 @@ class SettingsDataStore(
      * fallback はすべて Customize() のデフォルトを見る．
      */
     private fun Preferences.toOverlaySettings(): Customize {
-        // Customize() のデフォルトは SettingsConfig.CustomizeDefaults を参照している
+        // Customize() のデフォルトは core.model.CustomizeDefaults を参照している
         val base = Customize()
 
         val touchMode = decodeEnum(

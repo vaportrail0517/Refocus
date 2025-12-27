@@ -1,14 +1,13 @@
 package com.example.refocus.feature.onboarding
 
 import androidx.compose.runtime.Composable
-import com.example.refocus.app.navigation.Destinations
 import com.example.refocus.ui.components.OnboardingPage
 
 /**
  * オンボーディング 1 ページ目。
  *
  * - Refocus の概要説明
- * - 「権限を設定する」ボタンから [Destinations.PERMISSION_FLOW] へ遷移する
+ * - 「権限を設定する」ボタンから権限フローへ遷移する
  */
 @Composable
 fun OnboardingIntroScreen(

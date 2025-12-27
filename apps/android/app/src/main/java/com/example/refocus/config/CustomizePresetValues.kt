@@ -1,6 +1,7 @@
 package com.example.refocus.config
 
 import com.example.refocus.core.model.Customize
+import com.example.refocus.core.model.CustomizeDefaults
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
 

@@ -1,11 +1,11 @@
-package com.example.refocus.config
+package com.example.refocus.core.model
 
-import com.example.refocus.core.model.TimerColorMode
-import com.example.refocus.core.model.TimerGrowthMode
-import com.example.refocus.core.model.TimerTimeMode
-import com.example.refocus.core.model.TimerTouchMode
-import com.example.refocus.core.model.TimerVisualTimeBasis
-
+/**
+ * Customize のデフォルト値。
+ *
+ * - core 内に置くことで，Customize（core.model）が上位レイヤ（config 等）へ依存しないようにする．
+ * - 将来のマルチモジュール化で :core を切り出しても破綻しない構造にする．
+ */
 object CustomizeDefaults {
     // --- セッション・監視 ---
     const val GRACE_PERIOD_MILLIS: Long = 300_000L
@@ -25,6 +25,7 @@ object CustomizeDefaults {
 
     const val POSITION_X: Int = 24
     const val POSITION_Y: Int = 120
+
     val TOUCH_MODE: TimerTouchMode = TimerTouchMode.PassThrough
     val TIMER_TIME_MODE: TimerTimeMode = TimerTimeMode.SessionElapsed
     val TIMER_VISUAL_TIME_BASIS: TimerVisualTimeBasis = TimerVisualTimeBasis.SessionElapsed

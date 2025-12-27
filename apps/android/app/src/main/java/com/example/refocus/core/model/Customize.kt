@@ -1,7 +1,5 @@
 package com.example.refocus.core.model
 
-import com.example.refocus.config.CustomizeDefaults
-
 data class Customize(
     // --- セッション・監視まわり ---
     val gracePeriodMillis: Long = CustomizeDefaults.GRACE_PERIOD_MILLIS,
