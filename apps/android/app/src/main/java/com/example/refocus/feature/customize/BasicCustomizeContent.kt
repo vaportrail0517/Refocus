@@ -2,11 +2,6 @@ package com.example.refocus.feature.customize
 
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
-import com.example.refocus.config.CustomizeBasicPresets
-import com.example.refocus.config.FontPreset
-import com.example.refocus.config.GracePreset
-import com.example.refocus.config.SuggestionTriggerPreset
-import com.example.refocus.config.TimeToMaxPreset
 import com.example.refocus.core.model.CustomizePreset
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.model.TimerTimeMode
@@ -21,34 +16,25 @@ import com.example.refocus.ui.components.SettingRow
 fun BasicCustomizeContent(
     uiState: CustomizeViewModel.UiState,
     viewModel: CustomizeViewModel,
+    onOpenGraceDialog: () -> Unit,
+    onOpenFontDialog: () -> Unit,
+    onOpenTimeToMaxDialog: () -> Unit,
     onOpenTimerTimeModeDialog: () -> Unit,
-    onOpenAdvanced: () -> Unit,
+    onOpenSuggestionTriggerDialog: () -> Unit,
 ) {
     val settings = uiState.customize
 
     // --- アプリ ---
     SectionCard(title = "アプリ") {
-        val gracePreset = CustomizeBasicPresets.gracePresetOrNull(settings)
         val formattedGraceTime = formatDurationMilliSecondsOrNull(settings.gracePeriodMillis)
-        PresetOptionRow(
-            title = "一時的なアプリ切り替え",
-            currentPreset = gracePreset,
-            options = listOf(
-                PresetOption(GracePreset.Short, "短い"),
-                PresetOption(GracePreset.Normal, "普通"),
-                PresetOption(GracePreset.Long, "長い"),
-            ),
-            currentValueDescription = buildString {
-                if (formattedGraceTime.isNullOrEmpty()) {
-                    append("アプリの画面を閉じると猶予なしでセッションを終了します。")
-                } else {
-                    append(formattedGraceTime)
-                    append("以内に対象アプリを再開すると同じセッションとして扱います。")
-                }
+        SettingRow(
+            title = "一時的なアプリ切り替えの猶予時間",
+            subtitle = if (formattedGraceTime.isNullOrEmpty()) {
+                "現在: 猶予なし（対象アプリを離れたらセッションを終了します）。"
+            } else {
+                "現在: ${formattedGraceTime}以内に対象アプリへ戻れば同じセッションとして扱います。"
             },
-            onPresetSelected = { preset ->
-                viewModel.applyGracePreset(preset)
-            },
+            onClick = onOpenGraceDialog,
         )
     }
 
@@ -89,34 +75,16 @@ fun BasicCustomizeContent(
             },
         )
 
-        val fontPreset = CustomizeBasicPresets.fontPresetOrNull(settings)
-        PresetOptionRow(
+        SettingRow(
             title = "文字サイズ",
-            currentPreset = fontPreset,
-            options = listOf(
-                PresetOption(FontPreset.Small, "小さい"),
-                PresetOption(FontPreset.Medium, "普通"),
-                PresetOption(FontPreset.Large, "大きい"),
-            ),
-            currentValueDescription = "最小 ${settings.minFontSizeSp.toInt()}sp / 最大 ${settings.maxFontSizeSp.toInt()}sp",
-            onPresetSelected = { preset ->
-                viewModel.applyFontPreset(preset)
-            },
+            subtitle = "現在: 最小 ${settings.minFontSizeSp.toInt()}sp / 最大 ${settings.maxFontSizeSp.toInt()}sp",
+            onClick = onOpenFontDialog,
         )
 
-        val timePreset = CustomizeBasicPresets.timeToMaxPresetOrNull(settings)
-        PresetOptionRow(
+        SettingRow(
             title = "最大サイズになるまでの時間",
-            currentPreset = timePreset,
-            options = listOf(
-                PresetOption(TimeToMaxPreset.Fast, "早い"),
-                PresetOption(TimeToMaxPreset.Normal, "普通"),
-                PresetOption(TimeToMaxPreset.Slow, "遅い"),
-            ),
-            currentValueDescription = "${settings.timeToMaxMinutes}分",
-            onPresetSelected = { preset ->
-                viewModel.applyTimeToMaxPreset(preset)
-            },
+            subtitle = "現在: ${settings.timeToMaxMinutes}分",
+            onClick = onOpenTimeToMaxDialog,
         )
     }
 
@@ -169,23 +137,14 @@ fun BasicCustomizeContent(
             },
         )
 
-        val trigPreset = CustomizeBasicPresets.suggestionTriggerPresetOrNull(settings)
-        PresetOptionRow(
+        SettingRow(
             title = "提案するまでの時間",
-            currentPreset = trigPreset,
-            options = listOf(
-                PresetOption(SuggestionTriggerPreset.Short, "短い"),
-                PresetOption(SuggestionTriggerPreset.Normal, "普通"),
-                PresetOption(SuggestionTriggerPreset.Long, "長い"),
-            ),
-            currentValueDescription = buildString {
-                append("対象アプリの利用を開始してから")
+            subtitle = buildString {
+                append("現在: 対象アプリの利用を開始してから")
                 append(formatDurationSeconds(settings.suggestionTriggerSeconds.toLong()))
-                append("以上経過したら提案を行います。")
+                append("以上で提案します。")
             },
-            onPresetSelected = { preset ->
-                viewModel.applySuggestionTriggerPreset(preset)
-            },
+            onClick = onOpenSuggestionTriggerDialog,
         )
     }
 
@@ -214,12 +173,4 @@ fun BasicCustomizeContent(
         },
     )
 
-    // --- 詳細設定への入口 ---
-    SectionCard(title = "詳細カスタマイズ") {
-        SettingRow(
-            title = "詳細カスタマイズを開く",
-            subtitle = "タイマー表示や提案などの詳細な設定が行えます。",
-            onClick = onOpenAdvanced,
-        )
-    }
 }

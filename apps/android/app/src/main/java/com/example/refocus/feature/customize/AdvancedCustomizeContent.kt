@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
-import com.example.refocus.core.util.formatDurationMilliSecondsOrNull
 import com.example.refocus.core.util.formatDurationSeconds
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
@@ -12,12 +11,7 @@ import com.example.refocus.ui.components.SettingRow
 @Composable
 fun AdvancedCustomizeContent(
     uiState: CustomizeViewModel.UiState,
-    onBackToBasic: () -> Unit,
-    onOpenGraceDialog: () -> Unit,
-    onOpenFontDialog: () -> Unit,
-    onOpenTimeToMaxDialog: () -> Unit,
     onOpenTimerVisualTimeBasisDialog: () -> Unit,
-    onOpenSuggestionTriggerDialog: () -> Unit,
     onOpenSuggestionForegroundStableDialog: () -> Unit,
     onOpenSuggestionCooldownDialog: () -> Unit,
     onOpenSuggestionTimeoutDialog: () -> Unit,
@@ -30,29 +24,6 @@ fun AdvancedCustomizeContent(
     onOpenGradientEndColorDialog: () -> Unit,
 ) {
     val settings = uiState.customize
-
-    // 一番上に「基本設定に戻る」行を置いておく（＋将来 AppBar を載せてもよい）
-    SectionCard(title = "基本カスタマイズ") {
-        SettingRow(
-            title = "基本カスタマイズに戻る",
-            subtitle = "普段使い向けのシンプルな設定に戻ります。",
-            onClick = onBackToBasic,
-        )
-    }
-
-    SectionCard(title = "セッション") {
-        val formattedGraceTime = formatDurationMilliSecondsOrNull(settings.gracePeriodMillis)
-        SettingRow(
-            title = "セッション継続の猶予時間",
-            subtitle = if (formattedGraceTime.isNullOrEmpty()) {
-                "現在: アプリの画面を閉じると猶予なしでセッションを終了します。"
-            } else {
-                "現在: 対象アプリを離れてから${formattedGraceTime}以内に戻れば同じセッションとみなします。"
-            },
-            onClick = onOpenGraceDialog,
-        )
-    }
-
 
     SectionCard(title = "タイマーの変化") {
         SettingRow(
@@ -68,17 +39,7 @@ fun AdvancedCustomizeContent(
         )
     }
 
-    SectionCard(title = "タイマーのサイズ") {
-        SettingRow(
-            title = "最大サイズになるまでの時間",
-            subtitle = "現在: ${settings.timeToMaxMinutes}分",
-            onClick = onOpenTimeToMaxDialog,
-        )
-        SettingRow(
-            title = "フォントサイズの範囲",
-            subtitle = "現在: 最小 ${settings.minFontSizeSp} sp / 最大 ${settings.maxFontSizeSp} sp",
-            onClick = onOpenFontDialog,
-        )
+    SectionCard(title = "タイマーの成長") {
         SettingRow(
             title = "タイマーの成長モード",
             subtitle = when (settings.growthMode) {
@@ -171,11 +132,6 @@ fun AdvancedCustomizeContent(
     }
 
     SectionCard(title = "提案の詳細") {
-        SettingRow(
-            title = "提案を出すために必要なセッションの継続時間",
-            subtitle = "現在: ${formatDurationSeconds(settings.suggestionTriggerSeconds.toLong())}以上経過してから提案します。",
-            onClick = onOpenSuggestionTriggerDialog,
-        )
         SettingRow(
             title = "提案を出すために必要な対象アプリが連続して前面にいる時間",
             subtitle = "現在: ${formatDurationSeconds(settings.suggestionForegroundStableSeconds.toLong())}以上経過してから提案します。",

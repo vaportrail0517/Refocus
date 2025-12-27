@@ -1,38 +1,60 @@
 package com.example.refocus.feature.customize
 
-import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.refocus.feature.common.overlay.rememberOverlayServiceStatusProvider
 import com.example.refocus.feature.common.overlay.rememberOverlayServiceController
+import com.example.refocus.feature.common.overlay.rememberOverlayServiceStatusProvider
 import com.example.refocus.feature.common.permissions.rememberPermissionUiState
-import com.example.refocus.feature.customize.dialogs.*
+import com.example.refocus.feature.customize.dialogs.ColorModeDialog
+import com.example.refocus.feature.customize.dialogs.FixedColorDialog
+import com.example.refocus.feature.customize.dialogs.FontRangeDialog
+import com.example.refocus.feature.customize.dialogs.GraceTimeDialog
+import com.example.refocus.feature.customize.dialogs.GradientEndColorDialog
+import com.example.refocus.feature.customize.dialogs.GradientMiddleColorDialog
+import com.example.refocus.feature.customize.dialogs.GradientStartColorDialog
+import com.example.refocus.feature.customize.dialogs.GrowthModeDialog
+import com.example.refocus.feature.customize.dialogs.PollingIntervalDialog
+import com.example.refocus.feature.customize.dialogs.SuggestionCooldownDialog
+import com.example.refocus.feature.customize.dialogs.SuggestionForegroundStableDialog
+import com.example.refocus.feature.customize.dialogs.SuggestionInteractionLockoutDialog
+import com.example.refocus.feature.customize.dialogs.SuggestionTimeoutDialog
+import com.example.refocus.feature.customize.dialogs.SuggestionTriggerTimeDialog
+import com.example.refocus.feature.customize.dialogs.TimeToMaxDialog
+import com.example.refocus.feature.customize.dialogs.TimerTimeModeDialog
+import com.example.refocus.feature.customize.dialogs.TimerVisualTimeBasisDialog
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+private enum class CustomizeTab(val title: String) {
+    Basic("基本"),
+    Advanced("詳細"),
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun CustomizeScreen(
     modifier: Modifier = Modifier,
@@ -41,7 +63,6 @@ fun CustomizeScreen(
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var activeDialog by remember { mutableStateOf<CustomizeDialogType?>(null) }
-    var isAdvancedMode by remember { mutableStateOf(false) }
     var fontRange by remember(
         uiState.customize.minFontSizeSp,
         uiState.customize.maxFontSizeSp
@@ -50,21 +71,21 @@ fun CustomizeScreen(
             uiState.customize.minFontSizeSp..uiState.customize.maxFontSizeSp
         )
     }
+
     val overlayServiceStatusProvider = rememberOverlayServiceStatusProvider()
     val overlayServiceController = rememberOverlayServiceController()
     var isServiceRunning by remember {
         mutableStateOf(overlayServiceStatusProvider.isRunning())
     }
 
-    BackHandler(enabled = isAdvancedMode) {
-        isAdvancedMode = false
-    }
-
-    val scrollState = rememberScrollState()
-
-    LaunchedEffect(isAdvancedMode) {
-        scrollState.scrollTo(0)
-    }
+    val tabs = CustomizeTab.entries
+    val pagerState = rememberPagerState(
+        initialPage = tabs.indexOf(CustomizeTab.Basic).coerceAtLeast(0),
+        pageCount = { tabs.size },
+    )
+    val scope = rememberCoroutineScope()
+    val basicScrollState = rememberScrollState()
+    val advancedScrollState = rememberScrollState()
 
     // 画面復帰（ON_RESUME）で権限状態を再評価し，権限が欠けていれば安全側に倒す．
     rememberPermissionUiState(
@@ -90,97 +111,114 @@ fun CustomizeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = if (isAdvancedMode) "詳細カスタマイズ" else "カスタマイズ",
-                    )
-                },
-                actions = {
-                    if (!isAdvancedMode) {
-                        IconButton(onClick = { isAdvancedMode = !isAdvancedMode }) {
-                            Icon(
-                                imageVector = Icons.Filled.ChevronRight,
-                                contentDescription = "詳細設定に切り替え"
-                            )
-                        }
-                    }
-                },
-                navigationIcon = {
-                    if (isAdvancedMode) {
-                        IconButton(onClick = { isAdvancedMode = !isAdvancedMode }) {
-                            Icon(
-                                imageVector = Icons.Filled.ChevronLeft,
-                                contentDescription = "基本設定に切り替え"
-                            )
-                        }
-                    }
-                },
+                title = { Text(text = "カスタマイズ") },
                 windowInsets = WindowInsets(0.dp),
             )
         },
         contentWindowInsets = WindowInsets(0.dp),
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState)
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (!isAdvancedMode) {
-                // ================= 基本設定 =================
-                BasicCustomizeContent(
-                    uiState = uiState,
-                    viewModel = viewModel,
-                    onOpenTimerTimeModeDialog = {
-                        activeDialog = CustomizeDialogType.TimerTimeDisplayMode
-                    },
-                    onOpenAdvanced = { isAdvancedMode = true },
-                )
-            } else {
-                // ================= 詳細設定 =================
-                AdvancedCustomizeContent(
-                    uiState = uiState,
-                    onBackToBasic = { isAdvancedMode = false },
-                    onOpenGraceDialog = { activeDialog = CustomizeDialogType.GraceTime },
-                    onOpenFontDialog = {
-                        fontRange = uiState.customize.minFontSizeSp..
-                                uiState.customize.maxFontSizeSp
-                        activeDialog = CustomizeDialogType.FontRange
-                    },
-                    onOpenTimeToMaxDialog = { activeDialog = CustomizeDialogType.TimeToMax },
-                    onOpenTimerVisualTimeBasisDialog = { activeDialog = CustomizeDialogType.TimerVisualTimeBasis },
-                    onOpenSuggestionTriggerDialog = {
-                        activeDialog = CustomizeDialogType.SuggestionTriggerTime
-                    },
-                    onOpenSuggestionForegroundStableDialog = {
-                        activeDialog = CustomizeDialogType.SuggestionForegroundStable
-                    },
-                    onOpenSuggestionCooldownDialog = {
-                        activeDialog = CustomizeDialogType.SuggestionCooldown
-                    },
-                    onOpenSuggestionTimeoutDialog = {
-                        activeDialog = CustomizeDialogType.SuggestionTimeout
-                    },
-                    onOpenSuggestionInteractionLockoutDialog = {
-                        activeDialog = CustomizeDialogType.SuggestionInteractionLockout
-                    },
-                    onOpenGrowthModeDialog = { activeDialog = CustomizeDialogType.GrowthMode },
-                    onOpenColorModeDialog = { activeDialog = CustomizeDialogType.ColorMode },
-                    onOpenFixedColorDialog = { activeDialog = CustomizeDialogType.FixedColor },
-                    onOpenGradientStartColorDialog = {
-                        activeDialog = CustomizeDialogType.GradientStartColor
-                    },
-                    onOpenGradientMiddleColorDialog = {
-                        activeDialog = CustomizeDialogType.GradientMiddleColor
-                    },
-                    onOpenGradientEndColorDialog = {
-                        activeDialog = CustomizeDialogType.GradientEndColor
-                    },
-                )
+            Column(modifier = Modifier.fillMaxSize()) {
+                TabRow(selectedTabIndex = pagerState.currentPage) {
+                    tabs.forEachIndexed { index, tab ->
+                        Tab(
+                            selected = pagerState.currentPage == index,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                            text = { Text(tab.title) },
+                        )
+                    }
+                }
+
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                ) { page ->
+                    val scrollState = if (tabs[page] == CustomizeTab.Basic) {
+                        basicScrollState
+                    } else {
+                        advancedScrollState
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(scrollState)
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        when (tabs[page]) {
+                            CustomizeTab.Basic -> {
+                                BasicCustomizeContent(
+                                    uiState = uiState,
+                                    viewModel = viewModel,
+                                    onOpenGraceDialog = {
+                                        activeDialog = CustomizeDialogType.GraceTime
+                                    },
+                                    onOpenFontDialog = {
+                                        fontRange = uiState.customize.minFontSizeSp..
+                                                uiState.customize.maxFontSizeSp
+                                        activeDialog = CustomizeDialogType.FontRange
+                                    },
+                                    onOpenTimeToMaxDialog = {
+                                        activeDialog = CustomizeDialogType.TimeToMax
+                                    },
+                                    onOpenTimerTimeModeDialog = {
+                                        activeDialog = CustomizeDialogType.TimerTimeDisplayMode
+                                    },
+                                    onOpenSuggestionTriggerDialog = {
+                                        activeDialog = CustomizeDialogType.SuggestionTriggerTime
+                                    },
+                                )
+                            }
+
+                            CustomizeTab.Advanced -> {
+                                AdvancedCustomizeContent(
+                                    uiState = uiState,
+                                    onOpenTimerVisualTimeBasisDialog = {
+                                        activeDialog = CustomizeDialogType.TimerVisualTimeBasis
+                                    },
+                                    onOpenSuggestionForegroundStableDialog = {
+                                        activeDialog = CustomizeDialogType.SuggestionForegroundStable
+                                    },
+                                    onOpenSuggestionCooldownDialog = {
+                                        activeDialog = CustomizeDialogType.SuggestionCooldown
+                                    },
+                                    onOpenSuggestionTimeoutDialog = {
+                                        activeDialog = CustomizeDialogType.SuggestionTimeout
+                                    },
+                                    onOpenSuggestionInteractionLockoutDialog = {
+                                        activeDialog = CustomizeDialogType.SuggestionInteractionLockout
+                                    },
+                                    onOpenGrowthModeDialog = {
+                                        activeDialog = CustomizeDialogType.GrowthMode
+                                    },
+                                    onOpenColorModeDialog = {
+                                        activeDialog = CustomizeDialogType.ColorMode
+                                    },
+                                    onOpenFixedColorDialog = {
+                                        activeDialog = CustomizeDialogType.FixedColor
+                                    },
+                                    onOpenGradientStartColorDialog = {
+                                        activeDialog = CustomizeDialogType.GradientStartColor
+                                    },
+                                    onOpenGradientMiddleColorDialog = {
+                                        activeDialog = CustomizeDialogType.GradientMiddleColor
+                                    },
+                                    onOpenGradientEndColorDialog = {
+                                        activeDialog = CustomizeDialogType.GradientEndColor
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
+            // Dialog は Pager の外で 1 回だけ描画する（隣ページの事前合成で多重表示されないようにする）
             when (activeDialog) {
                 CustomizeDialogType.GraceTime -> {
                     GraceTimeDialog(
@@ -210,10 +248,8 @@ fun CustomizeScreen(
                         onConfirm = { newRange ->
                             val minFontSpLimit = 8f
                             val maxFontSpLimit = 96f
-                            val clampedMin =
-                                newRange.start.coerceIn(minFontSpLimit, maxFontSpLimit)
-                            val clampedMax =
-                                newRange.endInclusive.coerceIn(clampedMin, maxFontSpLimit)
+                            val clampedMin = newRange.start.coerceIn(minFontSpLimit, maxFontSpLimit)
+                            val clampedMax = newRange.endInclusive.coerceIn(clampedMin, maxFontSpLimit)
                             viewModel.updateMinFontSizeSp(clampedMin)
                             viewModel.updateMaxFontSizeSp(clampedMax)
                             activeDialog = null
