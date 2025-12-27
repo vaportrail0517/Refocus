@@ -1,4 +1,4 @@
-package com.example.refocus.feature.customize
+package com.example.refocus.feature.customize.dialogs
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember

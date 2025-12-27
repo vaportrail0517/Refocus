@@ -12,8 +12,8 @@ import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.util.formatDurationMilliSecondsOrNull
 import com.example.refocus.core.util.formatDurationSeconds
-import com.example.refocus.ui.components.PresetOption
-import com.example.refocus.ui.components.PresetOptionRow
+import com.example.refocus.feature.customize.components.PresetOption
+import com.example.refocus.feature.customize.components.PresetOptionRow
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
 

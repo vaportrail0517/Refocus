@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.example.refocus.feature.common.permissions.rememberPermissionStatusProvider
-import com.example.refocus.ui.components.SearchBar
+import com.example.refocus.feature.appselect.components.SearchBar
 
 @Composable
 fun AppSelectScreen(

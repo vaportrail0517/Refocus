@@ -1,4 +1,4 @@
-package com.example.refocus.ui.components
+package com.example.refocus.feature.customize.dialogs
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background

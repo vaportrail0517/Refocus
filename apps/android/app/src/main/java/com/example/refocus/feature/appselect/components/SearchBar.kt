@@ -1,4 +1,4 @@
-package com.example.refocus.ui.components
+package com.example.refocus.feature.appselect.components
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions

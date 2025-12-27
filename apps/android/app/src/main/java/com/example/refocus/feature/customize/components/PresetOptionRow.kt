@@ -1,4 +1,4 @@
-package com.example.refocus.ui.components
+package com.example.refocus.feature.customize.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
