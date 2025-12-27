@@ -16,7 +16,7 @@ fun GraceTimeDialog(
     onDismiss: () -> Unit
 ) {
     val maxGraceMillis = 10 * 60_000L
-    val stepMillis = 30_000L
+    val stepMillis = 60_000L
 
     LongSliderDialog(
         title = "猶予時間",
@@ -26,7 +26,7 @@ fun GraceTimeDialog(
         step = stepMillis,
         initial = currentMillis,
         valueLabel = { value -> formatDurationMilliSeconds(value, zeroLabel = "なし") },
-        hintLabel = "0〜10分 / 30秒刻み",
+        hintLabel = "0〜10分 / 1分刻み",
         onConfirm = onConfirm,
         onDismiss = onDismiss,
     )

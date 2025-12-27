@@ -10,7 +10,7 @@ data class Customize(
     // --- オーバーレイ見た目 ---
     val minFontSizeSp: Float = CustomizeDefaults.MIN_FONT_SIZE_SP,
     val maxFontSizeSp: Float = CustomizeDefaults.MAX_FONT_SIZE_SP,
-    val timeToMaxMinutes: Int = CustomizeDefaults.TIME_TO_MAX_MINUTES,
+    val timeToMaxSeconds: Int = CustomizeDefaults.TIME_TO_MAX_SECONDS,
     val positionX: Int = CustomizeDefaults.POSITION_X,
     val positionY: Int = CustomizeDefaults.POSITION_Y,
     val touchMode: TimerTouchMode = CustomizeDefaults.TOUCH_MODE,

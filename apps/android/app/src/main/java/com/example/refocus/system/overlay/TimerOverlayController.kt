@@ -17,6 +17,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.util.TimeSource
+import com.example.refocus.core.util.formatDurationForTimerBubble
 import com.example.refocus.system.overlay.ui.TimerOverlay
 import com.example.refocus.ui.theme.RefocusTheme
 import kotlinx.coroutines.CoroutineScope
@@ -206,8 +207,8 @@ class TimerOverlayController(
                 RefocusTheme {
                     TimerOverlay(
                         customize = overlayCustomizeState,
-                        displayMillis = displayMillis,
                         visualMillis = visualMillis,
+                        text = formatDurationForTimerBubble(displayMillis),
                     )
                 }
             }

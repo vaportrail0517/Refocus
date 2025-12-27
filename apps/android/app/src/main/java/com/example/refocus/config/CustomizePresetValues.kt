@@ -12,7 +12,7 @@ object CustomizePresetValues {
         pollingIntervalMillis = CustomizeDefaults.POLLING_INTERVAL_MILLIS,
         minFontSizeSp = CustomizeDefaults.MIN_FONT_SIZE_SP,
         maxFontSizeSp = CustomizeDefaults.MAX_FONT_SIZE_SP,
-        timeToMaxMinutes = CustomizeDefaults.TIME_TO_MAX_MINUTES,
+        timeToMaxSeconds = CustomizeDefaults.TIME_TO_MAX_SECONDS,
         positionX = CustomizeDefaults.POSITION_X,
         positionY = CustomizeDefaults.POSITION_Y,
         touchMode = CustomizeDefaults.TOUCH_MODE,
@@ -41,7 +41,7 @@ object CustomizePresetValues {
         pollingIntervalMillis = 500L,
         minFontSizeSp = 32f,
         maxFontSizeSp = 96f,
-        timeToMaxMinutes = 1,
+        timeToMaxSeconds = 60,
 
         // 起動系はユーザ選好なので CustomizeDefaults をそのまま使う
 //        overlayEnabled = CustomizeDefaults.OVERLAY_ENABLED,

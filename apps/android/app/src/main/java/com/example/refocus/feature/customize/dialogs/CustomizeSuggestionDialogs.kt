@@ -2,6 +2,7 @@ package com.example.refocus.feature.customize.dialogs
 
 import androidx.compose.runtime.Composable
 import com.example.refocus.core.util.formatDurationSeconds
+import com.example.refocus.ui.components.DurationHmsPickerDialog
 import com.example.refocus.ui.components.LongSliderDialog
 
 @Composable
@@ -10,21 +11,19 @@ fun SuggestionTriggerTimeDialog(
     onConfirm: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    LongSliderDialog(
+    DurationHmsPickerDialog(
         title = "提案を出すまでのセッション継続時間",
         description = "対象アプリを連続して使い始めてから，どれくらい経過したら提案を行うかを設定します．",
-        min = 60L,
-        max = 60L * 30L,
-        step = 60L,
-        initial = currentSeconds.coerceIn(60, 60 * 60).toLong(),
-        valueLabel = { seconds -> formatDurationSeconds(seconds) },
-        hintLabel = "1〜30分 / 1分刻み",
-        onConfirm = { selectedSeconds ->
-            onConfirm(selectedSeconds.toInt())
+        initialSeconds = currentSeconds.coerceIn(60, 60 * 30),
+        minSeconds = 60,
+        maxSeconds = 60 * 30,
+        onConfirm = { seconds ->
+            onConfirm(seconds)
         },
         onDismiss = onDismiss,
     )
 }
+
 
 @Composable
 fun SuggestionForegroundStableDialog(

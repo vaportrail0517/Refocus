@@ -1,6 +1,22 @@
 package com.example.refocus.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -313,4 +329,182 @@ fun InfoDialog(
         onConfirm = onDismiss,
         onDismiss = onDismiss,
     )
+}
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun DurationHmsPickerDialog(
+    title: String,
+    description: String? = null,
+    initialSeconds: Int,
+    minSeconds: Int = 60,
+    maxSeconds: Int = 12 * 60 * 60,
+    confirmLabel: String = "保存",
+    dismissLabel: String = "キャンセル",
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val clampedInitial = initialSeconds.coerceIn(minSeconds, maxSeconds)
+
+    var hour by remember { mutableStateOf(clampedInitial / 3600) }
+    var minute by remember { mutableStateOf((clampedInitial % 3600) / 60) }
+    var second by remember { mutableStateOf(clampedInitial % 60) }
+
+    val maxHour = (maxSeconds / 3600).coerceAtLeast(0)
+
+    SettingsBaseDialog(
+        title = title,
+        description = description,
+        confirmLabel = confirmLabel,
+        dismissLabel = dismissLabel,
+        onConfirm = {
+            val total = hour * 3600 + minute * 60 + second
+            onConfirm(total.coerceIn(minSeconds, maxSeconds))
+        },
+        onDismiss = onDismiss,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            WheelNumberPicker(
+                label = "時間",
+                valueRange = 0..maxHour,
+                initialValue = hour,
+                valueFormatter = { it.toString() },
+                modifier = Modifier.weight(1f),
+                onValueChanged = { hour = it },
+            )
+
+            Text(
+                text = ":",
+                modifier = Modifier.padding(horizontal = 8.dp),
+                style = MaterialTheme.typography.titleMedium,
+            )
+
+            WheelNumberPicker(
+                label = "分",
+                valueRange = 0..59,
+                initialValue = minute,
+                valueFormatter = { "%02d".format(it) },
+                modifier = Modifier.weight(1f),
+                onValueChanged = { minute = it },
+            )
+
+            Text(
+                text = ":",
+                modifier = Modifier.padding(horizontal = 8.dp),
+                style = MaterialTheme.typography.titleMedium,
+            )
+
+            WheelNumberPicker(
+                label = "秒",
+                valueRange = 0..59,
+                initialValue = second,
+                valueFormatter = { "%02d".format(it) },
+                modifier = Modifier.weight(1f),
+                onValueChanged = { second = it },
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun WheelNumberPicker(
+    label: String,
+    valueRange: IntRange,
+    initialValue: Int,
+    valueFormatter: (Int) -> String,
+    modifier: Modifier = Modifier,
+    onValueChanged: (Int) -> Unit,
+) {
+    val itemHeight: Dp = 40.dp
+    val visibleCount = 5
+    val paddingCount = visibleCount / 2
+
+    val valuesCount = (valueRange.last - valueRange.first + 1).coerceAtLeast(1)
+    val initialIndex = (initialValue - valueRange.first).coerceIn(0, valuesCount - 1)
+
+    val state = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+    val fling = rememberSnapFlingBehavior(lazyListState = state)
+
+    val itemHeightPx = with(LocalDensity.current) { itemHeight.toPx() }
+
+    val selectedIndex by remember(state, itemHeightPx) {
+        derivedStateOf {
+            val offsetItems = ((state.firstVisibleItemScrollOffset + itemHeightPx / 2f) / itemHeightPx)
+                .roundToInt()
+            (state.firstVisibleItemIndex + offsetItems).coerceIn(0, valuesCount - 1)
+        }
+    }
+
+    val selectedValue = valueRange.first + selectedIndex
+
+    LaunchedEffect(state) {
+        snapshotFlow { selectedValue }
+            .distinctUntilChanged()
+            .collect { onValueChanged(it) }
+    }
+
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Box(
+            modifier = Modifier
+                .height(itemHeight * visibleCount.toFloat())
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            LazyColumn(
+                state = state,
+                flingBehavior = fling,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                val totalItems = valuesCount + paddingCount * 2
+                items(count = totalItems) { index ->
+                    val valueIndex = index - paddingCount
+                    val valueOrNull = if (valueIndex in 0 until valuesCount) {
+                        valueRange.first + valueIndex
+                    } else {
+                        null
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .height(itemHeight)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (valueOrNull != null) {
+                            val isSelected = valueOrNull == selectedValue
+                            Text(
+                                text = valueFormatter(valueOrNull),
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                ),
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(itemHeight)
+                    .clip(MaterialTheme.shapes.small)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+            )
+        }
+    }
 }

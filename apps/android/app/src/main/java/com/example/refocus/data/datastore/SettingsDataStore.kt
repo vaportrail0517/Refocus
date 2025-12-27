@@ -35,6 +35,9 @@ class SettingsDataStore(
         // --- オーバーレイ見た目 ---
         val MIN_FONT_SIZE_SP = floatPreferencesKey("min_font_size_sp")
         val MAX_FONT_SIZE_SP = floatPreferencesKey("max_font_size_sp")
+        val TIME_TO_MAX_SECONDS = intPreferencesKey("time_to_max_seconds")
+
+        // 旧: 分単位（後方互換のため読み込みのみ）
         val TIME_TO_MAX_MINUTES = intPreferencesKey("time_to_max_minutes")
         val POSITION_X = intPreferencesKey("overlay_position_x")
         val POSITION_Y = intPreferencesKey("overlay_position_y")
@@ -126,7 +129,8 @@ class SettingsDataStore(
             prefs[Keys.POLLING_INTERVAL_MS] = updated.pollingIntervalMillis
             prefs[Keys.MIN_FONT_SIZE_SP] = updated.minFontSizeSp
             prefs[Keys.MAX_FONT_SIZE_SP] = updated.maxFontSizeSp
-            prefs[Keys.TIME_TO_MAX_MINUTES] = updated.timeToMaxMinutes
+            prefs[Keys.TIME_TO_MAX_SECONDS] = updated.timeToMaxSeconds
+            prefs.remove(Keys.TIME_TO_MAX_MINUTES)
             prefs[Keys.OVERLAY_ENABLED] = updated.overlayEnabled
             prefs[Keys.AUTO_START_ON_BOOT] = updated.autoStartOnBoot
             prefs[Keys.POSITION_X] = updated.positionX
@@ -221,6 +225,10 @@ class SettingsDataStore(
             valueOf = { TimerColorMode.valueOf(it) },
         )
 
+        val timeToMaxSeconds = this[Keys.TIME_TO_MAX_SECONDS]
+            ?: this[Keys.TIME_TO_MAX_MINUTES]?.let { it * 60 }
+            ?: base.timeToMaxSeconds
+
         return base.copy(
             gracePeriodMillis = this[Keys.GRACE_PERIOD_MS]
                 ?: base.gracePeriodMillis,
@@ -230,8 +238,7 @@ class SettingsDataStore(
                 ?: base.minFontSizeSp,
             maxFontSizeSp = this[Keys.MAX_FONT_SIZE_SP]
                 ?: base.maxFontSizeSp,
-            timeToMaxMinutes = this[Keys.TIME_TO_MAX_MINUTES]
-                ?: base.timeToMaxMinutes,
+            timeToMaxSeconds = timeToMaxSeconds,
             overlayEnabled = this[Keys.OVERLAY_ENABLED]
                 ?: base.overlayEnabled,
             autoStartOnBoot = this[Keys.AUTO_START_ON_BOOT]

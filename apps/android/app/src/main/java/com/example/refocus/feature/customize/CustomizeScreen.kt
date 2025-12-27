@@ -260,9 +260,9 @@ fun CustomizeScreen(
 
                 CustomizeDialogType.TimeToMax -> {
                     TimeToMaxDialog(
-                        currentMinutes = uiState.customize.timeToMaxMinutes,
-                        onConfirm = { minutes ->
-                            viewModel.updateTimeToMaxMinutes(minutes)
+                        currentSeconds = uiState.customize.timeToMaxSeconds,
+                        onConfirm = { seconds ->
+                            viewModel.updateTimeToMaxSeconds(seconds)
                             activeDialog = null
                         },
                         onDismiss = { activeDialog = null }

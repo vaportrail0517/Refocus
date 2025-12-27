@@ -8,7 +8,7 @@ enum class TimerTouchMode {
 
 /**
  * タイマーの成長モード。
- * p: 0〜1（timeToMaxMinutes に対する経過割合）
+ * p: 0〜1（timeToMaxSeconds に対する経過割合）
  *
  * - Linear: 線形
  * - FastToSlow: 初めは速く、大きくなるにつれてゆっくり

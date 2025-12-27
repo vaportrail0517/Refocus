@@ -14,7 +14,15 @@ object CustomizeDefaults {
     // --- オーバーレイ見た目 ---
     const val MIN_FONT_SIZE_SP: Float = 16f
     const val MAX_FONT_SIZE_SP: Float = 64f
-    const val TIME_TO_MAX_MINUTES: Int = 15
+
+    const val TIME_TO_MAX_SECONDS: Int = 15 * 60
+
+    @Deprecated(
+        message = "Use TIME_TO_MAX_SECONDS",
+        replaceWith = ReplaceWith("TIME_TO_MAX_SECONDS / 60"),
+    )
+    const val TIME_TO_MAX_MINUTES: Int = TIME_TO_MAX_SECONDS / 60
+
     const val POSITION_X: Int = 24
     const val POSITION_Y: Int = 120
     val TOUCH_MODE: TimerTouchMode = TimerTouchMode.PassThrough

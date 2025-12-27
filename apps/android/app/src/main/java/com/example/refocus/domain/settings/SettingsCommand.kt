@@ -46,6 +46,9 @@ class SettingsCommand @Inject constructor(
         const val PollingIntervalMillis = "pollingIntervalMillis"
         const val MinFontSizeSp = "minFontSizeSp"
         const val MaxFontSizeSp = "maxFontSizeSp"
+        const val TimeToMaxSeconds = "timeToMaxSeconds"
+
+        // 旧キー: 既存のタイムラインイベント互換のため残す
         const val TimeToMaxMinutes = "timeToMaxMinutes"
         const val GrowthMode = "growthMode"
         const val ColorMode = "colorMode"

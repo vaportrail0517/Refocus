@@ -83,7 +83,7 @@ fun BasicCustomizeContent(
 
         SettingRow(
             title = "最大サイズになるまでの時間",
-            subtitle = "現在: ${settings.timeToMaxMinutes}分",
+            subtitle = "現在: ${formatDurationSeconds(settings.timeToMaxSeconds.toLong())}",
             onClick = onOpenTimeToMaxDialog,
         )
     }

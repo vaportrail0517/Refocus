@@ -6,7 +6,7 @@ import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
-import com.example.refocus.ui.components.IntInputDialog
+import com.example.refocus.ui.components.DurationHmsPickerDialog
 import com.example.refocus.ui.components.RangeSliderDialog
 import com.example.refocus.ui.components.SingleChoiceDialog
 
@@ -39,21 +39,22 @@ fun FontRangeDialog(
 }
 
 /**
- * タイマーが最大サイズになるまでの時間（分）のダイアログ．
+ * タイマーが最大サイズになるまでの時間のダイアログ．
+ *
+ * 時・分・秒のホイールピッカーで指定します．
  */
 @Composable
 fun TimeToMaxDialog(
-    currentMinutes: Int,
+    currentSeconds: Int,
     onConfirm: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    IntInputDialog(
+    DurationHmsPickerDialog(
         title = "最大サイズになるまでの時間",
-        description = "フォントが最大サイズになるまでの時間（分）を指定します．",
-        label = "時間（分）",
-        initialValue = currentMinutes,
-        minValue = 1,
-        maxValue = 720,
+        description = "フォントが最大サイズになるまでの時間を指定します．",
+        initialSeconds = currentSeconds,
+        minSeconds = 60,
+        maxSeconds = 12 * 60 * 60,
         onConfirm = onConfirm,
         onDismiss = onDismiss,
     )

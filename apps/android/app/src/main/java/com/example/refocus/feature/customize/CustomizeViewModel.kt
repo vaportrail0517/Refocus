@@ -133,11 +133,11 @@ class CustomizeViewModel @Inject constructor(
             newValueDescription = sp.toString(),
         ) { copy(maxFontSizeSp = sp) }
 
-    fun updateTimeToMaxMinutes(minutes: Int) =
+    fun updateTimeToMaxSeconds(seconds: Int) =
         updateSettingsAsCustom(
-            key = SettingsCommand.Keys.TimeToMaxMinutes,
-            newValueDescription = minutes.toString(),
-        ) { copy(timeToMaxMinutes = minutes) }
+            key = SettingsCommand.Keys.TimeToMaxSeconds,
+            newValueDescription = seconds.toString(),
+        ) { copy(timeToMaxSeconds = seconds) }
 
     fun updateOverlayTouchMode(mode: TimerTouchMode) {
         viewModelScope.launch {

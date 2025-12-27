@@ -39,19 +39,19 @@ object CustomizeBasicPresets {
         }?.key
 
     private val timeToMaxPresetMap: Map<TimeToMaxPreset, Int> = mapOf(
-        TimeToMaxPreset.Fast to 10,
-        TimeToMaxPreset.Normal to 15,
-        TimeToMaxPreset.Slow to 30,
+        TimeToMaxPreset.Fast to 10 * 60,
+        TimeToMaxPreset.Normal to 15 * 60,
+        TimeToMaxPreset.Slow to 30 * 60,
     )
 
     fun Customize.withTimeToMaxPreset(preset: TimeToMaxPreset): Customize {
-        val minutes = timeToMaxPresetMap[preset] ?: return this
-        return copy(timeToMaxMinutes = minutes)
+        val seconds = timeToMaxPresetMap[preset] ?: return this
+        return copy(timeToMaxSeconds = seconds)
     }
 
     fun timeToMaxPresetOrNull(customize: Customize): TimeToMaxPreset? =
         timeToMaxPresetMap.entries.firstOrNull {
-            it.value == customize.timeToMaxMinutes
+            it.value == customize.timeToMaxSeconds
         }?.key
 
     private val gracePresetMap: Map<GracePreset, Long> = mapOf(
