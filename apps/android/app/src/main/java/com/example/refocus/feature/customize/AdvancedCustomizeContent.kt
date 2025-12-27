@@ -1,17 +1,24 @@
 package com.example.refocus.feature.customize
 
 import androidx.compose.runtime.Composable
+import com.example.refocus.core.model.CustomizePreset
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
-import com.example.refocus.core.model.TimerVisualTimeBasis
+import com.example.refocus.core.util.formatDurationMilliSecondsOrNull
 import com.example.refocus.core.util.formatDurationSeconds
+import com.example.refocus.feature.customize.components.PresetOption
+import com.example.refocus.feature.customize.components.PresetOptionRow
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
 
 @Composable
 fun AdvancedCustomizeContent(
     uiState: CustomizeViewModel.UiState,
-    onOpenTimerVisualTimeBasisDialog: () -> Unit,
+    viewModel: CustomizeViewModel,
+    onOpenGraceDialog: () -> Unit,
+    onOpenFontDialog: () -> Unit,
+    onOpenTimeToMaxDialog: () -> Unit,
+    onOpenSuggestionTriggerDialog: () -> Unit,
     onOpenSuggestionForegroundStableDialog: () -> Unit,
     onOpenSuggestionCooldownDialog: () -> Unit,
     onOpenSuggestionTimeoutDialog: () -> Unit,
@@ -25,21 +32,26 @@ fun AdvancedCustomizeContent(
 ) {
     val settings = uiState.customize
 
-    SectionCard(title = "タイマーの変化") {
+    SectionCard(title = "セッション") {
+        val formattedGraceTime = formatDurationMilliSecondsOrNull(settings.gracePeriodMillis)
         SettingRow(
-            title = "色とサイズの変化の基準",
-            subtitle = when (settings.timerVisualTimeBasis) {
-                TimerVisualTimeBasis.SessionElapsed ->
-                    "現在: 論理セッションの経過時間を基準に、色とサイズが変化します。"
-
-                TimerVisualTimeBasis.FollowDisplayTime ->
-                    "現在: タイマーに表示している時間を基準に、色とサイズが変化します。"
+            title = "セッションの停止猶予時間",
+            subtitle = if (formattedGraceTime.isNullOrEmpty()) {
+                "現在: 猶予なし（対象アプリを離れたらセッションを終了します）。"
+            } else {
+                "現在: ${formattedGraceTime}以内に対象アプリへ戻れば同じセッションとして扱います。"
             },
-            onClick = onOpenTimerVisualTimeBasisDialog,
+            onClick = onOpenGraceDialog,
         )
     }
 
     SectionCard(title = "タイマーの成長") {
+        SettingRow(
+            title = "最大サイズになるまでの時間",
+            subtitle = "現在: ${formatDurationSeconds(settings.timeToMaxSeconds.toLong())}",
+            onClick = onOpenTimeToMaxDialog,
+        )
+
         SettingRow(
             title = "タイマーの成長モード",
             subtitle = when (settings.growthMode) {
@@ -58,6 +70,15 @@ fun AdvancedCustomizeContent(
             onClick = onOpenGrowthModeDialog,
         )
     }
+
+    SectionCard(title = "タイマーのサイズ") {
+        SettingRow(
+            title = "文字サイズ",
+            subtitle = "現在: 最小 ${settings.minFontSizeSp.toInt()}sp / 最大 ${settings.maxFontSizeSp.toInt()}sp",
+            onClick = onOpenFontDialog,
+        )
+    }
+
     SectionCard(title = "タイマーの色") {
         SettingRow(
             title = "タイマーの色モード",
@@ -133,6 +154,16 @@ fun AdvancedCustomizeContent(
 
     SectionCard(title = "提案の詳細") {
         SettingRow(
+            title = "提案するまでの時間",
+            subtitle = buildString {
+                append("現在: 対象アプリの利用を開始してから")
+                append(formatDurationSeconds(settings.suggestionTriggerSeconds.toLong()))
+                append("以上で提案します。")
+            },
+            onClick = onOpenSuggestionTriggerDialog,
+        )
+
+        SettingRow(
             title = "提案を出すために必要な対象アプリが連続して前面にいる時間",
             subtitle = "現在: ${formatDurationSeconds(settings.suggestionForegroundStableSeconds.toLong())}以上経過してから提案します。",
             onClick = onOpenSuggestionForegroundStableDialog,
@@ -155,6 +186,45 @@ fun AdvancedCustomizeContent(
             title = "提案表示直後の誤タップ防止時間",
             subtitle = "現在: 表示してから${settings.suggestionInteractionLockoutMillis} ms の間、提案カードを消せなくします。",
             onClick = onOpenSuggestionInteractionLockoutDialog,
+        )
+    }
+
+    // --- プリセット（管理） ---
+    val presetOptions = listOf(
+        PresetOption(CustomizePreset.Default, "Default"),
+        PresetOption(CustomizePreset.Custom, "Custom"),
+        PresetOption(CustomizePreset.Debug, "Debug"),
+    )
+    val subtitleDescription = when (uiState.preset) {
+        CustomizePreset.Default -> "標準的なバランスの設定です。"
+        CustomizePreset.Debug -> "動作確認やデバッグに便利な設定です。"
+        CustomizePreset.Custom -> "一部の値がプリセットから変更されています。"
+    }
+    PresetOptionRow(
+        title = "現在のプリセット",
+        currentPreset = uiState.preset,
+        options = presetOptions,
+        currentValueDescription = subtitleDescription,
+        onPresetSelected = { preset ->
+            when (preset) {
+                CustomizePreset.Default -> viewModel.applyPreset(CustomizePreset.Default)
+                CustomizePreset.Debug -> viewModel.applyPreset(CustomizePreset.Debug)
+                CustomizePreset.Custom -> viewModel.setPresetCustom()
+            }
+        },
+    )
+
+    // 将来的に「ユーザが保存したプリセット」を扱う場合は，このセクションを本実装に置き換える想定です．
+    SectionCard(title = "マイプリセット（準備中）") {
+        SettingRow(
+            title = "現在の設定を保存",
+            subtitle = "今後追加予定です。",
+            onClick = {},
+        )
+        SettingRow(
+            title = "保存したプリセットを管理",
+            subtitle = "今後追加予定です。",
+            onClick = {},
         )
     }
 }

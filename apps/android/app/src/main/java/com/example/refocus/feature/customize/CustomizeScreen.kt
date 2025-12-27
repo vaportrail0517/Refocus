@@ -155,6 +155,26 @@ fun CustomizeScreen(
                                 BasicCustomizeContent(
                                     uiState = uiState,
                                     viewModel = viewModel,
+                                    onOpenTimerTimeModeDialog = {
+                                        activeDialog = CustomizeDialogType.TimerTimeDisplayMode
+                                    },
+                                    onOpenTimerVisualTimeBasisDialog = {
+                                        activeDialog = CustomizeDialogType.TimerVisualTimeBasis
+                                    },
+                                    onOpenPresetManager = {
+                                        scope.launch {
+                                            val target = tabs.indexOf(CustomizeTab.Advanced).coerceAtLeast(0)
+                                            pagerState.animateScrollToPage(target)
+                                            advancedScrollState.animateScrollTo(0)
+                                        }
+                                    },
+                                )
+                            }
+
+                            CustomizeTab.Advanced -> {
+                                AdvancedCustomizeContent(
+                                    uiState = uiState,
+                                    viewModel = viewModel,
                                     onOpenGraceDialog = {
                                         activeDialog = CustomizeDialogType.GraceTime
                                     },
@@ -166,20 +186,8 @@ fun CustomizeScreen(
                                     onOpenTimeToMaxDialog = {
                                         activeDialog = CustomizeDialogType.TimeToMax
                                     },
-                                    onOpenTimerTimeModeDialog = {
-                                        activeDialog = CustomizeDialogType.TimerTimeDisplayMode
-                                    },
                                     onOpenSuggestionTriggerDialog = {
                                         activeDialog = CustomizeDialogType.SuggestionTriggerTime
-                                    },
-                                )
-                            }
-
-                            CustomizeTab.Advanced -> {
-                                AdvancedCustomizeContent(
-                                    uiState = uiState,
-                                    onOpenTimerVisualTimeBasisDialog = {
-                                        activeDialog = CustomizeDialogType.TimerVisualTimeBasis
                                     },
                                     onOpenSuggestionForegroundStableDialog = {
                                         activeDialog = CustomizeDialogType.SuggestionForegroundStable
