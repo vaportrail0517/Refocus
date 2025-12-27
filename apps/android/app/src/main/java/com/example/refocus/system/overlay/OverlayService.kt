@@ -11,7 +11,6 @@ import android.service.quicksettings.TileService
 import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import com.example.refocus.system.overlay.OverlayCoordinator
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.util.TimeSource
@@ -34,6 +33,7 @@ import com.example.refocus.system.overlay.service.OverlayServiceNotificationDriv
 import com.example.refocus.system.overlay.service.OverlayServiceRunSupervisor
 import com.example.refocus.system.permissions.PermissionHelper
 import com.example.refocus.system.permissions.PermissionStateWatcher
+import com.example.refocus.system.tile.QsTileStateBroadcaster
 import com.example.refocus.system.tile.RefocusTileService
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -67,26 +67,37 @@ class OverlayService : LifecycleService() {
 
     @Inject
     lateinit var timeSource: TimeSource
+
     @Inject
     lateinit var targetsRepository: TargetsRepository
+
     @Inject
     lateinit var settingsRepository: SettingsRepository
+
     @Inject
     lateinit var settingsCommand: SettingsCommand
+
     @Inject
     lateinit var suggestionsRepository: SuggestionsRepository
+
     @Inject
     lateinit var foregroundAppObserver: ForegroundAppObserver
+
     @Inject
     lateinit var suggestionEngine: SuggestionEngine
+
     @Inject
     lateinit var suggestionSelector: SuggestionSelector
+
     @Inject
     lateinit var eventRecorder: EventRecorder
+
     @Inject
     lateinit var permissionStateWatcher: PermissionStateWatcher
+
     @Inject
     lateinit var timelineRepository: TimelineRepository
+
     @Inject
     lateinit var appLabelResolver: AppLabelResolver
 
@@ -171,6 +182,7 @@ class OverlayService : LifecycleService() {
         ).also { it.start() }
 
         requestTileStateRefresh()
+        QsTileStateBroadcaster.notifyExpectedRunning(this, expectedRunning = true)
 
         if (!canRunOverlay()) {
             RefocusLog.w(TAG) { "canRunOverlay = false. stopSelf()" }
@@ -269,6 +281,7 @@ class OverlayService : LifecycleService() {
         runSupervisor = null
 
         requestTileStateRefresh()
+        QsTileStateBroadcaster.notifyExpectedRunning(this, expectedRunning = false)
         serviceScope.cancel()
         super.onDestroy()
     }
@@ -313,6 +326,8 @@ class OverlayService : LifecycleService() {
         if (isStopping) return
         isStopping = true
 
+        QsTileStateBroadcaster.notifyExpectedRunning(this, expectedRunning = false)
+
         // 先に通知更新を止めてから foreground を外す
         notificationDriver?.stop()
         removeForegroundNotification()
@@ -326,6 +341,8 @@ class OverlayService : LifecycleService() {
     private fun stopFromUserAction() {
         if (isStopping) return
         isStopping = true
+
+        QsTileStateBroadcaster.notifyExpectedRunning(this, expectedRunning = false)
 
         // 先に通知更新を止め，ユーザー操作の体感を良くする
         notificationDriver?.stop()
@@ -368,15 +385,13 @@ class OverlayService : LifecycleService() {
     }
 
     private fun requestTileStateRefresh() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            try {
-                TileService.requestListeningState(
-                    this,
-                    ComponentName(this, RefocusTileService::class.java),
-                )
-            } catch (e: Exception) {
-                RefocusLog.w(TAG, e) { "Failed to request QS tile state refresh" }
-            }
+        try {
+            TileService.requestListeningState(
+                this,
+                ComponentName(this, RefocusTileService::class.java),
+            )
+        } catch (e: Exception) {
+            RefocusLog.w(TAG, e) { "Failed to request QS tile state refresh" }
         }
     }
 }

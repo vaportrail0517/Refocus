@@ -2,13 +2,16 @@ package com.example.refocus.system.tile
 
 import android.annotation.SuppressLint
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import com.example.refocus.core.logging.RefocusLog
-import com.example.refocus.system.AppLaunchIntents
 import com.example.refocus.domain.settings.SettingsCommand
+import com.example.refocus.system.AppLaunchIntents
 import com.example.refocus.system.overlay.OverlayService
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.overlay.stopOverlayService
@@ -33,9 +36,50 @@ class RefocusTileService : TileService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    private var isTileReceiverRegistered: Boolean = false
+
+    private val tileStateReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != QsTileStateBroadcaster.ACTION_TILE_STATE_CHANGED) return
+            val expectedRunning = intent.getBooleanExtra(
+                QsTileStateBroadcaster.EXTRA_EXPECTED_RUNNING,
+                OverlayService.isRunning,
+            )
+            updateTile(runningOverride = expectedRunning)
+        }
+    }
+
+    private fun registerTileStateReceiverIfNeeded() {
+        if (isTileReceiverRegistered) return
+        val filter = IntentFilter(QsTileStateBroadcaster.ACTION_TILE_STATE_CHANGED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(tileStateReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(tileStateReceiver, filter)
+        }
+        isTileReceiverRegistered = true
+    }
+
+    private fun unregisterTileStateReceiverIfNeeded() {
+        if (!isTileReceiverRegistered) return
+        try {
+            unregisterReceiver(tileStateReceiver)
+        } catch (_: IllegalArgumentException) {
+        } finally {
+            isTileReceiverRegistered = false
+        }
+    }
+
     override fun onStartListening() {
         super.onStartListening()
+        registerTileStateReceiverIfNeeded()
         updateTile()
+    }
+
+    override fun onStopListening() {
+        super.onStopListening()
+        unregisterTileStateReceiverIfNeeded()
     }
 
     override fun onClick() {
@@ -86,6 +130,7 @@ class RefocusTileService : TileService() {
     }
 
     override fun onDestroy() {
+        unregisterTileStateReceiverIfNeeded()
         super.onDestroy()
         scope.cancel()
     }
