@@ -5,11 +5,11 @@ import android.app.Activity
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Process
 import android.provider.Settings
 import androidx.core.content.ContextCompat
-import android.content.pm.PackageManager
 import androidx.core.net.toUri
 
 object PermissionHelper {

@@ -10,13 +10,13 @@ import com.example.refocus.core.model.ScreenState
 import com.example.refocus.core.model.ServiceLifecycleEvent
 import com.example.refocus.core.model.ServiceState
 import com.example.refocus.core.model.TargetAppsChangedEvent
-import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimelineEvent
+import com.example.refocus.core.model.TimerTimeMode
+import com.example.refocus.domain.overlay.usecase.DailyUsageUseCase
 import com.example.refocus.testutil.BlockingTimelineRepository
 import com.example.refocus.testutil.FakeTimelineRepository
 import com.example.refocus.testutil.TestTimeSource
 import com.example.refocus.testutil.UtcTimeZoneRule
-import java.time.Instant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -25,6 +25,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import java.time.Instant
 
 class DailyUsageUseCaseTest {
 
@@ -118,7 +119,8 @@ class DailyUsageUseCaseTest {
         val afterMidnight = Instant.parse("2025-01-02T00:00:01Z").toEpochMilli()
 
         val repo = BlockingTimelineRepository(initialEvents = emptyList<TimelineEvent>())
-        val timeSource = TestTimeSource(initialNowMillis = afterMidnight, initialElapsedRealtime = 0L)
+        val timeSource =
+            TestTimeSource(initialNowMillis = afterMidnight, initialElapsedRealtime = 0L)
 
         val useCase = DailyUsageUseCase(
             scope = CoroutineScope(Dispatchers.Unconfined),
@@ -210,7 +212,8 @@ class DailyUsageUseCaseTest {
         )
 
         val repo = BlockingTimelineRepository(initialEvents = events)
-        val timeSource = TestTimeSource(initialNowMillis = now + 1_000L, initialElapsedRealtime = 0L)
+        val timeSource =
+            TestTimeSource(initialNowMillis = now + 1_000L, initialElapsedRealtime = 0L)
 
         val useCase = DailyUsageUseCase(
             scope = CoroutineScope(Dispatchers.Unconfined),

@@ -20,8 +20,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
@@ -84,7 +84,8 @@ class DefaultStatsUseCase @Inject constructor(
             Triple(settings, targets, today)
         }.flatMapLatest { (settings, _, today) ->
             val startOfDay = today.atStartOfDay(zoneId).toInstant().toEpochMilli()
-            val endOfDayExclusive = today.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+            val endOfDayExclusive =
+                today.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
             val windowStart = (startOfDay - statsLookbackMillis).coerceAtLeast(0L)
 
             windowLoader.observeWithSeed(

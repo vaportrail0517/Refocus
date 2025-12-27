@@ -2,10 +2,22 @@ package com.example.refocus.app.overlay
 
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
-import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.domain.overlay.*
 import com.example.refocus.domain.gateway.ForegroundAppObserver
+import com.example.refocus.domain.overlay.engine.OverlayEvent
+import com.example.refocus.domain.overlay.engine.OverlayState
+import com.example.refocus.domain.overlay.engine.OverlayStateTransitioner
+import com.example.refocus.domain.overlay.model.OverlayPresentationState
+import com.example.refocus.domain.overlay.model.OverlayRuntimeState
+import com.example.refocus.domain.overlay.orchestration.ForegroundTrackingOrchestrator
+import com.example.refocus.domain.overlay.orchestration.OverlaySessionLifecycle
+import com.example.refocus.domain.overlay.orchestration.OverlaySessionTracker
+import com.example.refocus.domain.overlay.orchestration.OverlaySettingsObserver
+import com.example.refocus.domain.overlay.orchestration.SessionBootstrapper
+import com.example.refocus.domain.overlay.orchestration.SuggestionOrchestrator
+import com.example.refocus.domain.overlay.policy.OverlayTimerDisplayCalculator
+import com.example.refocus.domain.overlay.port.OverlayUiGateway
+import com.example.refocus.domain.overlay.usecase.DailyUsageUseCase
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.repository.TargetsRepository
@@ -27,7 +39,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -107,7 +118,6 @@ class OverlayCoordinator(
     )
 
 
-
     private val sessionLifecycle = OverlaySessionLifecycle(
         scope = scope,
         timeSource = timeSource,
@@ -183,7 +193,8 @@ class OverlayCoordinator(
             runtimeState.map { it.customize.timerTimeMode }.distinctUntilChanged(),
             presentationTick,
         ) { trackingPkg, timerVisible, touchMode, timerTimeMode, _ ->
-            val displayMillis = trackingPkg?.let { timerDisplayCalculator.currentTimerDisplayMillis(it) }
+            val displayMillis =
+                trackingPkg?.let { timerDisplayCalculator.currentTimerDisplayMillis(it) }
             OverlayPresentationState(
                 trackingPackage = trackingPkg,
                 timerDisplayMillis = displayMillis,
@@ -247,7 +258,6 @@ class OverlayCoordinator(
      */
     fun currentTimerDisplayMillis(): Long? =
         timerDisplayCalculator.currentTimerDisplayMillis(runtimeState.value.trackingPackage)
-
 
 
     /**

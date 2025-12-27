@@ -2,16 +2,16 @@ package com.example.refocus.domain.settings
 
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.CustomizePreset
+import com.example.refocus.core.model.ServiceConfigKind
+import com.example.refocus.core.model.ServiceConfigState
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
-import com.example.refocus.core.model.ServiceConfigKind
-import com.example.refocus.core.model.ServiceConfigState
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.timeline.EventRecorder
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.flow.first
 
 /**
  * 設定変更の入口をここに集約するためのコマンド層．

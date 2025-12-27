@@ -1,5 +1,6 @@
 package com.example.refocus.data.repository
 
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.ForegroundAppEvent
 import com.example.refocus.core.model.PermissionEvent
 import com.example.refocus.core.model.PermissionKind
@@ -17,7 +18,6 @@ import com.example.refocus.core.model.SuggestionDecisionEvent
 import com.example.refocus.core.model.SuggestionShownEvent
 import com.example.refocus.core.model.TargetAppsChangedEvent
 import com.example.refocus.core.model.TimelineEvent
-import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.data.db.dao.TimelineEventDao
 import com.example.refocus.data.db.entity.TimelineEventEntity
 import com.example.refocus.domain.repository.TimelineRepository
@@ -67,8 +67,10 @@ class TimelineRepositoryImpl(
 
         dao.getLatestEventOfKindBefore(KIND_SERVICE, beforeMillis)?.let { seedEntities += it }
         dao.getLatestEventOfKindBefore(KIND_SCREEN, beforeMillis)?.let { seedEntities += it }
-        dao.getLatestEventOfKindBefore(KIND_FOREGROUND_APP, beforeMillis)?.let { seedEntities += it }
-        dao.getLatestEventOfKindBefore(KIND_TARGET_APPS_CHANGED, beforeMillis)?.let { seedEntities += it }
+        dao.getLatestEventOfKindBefore(KIND_FOREGROUND_APP, beforeMillis)
+            ?.let { seedEntities += it }
+        dao.getLatestEventOfKindBefore(KIND_TARGET_APPS_CHANGED, beforeMillis)
+            ?.let { seedEntities += it }
 
         // Permission は permissionKind ごとに直前 1 件が欲しい。
         // SQL 側で group by するより，件数が小さいことを前提に Kotlin 側でユニーク化する。

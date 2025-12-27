@@ -1,11 +1,11 @@
 package com.example.refocus.feature.settings
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
-import android.Manifest
 import android.os.Build
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -34,17 +34,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.refocus.feature.common.overlay.rememberOverlayServiceStatusProvider
+import com.example.refocus.domain.overlay.port.OverlayServiceController
 import com.example.refocus.feature.common.overlay.rememberOverlayServiceController
-import com.example.refocus.feature.common.permissions.rememberPermissionUiState
-import com.example.refocus.feature.common.permissions.rememberPermissionStatusProvider
+import com.example.refocus.feature.common.overlay.rememberOverlayServiceStatusProvider
 import com.example.refocus.feature.common.permissions.rememberPermissionNavigator
+import com.example.refocus.feature.common.permissions.rememberPermissionStatusProvider
+import com.example.refocus.feature.common.permissions.rememberPermissionUiState
 import com.example.refocus.feature.common.permissions.toPermissionUiState
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
-import kotlinx.coroutines.launch
-import com.example.refocus.domain.overlay.OverlayServiceController
 import com.example.refocus.ui.gateway.PermissionNavigator
+import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class)

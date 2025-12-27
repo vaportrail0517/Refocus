@@ -27,13 +27,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.example.refocus.feature.common.permissions.rememberPermissionStatusProvider
 import com.example.refocus.feature.appselect.components.SearchBar
+import com.example.refocus.feature.common.permissions.rememberPermissionStatusProvider
 
 @Composable
 fun AppSelectScreen(

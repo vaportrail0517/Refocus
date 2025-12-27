@@ -1,6 +1,7 @@
 package com.example.refocus.domain.overlay
 
 import com.example.refocus.core.util.TimeSource
+import com.example.refocus.domain.overlay.orchestration.OverlaySessionTracker
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

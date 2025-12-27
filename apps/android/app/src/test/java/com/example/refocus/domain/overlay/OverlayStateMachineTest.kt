@@ -1,6 +1,9 @@
 package com.example.refocus.domain.overlay
 
 import com.example.refocus.core.model.Customize
+import com.example.refocus.domain.overlay.engine.OverlayEvent
+import com.example.refocus.domain.overlay.engine.OverlayState
+import com.example.refocus.domain.overlay.engine.OverlayStateMachine
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

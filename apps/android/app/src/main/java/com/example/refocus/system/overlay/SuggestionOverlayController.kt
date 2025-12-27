@@ -2,7 +2,6 @@ package com.example.refocus.system.overlay
 
 import android.content.Context
 import android.graphics.PixelFormat
-import com.example.refocus.core.logging.RefocusLog
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -10,6 +9,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.SuggestionMode
 import com.example.refocus.system.overlay.ui.SuggestionOverlay
 import com.example.refocus.ui.theme.RefocusTheme

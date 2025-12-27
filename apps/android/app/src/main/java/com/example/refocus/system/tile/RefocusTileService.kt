@@ -6,8 +6,8 @@ import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.app.MainActivity
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.domain.settings.SettingsCommand
 import com.example.refocus.system.overlay.OverlayService
 import com.example.refocus.system.overlay.startOverlayService
@@ -52,9 +52,16 @@ class RefocusTileService : TileService() {
         if (currentlyRunning) {
             scope.launch {
                 try {
-                    settingsCommand.setOverlayEnabled(enabled = false, source = "tile", reason = "toggle_off")
+                    settingsCommand.setOverlayEnabled(
+                        enabled = false,
+                        source = "tile",
+                        reason = "toggle_off"
+                    )
                 } catch (e: Exception) {
-                    RefocusLog.e(TAG, e) { "Failed to set overlayEnabled=false via SettingsCommand" }
+                    RefocusLog.e(
+                        TAG,
+                        e
+                    ) { "Failed to set overlayEnabled=false via SettingsCommand" }
                 }
                 context.stopOverlayService()
                 // サービスの onDestroy より先に UI を更新できるように，期待値で反映する．
@@ -63,7 +70,11 @@ class RefocusTileService : TileService() {
         } else {
             scope.launch {
                 try {
-                    settingsCommand.setOverlayEnabled(enabled = true, source = "tile", reason = "toggle_on")
+                    settingsCommand.setOverlayEnabled(
+                        enabled = true,
+                        source = "tile",
+                        reason = "toggle_on"
+                    )
                 } catch (e: Exception) {
                     RefocusLog.e(TAG, e) { "Failed to set overlayEnabled=true via SettingsCommand" }
                 }

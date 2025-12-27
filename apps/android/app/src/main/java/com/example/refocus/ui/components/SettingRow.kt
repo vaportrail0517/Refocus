@@ -1,7 +1,12 @@
 package com.example.refocus.ui.components
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Icon
@@ -54,6 +59,7 @@ fun SettingRow(
                 Spacer(modifier = Modifier.width(8.dp))
                 trailing()
             }
+
             onClick != null -> {
                 Icon(
                     imageVector = Icons.Default.ChevronRight,

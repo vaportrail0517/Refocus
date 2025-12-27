@@ -1,6 +1,7 @@
-package com.example.refocus.domain.overlay
+package com.example.refocus.domain.overlay.model
 
 import com.example.refocus.core.model.Customize
+import com.example.refocus.domain.overlay.engine.OverlayState
 
 /**
  * OverlayCoordinator が保持する「ランタイム状態」を 1 つの StateFlow で集約するためのモデル．

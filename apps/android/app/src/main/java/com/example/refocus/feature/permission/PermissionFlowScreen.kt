@@ -3,16 +3,18 @@ package com.example.refocus.feature.permission
 import android.Manifest
 import android.app.Activity
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -24,8 +26,6 @@ import com.example.refocus.core.model.PermissionSnapshot
 import com.example.refocus.feature.common.permissions.rememberPermissionNavigator
 import com.example.refocus.feature.common.permissions.rememberPermissionStatusProvider
 import com.example.refocus.ui.components.OnboardingPage
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 
 enum class PermissionType {
     UsageAccess,

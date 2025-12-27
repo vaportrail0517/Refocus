@@ -6,9 +6,9 @@ import com.example.refocus.core.model.PermissionKind
 import com.example.refocus.core.model.PermissionState
 import com.example.refocus.core.model.ScreenEvent
 import com.example.refocus.core.model.ScreenState
+import com.example.refocus.core.model.ServiceConfigEvent
 import com.example.refocus.core.model.ServiceLifecycleEvent
 import com.example.refocus.core.model.ServiceState
-import com.example.refocus.core.model.ServiceConfigEvent
 import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionEventType

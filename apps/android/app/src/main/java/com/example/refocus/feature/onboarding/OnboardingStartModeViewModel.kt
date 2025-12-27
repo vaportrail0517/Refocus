@@ -2,7 +2,7 @@ package com.example.refocus.feature.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.refocus.domain.overlay.OverlayServiceController
+import com.example.refocus.domain.overlay.port.OverlayServiceController
 import com.example.refocus.domain.settings.SettingsCommand
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch

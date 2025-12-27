@@ -3,7 +3,7 @@ package com.example.refocus.feature.common.overlay
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import com.example.refocus.domain.overlay.OverlayServiceStatusProvider
+import com.example.refocus.domain.overlay.port.OverlayServiceStatusProvider
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors

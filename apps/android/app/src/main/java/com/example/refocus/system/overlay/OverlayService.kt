@@ -11,11 +11,11 @@ import android.service.quicksettings.TileService
 import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import com.example.refocus.app.overlay.OverlayCoordinator
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.gateway.ForegroundAppObserver
-import com.example.refocus.app.overlay.OverlayCoordinator
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.repository.TargetsRepository
@@ -27,13 +27,13 @@ import com.example.refocus.domain.timeline.EventRecorder
 import com.example.refocus.system.appinfo.AppLabelResolver
 import com.example.refocus.system.notification.OverlayNotificationUiState
 import com.example.refocus.system.notification.OverlayServiceNotificationController
-import com.example.refocus.system.permissions.PermissionHelper
-import com.example.refocus.system.permissions.PermissionStateWatcher
 import com.example.refocus.system.overlay.service.OverlayCorePermissionSupervisor
 import com.example.refocus.system.overlay.service.OverlayScreenStateReceiver
 import com.example.refocus.system.overlay.service.OverlayServiceIntentHandler
 import com.example.refocus.system.overlay.service.OverlayServiceNotificationDriver
 import com.example.refocus.system.overlay.service.OverlayServiceRunSupervisor
+import com.example.refocus.system.permissions.PermissionHelper
+import com.example.refocus.system.permissions.PermissionStateWatcher
 import com.example.refocus.system.tile.RefocusTileService
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -65,18 +65,30 @@ class OverlayService : LifecycleService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    @Inject lateinit var timeSource: TimeSource
-    @Inject lateinit var targetsRepository: TargetsRepository
-    @Inject lateinit var settingsRepository: SettingsRepository
-    @Inject lateinit var settingsCommand: SettingsCommand
-    @Inject lateinit var suggestionsRepository: SuggestionsRepository
-    @Inject lateinit var foregroundAppObserver: ForegroundAppObserver
-    @Inject lateinit var suggestionEngine: SuggestionEngine
-    @Inject lateinit var suggestionSelector: SuggestionSelector
-    @Inject lateinit var eventRecorder: EventRecorder
-    @Inject lateinit var permissionStateWatcher: PermissionStateWatcher
-    @Inject lateinit var timelineRepository: TimelineRepository
-    @Inject lateinit var appLabelResolver: AppLabelResolver
+    @Inject
+    lateinit var timeSource: TimeSource
+    @Inject
+    lateinit var targetsRepository: TargetsRepository
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+    @Inject
+    lateinit var settingsCommand: SettingsCommand
+    @Inject
+    lateinit var suggestionsRepository: SuggestionsRepository
+    @Inject
+    lateinit var foregroundAppObserver: ForegroundAppObserver
+    @Inject
+    lateinit var suggestionEngine: SuggestionEngine
+    @Inject
+    lateinit var suggestionSelector: SuggestionSelector
+    @Inject
+    lateinit var eventRecorder: EventRecorder
+    @Inject
+    lateinit var permissionStateWatcher: PermissionStateWatcher
+    @Inject
+    lateinit var timelineRepository: TimelineRepository
+    @Inject
+    lateinit var appLabelResolver: AppLabelResolver
 
     private lateinit var timerOverlayController: TimerOverlayController
     private lateinit var suggestionOverlayController: SuggestionOverlayController
@@ -168,7 +180,10 @@ class OverlayService : LifecycleService() {
                     try {
                         permissionStateWatcher.checkAndRecord()
                     } catch (e: Exception) {
-                        RefocusLog.e(TAG, e) { "Failed to check/record permission state before stopping" }
+                        RefocusLog.e(
+                            TAG,
+                            e
+                        ) { "Failed to check/record permission state before stopping" }
                     }
                     settingsCommand.setOverlayEnabled(
                         enabled = false,
@@ -318,7 +333,11 @@ class OverlayService : LifecycleService() {
 
         lifecycleScope.launch {
             try {
-                settingsCommand.setOverlayEnabled(enabled = false, source = "service", reason = "user_stop")
+                settingsCommand.setOverlayEnabled(
+                    enabled = false,
+                    source = "service",
+                    reason = "user_stop"
+                )
             } catch (e: Exception) {
                 RefocusLog.e(TAG, e) { "Failed to disable overlay on user stop" }
             }

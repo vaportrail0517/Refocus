@@ -10,11 +10,11 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Process
-import com.example.refocus.core.logging.RefocusLog
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.refocus.R
 import com.example.refocus.app.MainActivity
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.system.overlay.OverlayService
 
@@ -60,7 +60,12 @@ class OverlayServiceNotificationController(
         } catch (e: SecurityException) {
             // POST_NOTIFICATIONS が拒否されている場合などは notify が失敗しうる．
             // Refocus は通知なしでも動作させる方針なので，例外は握りつぶす．
-            RefocusLog.wRateLimited("Notification", "post_failed", 60_000L, e) { "Failed to post notification (permission missing?)" }
+            RefocusLog.wRateLimited(
+                "Notification",
+                "post_failed",
+                60_000L,
+                e
+            ) { "Failed to post notification (permission missing?)" }
         }
     }
 
@@ -69,7 +74,12 @@ class OverlayServiceNotificationController(
         try {
             NotificationManagerCompat.from(context).cancel(notificationId)
         } catch (e: SecurityException) {
-            RefocusLog.wRateLimited("Notification", "cancel_failed", 60_000L, e) { "Failed to cancel notification (permission missing?)" }
+            RefocusLog.wRateLimited(
+                "Notification",
+                "cancel_failed",
+                60_000L,
+                e
+            ) { "Failed to cancel notification (permission missing?)" }
         }
     }
 
@@ -152,14 +162,20 @@ class OverlayServiceNotificationController(
             builder.addAction(
                 0,
                 toggleTimerLabel,
-                servicePendingIntent(OverlayService.ACTION_TOGGLE_TIMER_VISIBILITY, REQUEST_TOGGLE_TIMER)
+                servicePendingIntent(
+                    OverlayService.ACTION_TOGGLE_TIMER_VISIBILITY,
+                    REQUEST_TOGGLE_TIMER
+                )
             )
 
             if (state.isTimerVisible) {
                 builder.addAction(
                     0,
                     context.getString(R.string.notification_action_toggle_touch_mode),
-                    servicePendingIntent(OverlayService.ACTION_TOGGLE_TOUCH_MODE, REQUEST_TOGGLE_TOUCH_MODE)
+                    servicePendingIntent(
+                        OverlayService.ACTION_TOGGLE_TOUCH_MODE,
+                        REQUEST_TOGGLE_TOUCH_MODE
+                    )
                 )
             }
         }

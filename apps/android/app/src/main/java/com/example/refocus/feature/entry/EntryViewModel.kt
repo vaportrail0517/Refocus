@@ -1,10 +1,10 @@
 package com.example.refocus.feature.entry
 
 import androidx.lifecycle.ViewModel
-import com.example.refocus.core.logging.RefocusLog
 import androidx.lifecycle.viewModelScope
-import com.example.refocus.domain.targets.EnsureAppCatalogForCurrentTargetsUseCase
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.domain.repository.OnboardingRepository
+import com.example.refocus.domain.targets.EnsureAppCatalogForCurrentTargetsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow

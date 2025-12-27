@@ -3,7 +3,7 @@ package com.example.refocus.feature.common.overlay
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import com.example.refocus.domain.overlay.OverlayServiceController
+import com.example.refocus.domain.overlay.port.OverlayServiceController
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -21,7 +21,10 @@ fun rememberOverlayServiceController(): OverlayServiceController {
     val appContext = context.applicationContext
 
     val entryPoint = remember(appContext) {
-        EntryPointAccessors.fromApplication(appContext, OverlayServiceControllerEntryPoint::class.java)
+        EntryPointAccessors.fromApplication(
+            appContext,
+            OverlayServiceControllerEntryPoint::class.java
+        )
     }
     return remember(entryPoint) {
         entryPoint.overlayServiceController()

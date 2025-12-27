@@ -2,10 +2,10 @@ package com.example.refocus.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.refocus.app.reset.AppDataResetter
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.CustomizePreset
 import com.example.refocus.domain.repository.SettingsRepository
-import com.example.refocus.app.reset.AppDataResetter
 import com.example.refocus.domain.settings.SettingsCommand
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow

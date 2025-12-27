@@ -12,17 +12,19 @@ import com.example.refocus.core.model.ServiceState
 import com.example.refocus.core.model.TargetAppsChangedEvent
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
-import com.example.refocus.core.model.TimelineEvent
+import com.example.refocus.domain.overlay.orchestration.OverlaySessionTracker
+import com.example.refocus.domain.overlay.policy.OverlayTimerDisplayCalculator
+import com.example.refocus.domain.overlay.usecase.DailyUsageUseCase
 import com.example.refocus.testutil.FakeTimelineRepository
 import com.example.refocus.testutil.TestTimeSource
 import com.example.refocus.testutil.UtcTimeZoneRule
-import java.time.Instant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import java.time.Instant
 
 class OverlayTimerDisplayCalculatorTest {
 
@@ -129,7 +131,10 @@ class OverlayTimerDisplayCalculatorTest {
         val providers = calculator.createProviders(pkgA)
 
         // display: 日次累計（A=10分, B=5分）
-        assertEquals(15 * 60 * 1_000L, providers.displayMillisProvider(timeSource.elapsedRealtime()))
+        assertEquals(
+            15 * 60 * 1_000L,
+            providers.displayMillisProvider(timeSource.elapsedRealtime())
+        )
 
         // visual: セッション経過（30秒）
         assertEquals(30_000L, providers.visualMillisProvider(timeSource.elapsedRealtime()))

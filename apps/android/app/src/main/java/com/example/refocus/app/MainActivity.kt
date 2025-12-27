@@ -14,8 +14,8 @@ import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.system.permissions.PermissionStateWatcher
 import com.example.refocus.ui.theme.RefocusTheme
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -45,7 +45,10 @@ class MainActivity : ComponentActivity() {
             try {
                 permissionStateWatcher.checkAndRecord()
             } catch (e: Exception) {
-                RefocusLog.e("MainActivity", e) { "Failed to check/record permission state onResume" }
+                RefocusLog.e(
+                    "MainActivity",
+                    e
+                ) { "Failed to check/record permission state onResume" }
             }
         }
     }

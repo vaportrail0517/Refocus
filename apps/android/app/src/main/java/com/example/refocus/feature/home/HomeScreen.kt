@@ -60,13 +60,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.refocus.core.model.DailyStats
 import com.example.refocus.core.util.displayLength
 import com.example.refocus.core.util.formatDurationMilliSeconds
-import com.example.refocus.feature.customize.CustomizeViewModel
 import com.example.refocus.feature.common.overlay.rememberOverlayServiceController
 import com.example.refocus.feature.common.overlay.rememberOverlayServiceStatusProvider
 import com.example.refocus.feature.common.permissions.rememberPermissionNavigator
+import com.example.refocus.feature.common.permissions.rememberPermissionUiState
+import com.example.refocus.feature.customize.CustomizeViewModel
 import com.example.refocus.feature.stats.StatsDetailSection
 import com.example.refocus.feature.stats.StatsViewModel
-import com.example.refocus.feature.common.permissions.rememberPermissionUiState
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)

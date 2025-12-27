@@ -10,10 +10,10 @@ import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.permissions.PermissionSnapshotStore
 import com.example.refocus.domain.timeline.EventRecorder
 import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * 権限（UsageStats / Overlay / Notification など）の状態変化を検知し，タイムラインへイベントとして記録する．

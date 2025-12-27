@@ -1,8 +1,8 @@
 package com.example.refocus.system.overlay
 
 import com.example.refocus.core.model.Customize
-import com.example.refocus.domain.overlay.OverlayUiGateway
-import com.example.refocus.domain.overlay.SuggestionOverlayUiModel
+import com.example.refocus.domain.overlay.port.OverlayUiGateway
+import com.example.refocus.domain.overlay.port.SuggestionOverlayUiModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

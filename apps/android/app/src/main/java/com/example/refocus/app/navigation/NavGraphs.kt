@@ -3,10 +3,10 @@ package com.example.refocus.app.navigation
 import android.app.Activity
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
-import com.example.refocus.core.logging.RefocusLog
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.feature.MainScreen
 import com.example.refocus.feature.appselect.AppSelectScreen
 import com.example.refocus.feature.entry.EntryScreen
