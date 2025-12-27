@@ -6,8 +6,8 @@ import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import com.example.refocus.app.MainActivity
 import com.example.refocus.core.logging.RefocusLog
+import com.example.refocus.system.AppLaunchIntents
 import com.example.refocus.domain.settings.SettingsCommand
 import com.example.refocus.system.overlay.OverlayService
 import com.example.refocus.system.overlay.startOverlayService
@@ -92,7 +92,7 @@ class RefocusTileService : TileService() {
 
     @SuppressLint("StartActivityAndCollapseDeprecated")
     private fun openApp() {
-        val intent = Intent(this, MainActivity::class.java).apply {
+        val intent = AppLaunchIntents.mainActivity(this).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         // startActivityAndCollapse(Intent) は deprecated なので，新APIが使える場合は PendingIntent 版を使う．

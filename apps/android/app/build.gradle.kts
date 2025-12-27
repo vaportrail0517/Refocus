@@ -139,6 +139,11 @@ val featureSourceRoots = listOf(
     file("src/main/java/com/example/refocus/feature"),
     file("src/main/kotlin/com/example/refocus/feature"),
 )
+val systemSourceRoots = listOf(
+    file("src/main/java/com/example/refocus/system"),
+    file("src/main/kotlin/com/example/refocus/system"),
+)
+
 
 tasks.register("checkDomainBoundaries") {
     group = "verification"
@@ -253,10 +258,69 @@ tasks.register("checkFeatureBoundaries") {
     }
 }
 
+
+
+/**
+ * System（Android 実装）レイヤは，app / feature / config / data へ依存しない．
+ *
+ * - system は OS 依存やサービス，レシーバ，通知，オーバーレイ制御などを担う
+ * - 画面やナビゲーションの統合（app），画面実装（feature），プリセット（config），repository 実装（data）は参照しない
+ */
+tasks.register("checkSystemBoundaries") {
+    group = "verification"
+    description = "Fails if system layer depends on app/feature/config/data layers via imports."
+
+    doLast {
+        val forbiddenImportPrefixes = listOf(
+            "com.example.refocus.app.",
+            "com.example.refocus.feature.",
+            // プリセットやデフォルト値などの「アプリ設定」は app 側に閉じる
+            "com.example.refocus.config.",
+            // system は repository 実装に直接依存せず，domain 経由で注入する
+            "com.example.refocus.data.",
+        )
+
+        val violations = mutableListOf<String>()
+
+        systemSourceRoots
+            .filter { it.exists() }
+            .forEach { root ->
+                root.walkTopDown()
+                    .filter { it.isFile && (it.extension == "kt" || it.extension == "java") }
+                    .forEach { file ->
+                        file.useLines { lines ->
+                            lines.forEachIndexed { index, line ->
+                                val trimmed = line.trim()
+                                if (!trimmed.startsWith("import ")) return@forEachIndexed
+
+                                val imported = trimmed
+                                    .removePrefix("import ")
+                                    .trim()
+                                    .removeSuffix(";")
+
+                                if (forbiddenImportPrefixes.any { imported.startsWith(it) }) {
+                                    violations += "${file.relativeTo(projectDir)}:${index + 1}: $trimmed"
+                                }
+                            }
+                        }
+                    }
+            }
+
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    appendLine("System boundary violations found (forbidden imports in system):")
+                    violations.forEach { appendLine(it) }
+                },
+            )
+        }
+    }
+}
 // 既存の CI / 手元チェックの流れに自然に乗せる
 tasks.named("check").configure {
     dependsOn("checkDomainBoundaries")
     dependsOn("checkFeatureBoundaries")
+    dependsOn("checkSystemBoundaries")
 }
 
 androidComponents {

@@ -11,7 +11,7 @@ import android.service.quicksettings.TileService
 import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import com.example.refocus.app.overlay.OverlayCoordinator
+import com.example.refocus.system.overlay.OverlayCoordinator
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.util.TimeSource

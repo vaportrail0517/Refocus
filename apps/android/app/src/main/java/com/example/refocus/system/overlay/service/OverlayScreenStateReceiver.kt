@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.PowerManager
-import com.example.refocus.app.overlay.OverlayCoordinator
+import com.example.refocus.system.overlay.OverlayCoordinator
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.domain.timeline.EventRecorder
 import kotlinx.coroutines.CoroutineScope

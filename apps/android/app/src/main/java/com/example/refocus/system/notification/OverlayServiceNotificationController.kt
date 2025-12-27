@@ -13,9 +13,9 @@ import android.os.Process
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.refocus.R
-import com.example.refocus.app.MainActivity
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.TimerTouchMode
+import com.example.refocus.system.AppLaunchIntents
 import com.example.refocus.system.overlay.OverlayService
 
 data class OverlayNotificationUiState(
@@ -98,7 +98,7 @@ class OverlayServiceNotificationController(
         val contentIntent = PendingIntent.getActivity(
             context,
             REQUEST_CONTENT,
-            Intent(context, MainActivity::class.java).apply {
+            AppLaunchIntents.mainActivity(context).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
