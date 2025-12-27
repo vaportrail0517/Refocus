@@ -2,7 +2,6 @@ package com.example.refocus.domain.overlay
 
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerTimeMode
-import com.example.refocus.core.model.TimerVisualTimeBasis
 import com.example.refocus.core.util.TimeSource
 
 internal data class TimerMillisProviders(
@@ -23,65 +22,49 @@ internal class OverlayTimerDisplayCalculator(
     private val customizeProvider: () -> Customize,
     private val lastTargetPackagesProvider: () -> Set<String>,
 ) {
+    private val displayProviderSelector = TimerDisplayValueProviderSelector(
+        sessionTracker = sessionTracker,
+        dailyUsageUseCase = dailyUsageUseCase,
+    )
+
+    private val visualBasisProviderSelector = TimerVisualBasisProviderSelector(
+        sessionTracker = sessionTracker,
+    )
+
     fun currentTimerDisplayMillis(trackingPackage: String?): Long? {
         val pkg = trackingPackage ?: return null
         val customize = customizeProvider()
         val nowMillis = timeSource.nowMillis()
 
-        return when (customize.timerTimeMode) {
-            TimerTimeMode.SessionElapsed -> {
-                sessionTracker.computeElapsedFor(pkg, timeSource.elapsedRealtime())
-            }
-
-            TimerTimeMode.TodayThisTarget -> {
-                dailyUsageUseCase.requestRefreshIfNeeded(
-                    customize = customize,
-                    targetPackages = lastTargetPackagesProvider(),
-                    nowMillis = nowMillis,
-                )
-                dailyUsageUseCase.getTodayThisTargetMillis(pkg)
-            }
-
-            TimerTimeMode.TodayAllTargets -> {
-                dailyUsageUseCase.requestRefreshIfNeeded(
-                    customize = customize,
-                    targetPackages = lastTargetPackagesProvider(),
-                    nowMillis = nowMillis,
-                )
-                dailyUsageUseCase.getTodayAllTargetsMillis()
-            }
+        // 日次累計モードの場合は，必要に応じてスナップショット（DB 参照＋投影）の更新を要求する
+        if (customize.timerTimeMode != TimerTimeMode.SessionElapsed) {
+            dailyUsageUseCase.requestRefreshIfNeeded(
+                customize = customize,
+                targetPackages = lastTargetPackagesProvider(),
+                nowMillis = nowMillis,
+            )
         }
+
+        val provider = displayProviderSelector.select(customize.timerTimeMode)
+        return provider.displayMillis(pkg, timeSource.elapsedRealtime())
     }
 
     fun createProviders(packageName: String): TimerMillisProviders {
         val displayMillisProvider: (Long) -> Long = { nowElapsedRealtime ->
             val customize = customizeProvider()
-            when (customize.timerTimeMode) {
-                TimerTimeMode.SessionElapsed -> {
-                    sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
-                }
-
-                TimerTimeMode.TodayThisTarget -> {
-                    dailyUsageUseCase.getTodayThisTargetMillis(packageName)
-                }
-
-                TimerTimeMode.TodayAllTargets -> {
-                    dailyUsageUseCase.getTodayAllTargetsMillis()
-                }
-            }
+            val provider = displayProviderSelector.select(customize.timerTimeMode)
+            provider.displayMillis(packageName, nowElapsedRealtime)
         }
 
         val visualMillisProvider: (Long) -> Long = { nowElapsedRealtime ->
             val customize = customizeProvider()
-            when (customize.timerVisualTimeBasis) {
-                TimerVisualTimeBasis.SessionElapsed -> {
-                    sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
-                }
-
-                TimerVisualTimeBasis.FollowDisplayTime -> {
-                    displayMillisProvider(nowElapsedRealtime)
-                }
-            }
+            val displayMillis = displayMillisProvider(nowElapsedRealtime)
+            val provider = visualBasisProviderSelector.select(customize.timerVisualTimeBasis)
+            provider.visualMillis(
+                packageName = packageName,
+                nowElapsedRealtime = nowElapsedRealtime,
+                displayMillis = displayMillis,
+            )
         }
 
         return TimerMillisProviders(

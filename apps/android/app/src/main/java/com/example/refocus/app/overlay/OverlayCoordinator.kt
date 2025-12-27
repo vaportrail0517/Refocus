@@ -1,10 +1,10 @@
-package com.example.refocus.domain.overlay
+package com.example.refocus.app.overlay
 
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerTimeMode
-import com.example.refocus.core.model.TimerVisualTimeBasis
 import com.example.refocus.core.util.TimeSource
+import com.example.refocus.domain.overlay.*
 import com.example.refocus.domain.gateway.ForegroundAppObserver
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.SuggestionsRepository
@@ -179,8 +179,8 @@ class OverlayCoordinator(
         combine(
             trackingPackageFlowInternal,
             timerVisibleFlowInternal,
-            customizeFlow.map { it.touchMode }.distinctUntilChanged(),
-            customizeFlow.map { it.timerTimeMode }.distinctUntilChanged(),
+            runtimeState.map { it.customize.touchMode }.distinctUntilChanged(),
+            runtimeState.map { it.customize.timerTimeMode }.distinctUntilChanged(),
             presentationTick,
         ) { trackingPkg, timerVisible, touchMode, timerTimeMode, _ ->
             val displayMillis = trackingPkg?.let { timerDisplayCalculator.currentTimerDisplayMillis(it) }
@@ -300,13 +300,12 @@ class OverlayCoordinator(
         // overlayEnabled の変化に合わせて前面監視ループを開始・停止する
         if (foregroundGateJob?.isActive == true) return
         foregroundGateJob = scope.launch {
-            customizeFlow
-                .map { it.overlayEnabled }
+            runtimeState
+                .map { it.customize.overlayEnabled }
                 .distinctUntilChanged()
                 .collect { enabled ->
                     if (enabled) {
                         foregroundTrackingOrchestrator.start(
-                            customizeFlow = customizeFlow,
                             screenOnFlow = screenOnFlowInternal,
                         )
                     } else {

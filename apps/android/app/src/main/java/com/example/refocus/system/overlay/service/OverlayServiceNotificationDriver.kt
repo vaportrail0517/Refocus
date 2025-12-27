@@ -2,7 +2,7 @@ package com.example.refocus.system.overlay.service
 
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.util.formatDurationForTimerBubble
-import com.example.refocus.domain.overlay.OverlayCoordinator
+import com.example.refocus.app.overlay.OverlayCoordinator
 import com.example.refocus.domain.overlay.OverlayPresentationState
 import com.example.refocus.system.appinfo.AppLabelResolver
 import com.example.refocus.system.notification.OverlayNotificationUiState

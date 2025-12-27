@@ -1,8 +1,6 @@
 package com.example.refocus.domain.overlay
 
 import com.example.refocus.core.logging.RefocusLog
-import com.example.refocus.core.model.Customize
-import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.domain.gateway.ForegroundAppObserver
 import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.domain.timeline.EventRecorder
@@ -65,20 +63,28 @@ class ForegroundTrackingOrchestrator(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun start(
-        customizeFlow: Flow<Customize>,
         screenOnFlow: StateFlow<Boolean>,
     ) {
         if (job?.isActive == true) return
         job = scope.launch {
             val targetsFlow = targetsRepository.observeTargets()
-            val foregroundSampleFlow = customizeFlow
-                .map { it.pollingIntervalMillis }
+
+            // pollingIntervalMillis は runtimeState.customize から取得して単一の真実に寄せる
+            val pollingIntervalFlow = runtimeState
+                .map { it.customize.pollingIntervalMillis }
                 .distinctUntilChanged()
+
+            val foregroundSampleFlow = pollingIntervalFlow
                 .flatMapLatest { interval ->
                     foregroundAppObserver.foregroundSampleFlow(
                         pollingIntervalMs = interval,
                     )
                 }
+
+            // Customize も combine に含めて，ループ内で runtimeState.value.customize を参照しない
+            val customizeSnapshotFlow = runtimeState
+                .map { it.customize }
+                .distinctUntilChanged()
 
             var lastForegroundRaw: String? = null
             var lastSample: ForegroundAppObserver.ForegroundSample? = null
@@ -91,9 +97,20 @@ class ForegroundTrackingOrchestrator(
                 foregroundSampleFlow,
                 screenOnFlow,
                 tickFlow,
-            ) { targets, sample, isScreenOn, _ ->
-                Triple(targets, sample, isScreenOn)
-            }.collect { (targets, sample, isScreenOn) ->
+                customizeSnapshotFlow,
+            ) { targets, sample, isScreenOn, _, customize ->
+                OverlayLoopInput(
+                    targets = targets,
+                    sample = sample,
+                    isScreenOn = isScreenOn,
+                    customize = customize,
+                )
+            }.collect { input ->
+                val targets = input.targets
+                val sample = input.sample
+                val isScreenOn = input.isScreenOn
+                val customize = input.customize
+
                 val foregroundRaw = sample.packageName
                 val foregroundPackage = if (isScreenOn) foregroundRaw else null
 
@@ -131,7 +148,7 @@ class ForegroundTrackingOrchestrator(
                     // - ランタイム加算（高頻度）
                     // の二段構えで追従し，毎秒 DB を叩かないようにする．
                     dailyUsageUseCase.onTick(
-                        customize = runtimeState.value.customize,
+                        customize = customize,
                         targetPackages = targets,
                         activePackageName = foregroundPackage,
                         nowMillis = nowMillis,
@@ -244,6 +261,14 @@ class ForegroundTrackingOrchestrator(
             }
         }
     }
+
+    private data class OverlayLoopInput(
+        val targets: Set<String>,
+        val sample: ForegroundAppObserver.ForegroundSample,
+        val isScreenOn: Boolean,
+        val customize: com.example.refocus.core.model.Customize,
+    )
+
 
     fun stop() {
         job?.cancel()

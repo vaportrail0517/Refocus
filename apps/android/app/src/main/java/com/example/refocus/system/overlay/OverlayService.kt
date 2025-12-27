@@ -15,7 +15,7 @@ import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.gateway.ForegroundAppObserver
-import com.example.refocus.domain.overlay.OverlayCoordinator
+import com.example.refocus.app.overlay.OverlayCoordinator
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.repository.TargetsRepository
