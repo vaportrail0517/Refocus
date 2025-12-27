@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.DailyStats
 import com.example.refocus.core.util.TimeSource
+import com.example.refocus.domain.gateway.AppLabelProvider
 import com.example.refocus.domain.stats.DefaultStatsUseCase
-import com.example.refocus.system.appinfo.AppLabelResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,7 +29,7 @@ enum class StatsRange {
 class StatsViewModel @Inject constructor(
     private val stats: DefaultStatsUseCase,
     private val timeSource: TimeSource,
-    private val appLabelResolver: AppLabelResolver,
+    private val appLabelProvider: AppLabelProvider,
 ) : ViewModel() {
 
     data class UiState(
@@ -68,7 +68,7 @@ class StatsViewModel @Inject constructor(
                         putAll(prevMap)
                         for (pkg in packages) {
                             if (!containsKey(pkg)) {
-                                put(pkg, appLabelResolver.labelOf(pkg))
+                                put(pkg, appLabelProvider.labelOf(pkg))
                             }
                         }
                     }

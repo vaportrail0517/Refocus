@@ -10,6 +10,7 @@ import com.example.refocus.core.model.TimelineEvent
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.core.util.formatDurationMilliSeconds
 import com.example.refocus.domain.gateway.AppLabelProvider
+import com.example.refocus.domain.gateway.ForegroundAppObserver
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.domain.repository.TimelineRepository
@@ -17,13 +18,13 @@ import com.example.refocus.domain.stats.SessionStatsCalculator
 import com.example.refocus.domain.timeline.TimelineInterpretationConfig
 import com.example.refocus.domain.timeline.TimelineProjector
 import com.example.refocus.domain.timeline.TimelineWindowEventsLoader
-import com.example.refocus.system.monitor.ForegroundAppMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -38,7 +39,7 @@ class SessionHistoryViewModel @Inject constructor(
     private val timelineRepository: TimelineRepository,
     private val settingsRepository: SettingsRepository,
     private val targetsRepository: TargetsRepository,
-    private val foregroundAppMonitor: ForegroundAppMonitor,
+    private val foregroundAppObserver: ForegroundAppObserver,
     private val timeSource: TimeSource,
     private val appLabelProvider: AppLabelProvider,
 ) : ViewModel() {
@@ -79,8 +80,9 @@ class SessionHistoryViewModel @Inject constructor(
             val windowStart = (nowMillis - historyLookbackMillis).coerceAtLeast(0L)
 
             // foreground の Flow に初期値 null を付与
-            val foregroundFlow = foregroundAppMonitor
-                .foregroundAppFlow(pollingIntervalMs = 1_000L)
+            val foregroundFlow = foregroundAppObserver
+                .foregroundSampleFlow(pollingIntervalMs = 1_000L)
+                .map { it.packageName }
                 .onStart { emit(null) }
 
             combine(

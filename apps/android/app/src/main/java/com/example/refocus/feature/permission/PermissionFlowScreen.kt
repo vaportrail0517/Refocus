@@ -2,7 +2,6 @@ package com.example.refocus.feature.permission
 
 import android.Manifest
 import android.app.Activity
-import android.content.Context
 import android.os.Build
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Spacer
@@ -21,7 +20,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.example.refocus.system.permissions.PermissionHelper
+import com.example.refocus.core.model.PermissionSnapshot
+import com.example.refocus.feature.common.permissions.rememberPermissionNavigator
+import com.example.refocus.feature.common.permissions.rememberPermissionStatusProvider
 import com.example.refocus.ui.components.OnboardingPage
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,6 +49,8 @@ fun PermissionFlowScreen(
     val context = LocalContext.current
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
+    val permissionStatusProvider = rememberPermissionStatusProvider()
+    val permissionNavigator = rememberPermissionNavigator()
 
     val steps = remember {
         buildList {
@@ -65,7 +68,7 @@ fun PermissionFlowScreen(
 
     // すべてすでに許可済みなら即終了
     LaunchedEffect(Unit) {
-        if (allPermissionsGranted(context)) {
+        if (allPermissionsGranted(permissionStatusProvider.readCurrentInstant())) {
             onFlowFinished()
         }
     }
@@ -86,7 +89,8 @@ fun PermissionFlowScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 val step = steps.getOrNull(currentIndex)
-                if (step != null && isGranted(context, step.type)) {
+                val latest = permissionStatusProvider.readCurrentInstant()
+                if (step != null && isGranted(latest, step.type)) {
                     moveToNextStep(
                         stepsSize = steps.size,
                         currentIndex = currentIndex,
@@ -105,7 +109,7 @@ fun PermissionFlowScreen(
         PermissionType.UsageAccess -> {
             UsageAccessPermissionPage(
                 onRequestPermission = {
-                    PermissionHelper.openUsageAccessSettings(activity)
+                    permissionNavigator.openUsageAccessSettings(activity)
                 },
                 onSkip = {
                     moveToNextStep(
@@ -120,7 +124,7 @@ fun PermissionFlowScreen(
         PermissionType.Overlay -> {
             OverlayPermissionPage(
                 onRequestPermission = {
-                    PermissionHelper.openOverlaySettings(activity)
+                    permissionNavigator.openOverlaySettings(activity)
                 },
                 onSkip = {
                     moveToNextStep(
@@ -151,7 +155,7 @@ fun PermissionFlowScreen(
                     requestLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 },
                 onOpenSettings = {
-                    PermissionHelper.openNotificationSettings(activity)
+                    permissionNavigator.openNotificationSettings(activity)
                 },
                 onSkip = {
                     moveToNextStep(
@@ -252,17 +256,21 @@ private fun NotificationPermissionPage(
     }
 }
 
-private fun allPermissionsGranted(context: Context): Boolean {
-    val coreGranted = PermissionHelper.hasAllCorePermissions(context)
-    val notifGranted = PermissionHelper.hasNotificationPermission(context)
+private fun allPermissionsGranted(snapshot: PermissionSnapshot): Boolean {
+    val coreGranted = snapshot.usageGranted && snapshot.overlayGranted
+    val notifGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        snapshot.notificationGranted
+    } else {
+        true
+    }
     return coreGranted && notifGranted
 }
 
-private fun isGranted(context: Context, type: PermissionType): Boolean =
+private fun isGranted(snapshot: PermissionSnapshot, type: PermissionType): Boolean =
     when (type) {
-        PermissionType.UsageAccess -> PermissionHelper.hasUsageAccess(context)
-        PermissionType.Overlay -> PermissionHelper.hasOverlayPermission(context)
-        PermissionType.Notifications -> PermissionHelper.hasNotificationPermission(context)
+        PermissionType.UsageAccess -> snapshot.usageGranted
+        PermissionType.Overlay -> snapshot.overlayGranted
+        PermissionType.Notifications -> snapshot.notificationGranted
     }
 
 private fun moveToNextStep(

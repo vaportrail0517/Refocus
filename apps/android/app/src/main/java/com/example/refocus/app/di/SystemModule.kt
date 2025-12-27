@@ -7,23 +7,27 @@ import com.example.refocus.domain.gateway.AppLabelProvider
 import com.example.refocus.domain.gateway.ForegroundAppObserver
 import com.example.refocus.domain.overlay.OverlayServiceController
 import com.example.refocus.domain.overlay.OverlayServiceStatusProvider
+import com.example.refocus.domain.permissions.PermissionStatusProvider
 import com.example.refocus.domain.repository.TimelineRepository
 import com.example.refocus.domain.suggestion.GaussianCircularTimeSlotWeightModel
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.suggestion.TimeSlotWeightModel
 import com.example.refocus.domain.timeline.EventRecorder
-import com.example.refocus.system.appinfo.AndroidAppIconResolver
 import com.example.refocus.system.appinfo.AndroidAppLabelResolver
-import com.example.refocus.system.appinfo.AndroidLaunchableAppProvider
-import com.example.refocus.system.appinfo.AppIconResolver
 import com.example.refocus.system.appinfo.AppLabelProviderImpl
 import com.example.refocus.system.appinfo.AppLabelResolver
-import com.example.refocus.system.appinfo.LaunchableAppProvider
+import com.example.refocus.system.appinfo.AndroidAppIconResolver
+import com.example.refocus.system.appinfo.AndroidLaunchableAppProvider
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import com.example.refocus.system.monitor.ForegroundAppObserverImpl
 import com.example.refocus.system.overlay.service.OverlayServiceControllerImpl
 import com.example.refocus.system.overlay.service.OverlayServiceStatusProviderImpl
+import com.example.refocus.system.permissions.AndroidPermissionNavigator
+import com.example.refocus.system.permissions.AndroidPermissionStatusProvider
+import com.example.refocus.ui.gateway.AppIconProvider
+import com.example.refocus.ui.gateway.LaunchableAppProvider
+import com.example.refocus.ui.gateway.PermissionNavigator
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -87,15 +91,27 @@ object SystemModule {
 
     @Provides
     @Singleton
-    fun provideAppIconResolver(
+    fun provideAppIconProvider(
         @ApplicationContext context: Context,
-    ): AppIconResolver = AndroidAppIconResolver(context)
+    ): AppIconProvider = AndroidAppIconResolver(context)
 
     @Provides
     @Singleton
     fun provideLaunchableAppProvider(
         @ApplicationContext context: Context,
     ): LaunchableAppProvider = AndroidLaunchableAppProvider(context)
+
+    @Provides
+    @Singleton
+    fun providePermissionStatusProvider(
+        impl: AndroidPermissionStatusProvider,
+    ): PermissionStatusProvider = impl
+
+    @Provides
+    @Singleton
+    fun providePermissionNavigator(
+        impl: AndroidPermissionNavigator,
+    ): PermissionNavigator = impl
 
     @Provides
     @Singleton

@@ -32,7 +32,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.example.refocus.system.permissions.PermissionHelper
+import com.example.refocus.feature.common.permissions.rememberPermissionStatusProvider
 import com.example.refocus.ui.components.SearchBar
 
 @Composable
@@ -40,7 +40,7 @@ fun AppSelectScreen(
     onFinished: () -> Unit,
     onFinishedWithoutPermission: () -> Unit
 ) {
-    val context = LocalContext.current
+    val permissionStatusProvider = rememberPermissionStatusProvider()
     val viewModel: AppListViewModel = hiltViewModel()
     val apps by viewModel.apps.collectAsState()
     var query by remember { mutableStateOf(TextFieldValue("")) }
@@ -59,8 +59,10 @@ fun AppSelectScreen(
             ) {
                 Button(
                     onClick = {
+                        val snapshot = permissionStatusProvider.readCurrentInstant()
+                        val hasCorePermissions = snapshot.usageGranted && snapshot.overlayGranted
                         viewModel.save(
-                            if (PermissionHelper.hasAllCorePermissions(context))
+                            if (hasCorePermissions)
                                 onFinished else onFinishedWithoutPermission
                         )
                     },

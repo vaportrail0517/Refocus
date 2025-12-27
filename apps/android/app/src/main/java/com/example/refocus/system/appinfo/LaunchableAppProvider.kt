@@ -5,31 +5,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
-import android.graphics.drawable.Drawable
+import com.example.refocus.ui.gateway.LaunchableAppInfo
+import com.example.refocus.ui.gateway.LaunchableAppProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
-
-data class LaunchableAppInfo(
-    val label: String,
-    val packageName: String,
-    val usageTimeMs: Long,
-    val icon: Drawable?,
-)
-
-interface LaunchableAppProvider {
-
-    /**
-     * ランチャーに表示されるアプリ一覧を返す．
-     * UsageStats が取れない場合は usageTimeMs=0 のまま返す．
-     */
-    suspend fun loadLaunchableApps(
-        lookbackMillis: Long = TimeUnit.DAYS.toMillis(7),
-        excludePackages: Set<String> = emptySet(),
-        excludeSelf: Boolean = true,
-    ): List<LaunchableAppInfo>
-}
 
 @Singleton
 class AndroidLaunchableAppProvider @Inject constructor(

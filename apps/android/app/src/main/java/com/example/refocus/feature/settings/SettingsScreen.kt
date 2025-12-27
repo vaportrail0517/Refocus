@@ -35,15 +35,16 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.refocus.feature.common.overlay.rememberOverlayServiceStatusProvider
+import com.example.refocus.feature.common.overlay.rememberOverlayServiceController
 import com.example.refocus.feature.common.permissions.rememberPermissionUiState
 import com.example.refocus.feature.common.permissions.rememberPermissionStatusProvider
+import com.example.refocus.feature.common.permissions.rememberPermissionNavigator
 import com.example.refocus.feature.common.permissions.toPermissionUiState
-import com.example.refocus.system.overlay.startOverlayService
-import com.example.refocus.system.overlay.stopOverlayService
-import com.example.refocus.system.permissions.PermissionHelper
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
 import kotlinx.coroutines.launch
+import com.example.refocus.domain.overlay.OverlayServiceController
+import com.example.refocus.ui.gateway.PermissionNavigator
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,7 +61,9 @@ fun SettingsScreen(
     val activity = context as? Activity
     val coroutineScope = rememberCoroutineScope()
     val overlayServiceStatusProvider = rememberOverlayServiceStatusProvider()
+    val overlayServiceController = rememberOverlayServiceController()
     val permissionStatusProvider = rememberPermissionStatusProvider()
+    val permissionNavigator = rememberPermissionNavigator()
     var activeDialog by remember { mutableStateOf<SettingsDialogType?>(null) }
     var isServiceRunning by remember { mutableStateOf(overlayServiceStatusProvider.isRunning()) }
 
@@ -73,7 +76,7 @@ fun SettingsScreen(
                 // 起動設定 or 実行中サービスが残っていたら OFF に揃える
                 if (latestState.customize.overlayEnabled || isServiceRunning) {
                     viewModel.updateOverlayEnabled(false)
-                    context.stopOverlayService()
+                    overlayServiceController.stop(source = "settings_permission_refresh")
                     isServiceRunning = false
                 }
                 // 自動起動も OFF に揃える
@@ -152,11 +155,13 @@ fun SettingsScreen(
                     }
                 },
                 onOpenNotificationSettings = {
-                    activity?.let { PermissionHelper.openNotificationSettings(it) }
+                    activity?.let { permissionNavigator.openNotificationSettings(it) }
                 },
                 viewModel = viewModel,
                 context = context,
                 activity = activity,
+                permissionNavigator = permissionNavigator,
+                overlayServiceController = overlayServiceController,
             )
 
 
@@ -210,6 +215,8 @@ fun SettingsContent(
     viewModel: SettingsViewModel,
     context: Context,
     activity: Activity?,
+    permissionNavigator: PermissionNavigator,
+    overlayServiceController: OverlayServiceController,
 ) {
     val settings = uiState.customize
     val coroutineScope = rememberCoroutineScope()
@@ -229,7 +236,7 @@ fun SettingsContent(
                 )
             },
             onClick = {
-                activity?.let { PermissionHelper.openUsageAccessSettings(it) }
+                activity?.let { permissionNavigator.openUsageAccessSettings(it) }
             }
         )
         SettingRow(
@@ -243,7 +250,7 @@ fun SettingsContent(
                 )
             },
             onClick = {
-                activity?.let { PermissionHelper.openOverlaySettings(it) }
+                activity?.let { permissionNavigator.openOverlaySettings(it) }
             }
         )
 
@@ -300,15 +307,16 @@ fun SettingsContent(
                                     onServiceRunningChange(false)
                                     return@launch
                                 }
-                                context.startOverlayService()
-                                onServiceRunningChange(true)
+                                onServiceRunningChange(
+                                    overlayServiceController.startIfReady(source = "settings_toggle_on"),
+                                )
                             } else {
                                 try {
                                     viewModel.setOverlayEnabledAndWait(false)
                                 } catch (_: Exception) {
                                     // 失敗してもサービスだけは停止する（安全側）．
                                 }
-                                context.stopOverlayService()
+                                overlayServiceController.stop(source = "settings_toggle_off")
                                 onServiceRunningChange(false)
                             }
                         }
@@ -330,15 +338,16 @@ fun SettingsContent(
                             onServiceRunningChange(false)
                             return@launch
                         }
-                        context.startOverlayService()
-                        onServiceRunningChange(true)
+                        onServiceRunningChange(
+                            overlayServiceController.startIfReady(source = "settings_row_toggle_on"),
+                        )
                     } else {
                         try {
                             viewModel.setOverlayEnabledAndWait(false)
                         } catch (_: Exception) {
                             // 失敗してもサービスだけは停止する（安全側）．
                         }
-                        context.stopOverlayService()
+                        overlayServiceController.stop(source = "settings_row_toggle_off")
                         onServiceRunningChange(false)
                     }
                 }

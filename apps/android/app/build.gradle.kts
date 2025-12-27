@@ -135,6 +135,11 @@ val domainSourceRoots = listOf(
     file("src/main/kotlin/com/example/refocus/domain"),
 )
 
+val featureSourceRoots = listOf(
+    file("src/main/java/com/example/refocus/feature"),
+    file("src/main/kotlin/com/example/refocus/feature"),
+)
+
 tasks.register("checkDomainBoundaries") {
     group = "verification"
     description = "Fails if domain layer depends on Android/UI/data layers via imports."
@@ -188,9 +193,64 @@ tasks.register("checkDomainBoundaries") {
     }
 }
 
+/**
+ * Feature（UI）レイヤは，system 実装へ直接依存しない．
+ *
+ * - platform 依存は gateway / domain 経由で注入する
+ * - 「import 文」に限定した軽量ガード
+ */
+tasks.register("checkFeatureBoundaries") {
+    group = "verification"
+    description = "Fails if feature layer depends on system/data layers via imports."
+
+    doLast {
+        val forbiddenImportPrefixes = listOf(
+            "com.example.refocus.system.",
+            "com.example.refocus.data.",
+            "com.example.refocus.app.di.",
+        )
+
+        val violations = mutableListOf<String>()
+
+        featureSourceRoots
+            .filter { it.exists() }
+            .forEach { root ->
+                root.walkTopDown()
+                    .filter { it.isFile && (it.extension == "kt" || it.extension == "java") }
+                    .forEach { file ->
+                        file.useLines { lines ->
+                            lines.forEachIndexed { index, line ->
+                                val trimmed = line.trim()
+                                if (!trimmed.startsWith("import ")) return@forEachIndexed
+
+                                val imported = trimmed
+                                    .removePrefix("import ")
+                                    .trim()
+                                    .removeSuffix(";")
+
+                                if (forbiddenImportPrefixes.any { imported.startsWith(it) }) {
+                                    violations += "${file.relativeTo(projectDir)}:${index + 1}: $trimmed"
+                                }
+                            }
+                        }
+                    }
+            }
+
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    appendLine("Feature boundary violations found (forbidden imports in feature):")
+                    violations.forEach { appendLine(it) }
+                },
+            )
+        }
+    }
+}
+
 // 既存の CI / 手元チェックの流れに自然に乗せる
 tasks.named("check").configure {
     dependsOn("checkDomainBoundaries")
+    dependsOn("checkFeatureBoundaries")
 }
 
 androidComponents {

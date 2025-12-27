@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.domain.gateway.AppLabelProvider
 import com.example.refocus.domain.repository.TargetsRepository
-import com.example.refocus.system.appinfo.AppIconResolver
+import com.example.refocus.ui.gateway.AppIconProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,7 +19,7 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     private val targetsRepository: TargetsRepository,
     private val appLabelProvider: AppLabelProvider,
-    private val appIconResolver: AppIconResolver,
+    private val appIconResolver: AppIconProvider,
 ) : ViewModel() {
 
     data class TargetAppUiModel(

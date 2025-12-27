@@ -24,13 +24,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.refocus.feature.common.overlay.rememberOverlayServiceStatusProvider
+import com.example.refocus.feature.common.overlay.rememberOverlayServiceController
 import com.example.refocus.feature.common.permissions.rememberPermissionUiState
-import com.example.refocus.system.overlay.stopOverlayService
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,7 +37,6 @@ import com.example.refocus.system.overlay.stopOverlayService
 fun CustomizeScreen(
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
     val viewModel: CustomizeViewModel = hiltViewModel()
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -53,6 +51,7 @@ fun CustomizeScreen(
         )
     }
     val overlayServiceStatusProvider = rememberOverlayServiceStatusProvider()
+    val overlayServiceController = rememberOverlayServiceController()
     var isServiceRunning by remember {
         mutableStateOf(overlayServiceStatusProvider.isRunning())
     }
@@ -77,7 +76,7 @@ fun CustomizeScreen(
                 // 起動設定 or 実行中サービスが残っていたら OFF に揃える
                 if (latestState.customize.overlayEnabled || isServiceRunning) {
                     viewModel.updateOverlayEnabled(false)
-                    context.stopOverlayService()
+                    overlayServiceController.stop(source = "customize_permission_refresh")
                     isServiceRunning = false
                 }
                 // 自動起動も OFF に揃える

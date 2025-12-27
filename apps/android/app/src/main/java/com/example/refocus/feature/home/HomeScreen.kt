@@ -61,12 +61,11 @@ import com.example.refocus.core.model.DailyStats
 import com.example.refocus.core.util.displayLength
 import com.example.refocus.core.util.formatDurationMilliSeconds
 import com.example.refocus.feature.customize.CustomizeViewModel
+import com.example.refocus.feature.common.overlay.rememberOverlayServiceController
 import com.example.refocus.feature.common.overlay.rememberOverlayServiceStatusProvider
+import com.example.refocus.feature.common.permissions.rememberPermissionNavigator
 import com.example.refocus.feature.stats.StatsDetailSection
 import com.example.refocus.feature.stats.StatsViewModel
-import com.example.refocus.system.overlay.startOverlayService
-import com.example.refocus.system.overlay.stopOverlayService
-import com.example.refocus.system.permissions.PermissionHelper
 import com.example.refocus.feature.common.permissions.rememberPermissionUiState
 import kotlinx.coroutines.launch
 
@@ -86,6 +85,9 @@ fun HomeRoute(
     val activity = context as? Activity
     val coroutineScope = rememberCoroutineScope()
 
+    val overlayServiceController = rememberOverlayServiceController()
+    val permissionNavigator = rememberPermissionNavigator()
+
     val statsUiState = statsViewModel.uiState.collectAsStateWithLifecycle().value
     val settingsUiState by customizeViewModel.uiState.collectAsStateWithLifecycle()
     val targetAppsState = targetsViewModel.targetApps.collectAsStateWithLifecycle()
@@ -102,7 +104,7 @@ fun HomeRoute(
                 val latestCustomize = customizeViewModel.uiState.value
                 if (latestCustomize.customize.overlayEnabled || isServiceRunning) {
                     customizeViewModel.updateOverlayEnabled(false)
-                    context.stopOverlayService()
+                    overlayServiceController.stop(source = "home_permission_refresh")
                     isServiceRunning = false
                 }
             }
@@ -132,15 +134,15 @@ fun HomeRoute(
                                 isServiceRunning = false
                                 return@launch
                             }
-                            context.startOverlayService()
-                            isServiceRunning = true
+                            isServiceRunning = overlayServiceController
+                                .startIfReady(source = "home_toggle_on")
                         } else {
                             try {
                                 customizeViewModel.setOverlayEnabledAndWait(false)
                             } catch (_: Exception) {
                                 // 失敗してもサービスだけは停止する（安全側）．
                             }
-                            context.stopOverlayService()
+                            overlayServiceController.stop(source = "home_toggle_off")
                             isServiceRunning = false
                         }
                     }
@@ -163,7 +165,7 @@ fun HomeRoute(
             onOpenNotificationSettings = {
                 val a = activity
                 if (a != null) {
-                    PermissionHelper.openNotificationSettings(a)
+                    permissionNavigator.openNotificationSettings(a)
                 }
             },
             onOpenAppSelect = onOpenAppSelect,
