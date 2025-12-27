@@ -1,7 +1,7 @@
 package com.example.refocus.app.di
 
 import android.content.Context
-import com.example.refocus.core.util.SystemTimeSource
+import com.example.refocus.system.time.SystemTimeSource
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.gateway.AppLabelProvider
 import com.example.refocus.domain.gateway.ForegroundAppObserver
