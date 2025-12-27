@@ -8,30 +8,19 @@ import com.example.refocus.core.model.ScreenState
 import com.example.refocus.core.model.ServiceLifecycleEvent
 import com.example.refocus.core.model.ServiceState
 import com.example.refocus.core.model.TimelineEvent
+import com.example.refocus.testutil.UtcTimeZoneRule
 import java.time.LocalDate
 import java.time.ZoneId
-import java.util.TimeZone
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 
 class MonitoringStateProjectorTest {
 
-    private var originalTz: TimeZone? = null
-
-    @Before
-    fun setUp() {
-        originalTz = TimeZone.getDefault()
-        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
-    }
-
-    @After
-    fun tearDown() {
-        TimeZone.setDefault(originalTz)
-    }
+    @get:Rule
+    val tzRule = UtcTimeZoneRule()
 
     @Test
     fun `isMonitoringEnabled treats missing permission events as ok`() {

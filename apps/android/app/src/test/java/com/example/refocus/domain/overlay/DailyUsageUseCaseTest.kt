@@ -15,32 +15,21 @@ import com.example.refocus.core.model.TimelineEvent
 import com.example.refocus.testutil.BlockingTimelineRepository
 import com.example.refocus.testutil.FakeTimelineRepository
 import com.example.refocus.testutil.TestTimeSource
+import com.example.refocus.testutil.UtcTimeZoneRule
 import java.time.Instant
-import java.util.TimeZone
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 
 class DailyUsageUseCaseTest {
 
-    private lateinit var originalTz: TimeZone
-
-    @Before
-    fun setUp() {
-        originalTz = TimeZone.getDefault()
-        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
-    }
-
-    @After
-    fun tearDown() {
-        TimeZone.setDefault(originalTz)
-    }
+    @get:Rule
+    val tzRule = UtcTimeZoneRule()
 
     @Test
     fun refreshIfNeeded_computesTodayTotalsFromTimelineProjection() = runBlocking<Unit> {

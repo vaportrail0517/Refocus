@@ -15,30 +15,19 @@ import com.example.refocus.core.model.TimerVisualTimeBasis
 import com.example.refocus.core.model.TimelineEvent
 import com.example.refocus.testutil.FakeTimelineRepository
 import com.example.refocus.testutil.TestTimeSource
+import com.example.refocus.testutil.UtcTimeZoneRule
 import java.time.Instant
-import java.util.TimeZone
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
-import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 
 class OverlayTimerDisplayCalculatorTest {
 
-    private lateinit var originalTz: TimeZone
-
-    @Before
-    fun setUp() {
-        originalTz = TimeZone.getDefault()
-        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
-    }
-
-    @After
-    fun tearDown() {
-        TimeZone.setDefault(originalTz)
-    }
+    @get:Rule
+    val tzRule = UtcTimeZoneRule()
 
     @Test
     fun createProviders_displayAndVisualAreDecoupledByTimerVisualTimeBasis() = runBlocking {
