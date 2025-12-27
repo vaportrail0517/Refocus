@@ -61,7 +61,6 @@ class OverlayCoordinator(
     }
 
     private val sessionTracker = OverlaySessionTracker(timeSource)
-    private val stateMachine = OverlayStateMachine()
 
     private val sessionBootstrapper = SessionBootstrapper(
         timeSource = timeSource,
@@ -78,6 +77,11 @@ class OverlayCoordinator(
 
     private val runtimeState = MutableStateFlow(OverlayRuntimeState())
     val runtimeStateFlow: StateFlow<OverlayRuntimeState> get() = runtimeState
+
+    private val stateTransitioner = OverlayStateTransitioner(
+        runtimeState = runtimeState,
+        onStateChanged = ::handleStateChange,
+    )
 
     private val timerDisplayCalculator = OverlayTimerDisplayCalculator(
         timeSource = timeSource,
@@ -102,6 +106,20 @@ class OverlayCoordinator(
         customizeProvider = { runtimeState.value.customize },
     )
 
+
+
+    private val sessionLifecycle = OverlaySessionLifecycle(
+        scope = scope,
+        timeSource = timeSource,
+        runtimeState = runtimeState,
+        settingsCommand = settingsCommand,
+        uiController = uiController,
+        sessionBootstrapper = sessionBootstrapper,
+        dailyUsageUseCase = dailyUsageUseCase,
+        sessionTracker = sessionTracker,
+        timerDisplayCalculator = timerDisplayCalculator,
+        suggestionOrchestrator = suggestionOrchestrator,
+    )
     private val customizeFlow: SharedFlow<Customize> =
         settingsRepository.observeOverlaySettings()
             .shareIn(
@@ -109,6 +127,20 @@ class OverlayCoordinator(
                 started = SharingStarted.Eagerly,
                 replay = 1,
             )
+
+
+    private val settingsObserver = OverlaySettingsObserver(
+        scope = scope,
+        timeSource = timeSource,
+        customizeFlow = customizeFlow,
+        runtimeState = runtimeState,
+        dailyUsageUseCase = dailyUsageUseCase,
+        uiController = uiController,
+        sessionBootstrapper = sessionBootstrapper,
+        sessionTracker = sessionTracker,
+        suggestionOrchestrator = suggestionOrchestrator,
+        dispatchEvent = ::dispatchEvent,
+    )
 
     private val screenOnFlowInternal: StateFlow<Boolean> =
         runtimeState
@@ -192,9 +224,6 @@ class OverlayCoordinator(
     )
 
     @Volatile
-    private var observeSettingsJob: Job? = null
-
-    @Volatile
     private var foregroundGateJob: Job? = null
 
     /**
@@ -227,24 +256,9 @@ class OverlayCoordinator(
      * 戻り値: トグル後に「表示」なら true．
      */
     @Synchronized
-    fun toggleTimerVisibilityForCurrentSession(): Boolean {
-        val pkg = runtimeState.value.overlayPackage ?: return false
-        val suppressed = runtimeState.value.timerSuppressedForSession[pkg] == true
-        val newSuppressed = !suppressed
+    fun toggleTimerVisibilityForCurrentSession(): Boolean =
+        sessionLifecycle.toggleTimerVisibilityForCurrentSession()
 
-        runtimeState.update {
-            it.copy(timerSuppressedForSession = it.timerSuppressedForSession + (pkg to newSuppressed))
-        }
-
-        return if (newSuppressed) {
-            uiController.hideTimer()
-            runtimeState.update { it.copy(timerVisible = false) }
-            false
-        } else {
-            showTimerForPackage(pkg)
-            true
-        }
-    }
 
     /**
      * 画面OFF時に呼び出す．前面にいた対象アプリを「離脱」として扱う．
@@ -278,7 +292,7 @@ class OverlayCoordinator(
      */
     fun start() {
         startPresentationTicker()
-        observeOverlaySettings()
+        settingsObserver.start()
         startForegroundTrackingGate()
     }
 
@@ -309,9 +323,7 @@ class OverlayCoordinator(
     fun stop() {
         presentationTickJob?.cancel()
         presentationTickJob = null
-
-        observeSettingsJob?.cancel()
-        observeSettingsJob = null
+        settingsObserver.stop()
 
         foregroundGateJob?.cancel()
         foregroundGateJob = null
@@ -354,19 +366,10 @@ class OverlayCoordinator(
 
     /**
      * OverlayStateMachine へのイベント送出．
-     * 並行アクセスを避けるため synchronized にしている．
+     * 状態遷移は OverlayStateTransitioner に集約して直列化する．
      */
-    @Synchronized
     private fun dispatchEvent(event: OverlayEvent) {
-        val oldState = runtimeState.value.overlayState
-        val newState = stateMachine.transition(oldState, event)
-        if (newState == oldState) {
-            return
-        }
-
-        runtimeState.update { it.copy(overlayState = newState) }
-        RefocusLog.d(TAG) { "overlayState: $oldState -> $newState by $event" }
-        handleStateChange(oldState, newState, event)
+        stateTransitioner.dispatch(event)
     }
 
     /**
@@ -384,7 +387,7 @@ class OverlayCoordinator(
                     event is OverlayEvent.EnterTargetApp -> {
 
                 scope.launch {
-                    onEnterForeground(
+                    sessionLifecycle.onEnterForeground(
                         packageName = event.packageName,
                         nowMillis = event.nowMillis,
                         nowElapsed = event.nowElapsedRealtime,
@@ -397,7 +400,7 @@ class OverlayCoordinator(
                     newState is OverlayState.Idle &&
                     event is OverlayEvent.LeaveTargetApp -> {
 
-                onLeaveForeground(
+                sessionLifecycle.onLeaveForeground(
                     packageName = event.packageName,
                     nowMillis = event.nowMillis,
                     nowElapsed = event.nowElapsedRealtime,
@@ -410,7 +413,7 @@ class OverlayCoordinator(
                     event is OverlayEvent.ScreenOff -> {
 
                 val packageName = oldState.packageName
-                onLeaveForeground(
+                sessionLifecycle.onLeaveForeground(
                     packageName = packageName,
                     nowMillis = event.nowMillis,
                     nowElapsed = event.nowElapsedRealtime,
@@ -447,189 +450,4 @@ class OverlayCoordinator(
         }
     }
 
-    private fun observeOverlaySettings() {
-        if (observeSettingsJob?.isActive == true) return
-
-        observeSettingsJob = scope.launch {
-            try {
-                customizeFlow.collect { settings ->
-                    val oldSettings = runtimeState.value.customize
-
-                    // 先に customize スナップショットを更新（Provider などが最新設定を読めるようにする）
-                    runtimeState.update { it.copy(customize = settings) }
-
-                    // タイマー表示モードが変わった場合は，日次集計キャッシュを無効化する
-                    if (settings.timerTimeMode != oldSettings.timerTimeMode) {
-                        dailyUsageUseCase.invalidate()
-                    }
-
-                    // 設定変更イベントとしてタイムラインに記録
-                    dispatchEvent(OverlayEvent.SettingsChanged(settings))
-
-                    // UI 側の見た目反映
-                    uiController.applySettings(settings)
-
-                    // 停止猶予時間が変わったかどうかを判定
-                    val graceChanged = settings.gracePeriodMillis != oldSettings.gracePeriodMillis
-                    if (graceChanged) {
-                        RefocusLog.d(TAG) {
-                            "gracePeriodMillis changed: ${oldSettings.gracePeriodMillis} -> ${settings.gracePeriodMillis}"
-                        }
-
-                        // 停止猶予時間が変わると，日次累計の再投影結果も変わり得るためキャッシュを無効化する
-                        dailyUsageUseCase.invalidate()
-
-                        // 「今表示中のターゲット」について，変更後の停止猶予で論理セッションを再解釈して追従する
-                        val pkg = runtimeState.value.overlayPackage
-                        val stateSnapshot = runtimeState.value
-                        if (pkg != null && stateSnapshot.overlayState is OverlayState.Tracking && stateSnapshot.isScreenOn) {
-                            val nowMillis = timeSource.nowMillis()
-
-                            // 変更前 tracker が残っていても投影したいので force=true で復元
-                            val bootstrap = sessionBootstrapper.computeBootstrapFromTimeline(
-                                packageName = pkg,
-                                customize = settings,
-                                nowMillis = nowMillis,
-                                force = true,
-                                sessionTracker = sessionTracker,
-                            )
-
-                            // tracker を入れ替える（timer は provider 経由なので，ここで再注入すれば表示は追従する）
-                            sessionTracker.clear()
-                            suggestionOrchestrator.resetGate()
-
-                            val initialElapsed = bootstrap?.initialElapsedMillis ?: 0L
-                            sessionTracker.onEnterTargetApp(
-                                packageName = pkg,
-                                gracePeriodMillis = settings.gracePeriodMillis,
-                                initialElapsedIfNew = initialElapsed,
-                            )
-                            suggestionOrchestrator.restoreGateIfOngoing(bootstrap)
-                        } else {
-                            // 表示中でなければ単純にクリアだけ
-                            sessionTracker.clear()
-                            suggestionOrchestrator.resetGate()
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                RefocusLog.e(TAG, e) { "observeOverlaySettings failed" }
-            }
-        }
-    }
-
-    private suspend fun onEnterForeground(
-        packageName: String,
-        nowMillis: Long,
-        nowElapsed: Long,
-    ) {
-        val settings = runtimeState.value.customize
-        val grace = settings.gracePeriodMillis
-
-        val bootstrap = sessionBootstrapper.computeBootstrapFromTimeline(
-            packageName = packageName,
-            customize = settings,
-            nowMillis = nowMillis,
-            force = false,
-            sessionTracker = sessionTracker,
-        )
-
-        val initialElapsed = bootstrap?.initialElapsedMillis ?: 0L
-        val isNewSession = sessionTracker.onEnterTargetApp(
-            packageName = packageName,
-            gracePeriodMillis = grace,
-            initialElapsedIfNew = initialElapsed,
-        )
-
-        if (isNewSession) {
-            suggestionOrchestrator.onNewSession(bootstrap)
-
-            // 「このセッションのみ非表示」フラグは新規セッション開始時にリセットする
-            runtimeState.update {
-                it.copy(timerSuppressedForSession = it.timerSuppressedForSession + (packageName to false))
-            }
-        }
-
-        runtimeState.update {
-            it.copy(
-                overlayPackage = packageName,
-                trackingPackage = packageName,
-            )
-        }
-
-        // 日次集計表示モードの場合のみ，必要に応じてスナップショット更新を要求する（非同期）
-        dailyUsageUseCase.requestRefreshIfNeeded(
-            customize = settings,
-            targetPackages = runtimeState.value.lastTargetPackages,
-            nowMillis = nowMillis,
-        )
-
-        if (isTimerSuppressedForCurrentSession(packageName)) {
-            runtimeState.update { it.copy(timerVisible = false) }
-            uiController.hideTimer()
-        } else {
-            showTimerForPackage(packageName)
-        }
-    }
-
-    private fun onLeaveForeground(
-        packageName: String,
-        nowMillis: Long,
-        nowElapsed: Long,
-    ) {
-        // 先にオーバーレイを閉じる
-        if (runtimeState.value.overlayPackage == packageName) {
-            runtimeState.update {
-                it.copy(
-                    overlayPackage = null,
-                    trackingPackage = null,
-                    timerVisible = false,
-                )
-            }
-            // show/hide が非同期に Main へ投げられるため，並び替わりが起きても古い hide が新しい show を消さないようにする
-            uiController.hideTimer(token = packageName)
-            uiController.hideSuggestion()
-            suggestionOrchestrator.clearOverlayState()
-        }
-
-        // ランタイムのセッション情報を更新
-        sessionTracker.onLeaveTargetApp(packageName)
-
-        // ここでは「このセッションでは提案しない」などのゲートはリセットしない
-        // （猶予時間内の一時離脱は同一セッション扱いにしたい）
-    }
-
-    private fun showTimerForPackage(packageName: String) {
-        val providers = timerDisplayCalculator.createProviders(packageName)
-
-        runtimeState.update { it.copy(timerVisible = true) }
-        uiController.showTimer(
-            token = packageName,
-            displayMillisProvider = providers.displayMillisProvider,
-            visualMillisProvider = providers.visualMillisProvider,
-            onPositionChanged = ::onOverlayPositionChanged,
-        )
-    }
-
-
-
-    private fun isTimerSuppressedForCurrentSession(packageName: String): Boolean {
-        return runtimeState.value.timerSuppressedForSession[packageName] == true
-    }
-
-    private fun onOverlayPositionChanged(x: Int, y: Int) {
-        scope.launch {
-            try {
-                settingsCommand.setOverlayPosition(
-                    x = x,
-                    y = y,
-                    source = "overlay",
-                    reason = "drag",
-                    recordEvent = false,
-                )
-            } catch (e: Exception) {
-                RefocusLog.e(TAG, e) { "Failed to save overlay position" }
-            }
-        }
-    }
 }
