@@ -3,9 +3,9 @@ package com.example.refocus.system.overlay.service
 import android.content.Intent
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.TimerTouchMode
+import com.example.refocus.domain.overlay.runtime.OverlayCoordinator
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.settings.SettingsCommand
-import com.example.refocus.system.overlay.OverlayCoordinator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
