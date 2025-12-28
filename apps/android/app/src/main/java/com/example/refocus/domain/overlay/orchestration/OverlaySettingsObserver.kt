@@ -6,7 +6,7 @@ import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.overlay.engine.OverlayEvent
 import com.example.refocus.domain.overlay.engine.OverlayState
 import com.example.refocus.domain.overlay.model.OverlayRuntimeState
-import com.example.refocus.domain.overlay.port.OverlayUiGateway
+import com.example.refocus.domain.overlay.port.OverlayUiPort
 import com.example.refocus.domain.overlay.usecase.DailyUsageUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -29,7 +29,7 @@ internal class OverlaySettingsObserver(
     private val customizeFlow: SharedFlow<Customize>,
     private val runtimeState: MutableStateFlow<OverlayRuntimeState>,
     private val dailyUsageUseCase: DailyUsageUseCase,
-    private val uiController: OverlayUiGateway,
+    private val uiController: OverlayUiPort,
     private val sessionBootstrapper: SessionBootstrapper,
     private val sessionTracker: OverlaySessionTracker,
     private val suggestionOrchestrator: SuggestionOrchestrator,

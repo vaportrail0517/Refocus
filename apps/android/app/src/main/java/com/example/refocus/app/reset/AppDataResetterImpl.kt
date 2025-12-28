@@ -3,7 +3,7 @@ package com.example.refocus.app.reset
 import com.example.refocus.data.db.RefocusDatabase
 import com.example.refocus.domain.repository.OnboardingRepository
 import com.example.refocus.domain.repository.TargetsRepository
-import com.example.refocus.domain.reset.AppDataResetter
+import com.example.refocus.domain.reset.port.AppDataResetter
 import com.example.refocus.domain.settings.SettingsCommand
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

@@ -3,7 +3,7 @@ package com.example.refocus.system.overlay.service
 import android.content.Context
 import androidx.lifecycle.LifecycleOwner
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.domain.gateway.ForegroundAppObserver
+import com.example.refocus.domain.monitor.port.ForegroundAppObserver
 import com.example.refocus.domain.overlay.runtime.OverlayCoordinator
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.SuggestionsRepository
@@ -16,7 +16,7 @@ import com.example.refocus.domain.timeline.EventRecorder
 import com.example.refocus.system.notification.OverlayServiceNotificationController
 import com.example.refocus.system.overlay.SuggestionOverlayController
 import com.example.refocus.system.overlay.TimerOverlayController
-import com.example.refocus.system.overlay.WindowOverlayUiGateway
+import com.example.refocus.system.overlay.WindowOverlayUiController
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -56,7 +56,7 @@ internal class OverlayServiceComponentsFactory {
             )
 
         val overlayUiController =
-            WindowOverlayUiGateway(
+            WindowOverlayUiController(
                 scope = scope,
                 timerOverlayController = timerOverlayController,
                 suggestionOverlayController = suggestionOverlayController,
@@ -93,7 +93,7 @@ internal class OverlayServiceComponentsFactory {
 internal data class OverlayServiceComponents(
     val timerOverlayController: TimerOverlayController,
     val suggestionOverlayController: SuggestionOverlayController,
-    val overlayUiController: WindowOverlayUiGateway,
+    val overlayUiController: WindowOverlayUiController,
     val overlayCoordinator: OverlayCoordinator,
     val notificationController: OverlayServiceNotificationController,
 )

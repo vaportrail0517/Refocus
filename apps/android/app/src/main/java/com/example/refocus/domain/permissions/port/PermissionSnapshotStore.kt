@@ -1,4 +1,4 @@
-package com.example.refocus.domain.permissions
+package com.example.refocus.domain.permissions.port
 
 import com.example.refocus.core.model.PermissionSnapshot
 

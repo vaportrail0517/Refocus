@@ -3,11 +3,11 @@ package com.example.refocus.domain.overlay.orchestration
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.domain.gateway.ForegroundAppObserver
+import com.example.refocus.domain.monitor.port.ForegroundAppObserver
 import com.example.refocus.domain.overlay.engine.OverlayEvent
 import com.example.refocus.domain.overlay.engine.OverlayState
 import com.example.refocus.domain.overlay.model.OverlayRuntimeState
-import com.example.refocus.domain.overlay.port.OverlayUiGateway
+import com.example.refocus.domain.overlay.port.OverlayUiPort
 import com.example.refocus.domain.overlay.usecase.DailyUsageUseCase
 import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.domain.timeline.EventRecorder
@@ -48,7 +48,7 @@ class ForegroundTrackingOrchestrator(
     private val sessionTracker: OverlaySessionTracker,
     private val dailyUsageUseCase: DailyUsageUseCase,
     private val suggestionOrchestrator: SuggestionOrchestrator,
-    private val uiController: OverlayUiGateway,
+    private val uiController: OverlayUiPort,
     private val eventRecorder: EventRecorder,
     private val dispatchEvent: (OverlayEvent) -> Unit,
 ) {

@@ -1,5 +1,6 @@
 import com.android.build.api.variant.impl.VariantOutputImpl
 import org.gradle.api.GradleException
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -37,9 +38,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-    kotlinOptions {
-        jvmTarget = "11"
     }
     buildFeatures {
         compose = true
@@ -130,6 +128,24 @@ val systemSourceRoots =
     listOf(
         file("src/main/java/com/example/refocus/system"),
         file("src/main/kotlin/com/example/refocus/system"),
+    )
+
+val dataSourceRoots =
+    listOf(
+        file("src/main/java/com/example/refocus/data"),
+        file("src/main/kotlin/com/example/refocus/data"),
+    )
+
+val gatewaySourceRoots =
+    listOf(
+        file("src/main/java/com/example/refocus/gateway"),
+        file("src/main/kotlin/com/example/refocus/gateway"),
+    )
+
+val uiSourceRoots =
+    listOf(
+        file("src/main/java/com/example/refocus/ui"),
+        file("src/main/kotlin/com/example/refocus/ui"),
     )
 
 tasks.register("checkDomainBoundaries") {
@@ -309,11 +325,191 @@ tasks.register("checkSystemBoundaries") {
         }
     }
 }
+
+/**
+ * Data（永続化）レイヤは，app / feature / system / ui / gateway へ依存しない．
+ *
+ * - data は DB / DataStore などの実装を担う
+ * - platform 依存を持ち得るが，UI やサービスの都合に引きずられないよう境界を守る
+ */
+tasks.register("checkDataBoundaries") {
+    group = "verification"
+    description = "Fails if data layer depends on app/feature/system/ui/gateway layers via imports."
+
+    doLast {
+        val forbiddenImportPrefixes =
+            listOf(
+                "com.example.refocus.app.",
+                "com.example.refocus.feature.",
+                "com.example.refocus.system.",
+                "com.example.refocus.ui.",
+                "com.example.refocus.gateway.",
+            )
+
+        val violations = mutableListOf<String>()
+
+        dataSourceRoots
+            .filter { it.exists() }
+            .forEach { root ->
+                root
+                    .walkTopDown()
+                    .filter { it.isFile && (it.extension == "kt" || it.extension == "java") }
+                    .forEach { file ->
+                        file.useLines { lines ->
+                            lines.forEachIndexed { index, line ->
+                                val trimmed = line.trim()
+                                if (!trimmed.startsWith("import ")) return@forEachIndexed
+
+                                val imported =
+                                    trimmed
+                                        .removePrefix("import ")
+                                        .trim()
+                                        .removeSuffix(";")
+
+                                if (forbiddenImportPrefixes.any { imported.startsWith(it) }) {
+                                    violations += "${file.relativeTo(projectDir)}:${index + 1}: $trimmed"
+                                }
+                            }
+                        }
+                    }
+            }
+
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    appendLine("Data boundary violations found (forbidden imports in data):")
+                    violations.forEach { appendLine(it) }
+                },
+            )
+        }
+    }
+}
+
+/**
+ * Gateway（Android 型を含む interface 群）は，他レイヤ実装へ依存しない．
+ *
+ * - gateway は feature から参照され得るため，依存方向を単純に保つ
+ * - 実装（system）や永続化（data）に引っ張られないよう軽量ガードを置く
+ */
+tasks.register("checkGatewayBoundaries") {
+    group = "verification"
+    description = "Fails if gateway layer depends on app/feature/system/data/ui layers via imports."
+
+    doLast {
+        val forbiddenImportPrefixes =
+            listOf(
+                "com.example.refocus.app.",
+                "com.example.refocus.feature.",
+                "com.example.refocus.system.",
+                "com.example.refocus.data.",
+                "com.example.refocus.ui.",
+            )
+
+        val violations = mutableListOf<String>()
+
+        gatewaySourceRoots
+            .filter { it.exists() }
+            .forEach { root ->
+                root
+                    .walkTopDown()
+                    .filter { it.isFile && (it.extension == "kt" || it.extension == "java") }
+                    .forEach { file ->
+                        file.useLines { lines ->
+                            lines.forEachIndexed { index, line ->
+                                val trimmed = line.trim()
+                                if (!trimmed.startsWith("import ")) return@forEachIndexed
+
+                                val imported =
+                                    trimmed
+                                        .removePrefix("import ")
+                                        .trim()
+                                        .removeSuffix(";")
+
+                                if (forbiddenImportPrefixes.any { imported.startsWith(it) }) {
+                                    violations += "${file.relativeTo(projectDir)}:${index + 1}: $trimmed"
+                                }
+                            }
+                        }
+                    }
+            }
+
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    appendLine("Gateway boundary violations found (forbidden imports in gateway):")
+                    violations.forEach { appendLine(it) }
+                },
+            )
+        }
+    }
+}
+
+/**
+ * UI（共通 Compose / theme）レイヤは，app / feature / system / data へ依存しない．
+ *
+ * - ui は「どの画面でも使える部品」の置き場として単純性を保つ
+ * - 画面ロジック（feature）や DI / navigation（app）へ逆流させない
+ */
+tasks.register("checkUiBoundaries") {
+    group = "verification"
+    description = "Fails if ui layer depends on app/feature/system/data layers via imports."
+
+    doLast {
+        val forbiddenImportPrefixes =
+            listOf(
+                "com.example.refocus.app.",
+                "com.example.refocus.feature.",
+                "com.example.refocus.system.",
+                "com.example.refocus.data.",
+            )
+
+        val violations = mutableListOf<String>()
+
+        uiSourceRoots
+            .filter { it.exists() }
+            .forEach { root ->
+                root
+                    .walkTopDown()
+                    .filter { it.isFile && (it.extension == "kt" || it.extension == "java") }
+                    .forEach { file ->
+                        file.useLines { lines ->
+                            lines.forEachIndexed { index, line ->
+                                val trimmed = line.trim()
+                                if (!trimmed.startsWith("import ")) return@forEachIndexed
+
+                                val imported =
+                                    trimmed
+                                        .removePrefix("import ")
+                                        .trim()
+                                        .removeSuffix(";")
+
+                                if (forbiddenImportPrefixes.any { imported.startsWith(it) }) {
+                                    violations += "${file.relativeTo(projectDir)}:${index + 1}: $trimmed"
+                                }
+                            }
+                        }
+                    }
+            }
+
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    appendLine("UI boundary violations found (forbidden imports in ui):")
+                    violations.forEach { appendLine(it) }
+                },
+            )
+        }
+    }
+}
+
 // 既存の手元チェックの流れに自然に乗せる（Android Studio から :app:check を実行する想定）
 tasks.named("check").configure {
     dependsOn("checkDomainBoundaries")
     dependsOn("checkFeatureBoundaries")
     dependsOn("checkSystemBoundaries")
+    dependsOn("checkDataBoundaries")
+    dependsOn("checkGatewayBoundaries")
+    dependsOn("checkUiBoundaries")
     dependsOn("ktlintCheck")
 }
 
@@ -330,6 +526,9 @@ tasks.register("verifyLocal") {
     dependsOn("checkDomainBoundaries")
     dependsOn("checkFeatureBoundaries")
     dependsOn("checkSystemBoundaries")
+    dependsOn("checkDataBoundaries")
+    dependsOn("checkGatewayBoundaries")
+    dependsOn("checkUiBoundaries")
     dependsOn("ktlintCheck")
 }
 
@@ -344,5 +543,13 @@ androidComponents {
                     "$appName-android-v$vName-debug-$date.apk"
             }
         }
+    }
+}
+
+// Kotlin 2.0+ では android.kotlinOptions{} が非推奨のため，compilerOptions DSL を使う
+// https://kotl.in/u1r8ln
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_11)
     }
 }

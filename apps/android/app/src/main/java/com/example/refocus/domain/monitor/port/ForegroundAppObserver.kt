@@ -1,4 +1,4 @@
-package com.example.refocus.domain.gateway
+package com.example.refocus.domain.monitor.port
 
 import kotlinx.coroutines.flow.Flow
 

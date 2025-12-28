@@ -8,7 +8,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.refocus.core.model.PermissionSnapshot
-import com.example.refocus.domain.permissions.PermissionSnapshotStore
+import com.example.refocus.domain.permissions.port.PermissionSnapshotStore
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import java.io.IOException

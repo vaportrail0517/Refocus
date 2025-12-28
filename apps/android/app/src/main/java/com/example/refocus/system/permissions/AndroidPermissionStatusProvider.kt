@@ -2,7 +2,7 @@ package com.example.refocus.system.permissions
 
 import android.content.Context
 import com.example.refocus.core.model.PermissionSnapshot
-import com.example.refocus.domain.permissions.PermissionStatusProvider
+import com.example.refocus.domain.permissions.port.PermissionStatusProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton

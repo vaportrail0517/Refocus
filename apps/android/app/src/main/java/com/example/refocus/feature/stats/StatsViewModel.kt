@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.DailyStats
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.domain.gateway.AppLabelProvider
+import com.example.refocus.domain.appinfo.port.AppLabelProvider
 import com.example.refocus.domain.stats.DefaultStatsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers

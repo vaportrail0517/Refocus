@@ -5,7 +5,7 @@ import com.example.refocus.data.datastore.OnboardingDataStore
 import com.example.refocus.data.datastore.PermissionStateDataStore
 import com.example.refocus.data.datastore.SettingsDataStore
 import com.example.refocus.data.datastore.TargetsDataStore
-import com.example.refocus.domain.permissions.PermissionSnapshotStore
+import com.example.refocus.domain.permissions.port.PermissionSnapshotStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

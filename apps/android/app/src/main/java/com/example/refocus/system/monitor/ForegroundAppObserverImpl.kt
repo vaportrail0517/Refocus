@@ -1,11 +1,11 @@
 package com.example.refocus.system.monitor
 
-import com.example.refocus.domain.gateway.ForegroundAppObserver
+import com.example.refocus.domain.monitor.port.ForegroundAppObserver
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /**
- * ForegroundAppMonitor（Android 実装）を domain.gateway.ForegroundAppObserver に適合させるアダプタ。
+ * ForegroundAppMonitor（Android 実装）を domain.monitor.port.ForegroundAppObserver に適合させるアダプタ。
  */
 class ForegroundAppObserverImpl(
     private val monitor: ForegroundAppMonitor,

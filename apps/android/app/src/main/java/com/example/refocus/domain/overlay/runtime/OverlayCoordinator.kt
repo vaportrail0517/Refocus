@@ -3,7 +3,7 @@ package com.example.refocus.domain.overlay.runtime
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.domain.gateway.ForegroundAppObserver
+import com.example.refocus.domain.monitor.port.ForegroundAppObserver
 import com.example.refocus.domain.overlay.engine.OverlayEvent
 import com.example.refocus.domain.overlay.engine.OverlayState
 import com.example.refocus.domain.overlay.engine.OverlayStateTransitioner
@@ -16,7 +16,7 @@ import com.example.refocus.domain.overlay.orchestration.OverlaySettingsObserver
 import com.example.refocus.domain.overlay.orchestration.SessionBootstrapper
 import com.example.refocus.domain.overlay.orchestration.SuggestionOrchestrator
 import com.example.refocus.domain.overlay.policy.OverlayTimerDisplayCalculator
-import com.example.refocus.domain.overlay.port.OverlayUiGateway
+import com.example.refocus.domain.overlay.port.OverlayUiPort
 import com.example.refocus.domain.overlay.usecase.DailyUsageUseCase
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.SuggestionsRepository
@@ -60,7 +60,7 @@ class OverlayCoordinator(
     private val foregroundAppObserver: ForegroundAppObserver,
     private val suggestionEngine: SuggestionEngine,
     private val suggestionSelector: SuggestionSelector,
-    private val uiController: OverlayUiGateway,
+    private val uiController: OverlayUiPort,
     private val eventRecorder: EventRecorder,
     private val timelineRepository: TimelineRepository,
 ) {

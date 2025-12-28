@@ -2,11 +2,11 @@ package com.example.refocus.app.di
 
 import android.content.Context
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.domain.gateway.AppLabelProvider
-import com.example.refocus.domain.gateway.ForegroundAppObserver
+import com.example.refocus.domain.appinfo.port.AppLabelProvider
+import com.example.refocus.domain.monitor.port.ForegroundAppObserver
 import com.example.refocus.domain.overlay.port.OverlayServiceController
 import com.example.refocus.domain.overlay.port.OverlayServiceStatusProvider
-import com.example.refocus.domain.permissions.PermissionStatusProvider
+import com.example.refocus.domain.permissions.port.PermissionStatusProvider
 import com.example.refocus.domain.repository.TimelineRepository
 import com.example.refocus.domain.suggestion.GaussianCircularTimeSlotWeightModel
 import com.example.refocus.domain.suggestion.SuggestionEngine

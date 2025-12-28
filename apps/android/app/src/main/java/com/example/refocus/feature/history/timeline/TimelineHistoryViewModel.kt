@@ -14,7 +14,7 @@ import com.example.refocus.core.model.SuggestionShownEvent
 import com.example.refocus.core.model.TargetAppsChangedEvent
 import com.example.refocus.core.model.TimelineEvent
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.domain.gateway.AppLabelProvider
+import com.example.refocus.domain.appinfo.port.AppLabelProvider
 import com.example.refocus.domain.repository.AppCatalogRepository
 import com.example.refocus.domain.repository.TimelineRepository
 import dagger.hilt.android.lifecycle.HiltViewModel

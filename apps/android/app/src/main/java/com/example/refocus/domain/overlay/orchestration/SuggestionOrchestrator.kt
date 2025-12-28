@@ -7,7 +7,7 @@ import com.example.refocus.core.model.SuggestionMode
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.overlay.model.SessionBootstrapFromTimeline
 import com.example.refocus.domain.overlay.model.SessionSuggestionGate
-import com.example.refocus.domain.overlay.port.OverlayUiGateway
+import com.example.refocus.domain.overlay.port.OverlayUiPort
 import com.example.refocus.domain.overlay.port.SuggestionOverlayUiModel
 import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.suggestion.SuggestionEngine
@@ -28,7 +28,7 @@ class SuggestionOrchestrator(
     private val suggestionEngine: SuggestionEngine,
     private val suggestionSelector: SuggestionSelector,
     private val suggestionsRepository: SuggestionsRepository,
-    private val uiController: OverlayUiGateway,
+    private val uiController: OverlayUiPort,
     private val eventRecorder: EventRecorder,
     private val overlayPackageProvider: () -> String?,
     private val customizeProvider: () -> Customize,

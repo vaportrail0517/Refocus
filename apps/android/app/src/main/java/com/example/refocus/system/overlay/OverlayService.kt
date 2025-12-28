@@ -14,7 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.domain.gateway.ForegroundAppObserver
+import com.example.refocus.domain.monitor.port.ForegroundAppObserver
 import com.example.refocus.domain.overlay.runtime.OverlayCoordinator
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.SuggestionsRepository
@@ -106,7 +106,7 @@ class OverlayService : LifecycleService() {
 
     private lateinit var timerOverlayController: TimerOverlayController
     private lateinit var suggestionOverlayController: SuggestionOverlayController
-    private lateinit var overlayUiController: WindowOverlayUiGateway
+    private lateinit var overlayUiController: WindowOverlayUiController
     private lateinit var overlayCoordinator: OverlayCoordinator
 
     private lateinit var notificationController: OverlayServiceNotificationController

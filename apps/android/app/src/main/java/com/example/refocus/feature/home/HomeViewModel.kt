@@ -3,7 +3,7 @@ package com.example.refocus.feature.home
 import android.graphics.drawable.Drawable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.refocus.domain.gateway.AppLabelProvider
+import com.example.refocus.domain.appinfo.port.AppLabelProvider
 import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.gateway.AppIconProvider
 import dagger.hilt.android.lifecycle.HiltViewModel

@@ -7,7 +7,7 @@ import com.example.refocus.core.model.PermissionKind
 import com.example.refocus.core.model.PermissionSnapshot
 import com.example.refocus.core.model.PermissionState
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.domain.permissions.PermissionSnapshotStore
+import com.example.refocus.domain.permissions.port.PermissionSnapshotStore
 import com.example.refocus.domain.timeline.EventRecorder
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.sync.Mutex

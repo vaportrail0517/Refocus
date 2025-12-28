@@ -1,4 +1,4 @@
-package com.example.refocus.domain.reset
+package com.example.refocus.domain.reset.port
 
 /**
  * 端末内の永続データを全消去するユースケース（抽象）。

@@ -1,9 +1,9 @@
 package com.example.refocus.system.appinfo
 
-import com.example.refocus.domain.gateway.AppLabelProvider
+import com.example.refocus.domain.appinfo.port.AppLabelProvider
 
 /**
- * domain.gateway.AppLabelProvider を system 実装（AppLabelResolver）にアダプトする．
+ * domain.appinfo.port.AppLabelProvider を system 実装（AppLabelResolver）にアダプトする．
  */
 class AppLabelProviderImpl(
     private val resolver: AppLabelResolver,

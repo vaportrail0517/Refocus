@@ -1,7 +1,7 @@
 package com.example.refocus.system.overlay
 
 import com.example.refocus.core.model.Customize
-import com.example.refocus.domain.overlay.port.OverlayUiGateway
+import com.example.refocus.domain.overlay.port.OverlayUiPort
 import com.example.refocus.domain.overlay.port.SuggestionOverlayUiModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -9,14 +9,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * domain/overlay.OverlayUiGateway の実装。
+ * domain/overlay.OverlayUiPort の実装。
  * WindowManager × Compose な UI を実際に操作する。
  */
-class WindowOverlayUiGateway(
+class WindowOverlayUiController(
     private val scope: CoroutineScope,
     private val timerOverlayController: TimerOverlayController,
     private val suggestionOverlayController: SuggestionOverlayController,
-) : OverlayUiGateway {
+) : OverlayUiPort {
     override fun applySettings(customize: Customize) {
         scope.launch(Dispatchers.Main) {
             timerOverlayController.overlayCustomize = customize

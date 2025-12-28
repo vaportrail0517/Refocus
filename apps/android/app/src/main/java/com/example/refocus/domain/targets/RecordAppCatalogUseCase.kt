@@ -2,7 +2,7 @@ package com.example.refocus.domain.targets
 
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.domain.gateway.AppLabelProvider
+import com.example.refocus.domain.appinfo.port.AppLabelProvider
 import com.example.refocus.domain.repository.AppCatalogRepository
 import javax.inject.Inject
 
