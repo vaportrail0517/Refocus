@@ -62,9 +62,7 @@ fun SessionHistoryContent(
 }
 
 @Composable
-private fun SessionItem(
-    session: SessionHistoryViewModel.SessionUiModel,
-) {
+private fun SessionItem(session: SessionHistoryViewModel.SessionUiModel) {
     var expanded by remember { mutableStateOf(false) }
 
     Card(
@@ -105,16 +103,18 @@ private fun SessionItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                val statusText = when (session.status) {
-                    SessionStatus.RUNNING -> "実行中"
-                    SessionStatus.GRACE -> "一時離脱中（猶予）"
-                    SessionStatus.FINISHED -> "終了"
-                }
-                val statusColor = when (session.status) {
-                    SessionStatus.RUNNING -> MaterialTheme.colorScheme.primary
-                    SessionStatus.GRACE -> MaterialTheme.colorScheme.tertiary
-                    SessionStatus.FINISHED -> MaterialTheme.colorScheme.onSurfaceVariant
-                }
+                val statusText =
+                    when (session.status) {
+                        SessionStatus.RUNNING -> "実行中"
+                        SessionStatus.GRACE -> "一時離脱中（猶予）"
+                        SessionStatus.FINISHED -> "終了"
+                    }
+                val statusColor =
+                    when (session.status) {
+                        SessionStatus.RUNNING -> MaterialTheme.colorScheme.primary
+                        SessionStatus.GRACE -> MaterialTheme.colorScheme.tertiary
+                        SessionStatus.FINISHED -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 Text(
                     text = statusText,
                     style = MaterialTheme.typography.bodySmall,

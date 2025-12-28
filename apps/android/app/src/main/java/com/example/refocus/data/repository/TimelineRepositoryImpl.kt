@@ -29,7 +29,6 @@ import java.time.ZoneId
 class TimelineRepositoryImpl(
     private val dao: TimelineEventDao,
 ) : TimelineRepository {
-
     override suspend fun append(event: TimelineEvent): Long {
         val entity = event.toEntity()
         return dao.insert(entity)
@@ -38,27 +37,32 @@ class TimelineRepositoryImpl(
     override suspend fun getEvents(
         startMillis: Long,
         endMillis: Long,
-    ): List<TimelineEvent> {
-        return dao.getEventsBetween(startMillis, endMillis)
+    ): List<TimelineEvent> =
+        dao
+            .getEventsBetween(startMillis, endMillis)
             .mapNotNull { it.toDomain() }
-    }
 
     override suspend fun getEventsForDate(
         date: LocalDate,
         zoneId: ZoneId,
     ): List<TimelineEvent> {
         val start = date.atStartOfDay(zoneId).toInstant().toEpochMilli()
-        val end = date.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val end =
+            date
+                .plusDays(1)
+                .atStartOfDay(zoneId)
+                .toInstant()
+                .toEpochMilli()
         return getEvents(start, end)
     }
 
     override fun observeEventsBetween(
         startMillis: Long,
         endMillis: Long,
-    ): Flow<List<TimelineEvent>> {
-        return dao.observeEventsBetween(startMillis, endMillis)
+    ): Flow<List<TimelineEvent>> =
+        dao
+            .observeEventsBetween(startMillis, endMillis)
             .map { list -> list.mapNotNull { it.toDomain() } }
-    }
 
     override suspend fun getSeedEventsBefore(beforeMillis: Long): List<TimelineEvent> {
         // 状態復元に必要な最小限の「直前イベント」を拾う。
@@ -67,18 +71,21 @@ class TimelineRepositoryImpl(
 
         dao.getLatestEventOfKindBefore(KIND_SERVICE, beforeMillis)?.let { seedEntities += it }
         dao.getLatestEventOfKindBefore(KIND_SCREEN, beforeMillis)?.let { seedEntities += it }
-        dao.getLatestEventOfKindBefore(KIND_FOREGROUND_APP, beforeMillis)
+        dao
+            .getLatestEventOfKindBefore(KIND_FOREGROUND_APP, beforeMillis)
             ?.let { seedEntities += it }
-        dao.getLatestEventOfKindBefore(KIND_TARGET_APPS_CHANGED, beforeMillis)
+        dao
+            .getLatestEventOfKindBefore(KIND_TARGET_APPS_CHANGED, beforeMillis)
             ?.let { seedEntities += it }
 
         // Permission は permissionKind ごとに直前 1 件が欲しい。
         // SQL 側で group by するより，件数が小さいことを前提に Kotlin 側でユニーク化する。
-        val recentPerms = dao.getLatestEventsOfKindBefore(
-            kind = KIND_PERMISSION,
-            beforeMillis = beforeMillis,
-            limit = 32,
-        )
+        val recentPerms =
+            dao.getLatestEventsOfKindBefore(
+                kind = KIND_PERMISSION,
+                beforeMillis = beforeMillis,
+                limit = 32,
+            )
         val pickedPermissionKinds = mutableSetOf<String>()
         for (e in recentPerms) {
             val k = e.permissionKind ?: continue
@@ -93,10 +100,10 @@ class TimelineRepositoryImpl(
     }
 
     @Deprecated("全件購読は性能劣化の原因になるため，observeEventsBetween を使う")
-    override fun observeEvents(): Flow<List<TimelineEvent>> {
-        return dao.observeAllEvents()
+    override fun observeEvents(): Flow<List<TimelineEvent>> =
+        dao
+            .observeAllEvents()
             .map { list -> list.mapNotNull { it.toDomain() } }
-    }
 
     // --- Entity ↔ Domain 変換 ---
 
@@ -122,93 +129,104 @@ class TimelineRepositoryImpl(
         val baseTimestamp = timestampMillis
 
         return when (this) {
-            is ServiceConfigEvent -> TimelineEventEntity(
-                id = id ?: 0L,
-                timestampMillis = baseTimestamp,
-                kind = KIND_SERVICE_CONFIG,
-                extraKey = config.name,
-                extraValue = state.name,
-                extra = meta,
-            )
+            is ServiceConfigEvent ->
+                TimelineEventEntity(
+                    id = id ?: 0L,
+                    timestampMillis = baseTimestamp,
+                    kind = KIND_SERVICE_CONFIG,
+                    extraKey = config.name,
+                    extraValue = state.name,
+                    extra = meta,
+                )
 
-            is ServiceLifecycleEvent -> TimelineEventEntity(
-                id = id ?: 0L,
-                timestampMillis = baseTimestamp,
-                kind = KIND_SERVICE,
-                serviceState = state.name,
-            )
+            is ServiceLifecycleEvent ->
+                TimelineEventEntity(
+                    id = id ?: 0L,
+                    timestampMillis = baseTimestamp,
+                    kind = KIND_SERVICE,
+                    serviceState = state.name,
+                )
 
-            is PermissionEvent -> TimelineEventEntity(
-                id = id ?: 0L,
-                timestampMillis = baseTimestamp,
-                kind = KIND_PERMISSION,
-                permissionKind = permission.name,
-                permissionState = state.name,
-            )
+            is PermissionEvent ->
+                TimelineEventEntity(
+                    id = id ?: 0L,
+                    timestampMillis = baseTimestamp,
+                    kind = KIND_PERMISSION,
+                    permissionKind = permission.name,
+                    permissionState = state.name,
+                )
 
-            is ScreenEvent -> TimelineEventEntity(
-                id = id ?: 0L,
-                timestampMillis = baseTimestamp,
-                kind = KIND_SCREEN,
-                screenState = state.name,
-            )
+            is ScreenEvent ->
+                TimelineEventEntity(
+                    id = id ?: 0L,
+                    timestampMillis = baseTimestamp,
+                    kind = KIND_SCREEN,
+                    screenState = state.name,
+                )
 
-            is ForegroundAppEvent -> TimelineEventEntity(
-                id = id ?: 0L,
-                timestampMillis = baseTimestamp,
-                kind = KIND_FOREGROUND_APP,
-                packageName = packageName,
-            )
+            is ForegroundAppEvent ->
+                TimelineEventEntity(
+                    id = id ?: 0L,
+                    timestampMillis = baseTimestamp,
+                    kind = KIND_FOREGROUND_APP,
+                    packageName = packageName,
+                )
 
-            is TargetAppsChangedEvent -> TimelineEventEntity(
-                id = id ?: 0L,
-                timestampMillis = baseTimestamp,
-                kind = KIND_TARGET_APPS_CHANGED,
-                extra = targetPackages.joinToString(","),
-            )
+            is TargetAppsChangedEvent ->
+                TimelineEventEntity(
+                    id = id ?: 0L,
+                    timestampMillis = baseTimestamp,
+                    kind = KIND_TARGET_APPS_CHANGED,
+                    extra = targetPackages.joinToString(","),
+                )
 
-            is SuggestionShownEvent -> TimelineEventEntity(
-                id = id ?: 0L,
-                timestampMillis = baseTimestamp,
-                kind = KIND_SUGGESTION_SHOWN,
-                packageName = packageName,
-                suggestionId = suggestionId,
-            )
+            is SuggestionShownEvent ->
+                TimelineEventEntity(
+                    id = id ?: 0L,
+                    timestampMillis = baseTimestamp,
+                    kind = KIND_SUGGESTION_SHOWN,
+                    packageName = packageName,
+                    suggestionId = suggestionId,
+                )
 
-            is SuggestionDecisionEvent -> TimelineEventEntity(
-                id = id ?: 0L,
-                timestampMillis = baseTimestamp,
-                kind = KIND_SUGGESTION_DECISION,
-                packageName = packageName,
-                suggestionId = suggestionId,
-                suggestionDecision = decision.name,
-            )
+            is SuggestionDecisionEvent ->
+                TimelineEventEntity(
+                    id = id ?: 0L,
+                    timestampMillis = baseTimestamp,
+                    kind = KIND_SUGGESTION_DECISION,
+                    packageName = packageName,
+                    suggestionId = suggestionId,
+                    suggestionDecision = decision.name,
+                )
 
-            is SettingsChangedEvent -> TimelineEventEntity(
-                id = id ?: 0L,
-                timestampMillis = baseTimestamp,
-                kind = KIND_SETTINGS_CHANGED,
-                extraKey = key,
-                extraValue = newValueDescription,
-            )
+            is SettingsChangedEvent ->
+                TimelineEventEntity(
+                    id = id ?: 0L,
+                    timestampMillis = baseTimestamp,
+                    kind = KIND_SETTINGS_CHANGED,
+                    extraKey = key,
+                    extraValue = newValueDescription,
+                )
         }
     }
 
     private fun TimelineEventEntity.toDomain(): TimelineEvent? {
         return when (kind) {
             KIND_SERVICE_CONFIG -> {
-                val config = safeEnumValueOf<ServiceConfigKind>(
-                    value = extraKey,
-                    kind = kind,
-                    id = id,
-                    field = "ServiceConfigKind",
-                ) ?: return null
-                val state = safeEnumValueOf<ServiceConfigState>(
-                    value = extraValue,
-                    kind = kind,
-                    id = id,
-                    field = "ServiceConfigState",
-                ) ?: return null
+                val config =
+                    safeEnumValueOf<ServiceConfigKind>(
+                        value = extraKey,
+                        kind = kind,
+                        id = id,
+                        field = "ServiceConfigKind",
+                    ) ?: return null
+                val state =
+                    safeEnumValueOf<ServiceConfigState>(
+                        value = extraValue,
+                        kind = kind,
+                        id = id,
+                        field = "ServiceConfigState",
+                    ) ?: return null
                 ServiceConfigEvent(
                     id = id,
                     timestampMillis = timestampMillis,
@@ -219,12 +237,13 @@ class TimelineRepositoryImpl(
             }
 
             KIND_SERVICE -> {
-                val state = safeEnumValueOf<ServiceState>(
-                    value = serviceState,
-                    kind = kind,
-                    id = id,
-                    field = "ServiceState",
-                ) ?: return null
+                val state =
+                    safeEnumValueOf<ServiceState>(
+                        value = serviceState,
+                        kind = kind,
+                        id = id,
+                        field = "ServiceState",
+                    ) ?: return null
                 ServiceLifecycleEvent(
                     id = id,
                     timestampMillis = timestampMillis,
@@ -233,18 +252,20 @@ class TimelineRepositoryImpl(
             }
 
             KIND_PERMISSION -> {
-                val perm = safeEnumValueOf<PermissionKind>(
-                    value = permissionKind,
-                    kind = kind,
-                    id = id,
-                    field = "PermissionKind",
-                ) ?: return null
-                val st = safeEnumValueOf<PermissionState>(
-                    value = permissionState,
-                    kind = kind,
-                    id = id,
-                    field = "PermissionState",
-                ) ?: return null
+                val perm =
+                    safeEnumValueOf<PermissionKind>(
+                        value = permissionKind,
+                        kind = kind,
+                        id = id,
+                        field = "PermissionKind",
+                    ) ?: return null
+                val st =
+                    safeEnumValueOf<PermissionState>(
+                        value = permissionState,
+                        kind = kind,
+                        id = id,
+                        field = "PermissionState",
+                    ) ?: return null
                 PermissionEvent(
                     id = id,
                     timestampMillis = timestampMillis,
@@ -254,12 +275,13 @@ class TimelineRepositoryImpl(
             }
 
             KIND_SCREEN -> {
-                val st = safeEnumValueOf<ScreenState>(
-                    value = screenState,
-                    kind = kind,
-                    id = id,
-                    field = "ScreenState",
-                ) ?: return null
+                val st =
+                    safeEnumValueOf<ScreenState>(
+                        value = screenState,
+                        kind = kind,
+                        id = id,
+                        field = "ScreenState",
+                    ) ?: return null
                 ScreenEvent(
                     id = id,
                     timestampMillis = timestampMillis,
@@ -267,18 +289,21 @@ class TimelineRepositoryImpl(
                 )
             }
 
-            KIND_FOREGROUND_APP -> ForegroundAppEvent(
-                id = id,
-                timestampMillis = timestampMillis,
-                packageName = packageName,
-            )
+            KIND_FOREGROUND_APP ->
+                ForegroundAppEvent(
+                    id = id,
+                    timestampMillis = timestampMillis,
+                    packageName = packageName,
+                )
 
-            KIND_TARGET_APPS_CHANGED -> TargetAppsChangedEvent(
-                id = id,
-                timestampMillis = timestampMillis,
-                targetPackages = extra?.split(",")?.filter { it.isNotBlank() }?.toSet()
-                    ?: emptySet(),
-            )
+            KIND_TARGET_APPS_CHANGED ->
+                TargetAppsChangedEvent(
+                    id = id,
+                    timestampMillis = timestampMillis,
+                    targetPackages =
+                        extra?.split(",")?.filter { it.isNotBlank() }?.toSet()
+                            ?: emptySet(),
+                )
 
             KIND_SUGGESTION_SHOWN -> {
                 val sid = suggestionId ?: return null
@@ -294,12 +319,13 @@ class TimelineRepositoryImpl(
             KIND_SUGGESTION_DECISION -> {
                 val sid = suggestionId ?: return null
                 val pkg = packageName ?: return null
-                val dec = safeEnumValueOf<SuggestionDecision>(
-                    value = suggestionDecision,
-                    kind = kind,
-                    id = id,
-                    field = "SuggestionDecision",
-                ) ?: return null
+                val dec =
+                    safeEnumValueOf<SuggestionDecision>(
+                        value = suggestionDecision,
+                        kind = kind,
+                        id = id,
+                        field = "SuggestionDecision",
+                    ) ?: return null
                 SuggestionDecisionEvent(
                     id = id,
                     timestampMillis = timestampMillis,

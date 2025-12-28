@@ -16,7 +16,6 @@ data class LaunchableAppInfo(
 )
 
 interface LaunchableAppProvider {
-
     /**
      * ランチャーに表示されるアプリ一覧を返す．
      * UsageStats が取れない場合は usageTimeMs=0 のまま返す．

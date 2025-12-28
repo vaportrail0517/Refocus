@@ -21,10 +21,11 @@ internal fun PeakTimeCard(
         description = "対象アプリをよく使っている時間帯の一覧です．",
         onClick = onClick,
     ) {
-        val topBuckets = timeBuckets
-            .filter { it.targetUsageMinutes > 0 }
-            .sortedByDescending { it.targetUsageMinutes }
-            .take(3)
+        val topBuckets =
+            timeBuckets
+                .filter { it.targetUsageMinutes > 0 }
+                .sortedByDescending { it.targetUsageMinutes }
+                .take(3)
 
         if (topBuckets.isEmpty()) {
             Text("まだデータがありません．")
@@ -36,7 +37,7 @@ internal fun PeakTimeCard(
                 Text(
                     text = "${formatBucketRange(bucket)}   合計 ${
                         formatDurationMilliSeconds(
-                            bucket.targetUsageMinutes * 60_000L
+                            bucket.targetUsageMinutes * 60_000L,
                         )
                     }",
                     style = MaterialTheme.typography.bodyMedium,
@@ -46,9 +47,7 @@ internal fun PeakTimeCard(
     }
 }
 
-internal fun formatBucketRange(
-    bucket: TimeBucketStats,
-): String {
+internal fun formatBucketRange(bucket: TimeBucketStats): String {
     fun formatMinutes(m: Int): String {
         val h = m / 60
         val mm = m % 60

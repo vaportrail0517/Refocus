@@ -120,10 +120,11 @@ fun <T> SingleChoiceDialog(
     ) {
         options.forEach { option ->
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { selected = option }
-                    .padding(vertical = 4.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { selected = option }
+                        .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 RadioButton(
@@ -223,9 +224,10 @@ fun IntInputDialog(
             onValueChange = { textValue = it },
             label = { Text(label) },
             singleLine = true,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Number,
-            ),
+            keyboardOptions =
+                KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                ),
         )
     }
 }

@@ -24,7 +24,6 @@ class ForegroundAppMonitor(
     private val context: Context,
     private val timeSource: TimeSource,
 ) {
-
     companion object {
         private const val TAG = "ForegroundAppMonitor"
 
@@ -91,8 +90,7 @@ class ForegroundAppMonitor(
         foregroundSampleFlow(
             pollingIntervalMs = pollingIntervalMs,
             initialLookbackMs = initialLookbackMs,
-        )
-            .map { it.packageName }
+        ).map { it.packageName }
             .distinctUntilChanged()
 
     /**
@@ -102,126 +100,132 @@ class ForegroundAppMonitor(
     fun foregroundSampleFlow(
         pollingIntervalMs: Long = 1_000L,
         initialLookbackMs: Long = 10_000L,
-    ): Flow<ForegroundSample> = flow {
-        val usm = usageStatsManager
-        if (usm == null) {
-            RefocusLog.w("Foreground") { "UsageStatsManager is null, cannot monitor foreground app" }
-            emit(ForegroundSample(packageName = null, generation = 0L))
-            while (true) delay(pollingIntervalMs)
-        }
+    ): Flow<ForegroundSample> =
+        flow {
+            val usm = usageStatsManager
+            if (usm == null) {
+                RefocusLog.w("Foreground") { "UsageStatsManager is null, cannot monitor foreground app" }
+                emit(ForegroundSample(packageName = null, generation = 0L))
+                while (true) delay(pollingIntervalMs)
+            }
 
-        var lastEmitted: ForegroundSample? = null
+            var lastEmitted: ForegroundSample? = null
 
-        val startNow = timeSource.nowMillis()
-        var lastCheckedTime: Long = (startNow - initialLookbackMs).coerceAtLeast(0L)
-        val event = UsageEvents.Event()
+            val startNow = timeSource.nowMillis()
+            var lastCheckedTime: Long = (startNow - initialLookbackMs).coerceAtLeast(0L)
+            val event = UsageEvents.Event()
 
-        var currentTop: String? = null
-        var generation: Long = 0L
+            var currentTop: String? = null
+            var generation: Long = 0L
 
-        // home-like 遷移を観測した後，短時間だけ「離脱確定」を待つための pending．
-        // pending 中に別の通常アプリが RESUMED / FOREGROUND されたらキャンセルする．
-        var pendingNullAtMillis: Long? = null
-        var pendingNullForTop: String? = null
+            // home-like 遷移を観測した後，短時間だけ「離脱確定」を待つための pending．
+            // pending 中に別の通常アプリが RESUMED / FOREGROUND されたらキャンセルする．
+            var pendingNullAtMillis: Long? = null
+            var pendingNullForTop: String? = null
 
-        fun clearPendingNull() {
-            pendingNullAtMillis = null
-            pendingNullForTop = null
-        }
+            fun clearPendingNull() {
+                pendingNullAtMillis = null
+                pendingNullForTop = null
+            }
 
-        fun schedulePendingNull(nowMillis: Long) {
-            if (pendingNullAtMillis != null) return
-            if (currentTop == null) return
-            pendingNullAtMillis = nowMillis + HOME_LIKE_CONFIRM_DELAY_MS
-            pendingNullForTop = currentTop
-        }
+            fun schedulePendingNull(nowMillis: Long) {
+                if (pendingNullAtMillis != null) return
+                if (currentTop == null) return
+                pendingNullAtMillis = nowMillis + HOME_LIKE_CONFIRM_DELAY_MS
+                pendingNullForTop = currentTop
+            }
 
-        fun applyPendingNullIfDue(nowMillis: Long) {
-            val pendingAt = pendingNullAtMillis
-            val pendingFor = pendingNullForTop
-            if (pendingAt != null && pendingFor != null && nowMillis >= pendingAt) {
-                if (currentTop == pendingFor) {
+            fun applyPendingNullIfDue(nowMillis: Long) {
+                val pendingAt = pendingNullAtMillis
+                val pendingFor = pendingNullForTop
+                if (pendingAt != null && pendingFor != null && nowMillis >= pendingAt) {
+                    if (currentTop == pendingFor) {
+                        currentTop = null
+                    }
+                    clearPendingNull()
+                }
+            }
+
+            fun onMovedToForeground(
+                packageName: String,
+                nowMillis: Long,
+            ) {
+                // SystemUI / Launcher が「前面」として出ることがある．
+                // ただし，ここで即座に currentTop=null にすると通知シェード等で誤判定しやすい．
+                // そのため home-like は「pending を立てる」だけにして，
+                // 短い猶予後も別アプリへの遷移が見えなければ null へフォールバックする．
+                if (isHomeLikePackage(packageName)) {
+                    schedulePendingNull(nowMillis)
+                } else {
+                    clearPendingNull()
+                    currentTop = packageName
+                    generation += 1L
+                }
+            }
+
+            fun onMovedToBackground(packageName: String) {
+                // いま前面扱いしているアプリが BACKGROUND に落ちたら前面なし
+                if (packageName == currentTop) {
+                    clearPendingNull()
                     currentTop = null
                 }
-                clearPendingNull()
             }
-        }
 
-        fun onMovedToForeground(packageName: String, nowMillis: Long) {
-            // SystemUI / Launcher が「前面」として出ることがある．
-            // ただし，ここで即座に currentTop=null にすると通知シェード等で誤判定しやすい．
-            // そのため home-like は「pending を立てる」だけにして，
-            // 短い猶予後も別アプリへの遷移が見えなければ null へフォールバックする．
-            if (isHomeLikePackage(packageName)) {
-                schedulePendingNull(nowMillis)
-            } else {
-                clearPendingNull()
-                currentTop = packageName
-                generation += 1L
-            }
-        }
+            while (true) {
+                val now = timeSource.nowMillis()
 
-        fun onMovedToBackground(packageName: String) {
-            // いま前面扱いしているアプリが BACKGROUND に落ちたら前面なし
-            if (packageName == currentTop) {
-                clearPendingNull()
-                currentTop = null
-            }
-        }
+                try {
+                    val usageEvents: UsageEvents = usm.queryEvents(lastCheckedTime, now)
+                    while (usageEvents.hasNextEvent()) {
+                        usageEvents.getNextEvent(event)
+                        val pkg = event.packageName ?: continue
 
-        while (true) {
-            val now = timeSource.nowMillis()
+                        when (event.eventType) {
+                            UsageEvents.Event.MOVE_TO_FOREGROUND,
+                            UsageEvents.Event.ACTIVITY_RESUMED,
+                            -> {
+                                onMovedToForeground(pkg, now)
+                            }
 
-            try {
-                val usageEvents: UsageEvents = usm.queryEvents(lastCheckedTime, now)
-                while (usageEvents.hasNextEvent()) {
-                    usageEvents.getNextEvent(event)
-                    val pkg = event.packageName ?: continue
+                            UsageEvents.Event.MOVE_TO_BACKGROUND,
+                            UsageEvents.Event.ACTIVITY_PAUSED,
+                            -> {
+                                onMovedToBackground(pkg)
+                            }
 
-                    when (event.eventType) {
-                        UsageEvents.Event.MOVE_TO_FOREGROUND,
-                        UsageEvents.Event.ACTIVITY_RESUMED -> {
-                            onMovedToForeground(pkg, now)
-                        }
-
-                        UsageEvents.Event.MOVE_TO_BACKGROUND,
-                        UsageEvents.Event.ACTIVITY_PAUSED -> {
-                            onMovedToBackground(pkg)
-                        }
-
-                        else -> {
-                            // ignore
+                            else -> {
+                                // ignore
+                            }
                         }
                     }
+                } catch (e: SecurityException) {
+                    RefocusLog.wRateLimited(
+                        "Foreground",
+                        "queryEvents_security",
+                        60_000L,
+                        e,
+                    ) { "queryEvents failed (missing Usage Access permission?)" }
+                } catch (e: Exception) {
+                    RefocusLog.wRateLimited(
+                        "Foreground",
+                        "queryEvents_generic",
+                        60_000L,
+                        e,
+                    ) { "queryEvents failed" }
                 }
-            } catch (e: SecurityException) {
-                RefocusLog.wRateLimited(
-                    "Foreground",
-                    "queryEvents_security",
-                    60_000L,
-                    e,
-                ) { "queryEvents failed (missing Usage Access permission?)" }
-            } catch (e: Exception) {
-                RefocusLog.wRateLimited(
-                    "Foreground",
-                    "queryEvents_generic",
-                    60_000L,
-                    e,
-                ) { "queryEvents failed" }
+
+                // home-like 遷移を見たが BACKGROUND 取り逃がしが疑われる場合のフォールバック
+                applyPendingNullIfDue(now)
+
+                lastCheckedTime = now
+
+                val sample = ForegroundSample(packageName = currentTop, generation = generation)
+                if (lastEmitted == null || sample != lastEmitted) {
+                    lastEmitted = sample
+                    emit(sample)
+                }
+
+                delay(pollingIntervalMs)
             }
-
-            // home-like 遷移を見たが BACKGROUND 取り逃がしが疑われる場合のフォールバック
-            applyPendingNullIfDue(now)
-
-            lastCheckedTime = now
-
-            val sample = ForegroundSample(packageName = currentTop, generation = generation)
-            if (lastEmitted == null || sample != lastEmitted) {
-                lastEmitted = sample
-                emit(sample)
-            }
-
-            delay(pollingIntervalMs)
         }
-    }
 }

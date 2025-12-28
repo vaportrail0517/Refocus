@@ -11,10 +11,7 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object ResetModule {
-
     @Provides
     @Singleton
-    fun provideAppDataResetter(
-        impl: AppDataResetterImpl,
-    ): AppDataResetter = impl
+    fun provideAppDataResetter(impl: AppDataResetterImpl): AppDataResetter = impl
 }

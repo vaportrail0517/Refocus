@@ -38,7 +38,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object SystemModule {
-
     @Provides
     @Singleton
     fun provideTimeSource(): TimeSource = SystemTimeSource()
@@ -52,9 +51,8 @@ object SystemModule {
 
     @Provides
     @Singleton
-    fun provideForegroundAppObserver(
-        monitor: ForegroundAppMonitor,
-    ): ForegroundAppObserver = ForegroundAppObserverImpl(monitor)
+    fun provideForegroundAppObserver(monitor: ForegroundAppMonitor): ForegroundAppObserver =
+        ForegroundAppObserverImpl(monitor)
 
     @Provides
     @Singleton
@@ -66,9 +64,8 @@ object SystemModule {
 
     @Provides
     @Singleton
-    fun provideSuggestionSelector(
-        timeSlotWeightModel: TimeSlotWeightModel,
-    ): SuggestionSelector = SuggestionSelector(timeSlotWeightModel)
+    fun provideSuggestionSelector(timeSlotWeightModel: TimeSlotWeightModel): SuggestionSelector =
+        SuggestionSelector(timeSlotWeightModel)
 
     @Provides
     @Singleton
@@ -85,9 +82,7 @@ object SystemModule {
 
     @Provides
     @Singleton
-    fun provideAppLabelProvider(
-        resolver: AppLabelResolver,
-    ): AppLabelProvider = AppLabelProviderImpl(resolver)
+    fun provideAppLabelProvider(resolver: AppLabelResolver): AppLabelProvider = AppLabelProviderImpl(resolver)
 
     @Provides
     @Singleton
@@ -103,15 +98,11 @@ object SystemModule {
 
     @Provides
     @Singleton
-    fun providePermissionStatusProvider(
-        impl: AndroidPermissionStatusProvider,
-    ): PermissionStatusProvider = impl
+    fun providePermissionStatusProvider(impl: AndroidPermissionStatusProvider): PermissionStatusProvider = impl
 
     @Provides
     @Singleton
-    fun providePermissionNavigator(
-        impl: AndroidPermissionNavigator,
-    ): PermissionNavigator = impl
+    fun providePermissionNavigator(impl: AndroidPermissionNavigator): PermissionNavigator = impl
 
     @Provides
     @Singleton
@@ -121,7 +112,5 @@ object SystemModule {
 
     @Provides
     @Singleton
-    fun provideOverlayServiceStatusProvider(): OverlayServiceStatusProvider =
-        OverlayServiceStatusProviderImpl()
-
+    fun provideOverlayServiceStatusProvider(): OverlayServiceStatusProvider = OverlayServiceStatusProviderImpl()
 }

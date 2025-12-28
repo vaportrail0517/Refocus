@@ -12,7 +12,6 @@ import com.example.refocus.domain.overlay.usecase.DailyUsageUseCase
  * - Provider 単体をテストしやすくする
  */
 internal interface TimerDisplayValueProvider {
-
     /**
      * @param nowElapsedRealtime 呼び出し時点の elapsedRealtime
      */
@@ -25,25 +24,28 @@ internal interface TimerDisplayValueProvider {
 internal class SessionElapsedDisplayValueProvider(
     private val sessionTracker: OverlaySessionTracker,
 ) : TimerDisplayValueProvider {
-    override fun displayMillis(packageName: String, nowElapsedRealtime: Long): Long {
-        return sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
-    }
+    override fun displayMillis(
+        packageName: String,
+        nowElapsedRealtime: Long,
+    ): Long = sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
 }
 
 internal class TodayThisTargetDisplayValueProvider(
     private val dailyUsageUseCase: DailyUsageUseCase,
 ) : TimerDisplayValueProvider {
-    override fun displayMillis(packageName: String, nowElapsedRealtime: Long): Long {
-        return dailyUsageUseCase.getTodayThisTargetMillis(packageName)
-    }
+    override fun displayMillis(
+        packageName: String,
+        nowElapsedRealtime: Long,
+    ): Long = dailyUsageUseCase.getTodayThisTargetMillis(packageName)
 }
 
 internal class TodayAllTargetsDisplayValueProvider(
     private val dailyUsageUseCase: DailyUsageUseCase,
 ) : TimerDisplayValueProvider {
-    override fun displayMillis(packageName: String, nowElapsedRealtime: Long): Long {
-        return dailyUsageUseCase.getTodayAllTargetsMillis()
-    }
+    override fun displayMillis(
+        packageName: String,
+        nowElapsedRealtime: Long,
+    ): Long = dailyUsageUseCase.getTodayAllTargetsMillis()
 }
 
 /**
@@ -53,13 +55,13 @@ internal class TimerDisplayValueProviderSelector(
     sessionTracker: OverlaySessionTracker,
     dailyUsageUseCase: DailyUsageUseCase,
 ) {
-    private val providers: Map<TimerTimeMode, TimerDisplayValueProvider> = mapOf(
-        TimerTimeMode.SessionElapsed to SessionElapsedDisplayValueProvider(sessionTracker),
-        TimerTimeMode.TodayThisTarget to TodayThisTargetDisplayValueProvider(dailyUsageUseCase),
-        TimerTimeMode.TodayAllTargets to TodayAllTargetsDisplayValueProvider(dailyUsageUseCase),
-    )
+    private val providers: Map<TimerTimeMode, TimerDisplayValueProvider> =
+        mapOf(
+            TimerTimeMode.SessionElapsed to SessionElapsedDisplayValueProvider(sessionTracker),
+            TimerTimeMode.TodayThisTarget to TodayThisTargetDisplayValueProvider(dailyUsageUseCase),
+            TimerTimeMode.TodayAllTargets to TodayAllTargetsDisplayValueProvider(dailyUsageUseCase),
+        )
 
-    fun select(mode: TimerTimeMode): TimerDisplayValueProvider {
-        return providers[mode] ?: providers.getValue(TimerTimeMode.SessionElapsed)
-    }
+    fun select(mode: TimerTimeMode): TimerDisplayValueProvider =
+        providers[mode] ?: providers.getValue(TimerTimeMode.SessionElapsed)
 }

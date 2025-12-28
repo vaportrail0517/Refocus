@@ -15,40 +15,41 @@ import javax.inject.Singleton
  * - 画面復帰などで最新化したい場合は refreshAndRecord を呼び，タイムラインへのイベント記録も行う
  */
 @Singleton
-class AndroidPermissionStatusProvider @Inject constructor(
-    @ApplicationContext private val appContext: Context,
-    private val permissionStateWatcher: PermissionStateWatcher,
-) : PermissionStatusProvider {
+class AndroidPermissionStatusProvider
+    @Inject
+    constructor(
+        @ApplicationContext private val appContext: Context,
+        private val permissionStateWatcher: PermissionStateWatcher,
+    ) : PermissionStatusProvider {
+        override fun readCurrentInstant(): PermissionSnapshot {
+            val usageGranted =
+                safePermissionCheck {
+                    PermissionHelper.hasUsageAccess(appContext)
+                }
+            val overlayGranted =
+                safePermissionCheck {
+                    PermissionHelper.hasOverlayPermission(appContext)
+                }
+            val notificationGranted =
+                safePermissionCheck {
+                    PermissionHelper.hasNotificationPermission(appContext)
+                }
 
-    override fun readCurrentInstant(): PermissionSnapshot {
-        val usageGranted = safePermissionCheck {
-            PermissionHelper.hasUsageAccess(appContext)
-        }
-        val overlayGranted = safePermissionCheck {
-            PermissionHelper.hasOverlayPermission(appContext)
-        }
-        val notificationGranted = safePermissionCheck {
-            PermissionHelper.hasNotificationPermission(appContext)
+            // lastCheckedAtMillis は「イベント記録用の厳密値」ではないため 0 にしておく
+            return PermissionSnapshot(
+                usageGranted = usageGranted,
+                overlayGranted = overlayGranted,
+                notificationGranted = notificationGranted,
+                lastCheckedAtMillis = 0L,
+            )
         }
 
-        // lastCheckedAtMillis は「イベント記録用の厳密値」ではないため 0 にしておく
-        return PermissionSnapshot(
-            usageGranted = usageGranted,
-            overlayGranted = overlayGranted,
-            notificationGranted = notificationGranted,
-            lastCheckedAtMillis = 0L,
-        )
+        override suspend fun refreshAndRecord(): PermissionSnapshot = permissionStateWatcher.checkAndRecord()
+
+        private inline fun safePermissionCheck(block: () -> Boolean): Boolean =
+            try {
+                block()
+            } catch (_: Exception) {
+                false
+            }
     }
-
-    override suspend fun refreshAndRecord(): PermissionSnapshot {
-        return permissionStateWatcher.checkAndRecord()
-    }
-
-    private inline fun safePermissionCheck(block: () -> Boolean): Boolean {
-        return try {
-            block()
-        } catch (_: Exception) {
-            false
-        }
-    }
-}

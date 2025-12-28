@@ -17,12 +17,15 @@ import com.example.refocus.ui.components.SingleChoiceDialog
 fun FontRangeDialog(
     initialRange: ClosedFloatingPointRange<Float>,
     onConfirm: (ClosedFloatingPointRange<Float>) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val minFontSpLimit = 8f
     val maxFontSpLimit = 96f
-    val clampedInitial = initialRange.start.coerceIn(minFontSpLimit, maxFontSpLimit)..
-        initialRange.endInclusive.coerceIn(minFontSpLimit, maxFontSpLimit)
+    val clampedInitial =
+        initialRange.start.coerceIn(
+            minFontSpLimit,
+            maxFontSpLimit,
+        )..initialRange.endInclusive.coerceIn(minFontSpLimit, maxFontSpLimit)
 
     RangeSliderDialog(
         title = "フォントサイズ",
@@ -47,7 +50,7 @@ fun FontRangeDialog(
 fun TimeToMaxDialog(
     currentSeconds: Int,
     onConfirm: (Int) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     DurationHmsPickerDialog(
         title = "最大サイズになるまでの時間",
@@ -73,25 +76,26 @@ fun TimerTimeModeDialog(
         val description: String,
     )
 
-    val options = remember {
-        listOf(
-            Option(
-                TimerTimeMode.SessionElapsed,
-                "セッションの経過時間",
-                "今開いている対象アプリの論理セッションがどれくらい続いているかを表示します．"
-            ),
-            Option(
-                TimerTimeMode.TodayThisTarget,
-                "このアプリの今日の累計使用時間",
-                "この対象アプリを今日どれくらい使ったかの合計を表示します．"
-            ),
-            Option(
-                TimerTimeMode.TodayAllTargets,
-                "全対象アプリの今日の累計使用時間",
-                "対象アプリ全体を今日どれくらい使ったかの合計を表示します．"
-            ),
-        )
-    }
+    val options =
+        remember {
+            listOf(
+                Option(
+                    TimerTimeMode.SessionElapsed,
+                    "セッションの経過時間",
+                    "今開いている対象アプリの論理セッションがどれくらい続いているかを表示します．",
+                ),
+                Option(
+                    TimerTimeMode.TodayThisTarget,
+                    "このアプリの今日の累計使用時間",
+                    "この対象アプリを今日どれくらい使ったかの合計を表示します．",
+                ),
+                Option(
+                    TimerTimeMode.TodayAllTargets,
+                    "全対象アプリの今日の累計使用時間",
+                    "対象アプリ全体を今日どれくらい使ったかの合計を表示します．",
+                ),
+            )
+        }
 
     val initial = options.firstOrNull { it.mode == current } ?: options.first()
 
@@ -119,20 +123,21 @@ fun TimerVisualTimeBasisDialog(
         val description: String,
     )
 
-    val options = remember {
-        listOf(
-            Option(
-                TimerVisualTimeBasis.SessionElapsed,
-                "セッション経過時間（論理）",
-                "色とサイズの変化を，論理セッションの経過時間に基づいて行います．新しいセッション開始で 0 から始まります．"
-            ),
-            Option(
-                TimerVisualTimeBasis.FollowDisplayTime,
-                "表示している時間",
-                "タイマーに表示している時間と同じ基準で，色とサイズが変化します．"
-            ),
-        )
-    }
+    val options =
+        remember {
+            listOf(
+                Option(
+                    TimerVisualTimeBasis.SessionElapsed,
+                    "セッション経過時間（論理）",
+                    "色とサイズの変化を，論理セッションの経過時間に基づいて行います．新しいセッション開始で 0 から始まります．",
+                ),
+                Option(
+                    TimerVisualTimeBasis.FollowDisplayTime,
+                    "表示している時間",
+                    "タイマーに表示している時間と同じ基準で，色とサイズが変化します．",
+                ),
+            )
+        }
 
     val initial = options.firstOrNull { it.basis == current } ?: options.first()
 
@@ -160,30 +165,31 @@ fun GrowthModeDialog(
         val description: String,
     )
 
-    val options = remember {
-        listOf(
-            GrowthOption(
-                TimerGrowthMode.Linear,
-                "線形",
-                "時間に比例して一定のペースで大きくなります．"
-            ),
-            GrowthOption(
-                TimerGrowthMode.FastToSlow,
-                "スローイン（初め速く→だんだん遅く）",
-                "序盤でぐっと大きくなり，その後はゆっくり変化します．"
-            ),
-            GrowthOption(
-                TimerGrowthMode.SlowToFast,
-                "スローアウト（初め遅く→だんだん速く）",
-                "最初は控えめで，長く使うほど目立つようになります．"
-            ),
-            GrowthOption(
-                TimerGrowthMode.SlowFastSlow,
-                "スローインアウト",
-                "真ん中の時間帯で一番ペースが速くなります．"
-            ),
-        )
-    }
+    val options =
+        remember {
+            listOf(
+                GrowthOption(
+                    TimerGrowthMode.Linear,
+                    "線形",
+                    "時間に比例して一定のペースで大きくなります．",
+                ),
+                GrowthOption(
+                    TimerGrowthMode.FastToSlow,
+                    "スローイン（初め速く→だんだん遅く）",
+                    "序盤でぐっと大きくなり，その後はゆっくり変化します．",
+                ),
+                GrowthOption(
+                    TimerGrowthMode.SlowToFast,
+                    "スローアウト（初め遅く→だんだん速く）",
+                    "最初は控えめで，長く使うほど目立つようになります．",
+                ),
+                GrowthOption(
+                    TimerGrowthMode.SlowFastSlow,
+                    "スローインアウト",
+                    "真ん中の時間帯で一番ペースが速くなります．",
+                ),
+            )
+        }
 
     val initial = options.firstOrNull { it.mode == current } ?: options.first()
 
@@ -211,25 +217,26 @@ fun ColorModeDialog(
         val description: String,
     )
 
-    val options = remember {
-        listOf(
-            ColorModeOption(
-                TimerColorMode.Fixed,
-                "単色",
-                "タイマーの背景色を一色で固定します．"
-            ),
-            ColorModeOption(
-                TimerColorMode.GradientTwo,
-                "2色グラデーション",
-                "開始色から終了色へ，時間に応じて滑らかに変化します．"
-            ),
-            ColorModeOption(
-                TimerColorMode.GradientThree,
-                "3色グラデーション",
-                "開始色 → 中間色 → 終了色と，時間に応じて変化します．"
-            ),
-        )
-    }
+    val options =
+        remember {
+            listOf(
+                ColorModeOption(
+                    TimerColorMode.Fixed,
+                    "単色",
+                    "タイマーの背景色を一色で固定します．",
+                ),
+                ColorModeOption(
+                    TimerColorMode.GradientTwo,
+                    "2色グラデーション",
+                    "開始色から終了色へ，時間に応じて滑らかに変化します．",
+                ),
+                ColorModeOption(
+                    TimerColorMode.GradientThree,
+                    "3色グラデーション",
+                    "開始色 → 中間色 → 終了色と，時間に応じて変化します．",
+                ),
+            )
+        }
 
     val initial = options.firstOrNull { it.mode == current } ?: options.first()
 

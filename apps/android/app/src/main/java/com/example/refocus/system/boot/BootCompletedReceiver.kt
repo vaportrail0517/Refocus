@@ -23,7 +23,10 @@ class BootCompletedReceiver : BroadcastReceiver() {
     @Inject
     lateinit var settingsRepository: SettingsRepository
 
-    override fun onReceive(context: Context, intent: Intent?) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent?,
+    ) {
         if (intent?.action != Intent.ACTION_BOOT_COMPLETED) return
 
         val pendingResult = goAsync()

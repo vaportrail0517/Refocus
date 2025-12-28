@@ -30,288 +30,296 @@ import javax.inject.Singleton
  *   newValueDescription はあくまで説明用途 (UI 表示 / デバッグ)．
  */
 @Singleton
-class SettingsCommand @Inject constructor(
-    private val settingsRepository: SettingsRepository,
-    private val eventRecorder: EventRecorder,
-) {
-    object Keys {
-        const val OverlayEnabled = "overlayEnabled"
-        const val AutoStartOnBoot = "autoStartOnBoot"
-        const val TimerTimeMode = "timerTimeMode"
-        const val TimerVisualTimeBasis = "timerVisualTimeBasis"
-        const val TouchMode = "touchMode"
-        const val SettingsPreset = "settingsPreset"
+class SettingsCommand
+    @Inject
+    constructor(
+        private val settingsRepository: SettingsRepository,
+        private val eventRecorder: EventRecorder,
+    ) {
+        object Keys {
+            const val OVERLAY_ENABLED = "overlayEnabled"
+            const val AUTO_START_ON_BOOT = "autoStartOnBoot"
+            const val TIMER_TIME_MODE = "timerTimeMode"
+            const val TIMER_VISUAL_TIME_BASIS = "timerVisualTimeBasis"
+            const val TOUCH_MODE = "touchMode"
+            const val SETTINGS_PRESET = "settingsPreset"
 
-        const val GracePeriodMillis = "gracePeriodMillis"
-        const val PollingIntervalMillis = "pollingIntervalMillis"
-        const val MinFontSizeSp = "minFontSizeSp"
-        const val MaxFontSizeSp = "maxFontSizeSp"
-        const val TimeToMaxSeconds = "timeToMaxSeconds"
+            const val GRACE_PERIOD_MILLIS = "gracePeriodMillis"
+            const val POLLING_INTERVAL_MILLIS = "pollingIntervalMillis"
+            const val MIN_FONT_SIZE_SP = "minFontSizeSp"
+            const val MAX_FONT_SIZE_SP = "maxFontSizeSp"
+            const val TIME_TO_MAX_SECONDS = "timeToMaxSeconds"
 
-        // 旧キー: 既存のタイムラインイベント互換のため残す
-        const val TimeToMaxMinutes = "timeToMaxMinutes"
-        const val GrowthMode = "growthMode"
-        const val ColorMode = "colorMode"
-        const val FixedColorArgb = "fixedColorArgb"
-        const val GradientStartColorArgb = "gradientStartColorArgb"
-        const val GradientMiddleColorArgb = "gradientMiddleColorArgb"
-        const val GradientEndColorArgb = "gradientEndColorArgb"
+            // 旧キー: 既存のタイムラインイベント互換のため残す
+            const val TIME_TO_MAX_MINUTES = "timeToMaxMinutes"
+            const val GROWTH_MODE = "growthMode"
+            const val COLOR_MODE = "colorMode"
+            const val FIXED_COLOR_ARGB = "fixedColorArgb"
+            const val GRADIENT_START_COLOR_ARGB = "gradientStartColorArgb"
+            const val GRADIENT_MIDDLE_COLOR_ARGB = "gradientMiddleColorArgb"
+            const val GRADIENT_END_COLOR_ARGB = "gradientEndColorArgb"
 
-        const val SuggestionEnabled = "suggestionEnabled"
-        const val RestSuggestionEnabled = "restSuggestionEnabled"
-        const val SuggestionTriggerSeconds = "suggestionTriggerSeconds"
-        const val SuggestionForegroundStableSeconds = "suggestionForegroundStableSeconds"
-        const val SuggestionCooldownSeconds = "suggestionCooldownSeconds"
-        const val SuggestionTimeoutSeconds = "suggestionTimeoutSeconds"
-        const val SuggestionInteractionLockoutMillis = "suggestionInteractionLockoutMillis"
+            const val SUGGESTION_ENABLED = "suggestionEnabled"
+            const val REST_SUGGESTION_ENABLED = "restSuggestionEnabled"
+            const val SUGGESTION_TRIGGER_SECONDS = "suggestionTriggerSeconds"
+            const val SUGGESTION_FOREGROUND_STABLE_SECONDS = "suggestionForegroundStableSeconds"
+            const val SUGGESTION_COOLDOWN_SECONDS = "suggestionCooldownSeconds"
+            const val SUGGESTION_TIMEOUT_SECONDS = "suggestionTimeoutSeconds"
+            const val SUGGESTION_INTERACTION_LOCKOUT_MILLIS = "suggestionInteractionLockoutMillis"
 
-        const val OverlayPosition = "overlayPosition"
-    }
-
-    private fun buildValueDescription(
-        value: String?,
-        source: String,
-        reason: String?,
-    ): String? {
-        val suffixParts = buildList {
-            add("source=$source")
-            if (!reason.isNullOrBlank()) add("reason=$reason")
-        }
-        val suffix = suffixParts.joinToString("|")
-        return when {
-            value == null -> suffix.ifBlank { null }
-            suffix.isBlank() -> value
-            else -> "$value|$suffix"
-        }
-    }
-
-    /**
-     * Customize(DataStore) を更新し，必要なら SettingsChangedEvent を記録する．
-     *
-     * @param markPresetCustom true の場合，設定更新後に preset を Custom に寄せる（必要時のみ）
-     * @param recordEvent false の場合，タイムラインへ SettingsChangedEvent を残さない
-     */
-    suspend fun updateCustomize(
-        key: String,
-        newValueDescription: String?,
-        source: String,
-        reason: String? = null,
-        markPresetCustom: Boolean = false,
-        recordEvent: Boolean = true,
-        transform: (Customize) -> Customize,
-    ): Boolean {
-        val before = settingsRepository.observeOverlaySettings().first()
-        val after = transform(before)
-        if (before == after) return false
-
-        settingsRepository.updateOverlaySettings { current ->
-            transform(current)
+            const val OVERLAY_POSITION = "overlayPosition"
         }
 
-        if (recordEvent) {
-            eventRecorder.onSettingsChanged(
-                key = key,
-                newValueDescription = buildValueDescription(
-                    value = newValueDescription,
-                    source = source,
-                    reason = reason,
+        private fun buildValueDescription(
+            value: String?,
+            source: String,
+            reason: String?,
+        ): String? {
+            val suffixParts =
+                buildList {
+                    add("source=$source")
+                    if (!reason.isNullOrBlank()) add("reason=$reason")
+                }
+            val suffix = suffixParts.joinToString("|")
+            return when {
+                value == null -> suffix.ifBlank { null }
+                suffix.isBlank() -> value
+                else -> "$value|$suffix"
+            }
+        }
+
+        /**
+         * Customize(DataStore) を更新し，必要なら SettingsChangedEvent を記録する．
+         *
+         * @param markPresetCustom true の場合，設定更新後に preset を Custom に寄せる（必要時のみ）
+         * @param recordEvent false の場合，タイムラインへ SettingsChangedEvent を残さない
+         */
+        suspend fun updateCustomize(
+            key: String,
+            newValueDescription: String?,
+            source: String,
+            reason: String? = null,
+            markPresetCustom: Boolean = false,
+            recordEvent: Boolean = true,
+            transform: (Customize) -> Customize,
+        ): Boolean {
+            val before = settingsRepository.observeOverlaySettings().first()
+            val after = transform(before)
+            if (before == after) return false
+
+            settingsRepository.updateOverlaySettings { current ->
+                transform(current)
+            }
+
+            if (recordEvent) {
+                eventRecorder.onSettingsChanged(
+                    key = key,
+                    newValueDescription =
+                        buildValueDescription(
+                            value = newValueDescription,
+                            source = source,
+                            reason = reason,
+                        ),
                 )
+            }
+
+            if (markPresetCustom) {
+                setSettingsPresetIfNeeded(
+                    preset = CustomizePreset.Custom,
+                    source = source,
+                    reason = "auto_mark_custom",
+                )
+            }
+
+            return true
+        }
+
+        suspend fun setSettingsPresetIfNeeded(
+            preset: CustomizePreset,
+            source: String,
+            reason: String? = null,
+            recordEvent: Boolean = true,
+        ): Boolean {
+            val before = settingsRepository.observeSettingsPreset().first()
+            if (before == preset) return false
+
+            settingsRepository.setSettingsPreset(preset)
+            if (recordEvent) {
+                eventRecorder.onSettingsChanged(
+                    key = Keys.SETTINGS_PRESET,
+                    newValueDescription =
+                        buildValueDescription(
+                            value = preset.name,
+                            source = source,
+                            reason = reason,
+                        ),
+                )
+            }
+            return true
+        }
+
+        suspend fun applyPreset(
+            preset: CustomizePreset,
+            source: String,
+            reason: String? = null,
+        ) {
+            // applyPreset 内で OverlaySettings と preset の両方が更新されるため，
+            // 記録は「プリセット種別」に一本化する（ノイズ抑制）．
+            settingsRepository.applyPreset(preset)
+            eventRecorder.onSettingsChanged(
+                key = Keys.SETTINGS_PRESET,
+                newValueDescription =
+                    buildValueDescription(
+                        value = preset.name,
+                        source = source,
+                        reason = reason ?: "apply_preset",
+                    ),
             )
         }
 
-        if (markPresetCustom) {
-            setSettingsPresetIfNeeded(
-                preset = CustomizePreset.Custom,
+        suspend fun setOverlayEnabled(
+            enabled: Boolean,
+            source: String,
+            reason: String? = null,
+            recordEvent: Boolean = true,
+        ) {
+            val changed =
+                updateCustomize(
+                    key = Keys.OVERLAY_ENABLED,
+                    newValueDescription = enabled.toString(),
+                    source = source,
+                    reason = reason,
+                    markPresetCustom = false,
+                    // overlayEnabled は Service 設定として扱うため，SettingsChangedEvent では記録しない
+                    recordEvent = false,
+                ) { current ->
+                    current.copy(overlayEnabled = enabled)
+                }
+
+            if (changed && recordEvent) {
+                eventRecorder.onServiceConfigChanged(
+                    config = ServiceConfigKind.OverlayEnabled,
+                    state = if (enabled) ServiceConfigState.Enabled else ServiceConfigState.Disabled,
+                    meta = buildValueDescription(value = null, source = source, reason = reason),
+                )
+            }
+        }
+
+        suspend fun setAutoStartOnBoot(
+            enabled: Boolean,
+            source: String,
+            reason: String? = null,
+            recordEvent: Boolean = true,
+        ) {
+            val changed =
+                updateCustomize(
+                    key = Keys.AUTO_START_ON_BOOT,
+                    newValueDescription = enabled.toString(),
+                    source = source,
+                    reason = reason,
+                    markPresetCustom = false,
+                    // autoStartOnBoot は Service 設定として扱うため，SettingsChangedEvent では記録しない
+                    recordEvent = false,
+                ) { current ->
+                    current.copy(autoStartOnBoot = enabled)
+                }
+
+            if (changed && recordEvent) {
+                eventRecorder.onServiceConfigChanged(
+                    config = ServiceConfigKind.AutoStartOnBoot,
+                    state = if (enabled) ServiceConfigState.Enabled else ServiceConfigState.Disabled,
+                    meta = buildValueDescription(value = null, source = source, reason = reason),
+                )
+            }
+        }
+
+        suspend fun setTimerTimeMode(
+            mode: TimerTimeMode,
+            source: String,
+            reason: String? = null,
+            markPresetCustom: Boolean = true,
+        ) {
+            updateCustomize(
+                key = Keys.TIMER_TIME_MODE,
+                newValueDescription = mode.name,
                 source = source,
-                reason = "auto_mark_custom",
-            )
+                reason = reason,
+                markPresetCustom = markPresetCustom,
+            ) { current ->
+                current.copy(timerTimeMode = mode)
+            }
         }
 
-        return true
-    }
-
-    suspend fun setSettingsPresetIfNeeded(
-        preset: CustomizePreset,
-        source: String,
-        reason: String? = null,
-        recordEvent: Boolean = true,
-    ): Boolean {
-        val before = settingsRepository.observeSettingsPreset().first()
-        if (before == preset) return false
-
-        settingsRepository.setSettingsPreset(preset)
-        if (recordEvent) {
-            eventRecorder.onSettingsChanged(
-                key = Keys.SettingsPreset,
-                newValueDescription = buildValueDescription(
-                    value = preset.name,
-                    source = source,
-                    reason = reason,
-                )
-            )
-        }
-        return true
-    }
-
-    suspend fun applyPreset(
-        preset: CustomizePreset,
-        source: String,
-        reason: String? = null,
-    ) {
-        // applyPreset 内で OverlaySettings と preset の両方が更新されるため，
-        // 記録は「プリセット種別」に一本化する（ノイズ抑制）．
-        settingsRepository.applyPreset(preset)
-        eventRecorder.onSettingsChanged(
-            key = Keys.SettingsPreset,
-            newValueDescription = buildValueDescription(
-                value = preset.name,
+        suspend fun setTimerVisualTimeBasis(
+            basis: TimerVisualTimeBasis,
+            source: String,
+            reason: String? = null,
+            markPresetCustom: Boolean = true,
+        ) {
+            updateCustomize(
+                key = Keys.TIMER_VISUAL_TIME_BASIS,
+                newValueDescription = basis.name,
                 source = source,
-                reason = reason ?: "apply_preset",
-            )
-        )
-    }
-
-    suspend fun setOverlayEnabled(
-        enabled: Boolean,
-        source: String,
-        reason: String? = null,
-        recordEvent: Boolean = true,
-    ) {
-        val changed = updateCustomize(
-            key = Keys.OverlayEnabled,
-            newValueDescription = enabled.toString(),
-            source = source,
-            reason = reason,
-            markPresetCustom = false,
-            // overlayEnabled は Service 設定として扱うため，SettingsChangedEvent では記録しない
-            recordEvent = false,
-        ) { current ->
-            current.copy(overlayEnabled = enabled)
+                reason = reason,
+                markPresetCustom = markPresetCustom,
+            ) { current ->
+                current.copy(timerVisualTimeBasis = basis)
+            }
         }
 
-        if (changed && recordEvent) {
-            eventRecorder.onServiceConfigChanged(
-                config = ServiceConfigKind.OverlayEnabled,
-                state = if (enabled) ServiceConfigState.Enabled else ServiceConfigState.Disabled,
-                meta = buildValueDescription(value = null, source = source, reason = reason),
-            )
-        }
-    }
-
-
-    suspend fun setAutoStartOnBoot(
-        enabled: Boolean,
-        source: String,
-        reason: String? = null,
-        recordEvent: Boolean = true,
-    ) {
-        val changed = updateCustomize(
-            key = Keys.AutoStartOnBoot,
-            newValueDescription = enabled.toString(),
-            source = source,
-            reason = reason,
-            markPresetCustom = false,
-            // autoStartOnBoot は Service 設定として扱うため，SettingsChangedEvent では記録しない
-            recordEvent = false,
-        ) { current ->
-            current.copy(autoStartOnBoot = enabled)
+        suspend fun setTouchMode(
+            mode: TimerTouchMode,
+            source: String,
+            reason: String? = null,
+            markPresetCustom: Boolean = true,
+        ) {
+            updateCustomize(
+                key = Keys.TOUCH_MODE,
+                newValueDescription = mode.name,
+                source = source,
+                reason = reason,
+                markPresetCustom = markPresetCustom,
+            ) { current ->
+                current.copy(touchMode = mode)
+            }
         }
 
-        if (changed && recordEvent) {
-            eventRecorder.onServiceConfigChanged(
-                config = ServiceConfigKind.AutoStartOnBoot,
-                state = if (enabled) ServiceConfigState.Enabled else ServiceConfigState.Disabled,
-                meta = buildValueDescription(value = null, source = source, reason = reason),
-            )
+        suspend fun setOverlayPosition(
+            x: Int,
+            y: Int,
+            source: String,
+            reason: String? = null,
+            recordEvent: Boolean = false,
+        ) {
+            // 位置ドラッグは UI 操作中に何度も起き得るため，デフォルトではタイムラインへ残さない．
+            updateCustomize(
+                key = Keys.OVERLAY_POSITION,
+                newValueDescription = "$x,$y",
+                source = source,
+                reason = reason,
+                markPresetCustom = false,
+                recordEvent = recordEvent,
+            ) { current ->
+                current.copy(positionX = x, positionY = y)
+            }
         }
-    }
 
-    suspend fun setTimerTimeMode(
-        mode: TimerTimeMode,
-        source: String,
-        reason: String? = null,
-        markPresetCustom: Boolean = true,
-    ) {
-        updateCustomize(
-            key = Keys.TimerTimeMode,
-            newValueDescription = mode.name,
-            source = source,
-            reason = reason,
-            markPresetCustom = markPresetCustom,
-        ) { current ->
-            current.copy(timerTimeMode = mode)
-        }
-    }
-
-    suspend fun setTimerVisualTimeBasis(
-        basis: TimerVisualTimeBasis,
-        source: String,
-        reason: String? = null,
-        markPresetCustom: Boolean = true,
-    ) {
-        updateCustomize(
-            key = Keys.TimerVisualTimeBasis,
-            newValueDescription = basis.name,
-            source = source,
-            reason = reason,
-            markPresetCustom = markPresetCustom,
-        ) { current ->
-            current.copy(timerVisualTimeBasis = basis)
-        }
-    }
-
-    suspend fun setTouchMode(
-        mode: TimerTouchMode,
-        source: String,
-        reason: String? = null,
-        markPresetCustom: Boolean = true,
-    ) {
-        updateCustomize(
-            key = Keys.TouchMode,
-            newValueDescription = mode.name,
-            source = source,
-            reason = reason,
-            markPresetCustom = markPresetCustom,
-        ) { current ->
-            current.copy(touchMode = mode)
-        }
-    }
-
-    suspend fun setOverlayPosition(
-        x: Int,
-        y: Int,
-        source: String,
-        reason: String? = null,
-        recordEvent: Boolean = false,
-    ) {
-        // 位置ドラッグは UI 操作中に何度も起き得るため，デフォルトではタイムラインへ残さない．
-        updateCustomize(
-            key = Keys.OverlayPosition,
-            newValueDescription = "$x,$y",
-            source = source,
-            reason = reason,
-            markPresetCustom = false,
-            recordEvent = recordEvent,
-        ) { current ->
-            current.copy(positionX = x, positionY = y)
-        }
-    }
-
-    suspend fun resetToDefaults(
-        source: String,
-        reason: String? = null,
-        recordEvent: Boolean = false,
-    ) {
-        settingsRepository.resetToDefaults()
-        if (recordEvent) {
-            eventRecorder.onSettingsChanged(
-                key = "resetToDefaults",
-                newValueDescription = buildValueDescription(
-                    value = "done",
-                    source = source,
-                    reason = reason,
+        suspend fun resetToDefaults(
+            source: String,
+            reason: String? = null,
+            recordEvent: Boolean = false,
+        ) {
+            settingsRepository.resetToDefaults()
+            if (recordEvent) {
+                eventRecorder.onSettingsChanged(
+                    key = "resetToDefaults",
+                    newValueDescription =
+                        buildValueDescription(
+                            value = "done",
+                            source = source,
+                            reason = reason,
+                        ),
                 )
-            )
+            }
         }
     }
-}

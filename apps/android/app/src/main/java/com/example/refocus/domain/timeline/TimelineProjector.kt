@@ -18,7 +18,6 @@ import java.time.ZoneId
  *   それぞれが独自解釈を持たないようにする。
  */
 object TimelineProjector {
-
     /**
      * TimelineEvent 列から，セッションと日付境界分割（SessionPart）までを一括で構築する。
      */
@@ -28,25 +27,28 @@ object TimelineProjector {
         nowMillis: Long,
         zoneId: ZoneId,
     ): TimelineProjection {
-        val sessionsWithEvents = SessionProjector.projectSessions(
-            events = events,
-            stopGracePeriodMillis = config.stopGracePeriodMillis,
-            nowMillis = nowMillis,
-        )
+        val sessionsWithEvents =
+            SessionProjector.projectSessions(
+                events = events,
+                stopGracePeriodMillis = config.stopGracePeriodMillis,
+                nowMillis = nowMillis,
+            )
 
         val sessions: List<Session> = sessionsWithEvents.map { it.session }
         val eventsBySessionId: Map<Long, List<SessionEvent>> =
-            sessionsWithEvents.mapNotNull { swe ->
-                val id = swe.session.id ?: return@mapNotNull null
-                id to swe.events
-            }.toMap()
+            sessionsWithEvents
+                .mapNotNull { swe ->
+                    val id = swe.session.id ?: return@mapNotNull null
+                    id to swe.events
+                }.toMap()
 
-        val sessionParts: List<SessionPart> = SessionPartGenerator.generateParts(
-            sessions = sessions,
-            eventsBySessionId = eventsBySessionId,
-            nowMillis = nowMillis,
-            zoneId = zoneId,
-        )
+        val sessionParts: List<SessionPart> =
+            SessionPartGenerator.generateParts(
+                sessions = sessions,
+                eventsBySessionId = eventsBySessionId,
+                nowMillis = nowMillis,
+                zoneId = zoneId,
+            )
 
         return TimelineProjection(
             sessionsWithEvents = sessionsWithEvents,

@@ -18,7 +18,6 @@ data class SuggestionOverlayUiModel(
 )
 
 interface OverlayUiGateway {
-
     /**
      * 設定変更の反映（フォントサイズ・色・タッチモードなど）。
      */

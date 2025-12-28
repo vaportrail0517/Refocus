@@ -28,37 +28,39 @@ data class PermissionUiState(
 }
 
 @Composable
-fun rememberPermissionUiState(
-    onRefreshed: (PermissionUiState) -> Unit = {},
-): MutableState<PermissionUiState> {
+fun rememberPermissionUiState(onRefreshed: (PermissionUiState) -> Unit = {}): MutableState<PermissionUiState> {
     val context = LocalContext.current
     val appContext = context.applicationContext
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
 
-    val entryPoint = remember(appContext) {
-        EntryPointAccessors.fromApplication(appContext, PermissionStatusEntryPoint::class.java)
-    }
-    val permissionStatusProvider = remember(entryPoint) {
-        entryPoint.permissionStatusProvider()
-    }
+    val entryPoint =
+        remember(appContext) {
+            EntryPointAccessors.fromApplication(appContext, PermissionStatusEntryPoint::class.java)
+        }
+    val permissionStatusProvider =
+        remember(entryPoint) {
+            entryPoint.permissionStatusProvider()
+        }
 
-    val state = remember(permissionStatusProvider) {
-        mutableStateOf(permissionStatusProvider.readCurrentInstant().toPermissionUiState())
-    }
+    val state =
+        remember(permissionStatusProvider) {
+            mutableStateOf(permissionStatusProvider.readCurrentInstant().toPermissionUiState())
+        }
 
     // 画面復帰（ON_RESUME）で権限状態を再評価し，必要なら呼び出し側へ通知する．
     // ここで PermissionStateWatcher を経由することで，権限変化がタイムラインへ記録される．
     DisposableEffect(lifecycleOwner, permissionStatusProvider) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                coroutineScope.launch {
-                    val latest = permissionStatusProvider.refreshAndRecord().toPermissionUiState()
-                    state.value = latest
-                    onRefreshed(latest)
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    coroutineScope.launch {
+                        val latest = permissionStatusProvider.refreshAndRecord().toPermissionUiState()
+                        state.value = latest
+                        onRefreshed(latest)
+                    }
                 }
             }
-        }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
@@ -75,10 +77,9 @@ fun rememberPermissionUiState(
     return state
 }
 
-fun PermissionSnapshot.toPermissionUiState(): PermissionUiState {
-    return PermissionUiState(
+fun PermissionSnapshot.toPermissionUiState(): PermissionUiState =
+    PermissionUiState(
         usageGranted = usageGranted,
         overlayGranted = overlayGranted,
         notificationGranted = notificationGranted,
     )
-}

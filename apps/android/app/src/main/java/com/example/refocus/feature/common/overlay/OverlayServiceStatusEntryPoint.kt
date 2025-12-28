@@ -20,9 +20,10 @@ fun rememberOverlayServiceStatusProvider(): OverlayServiceStatusProvider {
     val context = LocalContext.current
     val appContext = context.applicationContext
 
-    val entryPoint = remember(appContext) {
-        EntryPointAccessors.fromApplication(appContext, OverlayServiceStatusEntryPoint::class.java)
-    }
+    val entryPoint =
+        remember(appContext) {
+            EntryPointAccessors.fromApplication(appContext, OverlayServiceStatusEntryPoint::class.java)
+        }
     return remember(entryPoint) {
         entryPoint.overlayServiceStatusProvider()
     }

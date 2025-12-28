@@ -57,9 +57,10 @@ internal fun SuggestionCard(
         onClick = onClick,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
@@ -74,16 +75,16 @@ internal fun SuggestionCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SwipeToDeleteBackground(
-) {
+internal fun SwipeToDeleteBackground() {
     val bgColor = MaterialTheme.colorScheme.errorContainer
     val shape = MaterialTheme.shapes.medium
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clip(shape)
-            .background(bgColor)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .clip(shape)
+                .background(bgColor)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Row(
             modifier = Modifier.align(Alignment.CenterStart),
@@ -115,10 +116,11 @@ internal fun SuggestionViewSheet(
     onDelete: () -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight()
-            .padding(horizontal = 16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .padding(horizontal = 16.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -190,17 +192,19 @@ internal fun SuggestionEditorSheet(
     val scrollState = rememberScrollState()
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight()
-            .verticalScroll(scrollState)
-            .padding(horizontal = 16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 16.dp),
     ) {
         // 上部ヘッダー: 左に×, 右に保存
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp, bottom = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -229,27 +233,32 @@ internal fun SuggestionEditorSheet(
         BasicTextField(
             value = title,
             onValueChange = onTitleChange,
-            textStyle = MaterialTheme.typography.bodyLarge.copy(
-                color = MaterialTheme.colorScheme.onSurface,
-            ),
+            textStyle =
+                MaterialTheme.typography.bodyLarge.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                ),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             singleLine = true,
-            keyboardOptions = KeyboardOptions.Default.copy(
-                imeAction = ImeAction.Done,
-            ),
-            keyboardActions = KeyboardActions(
-                onDone = {
-                    focusManager.clearFocus(force = true)
-                },
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .defaultMinSize(minHeight = 64.dp),
+            keyboardOptions =
+                KeyboardOptions.Default.copy(
+                    imeAction = ImeAction.Done,
+                ),
+            keyboardActions =
+                KeyboardActions(
+                    onDone = {
+                        focusManager.clearFocus(force = true)
+                    },
+                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 64.dp),
             decorationBox = { innerTextField ->
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .defaultMinSize(minHeight = 64.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 64.dp),
                 ) {
                     if (title.isBlank()) {
                         Text(
@@ -311,12 +320,14 @@ internal fun SuggestionTagsRow(
         // 時間帯
         Column {
             val normalized = normalizeTimeSlots(timeSlots)
-            val hintText = if (normalized == setOf(SuggestionTimeSlot.Anytime)) {
-                "いつでも"
-            } else {
-                normalized.sortedBy { slotOrder().indexOf(it) }
-                    .joinToString(" / ") { "${it.labelJa()}（${it.hintJa()}）" }
-            }
+            val hintText =
+                if (normalized == setOf(SuggestionTimeSlot.Anytime)) {
+                    "いつでも"
+                } else {
+                    normalized
+                        .sortedBy { slotOrder().indexOf(it) }
+                        .joinToString(" / ") { "${it.labelJa()}（${it.hintJa()}）" }
+                }
             Text(
                 text = "時間帯: $hintText",
                 style = MaterialTheme.typography.labelMedium,

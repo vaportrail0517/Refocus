@@ -21,7 +21,6 @@ private val Context.permissionStateDataStore by preferencesDataStore(name = "per
 class PermissionStateDataStore(
     private val context: Context,
 ) : PermissionSnapshotStore {
-
     object Keys {
         val USAGE_GRANTED = booleanPreferencesKey("usage_granted")
         val OVERLAY_GRANTED = booleanPreferencesKey("overlay_granted")
@@ -30,15 +29,15 @@ class PermissionStateDataStore(
     }
 
     override suspend fun readOrNull(): PermissionSnapshot? {
-        val prefs: Preferences = context.permissionStateDataStore.data
-            .catch { e ->
-                if (e is IOException) {
-                    emit(emptyPreferences())
-                } else {
-                    throw e
-                }
-            }
-            .first()
+        val prefs: Preferences =
+            context.permissionStateDataStore.data
+                .catch { e ->
+                    if (e is IOException) {
+                        emit(emptyPreferences())
+                    } else {
+                        throw e
+                    }
+                }.first()
 
         val usage = prefs[Keys.USAGE_GRANTED]
         val overlay = prefs[Keys.OVERLAY_GRANTED]

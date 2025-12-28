@@ -15,7 +15,6 @@ class SuggestionSelector(
     private val timeSlotWeightModel: TimeSlotWeightModel,
     private val random: Random = Random.Default,
 ) {
-
     /**
      * @param suggestions 候補一覧（空の場合は null を返す）
      * @param nowMillis 現在時刻（System.currentTimeMillis 相当）
@@ -31,11 +30,12 @@ class SuggestionSelector(
         val minutesElapsed = elapsedMillis / 60_000L
 
         // 1. 各候補のスコア（重み）を計算し、候補リストを構築
-        val candidatesWithWeight = suggestions.mapNotNull { suggestion ->
-            val score = calculateScore(suggestion, nowMillis, minutesElapsed)
-            // スコアが0以下の候補（例：時間帯不一致）は除外
-            if (score > 0.0) suggestion to score else null
-        }
+        val candidatesWithWeight =
+            suggestions.mapNotNull { suggestion ->
+                val score = calculateScore(suggestion, nowMillis, minutesElapsed)
+                // スコアが0以下の候補（例：時間帯不一致）は除外
+                if (score > 0.0) suggestion to score else null
+            }
 
         if (candidatesWithWeight.isEmpty()) return null
 
@@ -68,34 +68,37 @@ class SuggestionSelector(
     private fun calculateScore(
         suggestion: Suggestion,
         nowMillis: Long,
-        minutesElapsed: Long
+        minutesElapsed: Long,
     ): Double {
         // --- 1. 時間帯のマッチング係数 ---
         val slots = suggestion.timeSlots
-        val timeMultiplier = if (slots.isEmpty() || slots.contains(SuggestionTimeSlot.Anytime)) {
-            1.0
-        } else {
-            // 複数スロットのうち「最も今に合うもの」を採用（max 集約）
-            val wMax = slots.maxOf { slot -> timeSlotWeightModel.weight(slot, nowMillis) }
-            if (wMax < MIN_TIME_WEIGHT) return 0.0
-            wMax * 2.0 // ピーク時は旧実装の一致(=2.0)相当
-        }
+        val timeMultiplier =
+            if (slots.isEmpty() || slots.contains(SuggestionTimeSlot.Anytime)) {
+                1.0
+            } else {
+                // 複数スロットのうち「最も今に合うもの」を採用（max 集約）
+                val wMax = slots.maxOf { slot -> timeSlotWeightModel.weight(slot, nowMillis) }
+                if (wMax < MIN_TIME_WEIGHT) return 0.0
+                wMax * 2.0 // ピーク時は旧実装の一致(=2.0)相当
+            }
 
         // --- 2. 優先度の基礎点 (ベーススコア) ---
-        val baseScore = when (suggestion.priority) {
-            SuggestionPriority.High -> 50.0 // 最も基礎点を高く設定
-            SuggestionPriority.Normal -> 30.0
-            SuggestionPriority.Low -> 10.0
-        }
+        val baseScore =
+            when (suggestion.priority) {
+                SuggestionPriority.High -> 50.0 // 最も基礎点を高く設定
+                SuggestionPriority.Normal -> 30.0
+                SuggestionPriority.Low -> 10.0
+            }
 
         // --- 3. 所要時間による心理的ハードル係数 (フォッグの行動モデル適用) ---
         // 短いタスクは実行能力(Ability)が高いため優遇
-        val frictionMultiplier = when (suggestion.durationTag) {
-            // 短いタスク: 特に30分以上の溶かし時間がある場合は、脱出を促すため更に優遇 (1.5倍)
-            SuggestionDurationTag.Short -> if (minutesElapsed >= 30) 1.5 else 1.2
-            SuggestionDurationTag.Medium -> 1.0
-            SuggestionDurationTag.Long -> 0.8 // 長いタスクは抵抗が高いため減点
-        }
+        val frictionMultiplier =
+            when (suggestion.durationTag) {
+                // 短いタスク: 特に30分以上の溶かし時間がある場合は、脱出を促すため更に優遇 (1.5倍)
+                SuggestionDurationTag.Short -> if (minutesElapsed >= 30) 1.5 else 1.2
+                SuggestionDurationTag.Medium -> 1.0
+                SuggestionDurationTag.Long -> 0.8 // 長いタスクは抵抗が高いため減点
+            }
 
         // 最終スコア = (ベーススコア) × (時間帯係数) × (摩擦係数)
         return baseScore * timeMultiplier * frictionMultiplier

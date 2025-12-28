@@ -54,9 +54,10 @@ fun TimelineHistoryContent(
     var showDatePicker by remember { mutableStateOf(false) }
 
     if (showDatePicker) {
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = uiState.selectedDateUtcMillis,
-        )
+        val pickerState =
+            rememberDatePickerState(
+                initialSelectedDateMillis = uiState.selectedDateUtcMillis,
+            )
 
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -65,13 +66,15 @@ fun TimelineHistoryContent(
                     onClick = {
                         val millis = pickerState.selectedDateMillis
                         if (millis != null) {
-                            val date = Instant.ofEpochMilli(millis)
-                                .atZone(ZoneOffset.UTC)
-                                .toLocalDate()
+                            val date =
+                                Instant
+                                    .ofEpochMilli(millis)
+                                    .atZone(ZoneOffset.UTC)
+                                    .toLocalDate()
                             onSelectDate(date)
                         }
                         showDatePicker = false
-                    }
+                    },
                 ) {
                     Text(text = "OK")
                 }
@@ -80,7 +83,7 @@ fun TimelineHistoryContent(
                 TextButton(onClick = { showDatePicker = false }) {
                     Text(text = "キャンセル")
                 }
-            }
+            },
         ) {
             DatePicker(state = pickerState)
         }
@@ -131,9 +134,10 @@ fun TimelineHistoryContent(
             )
         }
 
-        val grouped = remember(uiState.rows) {
-            uiState.rows.groupBy { it.hour }.toSortedMap()
-        }
+        val grouped =
+            remember(uiState.rows) {
+                uiState.rows.groupBy { it.hour }.toSortedMap()
+            }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -165,9 +169,10 @@ private fun TimelineFilterCard(
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(
@@ -217,9 +222,10 @@ private fun TimelineFilterCard(
                 )
                 val scrollState = rememberScrollState()
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(scrollState),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(scrollState),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     FilterChip(
@@ -241,13 +247,12 @@ private fun TimelineFilterCard(
 }
 
 @Composable
-private fun TimelineHourHeader(
-    hour: Int,
-) {
+private fun TimelineHourHeader(hour: Int) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
     ) {
         Text(
             text = "${hour}時台",
@@ -258,9 +263,7 @@ private fun TimelineHourHeader(
 }
 
 @Composable
-private fun TimelineRowItem(
-    row: TimelineHistoryViewModel.RowUiModel,
-) {
+private fun TimelineRowItem(row: TimelineHistoryViewModel.RowUiModel) {
     ListItem(
         headlineContent = {
             Text(

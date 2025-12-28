@@ -7,5 +7,6 @@ package com.example.refocus.core.util
  */
 interface TimeSource {
     fun nowMillis(): Long
+
     fun elapsedRealtime(): Long
 }

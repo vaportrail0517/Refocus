@@ -43,20 +43,21 @@ fun HomeRoute(
     val overlayServiceStatusProvider = rememberOverlayServiceStatusProvider()
     var isServiceRunning by remember { mutableStateOf(overlayServiceStatusProvider.isRunning()) }
 
-    val permissionState = rememberPermissionUiState(
-        onRefreshed = { latest ->
-            isServiceRunning = overlayServiceStatusProvider.isRunning()
+    val permissionState =
+        rememberPermissionUiState(
+            onRefreshed = { latest ->
+                isServiceRunning = overlayServiceStatusProvider.isRunning()
 
-            if (!latest.hasCorePermissions) {
-                val latestCustomize = customizeViewModel.uiState.value
-                if (latestCustomize.customize.overlayEnabled || isServiceRunning) {
-                    customizeViewModel.updateOverlayEnabled(false)
-                    overlayServiceController.stop(source = "home_permission_refresh")
-                    isServiceRunning = false
+                if (!latest.hasCorePermissions) {
+                    val latestCustomize = customizeViewModel.uiState.value
+                    if (latestCustomize.customize.overlayEnabled || isServiceRunning) {
+                        customizeViewModel.updateOverlayEnabled(false)
+                        overlayServiceController.stop(source = "home_permission_refresh")
+                        isServiceRunning = false
+                    }
                 }
-            }
-        },
-    )
+            },
+        )
 
     val permissions = permissionState.value
     val hasCorePermissions = permissions.hasCorePermissions
@@ -83,8 +84,9 @@ fun HomeRoute(
                         isServiceRunning = false
                         return@launch
                     }
-                    isServiceRunning = overlayServiceController
-                        .startIfReady(source = "home_toggle_on")
+                    isServiceRunning =
+                        overlayServiceController
+                            .startIfReady(source = "home_toggle_on")
                 } else {
                     try {
                         customizeViewModel.setOverlayEnabledAndWait(false)

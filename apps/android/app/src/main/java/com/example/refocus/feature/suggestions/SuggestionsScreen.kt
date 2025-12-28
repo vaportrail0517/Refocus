@@ -85,9 +85,10 @@ fun SuggestionsScreen(
     var initialPriority by rememberSaveable { mutableStateOf(SuggestionPriority.Normal) }
     var showDiscardConfirm by rememberSaveable { mutableStateOf(false) }
     var sheetMode by rememberSaveable { mutableStateOf(EditorSheetMode.View) }
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = false,
-    )
+    val sheetState =
+        rememberModalBottomSheetState(
+            skipPartiallyExpanded = false,
+        )
 
     LaunchedEffect(isEditorVisible) {
         if (isEditorVisible) {
@@ -107,9 +108,10 @@ fun SuggestionsScreen(
         contentWindowInsets = WindowInsets(0.dp),
     ) { innerPadding ->
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
         ) {
             Column(
                 modifier = Modifier.fillMaxSize(),
@@ -148,9 +150,10 @@ fun SuggestionsScreen(
                             }
 
                             Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 24.dp, vertical = 4.dp),
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 24.dp, vertical = 4.dp),
                             ) {
                                 SwipeToDismissBox(
                                     state = dismissState,
@@ -204,9 +207,10 @@ fun SuggestionsScreen(
                     sheetMode = EditorSheetMode.Edit
                     isEditorVisible = true
                 },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp),
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
@@ -220,9 +224,9 @@ fun SuggestionsScreen(
                         if (sheetMode == EditorSheetMode.Edit) {
                             val isDirty =
                                 draftTitle != initialTitle ||
-                                        draftTimeSlots != initialTimeSlots ||
-                                        draftDurationTag != initialDurationTag ||
-                                        draftPriority != initialPriority
+                                    draftTimeSlots != initialTimeSlots ||
+                                    draftDurationTag != initialDurationTag ||
+                                    draftPriority != initialPriority
                             if (isDirty) {
                                 showDiscardConfirm = true
                             } else {
@@ -285,9 +289,9 @@ fun SuggestionsScreen(
                                 onCancel = {
                                     val isDirty =
                                         draftTitle != initialTitle ||
-                                                draftTimeSlots != initialTimeSlots ||
-                                                draftDurationTag != initialDurationTag ||
-                                                draftPriority != initialPriority
+                                            draftTimeSlots != initialTimeSlots ||
+                                            draftDurationTag != initialDurationTag ||
+                                            draftPriority != initialPriority
 
                                     if (isDirty) {
                                         showDiscardConfirm = true

@@ -2,11 +2,11 @@ package com.example.refocus.testutil
 
 import com.example.refocus.core.model.TimelineEvent
 import com.example.refocus.domain.repository.TimelineRepository
-import java.time.LocalDate
-import java.time.ZoneId
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * テスト用の「ブロッキング可能な」TimelineRepository．
@@ -18,7 +18,6 @@ class BlockingTimelineRepository(
     initialEvents: List<TimelineEvent> = emptyList(),
     val gate: CompletableDeferred<Unit> = CompletableDeferred<Unit>(),
 ) : TimelineRepository {
-
     private val events = initialEvents.toMutableList().apply { sortBy { it.timestampMillis } }
 
     override suspend fun append(event: TimelineEvent): Long {
@@ -27,24 +26,34 @@ class BlockingTimelineRepository(
         return events.size.toLong()
     }
 
-    override suspend fun getEvents(startMillis: Long, endMillis: Long): List<TimelineEvent> {
+    override suspend fun getEvents(
+        startMillis: Long,
+        endMillis: Long,
+    ): List<TimelineEvent> {
         gate.await()
         return events
             .filter { it.timestampMillis >= startMillis && it.timestampMillis <= endMillis }
             .sortedBy { it.timestampMillis }
     }
 
-    override suspend fun getEventsForDate(date: LocalDate, zoneId: ZoneId): List<TimelineEvent> {
+    override suspend fun getEventsForDate(
+        date: LocalDate,
+        zoneId: ZoneId,
+    ): List<TimelineEvent> {
         gate.await()
         // 日付でフィルタする必要があるテストでは，getEvents を使う．
         // ここは「refresh がブロックされる」状況を作るための最小実装に留める．
         return events.sortedBy { it.timestampMillis }
     }
 
-    override fun observeEventsBetween(startMillis: Long, endMillis: Long): Flow<List<TimelineEvent>> {
-        val snapshot = events
-            .filter { it.timestampMillis >= startMillis && it.timestampMillis <= endMillis }
-            .sortedBy { it.timestampMillis }
+    override fun observeEventsBetween(
+        startMillis: Long,
+        endMillis: Long,
+    ): Flow<List<TimelineEvent>> {
+        val snapshot =
+            events
+                .filter { it.timestampMillis >= startMillis && it.timestampMillis <= endMillis }
+                .sortedBy { it.timestampMillis }
         return flowOf(snapshot)
     }
 

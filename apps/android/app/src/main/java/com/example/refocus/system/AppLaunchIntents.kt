@@ -10,7 +10,6 @@ import android.content.Intent
  * - MainActivity の移動が発生した場合は，ここだけ修正すればよい
  */
 object AppLaunchIntents {
-
     fun mainActivity(context: Context): Intent {
         val packageName = context.packageName
         val className = "$packageName.app.MainActivity"

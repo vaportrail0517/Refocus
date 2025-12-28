@@ -85,82 +85,85 @@ fun SuggestionOverlay(
     val cardOffset = remember { mutableStateOf(Offset.Companion.Zero) }
 
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.Companion.Black.copy(alpha = 0.85f)),
-        contentAlignment = Alignment.Companion.Center
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(Color.Companion.Black.copy(alpha = 0.85f)),
+        contentAlignment = Alignment.Companion.Center,
     ) {
         Card(
-            modifier = Modifier.Companion
-                .offset {
-                    IntOffset(
-                        cardOffset.value.x.roundToInt(),
-                        cardOffset.value.y.roundToInt()
-                    )
-                }
-                // ★ カードだけがスワイプで消える
-                .pointerInput(interactive) {
-                    // interactive が変わるたびにブロックが再登録される
-                    detectDragGestures(
-                        onDragEnd = {
-                            if (!interactive) {
-                                // ロックアウト中は何もせず、その場に留める
+            modifier =
+                Modifier.Companion
+                    .offset {
+                        IntOffset(
+                            cardOffset.value.x.roundToInt(),
+                            cardOffset.value.y.roundToInt(),
+                        )
+                    }
+                    // ★ カードだけがスワイプで消える
+                    .pointerInput(interactive) {
+                        // interactive が変わるたびにブロックが再登録される
+                        detectDragGestures(
+                            onDragEnd = {
+                                if (!interactive) {
+                                    // ロックアウト中は何もせず、その場に留める
+                                    cardOffset.value = Offset.Companion.Zero
+                                    return@detectDragGestures
+                                }
+                                val distance = cardOffset.value.getDistance()
+                                val threshold = 200f // この距離以上スワイプで消える
+                                if (distance > threshold) {
+                                    onDismissOnly()
+                                } else {
+                                    cardOffset.value = Offset.Companion.Zero
+                                }
+                            },
+                            onDragCancel = {
+                                // キャンセル時は元の位置に戻す
                                 cardOffset.value = Offset.Companion.Zero
+                            },
+                        ) { change, dragAmount ->
+                            if (!interactive) {
+                                // ロックアウト中はドラッグを一切反映しない
+                                change.consume()
                                 return@detectDragGestures
                             }
-                            val distance = cardOffset.value.getDistance()
-                            val threshold = 200f // この距離以上スワイプで消える
-                            if (distance > threshold) {
-                                onDismissOnly()
-                            } else {
-                                cardOffset.value = Offset.Companion.Zero
-                            }
-                        },
-                        onDragCancel = {
-                            // キャンセル時は元の位置に戻す
-                            cardOffset.value = Offset.Companion.Zero
-                        }
-                    ) { change, dragAmount ->
-                        if (!interactive) {
-                            // ロックアウト中はドラッグを一切反映しない
                             change.consume()
-                            return@detectDragGestures
+                            cardOffset.value += dragAmount
                         }
-                        change.consume()
-                        cardOffset.value += dragAmount
-                    }
-                }
+                    },
         ) {
             Column(
-                modifier = Modifier.Companion
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
-                    .widthIn(min = 260.dp)
+                modifier =
+                    Modifier.Companion
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                        .widthIn(min = 260.dp),
             ) {
                 Text(
                     text = headerText,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
                 )
                 Spacer(modifier = Modifier.Companion.height(8.dp))
                 Text(
                     text = labelText,
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
                 )
                 Spacer(modifier = Modifier.Companion.height(4.dp))
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleLarge,
                 )
                 Spacer(modifier = Modifier.Companion.height(12.dp))
                 Text(
                     text = bodyText,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.Companion.height(16.dp))
                 Row(
                     modifier = Modifier.Companion.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.End,
                 ) {
                     TextButton(
                         onClick = {
@@ -168,7 +171,7 @@ fun SuggestionOverlay(
                                 onSnoozeLater()
                             }
                         },
-                        enabled = interactive
+                        enabled = interactive,
                     ) {
                         Text("また後で")
                     }
@@ -179,7 +182,7 @@ fun SuggestionOverlay(
                                 onDisableThisSession()
                             }
                         },
-                        enabled = interactive
+                        enabled = interactive,
                     ) {
                         Text("このセッション中は再度提案しない")
                     }

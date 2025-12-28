@@ -13,34 +13,31 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 
 object PermissionHelper {
-
     fun hasUsageAccess(context: Context): Boolean {
         val appOps = context.getSystemService(AppOpsManager::class.java)
 
-        val mode = appOps.checkOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            Process.myUid(),
-            context.packageName
-        )
+        val mode =
+            appOps.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                Process.myUid(),
+                context.packageName,
+            )
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
-    fun hasOverlayPermission(context: Context): Boolean {
-        return Settings.canDrawOverlays(context)
-    }
+    fun hasOverlayPermission(context: Context): Boolean = Settings.canDrawOverlays(context)
 
     fun hasNotificationPermission(context: Context): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
-        val granted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
+        val granted =
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
         return granted
     }
 
-    fun hasAllCorePermissions(context: Context): Boolean {
-        return hasUsageAccess(context) && hasOverlayPermission(context)
-    }
+    fun hasAllCorePermissions(context: Context): Boolean = hasUsageAccess(context) && hasOverlayPermission(context)
 
     fun openUsageAccessSettings(activity: Activity) {
         val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
@@ -48,10 +45,11 @@ object PermissionHelper {
     }
 
     fun openOverlaySettings(activity: Activity) {
-        val intent = Intent(
-            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            "package:${activity.packageName}".toUri()
-        )
+        val intent =
+            Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                "package:${activity.packageName}".toUri(),
+            )
         activity.startActivity(intent)
     }
 

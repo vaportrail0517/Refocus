@@ -12,7 +12,6 @@ data class MonitoringPeriod(
     val endMillis: Long?, // null = まだ継続中
 )
 
-
 /**
  * MonitoringPeriod と SessionPart から、
  * - 1日あたりの監視時間（分）
@@ -21,7 +20,6 @@ data class MonitoringPeriod(
  * を投影（project）するユーティリティ。
  */
 object MonitoringProjector {
-
     /**
      * 1 日ぶんの「Refocus が監視していた合計時間（分）」を計算する。
      *
@@ -105,23 +103,28 @@ object MonitoringProjector {
         var minutes = 0
         while (minutes < 24 * 60) {
             val end = (minutes + bucketSizeMinutes).coerceAtMost(24 * 60)
-            buckets += BucketAccum(
-                startMinutesOfDay = minutes,
-                endMinutesOfDay = end,
-                usageByPackage = mutableMapOf(),
-                monitoringMillis = 0L,
-            )
+            buckets +=
+                BucketAccum(
+                    startMinutesOfDay = minutes,
+                    endMinutesOfDay = end,
+                    usageByPackage = mutableMapOf(),
+                    monitoringMillis = 0L,
+                )
             minutes = end
         }
 
         // 1. MonitoringPeriod をバケットに反映（監視時間）
         monitoringPeriodsOnDate.forEach { period ->
             // minutes-of-day 単位に変換
-            val startMinutes = ((period.startMillis - dayStartMillis) / 60_000L)
-                .toInt().coerceIn(0, 24 * 60)
+            val startMinutes =
+                ((period.startMillis - dayStartMillis) / 60_000L)
+                    .toInt()
+                    .coerceIn(0, 24 * 60)
             val endMillis = period.endMillis ?: (dayStartMillis + 24 * 60 * 60_000L)
-            val endMinutes = ((endMillis - dayStartMillis) / 60_000L)
-                .toInt().coerceIn(0, 24 * 60)
+            val endMinutes =
+                ((endMillis - dayStartMillis) / 60_000L)
+                    .toInt()
+                    .coerceIn(0, 24 * 60)
 
             val startBucket = startMinutes / bucketSizeMinutes
             val endBucket = (endMinutes - 1).coerceAtLeast(0) / bucketSizeMinutes

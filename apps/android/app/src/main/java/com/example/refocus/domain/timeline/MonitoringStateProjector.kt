@@ -13,10 +13,11 @@ import java.time.ZoneId
 
 /*** 「監視可能(= monitoringEnabled) / 監視中(= monitoringActive)」の判定を Stats/Session で共有するための単一ロジック。** - monitoringEnabled: サービス稼働 && 必須権限が Revoked でない（= 未記録は OK 扱い）* - monitoringActive : monitoringEnabled && 画面 ON*/
 object MonitoringStateProjector {
-    private val requiredPermissions = listOf(
-        PermissionKind.UsageStats,
-        PermissionKind.Overlay,
-    )
+    private val requiredPermissions =
+        listOf(
+            PermissionKind.UsageStats,
+            PermissionKind.Overlay,
+        )
 
     /**
      * SessionProjector と同じ「監視可能」判定。
@@ -28,9 +29,10 @@ object MonitoringStateProjector {
         serviceRunning: Boolean,
         permissionStates: Map<PermissionKind, PermissionState>,
     ): Boolean {
-        val permsOk = requiredPermissions.all { kind ->
-            permissionStates[kind] != PermissionState.Revoked
-        }
+        val permsOk =
+            requiredPermissions.all { kind ->
+                permissionStates[kind] != PermissionState.Revoked
+            }
         return serviceRunning && permsOk
     }
 
@@ -56,10 +58,16 @@ object MonitoringStateProjector {
         nowMillis: Long,
     ): List<MonitoringPeriod> {
         val startOfDay = date.atStartOfDay(zoneId).toInstant().toEpochMilli()
-        val endOfDayExclusive = date.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val endOfDayExclusive =
+            date
+                .plusDays(1)
+                .atStartOfDay(zoneId)
+                .toInstant()
+                .toEpochMilli()
         var serviceRunning = false
         var screenOn = false
         val permissionStates = mutableMapOf<PermissionKind, PermissionState>()
+
         fun applyStateChange(event: TimelineEvent) {
             when (event) {
                 is ServiceLifecycleEvent -> {
@@ -95,19 +103,19 @@ object MonitoringStateProjector {
             val wasMonitoring = monitoring
             applyStateChange(event)
             val newMonitoring = isMonitoringActive(serviceRunning, screenOn, permissionStates)
-            // OFF → ON
             if (!wasMonitoring && newMonitoring) {
+                // OFF → ON
                 currentStart = maxOf(event.timestampMillis, startOfDay)
-            }
-            // ON → OFF
-            else if (wasMonitoring && !newMonitoring) {
+            } else if (wasMonitoring && !newMonitoring) {
+                // ON → OFF
                 val start = currentStart ?: startOfDay
                 val end = event.timestampMillis
                 if (end > start) {
-                    periods += MonitoringPeriod(
-                        startMillis = start,
-                        endMillis = end
-                    )
+                    periods +=
+                        MonitoringPeriod(
+                            startMillis = start,
+                            endMillis = end,
+                        )
                 }
                 currentStart = null
             }

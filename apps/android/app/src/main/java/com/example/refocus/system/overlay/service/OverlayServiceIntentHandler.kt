@@ -36,11 +36,12 @@ internal class OverlayServiceIntentHandler(
                 scope.launch {
                     try {
                         val current = settingsRepository.observeOverlaySettings().first()
-                        val newTouchMode = if (current.touchMode == TimerTouchMode.Drag) {
-                            TimerTouchMode.PassThrough
-                        } else {
-                            TimerTouchMode.Drag
-                        }
+                        val newTouchMode =
+                            if (current.touchMode == TimerTouchMode.Drag) {
+                                TimerTouchMode.PassThrough
+                            } else {
+                                TimerTouchMode.Drag
+                            }
                         settingsCommand.setTouchMode(
                             mode = newTouchMode,
                             source = "service_notification",

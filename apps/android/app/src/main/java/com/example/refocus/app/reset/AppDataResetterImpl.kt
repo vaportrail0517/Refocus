@@ -17,17 +17,20 @@ import javax.inject.Singleton
  * - 具体実装は data の具体（Room/Datastore）を触るため app 層に置く
  */
 @Singleton
-class AppDataResetterImpl @Inject constructor(
-    private val database: RefocusDatabase,
-    private val settingsCommand: SettingsCommand,
-    private val targetsRepository: TargetsRepository,
-    private val onboardingRepository: OnboardingRepository,
-) : AppDataResetter {
-    override suspend fun resetAll() = withContext(Dispatchers.IO) {
-        database.clearAllTables()
-        // リセット時はタイムラインも初期化されるため，イベント記録は行わない
-        settingsCommand.resetToDefaults(source = "app_reset", recordEvent = false)
-        targetsRepository.clearForReset()
-        onboardingRepository.setCompleted(false)
+class AppDataResetterImpl
+    @Inject
+    constructor(
+        private val database: RefocusDatabase,
+        private val settingsCommand: SettingsCommand,
+        private val targetsRepository: TargetsRepository,
+        private val onboardingRepository: OnboardingRepository,
+    ) : AppDataResetter {
+        override suspend fun resetAll() =
+            withContext(Dispatchers.IO) {
+                database.clearAllTables()
+                // リセット時はタイムラインも初期化されるため，イベント記録は行わない
+                settingsCommand.resetToDefaults(source = "app_reset", recordEvent = false)
+                targetsRepository.clearForReset()
+                onboardingRepository.setCompleted(false)
+            }
     }
-}

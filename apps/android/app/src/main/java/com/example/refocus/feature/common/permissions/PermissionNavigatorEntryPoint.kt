@@ -20,9 +20,10 @@ fun rememberPermissionNavigator(): PermissionNavigator {
     val context = LocalContext.current
     val appContext = context.applicationContext
 
-    val entryPoint = remember(appContext) {
-        EntryPointAccessors.fromApplication(appContext, PermissionNavigatorEntryPoint::class.java)
-    }
+    val entryPoint =
+        remember(appContext) {
+            EntryPointAccessors.fromApplication(appContext, PermissionNavigatorEntryPoint::class.java)
+        }
     return remember(entryPoint) {
         entryPoint.permissionNavigator()
     }

@@ -19,13 +19,12 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 
-
 @Composable
 fun SearchBar(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
     modifier: Modifier = Modifier,
-    label: String = "検索"
+    label: String = "検索",
 ) {
     val focusManager = LocalFocusManager.current
 
@@ -35,37 +34,40 @@ fun SearchBar(
         label = { Text(label) },
         modifier = modifier,
         shape = RoundedCornerShape(32.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
+        colors =
+            OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            ),
         leadingIcon = {
             Icon(
                 imageVector = Icons.Filled.Search,
-                contentDescription = "検索"
+                contentDescription = "検索",
             )
         },
         trailingIcon = {
             if (value.text.isNotEmpty()) {
                 IconButton(
-                    onClick = { onValueChange(TextFieldValue("")) }
+                    onClick = { onValueChange(TextFieldValue("")) },
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Close,
-                        contentDescription = "クリア"
+                        contentDescription = "クリア",
                     )
                 }
             }
         },
         singleLine = true,
-        keyboardOptions = KeyboardOptions(
-            imeAction = ImeAction.Search
-        ),
-        keyboardActions = KeyboardActions(
-            onSearch = {
-                focusManager.clearFocus()
-            }
-        )
+        keyboardOptions =
+            KeyboardOptions(
+                imeAction = ImeAction.Search,
+            ),
+        keyboardActions =
+            KeyboardActions(
+                onSearch = {
+                    focusManager.clearFocus()
+                },
+            ),
     )
 }

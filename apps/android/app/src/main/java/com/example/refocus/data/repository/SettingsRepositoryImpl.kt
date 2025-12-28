@@ -8,13 +8,13 @@ import com.example.refocus.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 
 class SettingsRepositoryImpl(
-    private val dataStore: SettingsDataStore
+    private val dataStore: SettingsDataStore,
 ) : SettingsRepository {
     override fun observeOverlaySettings(): Flow<Customize> = dataStore.customizeFlow
+
     override fun observeSettingsPreset(): Flow<CustomizePreset> = dataStore.presetFlow
-    override suspend fun updateOverlaySettings(
-        transform: (Customize) -> Customize
-    ) {
+
+    override suspend fun updateOverlaySettings(transform: (Customize) -> Customize) {
         dataStore.update(transform)
     }
 

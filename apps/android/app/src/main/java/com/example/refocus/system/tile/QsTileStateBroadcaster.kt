@@ -14,7 +14,6 @@ import com.example.refocus.core.logging.RefocusLog
  * - タイルが listening でない場合は requestListeningState で次回表示時に更新されるよう促す
  */
 object QsTileStateBroadcaster {
-
     private const val TAG = "QsTileState"
 
     const val ACTION_TILE_STATE_CHANGED: String =
@@ -22,13 +21,17 @@ object QsTileStateBroadcaster {
 
     const val EXTRA_EXPECTED_RUNNING: String = "expected_running"
 
-    fun notifyExpectedRunning(context: Context, expectedRunning: Boolean) {
+    fun notifyExpectedRunning(
+        context: Context,
+        expectedRunning: Boolean,
+    ) {
         // 1) listening 中のタイルに即時反映する
         try {
-            val intent = Intent(ACTION_TILE_STATE_CHANGED).apply {
-                setPackage(context.packageName)
-                putExtra(EXTRA_EXPECTED_RUNNING, expectedRunning)
-            }
+            val intent =
+                Intent(ACTION_TILE_STATE_CHANGED).apply {
+                    setPackage(context.packageName)
+                    putExtra(EXTRA_EXPECTED_RUNNING, expectedRunning)
+                }
             context.sendBroadcast(intent)
         } catch (e: Exception) {
             RefocusLog.w(TAG, e) { "Failed to broadcast QS tile state" }

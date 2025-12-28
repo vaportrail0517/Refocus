@@ -10,8 +10,9 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Android 実機向け Logger 実装．
  */
-class AndroidLogger(context: Context) : Logger {
-
+class AndroidLogger(
+    context: Context,
+) : Logger {
     private companion object {
         private const val TAG_PREFIX = "Refocus/"
     }
@@ -21,18 +22,15 @@ class AndroidLogger(context: Context) : Logger {
 
     private val lastLoggedAt = ConcurrentHashMap<String, Long>()
 
-    private fun tag(subTag: String): String {
-        return if (subTag.startsWith(TAG_PREFIX)) subTag else TAG_PREFIX + subTag
-    }
+    private fun tag(subTag: String): String = if (subTag.startsWith(TAG_PREFIX)) subTag else TAG_PREFIX + subTag
 
-    private fun elapsedRealtimeMs(): Long {
-        return try {
+    private fun elapsedRealtimeMs(): Long =
+        try {
             SystemClock.elapsedRealtime()
         } catch (e: RuntimeException) {
             // ローカル unit test などで android.os.SystemClock が "not mocked" になる場合のフォールバック
             System.currentTimeMillis()
         }
-    }
 
     private fun safeLog(
         level: Char,
@@ -60,20 +58,34 @@ class AndroidLogger(context: Context) : Logger {
         }
     }
 
-    override fun d(subTag: String, message: () -> String) {
+    override fun d(
+        subTag: String,
+        message: () -> String,
+    ) {
         if (!debuggable) return
         safeLog('d', subTag, message())
     }
 
-    override fun i(subTag: String, message: () -> String) {
+    override fun i(
+        subTag: String,
+        message: () -> String,
+    ) {
         safeLog('i', subTag, message())
     }
 
-    override fun w(subTag: String, throwable: Throwable?, message: () -> String) {
+    override fun w(
+        subTag: String,
+        throwable: Throwable?,
+        message: () -> String,
+    ) {
         safeLog('w', subTag, message(), throwable)
     }
 
-    override fun e(subTag: String, throwable: Throwable?, message: () -> String) {
+    override fun e(
+        subTag: String,
+        throwable: Throwable?,
+        message: () -> String,
+    ) {
         safeLog('e', subTag, message(), throwable)
     }
 
@@ -82,7 +94,7 @@ class AndroidLogger(context: Context) : Logger {
         key: String,
         intervalMs: Long,
         throwable: Throwable?,
-        message: () -> String
+        message: () -> String,
     ) {
         val mapKey = tag(subTag) + "#" + key
         val now = elapsedRealtimeMs()

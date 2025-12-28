@@ -7,9 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 @Composable
-fun SessionHistoryRoute(
-    modifier: Modifier = Modifier,
-) {
+fun SessionHistoryRoute(modifier: Modifier = Modifier) {
     val viewModel: SessionHistoryViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
 

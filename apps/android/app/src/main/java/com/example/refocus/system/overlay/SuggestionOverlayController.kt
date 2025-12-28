@@ -36,44 +36,47 @@ class SuggestionOverlayController(
             return true
         }
 
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-        }
+        val params =
+            WindowManager
+                .LayoutParams(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                    PixelFormat.TRANSLUCENT,
+                ).apply {
+                    gravity = Gravity.TOP or Gravity.START
+                }
 
-        val composeView = ComposeView(context).apply {
-            setViewTreeLifecycleOwner(lifecycleOwner)
-            val savedStateOwner = OverlaySavedStateOwner()
-            setViewTreeSavedStateRegistryOwner(savedStateOwner)
-            setContent {
-                RefocusTheme {
-                    SuggestionOverlay(
-                        title = title,
-                        mode = mode,
-                        autoDismissMillis = autoDismissMillis,
-                        interactionLockoutMillis = interactionLockoutMillis,
-                        onSnoozeLater = {
-                            hideSuggestionOverlay()
-                            onSnoozeLater()
-                        },
-                        onDisableThisSession = {
-                            hideSuggestionOverlay()
-                            onDisableThisSession()
-                        },
-                        onDismissOnly = {
-                            hideSuggestionOverlay()
-                            onDismissOnly()
-                        }
-                    )
+        val composeView =
+            ComposeView(context).apply {
+                setViewTreeLifecycleOwner(lifecycleOwner)
+                val savedStateOwner = OverlaySavedStateOwner()
+                setViewTreeSavedStateRegistryOwner(savedStateOwner)
+                setContent {
+                    RefocusTheme {
+                        SuggestionOverlay(
+                            title = title,
+                            mode = mode,
+                            autoDismissMillis = autoDismissMillis,
+                            interactionLockoutMillis = interactionLockoutMillis,
+                            onSnoozeLater = {
+                                hideSuggestionOverlay()
+                                onSnoozeLater()
+                            },
+                            onDisableThisSession = {
+                                hideSuggestionOverlay()
+                                onDisableThisSession()
+                            },
+                            onDismissOnly = {
+                                hideSuggestionOverlay()
+                                onDismissOnly()
+                            },
+                        )
+                    }
                 }
             }
-        }
 
         try {
             windowManager.addView(composeView, params)

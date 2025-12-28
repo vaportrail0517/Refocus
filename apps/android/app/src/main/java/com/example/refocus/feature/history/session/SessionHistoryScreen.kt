@@ -23,9 +23,10 @@ fun SessionHistoryScreen(
     onNavigateBack: () -> Unit = {},
 ) {
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .systemBarsPadding(),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .systemBarsPadding(),
         topBar = {
             TopAppBar(
                 title = {
@@ -47,10 +48,11 @@ fun SessionHistoryScreen(
         contentWindowInsets = WindowInsets(0.dp),
     ) { innerPadding ->
         SessionHistoryRoute(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(16.dp),
         )
     }
 }

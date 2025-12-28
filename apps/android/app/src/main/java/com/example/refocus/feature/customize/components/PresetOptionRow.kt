@@ -34,41 +34,53 @@ private fun RowScope.PresetChoiceButton(
 
     OutlinedButton(
         onClick = onClick,
-        modifier = Modifier
-            .weight(1f)
-            .height(32.dp),               // ← 少し小さめで統一感
+        modifier =
+            Modifier
+                .weight(1f)
+                .height(32.dp),
+        // ← 少し小さめで統一感
         shape = shape,
-        border = BorderStroke(
-            width = 1.dp,
-            color = if (selected) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.outline
-        ),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = if (selected)
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-            else
-                Color.Transparent,
-            contentColor = if (selected)
-                MaterialTheme.colorScheme.primary
-            else
-                MaterialTheme.colorScheme.onSurface
-        ),
-        contentPadding = PaddingValues(0.dp) // ← 中央にぴったり配置
+        border =
+            BorderStroke(
+                width = 1.dp,
+                color =
+                    if (selected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.outline
+                    },
+            ),
+        colors =
+            ButtonDefaults.outlinedButtonColors(
+                containerColor =
+                    if (selected) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    } else {
+                        Color.Transparent
+                    },
+                contentColor =
+                    if (selected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+            ),
+        contentPadding = PaddingValues(0.dp), // ← 中央にぴったり配置
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
-                )
+                style =
+                    MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    ),
             )
         }
     }
 }
-
 
 /**
  * タイトル + サブタイトル + 横並びボタン群の行。
@@ -79,13 +91,14 @@ fun OptionButtonsRow(
     title: String,
     subtitle: String,
     optionLabels: List<String>,
-    selectedIndex: Int?,     // null → どれも選択されない（＝Custom）
+    selectedIndex: Int?, // null → どれも選択されない（＝Custom）
     onSelectIndex: (Int) -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
     ) {
         Text(
             text = title,
@@ -95,25 +108,24 @@ fun OptionButtonsRow(
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
         )
         Spacer(Modifier.height(8.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             optionLabels.forEachIndexed { index, label ->
                 PresetChoiceButton(
                     label = label,
                     selected = (selectedIndex == index),
-                    onClick = { onSelectIndex(index) }
+                    onClick = { onSelectIndex(index) },
                 )
             }
         }
     }
 }
-
 
 data class PresetOption<P>(
     val value: P,
@@ -128,27 +140,30 @@ fun <P> PresetOptionRow(
     currentValueDescription: String,
     onPresetSelected: (P) -> Unit,
 ) {
-    val selectedIndex = options.indexOfFirst { it.value == currentPreset }
-        .takeIf { it >= 0 }
+    val selectedIndex =
+        options
+            .indexOfFirst { it.value == currentPreset }
+            .takeIf { it >= 0 }
 
-    val subtitle = buildString {
-        append("現在: ")
-        append(currentValueDescription)
-        append("（")
-        append(
-            if (currentPreset == null) {
-                "カスタム"
-            } else {
-                val option = options.firstOrNull { it.value == currentPreset }
-                if (option != null) {
-                    "プリセット: ${option.label}"
-                } else {
+    val subtitle =
+        buildString {
+            append("現在: ")
+            append(currentValueDescription)
+            append("（")
+            append(
+                if (currentPreset == null) {
                     "カスタム"
-                }
-            }
-        )
-        append("）")
-    }
+                } else {
+                    val option = options.firstOrNull { it.value == currentPreset }
+                    if (option != null) {
+                        "プリセット: ${option.label}"
+                    } else {
+                        "カスタム"
+                    }
+                },
+            )
+            append("）")
+        }
 
     val labels = options.map { it.label }
 
@@ -160,7 +175,6 @@ fun <P> PresetOptionRow(
         onSelectIndex = { idx ->
             val option = options.getOrNull(idx) ?: return@OptionButtonsRow
             onPresetSelected(option.value)
-        }
+        },
     )
 }
-

@@ -45,72 +45,77 @@ internal class OverlaySettingsObserver(
     fun start(): Job {
         if (job?.isActive == true) return job!!
 
-        job = scope.launch {
-            try {
-                customizeFlow.collect { settings ->
-                    val oldSettings = runtimeState.value.customize
+        job =
+            scope.launch {
+                try {
+                    customizeFlow.collect { settings ->
+                        val oldSettings = runtimeState.value.customize
 
-                    // 先に customize スナップショットを更新（Provider などが最新設定を読めるようにする）
-                    runtimeState.update { it.copy(customize = settings) }
+                        // 先に customize スナップショットを更新（Provider などが最新設定を読めるようにする）
+                        runtimeState.update { it.copy(customize = settings) }
 
-                    // タイマー表示モードが変わった場合は，日次集計キャッシュを無効化する
-                    if (settings.timerTimeMode != oldSettings.timerTimeMode) {
-                        dailyUsageUseCase.invalidate()
-                    }
-
-                    // 設定変更イベントとしてタイムラインに記録
-                    dispatchEvent(OverlayEvent.SettingsChanged(settings))
-
-                    // UI 側の見た目反映
-                    uiController.applySettings(settings)
-
-                    // 停止猶予時間が変わったかどうかを判定
-                    val graceChanged = settings.gracePeriodMillis != oldSettings.gracePeriodMillis
-                    if (graceChanged) {
-                        RefocusLog.d(TAG) {
-                            "gracePeriodMillis changed: ${oldSettings.gracePeriodMillis} -> ${settings.gracePeriodMillis}"
+                        // タイマー表示モードが変わった場合は，日次集計キャッシュを無効化する
+                        if (settings.timerTimeMode != oldSettings.timerTimeMode) {
+                            dailyUsageUseCase.invalidate()
                         }
 
-                        // 停止猶予時間が変わると，日次累計の再投影結果も変わり得るためキャッシュを無効化する
-                        dailyUsageUseCase.invalidate()
+                        // 設定変更イベントとしてタイムラインに記録
+                        dispatchEvent(OverlayEvent.SettingsChanged(settings))
 
-                        // 「今表示中のターゲット」について，変更後の停止猶予で論理セッションを再解釈して追従する
-                        val pkg = runtimeState.value.overlayPackage
-                        val stateSnapshot = runtimeState.value
-                        if (pkg != null && stateSnapshot.overlayState is OverlayState.Tracking && stateSnapshot.isScreenOn) {
-                            val nowMillis = timeSource.nowMillis()
+                        // UI 側の見た目反映
+                        uiController.applySettings(settings)
 
-                            // 変更前 tracker が残っていても投影したいので force=true で復元
-                            val bootstrap = sessionBootstrapper.computeBootstrapFromTimeline(
-                                packageName = pkg,
-                                customize = settings,
-                                nowMillis = nowMillis,
-                                force = true,
-                                sessionTracker = sessionTracker,
-                            )
+                        // 停止猶予時間が変わったかどうかを判定
+                        val graceChanged = settings.gracePeriodMillis != oldSettings.gracePeriodMillis
+                        if (graceChanged) {
+                            RefocusLog.d(TAG) {
+                                "gracePeriodMillis changed: ${oldSettings.gracePeriodMillis} -> ${settings.gracePeriodMillis}"
+                            }
 
-                            // tracker を入れ替える（timer は provider 経由なので，ここで再注入すれば表示は追従する）
-                            sessionTracker.clear()
-                            suggestionOrchestrator.resetGate()
+                            // 停止猶予時間が変わると，日次累計の再投影結果も変わり得るためキャッシュを無効化する
+                            dailyUsageUseCase.invalidate()
 
-                            val initialElapsed = bootstrap?.initialElapsedMillis ?: 0L
-                            sessionTracker.onEnterTargetApp(
-                                packageName = pkg,
-                                gracePeriodMillis = settings.gracePeriodMillis,
-                                initialElapsedIfNew = initialElapsed,
-                            )
-                            suggestionOrchestrator.restoreGateIfOngoing(bootstrap)
-                        } else {
-                            // 表示中でなければ単純にクリアだけ
-                            sessionTracker.clear()
-                            suggestionOrchestrator.resetGate()
+                            // 「今表示中のターゲット」について，変更後の停止猶予で論理セッションを再解釈して追従する
+                            val pkg = runtimeState.value.overlayPackage
+                            val stateSnapshot = runtimeState.value
+                            if (pkg != null &&
+                                stateSnapshot.overlayState is OverlayState.Tracking &&
+                                stateSnapshot.isScreenOn
+                            ) {
+                                val nowMillis = timeSource.nowMillis()
+
+                                // 変更前 tracker が残っていても投影したいので force=true で復元
+                                val bootstrap =
+                                    sessionBootstrapper.computeBootstrapFromTimeline(
+                                        packageName = pkg,
+                                        customize = settings,
+                                        nowMillis = nowMillis,
+                                        force = true,
+                                        sessionTracker = sessionTracker,
+                                    )
+
+                                // tracker を入れ替える（timer は provider 経由なので，ここで再注入すれば表示は追従する）
+                                sessionTracker.clear()
+                                suggestionOrchestrator.resetGate()
+
+                                val initialElapsed = bootstrap?.initialElapsedMillis ?: 0L
+                                sessionTracker.onEnterTargetApp(
+                                    packageName = pkg,
+                                    gracePeriodMillis = settings.gracePeriodMillis,
+                                    initialElapsedIfNew = initialElapsed,
+                                )
+                                suggestionOrchestrator.restoreGateIfOngoing(bootstrap)
+                            } else {
+                                // 表示中でなければ単純にクリアだけ
+                                sessionTracker.clear()
+                                suggestionOrchestrator.resetGate()
+                            }
                         }
                     }
+                } catch (e: Exception) {
+                    RefocusLog.e(TAG, e) { "observeOverlaySettings failed" }
                 }
-            } catch (e: Exception) {
-                RefocusLog.e(TAG, e) { "observeOverlaySettings failed" }
             }
-        }
 
         return job!!
     }

@@ -29,7 +29,7 @@ fun EntryScreen(
 
     Box(
         modifier = Modifier.Companion.fillMaxSize(),
-        contentAlignment = Alignment.Companion.Center
+        contentAlignment = Alignment.Companion.Center,
     ) {
         CircularProgressIndicator()
     }

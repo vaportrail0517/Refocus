@@ -8,7 +8,6 @@ import com.example.refocus.core.model.PermissionSnapshot
  * 実装は Android API を使うため system 層に置き，feature はこのインタフェースに依存する．
  */
 interface PermissionStatusProvider {
-
     /**
      * 現在の権限状態を同期的にチェックして返す．
      *

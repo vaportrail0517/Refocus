@@ -34,9 +34,10 @@ internal fun AppUsageCard(
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            val topApps = apps
-                .sortedByDescending { it.totalUsageMillis }
-                .take(5)
+            val topApps =
+                apps
+                    .sortedByDescending { it.totalUsageMillis }
+                    .take(5)
 
             topApps.forEach { app ->
                 AppUsageRow(app, appLabelByPackage)
@@ -68,7 +69,9 @@ internal fun AppUsageRow(
             val label = appLabelByPackage[app.packageName] ?: app.packageName
             Text(text = label, style = MaterialTheme.typography.bodyMedium)
             Text(
-                text = "セッション数 ${app.sessionCount} / 平均 ${formatDurationMilliSeconds(app.averageSessionDurationMillis)}",
+                text = "セッション数 ${app.sessionCount} / 平均 ${formatDurationMilliSeconds(
+                    app.averageSessionDurationMillis,
+                )}",
                 style = MaterialTheme.typography.bodySmall,
             )
         }

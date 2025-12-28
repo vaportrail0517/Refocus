@@ -19,7 +19,6 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-
     @Inject
     lateinit var permissionStateWatcher: PermissionStateWatcher
 
@@ -47,7 +46,7 @@ class MainActivity : ComponentActivity() {
             } catch (e: Exception) {
                 RefocusLog.e(
                     "MainActivity",
-                    e
+                    e,
                 ) { "Failed to check/record permission state onResume" }
             }
         }

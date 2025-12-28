@@ -10,7 +10,7 @@ enum class DisplayUnit {
 
 enum class DurationStyle {
     JapaneseUnit, // 例: "1時間2分3秒"
-    Colon,        // 例: "1:02:03" or "02:03"
+    Colon, // 例: "1:02:03" or "02:03"
 }
 
 data class DurationFormatOptions(
@@ -19,16 +19,17 @@ data class DurationFormatOptions(
     val minUnit: DisplayUnit = DisplayUnit.SECOND,
     val zeroLabel: String = "",
     val colonSeparator: String = ":",
-    val labels: Map<DisplayUnit, String> = mapOf(
-        DisplayUnit.HOUR to "時間",
-        DisplayUnit.MINUTE to "分",
-        DisplayUnit.SECOND to "秒",
-    )
+    val labels: Map<DisplayUnit, String> =
+        mapOf(
+            DisplayUnit.HOUR to "時間",
+            DisplayUnit.MINUTE to "分",
+            DisplayUnit.SECOND to "秒",
+        ),
 )
 
 private fun formatDurationCore(
     totalSeconds: Long,
-    options: DurationFormatOptions
+    options: DurationFormatOptions,
 ): String {
     if (totalSeconds <= 0L && options.zeroLabel.isNotBlank()) return options.zeroLabel
 
@@ -50,7 +51,7 @@ private fun formatDurationCore(
                     "%d${options.colonSeparator}%02d${options.colonSeparator}%02d",
                     hours,
                     minutes,
-                    seconds
+                    seconds,
                 )
             } else {
                 val totalMinutes = totalSeconds / 60
@@ -59,7 +60,7 @@ private fun formatDurationCore(
                     Locale.US,
                     "%02d${options.colonSeparator}%02d",
                     totalMinutes,
-                    sec
+                    sec,
                 )
             }
         }
@@ -90,11 +91,12 @@ fun formatDurationMilliSecondsOrNull(
     minUnit: DisplayUnit = DisplayUnit.SECOND,
 ): String? {
     if (millisInput <= 0L) return null
-    val options = DurationFormatOptions(
-        style = style,
-        maxUnit = maxUnit,
-        minUnit = minUnit,
-    )
+    val options =
+        DurationFormatOptions(
+            style = style,
+            maxUnit = maxUnit,
+            minUnit = minUnit,
+        )
     return formatDurationCore(millisInput / 1000L, options)
 }
 
@@ -105,12 +107,13 @@ fun formatDurationMilliSeconds(
     minUnit: DisplayUnit = DisplayUnit.SECOND,
     zeroLabel: String = "",
 ): String {
-    val options = DurationFormatOptions(
-        style = style,
-        maxUnit = maxUnit,
-        minUnit = minUnit,
-        zeroLabel = zeroLabel,
-    )
+    val options =
+        DurationFormatOptions(
+            style = style,
+            maxUnit = maxUnit,
+            minUnit = minUnit,
+            zeroLabel = zeroLabel,
+        )
     return formatDurationCore(millisInput / 1000L, options)
 }
 
@@ -121,11 +124,12 @@ fun formatDurationSecondsOrNull(
     minUnit: DisplayUnit = DisplayUnit.SECOND,
 ): String? {
     if (secondsInput <= 0L) return null
-    val options = DurationFormatOptions(
-        style = style,
-        maxUnit = maxUnit,
-        minUnit = minUnit,
-    )
+    val options =
+        DurationFormatOptions(
+            style = style,
+            maxUnit = maxUnit,
+            minUnit = minUnit,
+        )
     return formatDurationCore(secondsInput, options)
 }
 
@@ -136,20 +140,22 @@ fun formatDurationSeconds(
     minUnit: DisplayUnit = DisplayUnit.SECOND,
     zeroLabel: String = "",
 ): String {
-    val options = DurationFormatOptions(
-        style = style,
-        maxUnit = maxUnit,
-        minUnit = minUnit,
-        zeroLabel = zeroLabel,
-    )
+    val options =
+        DurationFormatOptions(
+            style = style,
+            maxUnit = maxUnit,
+            minUnit = minUnit,
+            zeroLabel = zeroLabel,
+        )
     return formatDurationCore(secondsInput, options)
 }
 
 fun formatDurationForTimerBubble(millis: Long): String {
-    val options = DurationFormatOptions(
-        style = DurationStyle.Colon,
-        maxUnit = DisplayUnit.HOUR,
-        minUnit = DisplayUnit.SECOND,
-    )
+    val options =
+        DurationFormatOptions(
+            style = DurationStyle.Colon,
+            maxUnit = DisplayUnit.HOUR,
+            minUnit = DisplayUnit.SECOND,
+        )
     return formatDurationCore(millis / 1000L, options)
 }

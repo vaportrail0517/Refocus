@@ -23,7 +23,6 @@ class SessionBootstrapper(
     private val timelineRepository: TimelineRepository,
     private val lookbackHours: Long,
 ) {
-
     private val windowLoader = TimelineWindowEventsLoader(timelineRepository)
 
     /**
@@ -44,30 +43,34 @@ class SessionBootstrapper(
             if (already != null) return null
         }
 
-        val startMillis = (nowMillis - lookbackHours * 60L * 60L * 1000L)
-            .coerceAtLeast(0L)
+        val startMillis =
+            (nowMillis - lookbackHours * 60L * 60L * 1000L)
+                .coerceAtLeast(0L)
 
         // startMillis より前の TargetAppsChanged などを seed として補い，
         // ウィンドウ内の ForegroundAppEvent を「当時の対象集合」で解釈できるようにする。
         // ただし異常に古い seed は避ける（保険）
         val maxLookbackMillis = lookbackHours * 60L * 60L * 1_000L
-        val events = windowLoader.loadWithSeed(
-            windowStartMillis = startMillis,
-            windowEndMillis = nowMillis,
-            seedLookbackMillis = maxLookbackMillis,
-        )
+        val events =
+            windowLoader.loadWithSeed(
+                windowStartMillis = startMillis,
+                windowEndMillis = nowMillis,
+                seedLookbackMillis = maxLookbackMillis,
+            )
         if (events.isEmpty()) return null
 
-        val projection = TimelineProjector.project(
-            events = events,
-            config = TimelineInterpretationConfig(stopGracePeriodMillis = customize.gracePeriodMillis),
-            nowMillis = nowMillis,
-            zoneId = ZoneId.systemDefault(),
-        )
+        val projection =
+            TimelineProjector.project(
+                events = events,
+                config = TimelineInterpretationConfig(stopGracePeriodMillis = customize.gracePeriodMillis),
+                nowMillis = nowMillis,
+                zoneId = ZoneId.systemDefault(),
+            )
 
-        val last = projection.sessionsWithEvents
-            .filter { it.session.packageName == packageName }
-            .lastOrNull() ?: return null
+        val last =
+            projection.sessionsWithEvents
+                .filter { it.session.packageName == packageName }
+                .lastOrNull() ?: return null
 
         // End が入っている = 論理セッションは閉じている
         val ended = last.events.any { it.type == SessionEventType.End }
@@ -79,36 +82,41 @@ class SessionBootstrapper(
             )
         }
 
-        val duration = SessionDurationCalculator.calculateDurationMillis(
-            events = last.events,
-            nowMillis = nowMillis,
-        ).coerceAtLeast(0L)
+        val duration =
+            SessionDurationCalculator
+                .calculateDurationMillis(
+                    events = last.events,
+                    nowMillis = nowMillis,
+                ).coerceAtLeast(0L)
 
         val disabledForSession =
             last.events.any { it.type == SessionEventType.SuggestionDisabledForSession }
 
-        val lastDecisionAt = last.events
-            .filter {
-                it.type == SessionEventType.SuggestionSnoozed ||
+        val lastDecisionAt =
+            last.events
+                .filter {
+                    it.type == SessionEventType.SuggestionSnoozed ||
                         it.type == SessionEventType.SuggestionDismissed
-            }
-            .maxOfOrNull { it.timestampMillis }
+                }.maxOfOrNull { it.timestampMillis }
 
-        val lastDecisionElapsed = lastDecisionAt?.let { at ->
-            val truncated = last.events.filter { it.timestampMillis <= at }
-            SessionDurationCalculator.calculateDurationMillis(
-                events = truncated,
-                nowMillis = at,
-            ).coerceAtLeast(0L)
-        }
+        val lastDecisionElapsed =
+            lastDecisionAt?.let { at ->
+                val truncated = last.events.filter { it.timestampMillis <= at }
+                SessionDurationCalculator
+                    .calculateDurationMillis(
+                        events = truncated,
+                        nowMillis = at,
+                    ).coerceAtLeast(0L)
+            }
 
         return SessionBootstrapFromTimeline(
             initialElapsedMillis = duration,
             isOngoingSession = true,
-            gate = SessionSuggestionGate(
-                disabledForThisSession = disabledForSession,
-                lastDecisionElapsedMillis = lastDecisionElapsed,
-            ),
+            gate =
+                SessionSuggestionGate(
+                    disabledForThisSession = disabledForSession,
+                    lastDecisionElapsedMillis = lastDecisionElapsed,
+                ),
         )
     }
 }

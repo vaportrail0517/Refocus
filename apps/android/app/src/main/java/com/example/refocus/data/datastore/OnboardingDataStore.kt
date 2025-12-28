@@ -14,11 +14,11 @@ import java.io.IOException
 private const val DATASTORE_NAME = "refocus_onboarding"
 
 private val Context.dataStore by preferencesDataStore(
-    name = DATASTORE_NAME
+    name = DATASTORE_NAME,
 )
 
 class OnboardingDataStore(
-    private val context: Context
+    private val context: Context,
 ) {
     private object Keys {
         val COMPLETED = booleanPreferencesKey("completed")
@@ -28,8 +28,7 @@ class OnboardingDataStore(
         context.dataStore.data
             .catch { e ->
                 if (e is IOException) emit(emptyPreferences()) else throw e
-            }
-            .map { prefs: Preferences ->
+            }.map { prefs: Preferences ->
                 prefs[Keys.COMPLETED] ?: false
             }
 

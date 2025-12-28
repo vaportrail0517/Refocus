@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TimelineEventDao {
-
     @Insert
     suspend fun insert(event: TimelineEventEntity): Long
 
@@ -18,7 +17,7 @@ interface TimelineEventDao {
         WHERE timestampMillis >= :startMillis
           AND timestampMillis < :endMillis
         ORDER BY timestampMillis ASC
-        """
+        """,
     )
     suspend fun getEventsBetween(
         startMillis: Long,
@@ -31,7 +30,7 @@ interface TimelineEventDao {
         WHERE timestampMillis >= :startMillis
           AND timestampMillis < :endMillis
         ORDER BY timestampMillis ASC
-        """
+        """,
     )
     fun observeEventsBetween(
         startMillis: Long,
@@ -45,7 +44,7 @@ interface TimelineEventDao {
           AND timestampMillis < :beforeMillis
         ORDER BY timestampMillis DESC
         LIMIT 1
-        """
+        """,
     )
     suspend fun getLatestEventOfKindBefore(
         kind: String,
@@ -59,7 +58,7 @@ interface TimelineEventDao {
           AND timestampMillis < :beforeMillis
         ORDER BY timestampMillis DESC
         LIMIT :limit
-        """
+        """,
     )
     suspend fun getLatestEventsOfKindBefore(
         kind: String,
@@ -71,7 +70,7 @@ interface TimelineEventDao {
         """
         SELECT * FROM timeline_events
         ORDER BY timestampMillis ASC
-        """
+        """,
     )
     fun observeAllEvents(): Flow<List<TimelineEventEntity>>
 }

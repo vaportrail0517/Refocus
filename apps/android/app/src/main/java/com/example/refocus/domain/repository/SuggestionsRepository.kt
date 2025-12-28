@@ -21,7 +21,10 @@ interface SuggestionsRepository {
         priority: SuggestionPriority,
     ): Suggestion
 
-    suspend fun updateSuggestion(id: Long, newTitle: String)
+    suspend fun updateSuggestion(
+        id: Long,
+        newTitle: String,
+    )
 
     suspend fun updateSuggestionTags(
         id: Long,

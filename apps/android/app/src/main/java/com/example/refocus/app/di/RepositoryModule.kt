@@ -29,18 +29,14 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object RepositoryModule {
+    @Provides
+    @Singleton
+    fun provideOnboardingRepository(dataStore: OnboardingDataStore): OnboardingRepository =
+        OnboardingRepositoryImpl(dataStore)
 
     @Provides
     @Singleton
-    fun provideOnboardingRepository(
-        dataStore: OnboardingDataStore,
-    ): OnboardingRepository = OnboardingRepositoryImpl(dataStore)
-
-    @Provides
-    @Singleton
-    fun provideSettingsRepository(
-        dataStore: SettingsDataStore,
-    ): SettingsRepository = SettingsRepositoryImpl(dataStore)
+    fun provideSettingsRepository(dataStore: SettingsDataStore): SettingsRepository = SettingsRepositoryImpl(dataStore)
 
     @Provides
     @Singleton
@@ -54,20 +50,19 @@ object RepositoryModule {
     fun provideSuggestionsRepository(
         suggestionDao: SuggestionDao,
         timeSource: TimeSource,
-    ): SuggestionsRepository = SuggestionsRepositoryImpl(
-        suggestionDao = suggestionDao,
-        timeSource = timeSource,
-    )
+    ): SuggestionsRepository =
+        SuggestionsRepositoryImpl(
+            suggestionDao = suggestionDao,
+            timeSource = timeSource,
+        )
 
     @Provides
     @Singleton
-    fun provideTimelineRepository(
-        timelineEventDao: TimelineEventDao,
-    ): TimelineRepository = TimelineRepositoryImpl(timelineEventDao)
+    fun provideTimelineRepository(timelineEventDao: TimelineEventDao): TimelineRepository =
+        TimelineRepositoryImpl(timelineEventDao)
 
     @Provides
     @Singleton
-    fun provideAppCatalogRepository(
-        appCatalogDao: AppCatalogDao,
-    ): AppCatalogRepository = AppCatalogRepositoryImpl(appCatalogDao)
+    fun provideAppCatalogRepository(appCatalogDao: AppCatalogDao): AppCatalogRepository =
+        AppCatalogRepositoryImpl(appCatalogDao)
 }

@@ -8,7 +8,10 @@ import kotlinx.coroutines.flow.Flow
 interface TargetsRepository {
     fun observeTargets(): Flow<Set<String>>
 
-    suspend fun setTargets(targets: Set<String>, recordEvent: Boolean = true)
+    suspend fun setTargets(
+        targets: Set<String>,
+        recordEvent: Boolean = true,
+    )
 
     suspend fun clearForReset()
 }

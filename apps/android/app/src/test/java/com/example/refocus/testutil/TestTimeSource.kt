@@ -10,7 +10,6 @@ class TestTimeSource(
     initialNowMillis: Long,
     initialElapsedRealtime: Long,
 ) : TimeSource {
-
     private var nowMillisValue: Long = initialNowMillis
     private var elapsedRealtimeValue: Long = initialElapsedRealtime
 

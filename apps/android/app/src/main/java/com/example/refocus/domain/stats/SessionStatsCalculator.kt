@@ -14,7 +14,6 @@ import com.example.refocus.domain.session.SessionDurationCalculator
  * ViewModel や Repository から使い回せるよう、純粋関数に寄せている。
  */
 object SessionStatsCalculator {
-
     /**
      * セッション一覧とイベントマップから、UI に依存しない SessionStats のリストを構築する。
      *
@@ -36,25 +35,29 @@ object SessionStatsCalculator {
             .sortedByDescending { session ->
                 val events = eventsMap[session.id] ?: emptyList()
                 events.maxOfOrNull { it.timestampMillis } ?: 0L
-            }
-            .mapNotNull { session ->
+            }.mapNotNull { session ->
                 val id = session.id ?: return@mapNotNull null
                 val events = eventsMap[id] ?: emptyList()
                 if (events.isEmpty()) return@mapNotNull null
 
-                val startedAt = events.firstOrNull {
-                    it.type == SessionEventType.Start
-                }?.timestampMillis ?: events.first().timestampMillis
+                val startedAt =
+                    events
+                        .firstOrNull {
+                            it.type == SessionEventType.Start
+                        }?.timestampMillis ?: events.first().timestampMillis
 
-                val endedAt = events.lastOrNull {
-                    it.type == SessionEventType.End
-                }?.timestampMillis
+                val endedAt =
+                    events
+                        .lastOrNull {
+                            it.type == SessionEventType.End
+                        }?.timestampMillis
 
-                val status = when {
-                    endedAt != null -> SessionStatus.FINISHED
-                    session.packageName == foregroundPackage -> SessionStatus.RUNNING
-                    else -> SessionStatus.GRACE
-                }
+                val status =
+                    when {
+                        endedAt != null -> SessionStatus.FINISHED
+                        session.packageName == foregroundPackage -> SessionStatus.RUNNING
+                        else -> SessionStatus.GRACE
+                    }
 
                 val durationMillis =
                     SessionDurationCalculator.calculateDurationMillis(events, nowMillis)
@@ -77,9 +80,7 @@ object SessionStatsCalculator {
      * - Pause → Resume の順に現れたもののみペアにする
      * - Resume が無い Pause は「未再開」として resumedAtMillis = null で残す
      */
-    private fun buildPauseResumeStats(
-        events: List<SessionEvent>
-    ): List<PauseResumeStats> {
+    private fun buildPauseResumeStats(events: List<SessionEvent>): List<PauseResumeStats> {
         if (events.isEmpty()) return emptyList()
         val sorted = events.sortedBy { it.timestampMillis }
 
@@ -99,7 +100,7 @@ object SessionStatsCalculator {
                             PauseResumeStats(
                                 pausedAtMillis = currentPause!!,
                                 resumedAtMillis = e.timestampMillis,
-                            )
+                            ),
                         )
                         currentPause = null
                     }
@@ -116,7 +117,7 @@ object SessionStatsCalculator {
                 PauseResumeStats(
                     pausedAtMillis = currentPause!!,
                     resumedAtMillis = null,
-                )
+                ),
             )
         }
         return result

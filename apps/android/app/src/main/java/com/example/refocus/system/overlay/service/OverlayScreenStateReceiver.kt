@@ -20,55 +20,62 @@ internal class OverlayScreenStateReceiver(
 ) {
     private var registered: Boolean = false
 
-    private val receiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            when (intent.action) {
-                Intent.ACTION_SCREEN_OFF,
-                Intent.ACTION_SHUTDOWN -> {
-                    RefocusLog.d("OverlayService") { "ACTION_SCREEN_OFF / SHUTDOWN received" }
-                    overlayCoordinator.setScreenOn(false)
-                    overlayCoordinator.onScreenOff()
+    private val receiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context,
+                intent: Intent,
+            ) {
+                when (intent.action) {
+                    Intent.ACTION_SCREEN_OFF,
+                    Intent.ACTION_SHUTDOWN,
+                    -> {
+                        RefocusLog.d("OverlayService") { "ACTION_SCREEN_OFF / SHUTDOWN received" }
+                        overlayCoordinator.setScreenOn(false)
+                        overlayCoordinator.onScreenOff()
 
-                    scope.launch {
-                        try {
-                            eventRecorder.onScreenOff()
-                        } catch (e: Exception) {
-                            RefocusLog.e(
-                                "OverlayService",
-                                e
-                            ) { "Failed to record screen off event" }
+                        scope.launch {
+                            try {
+                                eventRecorder.onScreenOff()
+                            } catch (e: Exception) {
+                                RefocusLog.e(
+                                    "OverlayService",
+                                    e,
+                                ) { "Failed to record screen off event" }
+                            }
                         }
                     }
-                }
 
-                Intent.ACTION_USER_PRESENT,
-                Intent.ACTION_SCREEN_ON -> {
-                    RefocusLog.d("OverlayService") { "ACTION_USER_PRESENT / SCREEN_ON received" }
-                    overlayCoordinator.setScreenOn(true)
+                    Intent.ACTION_USER_PRESENT,
+                    Intent.ACTION_SCREEN_ON,
+                    -> {
+                        RefocusLog.d("OverlayService") { "ACTION_USER_PRESENT / SCREEN_ON received" }
+                        overlayCoordinator.setScreenOn(true)
 
-                    // 設定画面から戻ってきたタイミングなどで権限が変わっている可能性がある
-                    onScreenOn()
+                        // 設定画面から戻ってきたタイミングなどで権限が変わっている可能性がある
+                        onScreenOn()
 
-                    scope.launch {
-                        try {
-                            eventRecorder.onScreenOn()
-                        } catch (e: Exception) {
-                            RefocusLog.e("OverlayService", e) { "Failed to record screen on event" }
+                        scope.launch {
+                            try {
+                                eventRecorder.onScreenOn()
+                            } catch (e: Exception) {
+                                RefocusLog.e("OverlayService", e) { "Failed to record screen on event" }
+                            }
                         }
                     }
                 }
             }
         }
-    }
 
     fun register() {
         if (registered) return
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_SCREEN_OFF)
-            addAction(Intent.ACTION_SHUTDOWN)
-            addAction(Intent.ACTION_USER_PRESENT)
-            addAction(Intent.ACTION_SCREEN_ON)
-        }
+        val filter =
+            IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SHUTDOWN)
+                addAction(Intent.ACTION_USER_PRESENT)
+                addAction(Intent.ACTION_SCREEN_ON)
+            }
         context.registerReceiver(receiver, filter)
         registered = true
     }

@@ -13,7 +13,6 @@ import androidx.savedstate.SavedStateRegistryOwner
  * - 実際の状態保存/復元は行わない（Bundle は常に null）
  */
 class OverlaySavedStateOwner : SavedStateRegistryOwner {
-
     // 自前の LifecycleRegistry を持つ
     private val lifecycleRegistry = LifecycleRegistry(this)
 

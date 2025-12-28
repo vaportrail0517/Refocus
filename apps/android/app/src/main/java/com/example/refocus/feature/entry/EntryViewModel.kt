@@ -20,29 +20,31 @@ data class EntryUiState(
 )
 
 @HiltViewModel
-class EntryViewModel @Inject constructor(
-    val onboardingRepository: OnboardingRepository,
-    private val ensureAppCatalogForCurrentTargetsUseCase: EnsureAppCatalogForCurrentTargetsUseCase
-) : ViewModel() {
+class EntryViewModel
+    @Inject
+    constructor(
+        val onboardingRepository: OnboardingRepository,
+        private val ensureAppCatalogForCurrentTargetsUseCase: EnsureAppCatalogForCurrentTargetsUseCase,
+    ) : ViewModel() {
+        private val _uiState = MutableStateFlow(EntryUiState())
+        val uiState: StateFlow<EntryUiState> = _uiState.asStateFlow()
 
-    private val _uiState = MutableStateFlow(EntryUiState())
-    val uiState: StateFlow<EntryUiState> = _uiState.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            launch(Dispatchers.Default) {
-                try {
-                    ensureAppCatalogForCurrentTargetsUseCase.ensure()
-                } catch (e: Exception) {
-                    RefocusLog.w("EntryViewModel", e) { "Failed to bootstrap app catalog" }
+        init {
+            viewModelScope.launch {
+                launch(Dispatchers.Default) {
+                    try {
+                        ensureAppCatalogForCurrentTargetsUseCase.ensure()
+                    } catch (e: Exception) {
+                        RefocusLog.w("EntryViewModel", e) { "Failed to bootstrap app catalog" }
+                    }
                 }
-            }
 
-            val completed = onboardingRepository.completedFlow.first()
-            _uiState.value = EntryUiState(
-                isLoading = false,
-                completed = completed
-            )
+                val completed = onboardingRepository.completedFlow.first()
+                _uiState.value =
+                    EntryUiState(
+                        isLoading = false,
+                        completed = completed,
+                    )
+            }
         }
     }
-}

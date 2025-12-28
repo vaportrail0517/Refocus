@@ -18,72 +18,74 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @HiltViewModel
-class AppListViewModel @Inject constructor(
-    private val targetsRepository: TargetsRepository,
-    private val updateTargetsUseCase: UpdateTargetsUseCase,
-    private val launchableAppProvider: LaunchableAppProvider,
-) : ViewModel() {
+class AppListViewModel
+    @Inject
+    constructor(
+        private val targetsRepository: TargetsRepository,
+        private val updateTargetsUseCase: UpdateTargetsUseCase,
+        private val launchableAppProvider: LaunchableAppProvider,
+    ) : ViewModel() {
+        data class AppUiModel(
+            val label: String,
+            val packageName: String,
+            val usageTimeMs: Long,
+            val isSelected: Boolean,
+            val icon: Drawable?,
+        )
 
-    data class AppUiModel(
-        val label: String,
-        val packageName: String,
-        val usageTimeMs: Long,
-        val isSelected: Boolean,
-        val icon: Drawable?,
-    )
+        private val _apps = MutableStateFlow<List<AppUiModel>>(emptyList())
+        val apps: StateFlow<List<AppUiModel>> = _apps.asStateFlow()
 
-    private val _apps = MutableStateFlow<List<AppUiModel>>(emptyList())
-    val apps: StateFlow<List<AppUiModel>> = _apps.asStateFlow()
+        private val selected = MutableStateFlow<Set<String>>(emptySet())
 
-    private val selected = MutableStateFlow<Set<String>>(emptySet())
+        init {
+            load()
+        }
 
-    init {
-        load()
-    }
+        private fun load() {
+            viewModelScope.launch {
+                val currentTargets = targetsRepository.observeTargets().first()
+                selected.value = currentTargets
 
-    private fun load() {
-        viewModelScope.launch {
-            val currentTargets = targetsRepository.observeTargets().first()
-            selected.value = currentTargets
-
-            // パッケージ一覧取得・UsageStats照会・アイコン読み込みは重いので Main から退避する
-            val appList = withContext(Dispatchers.Default) {
-                val lookbackMillis = TimeUnit.DAYS.toMillis(7)
-                launchableAppProvider
-                    .loadLaunchableApps(
-                        lookbackMillis = lookbackMillis,
-                        excludeSelf = true,
-                    )
-                    .map { app ->
-                        AppUiModel(
-                            label = app.label,
-                            packageName = app.packageName,
-                            usageTimeMs = app.usageTimeMs,
-                            isSelected = app.packageName in currentTargets,
-                            icon = app.icon,
-                        )
+                // パッケージ一覧取得・UsageStats照会・アイコン読み込みは重いので Main から退避する
+                val appList =
+                    withContext(Dispatchers.Default) {
+                        val lookbackMillis = TimeUnit.DAYS.toMillis(7)
+                        launchableAppProvider
+                            .loadLaunchableApps(
+                                lookbackMillis = lookbackMillis,
+                                excludeSelf = true,
+                            ).map { app ->
+                                AppUiModel(
+                                    label = app.label,
+                                    packageName = app.packageName,
+                                    usageTimeMs = app.usageTimeMs,
+                                    isSelected = app.packageName in currentTargets,
+                                    icon = app.icon,
+                                )
+                            }
                     }
+
+                _apps.value = appList
             }
-
-            _apps.value = appList
         }
-    }
 
-    fun toggleSelection(packageName: String) {
-        val current = selected.value
-        val new = if (packageName in current) current - packageName else current + packageName
-        selected.value = new
-        _apps.value = _apps.value.map {
-            if (it.packageName == packageName) it.copy(isSelected = !it.isSelected) else it
+        fun toggleSelection(packageName: String) {
+            val current = selected.value
+            val new = if (packageName in current) current - packageName else current + packageName
+            selected.value = new
+            _apps.value =
+                _apps.value.map {
+                    if (it.packageName == packageName) it.copy(isSelected = !it.isSelected) else it
+                }
         }
-    }
 
-    fun save(onSaved: () -> Unit) {
-        viewModelScope.launch {
-            withContext(Dispatchers.Default) {
-                updateTargetsUseCase.updateTargets(selected.value)
+        fun save(onSaved: () -> Unit) {
+            viewModelScope.launch {
+                withContext(Dispatchers.Default) {
+                    updateTargetsUseCase.updateTargets(selected.value)
+                }
+                onSaved()
             }
-            onSaved()
         }
     }
-}

@@ -6,7 +6,7 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "suggestions",
-    indices = [Index(value = ["createdAtMillis"])]
+    indices = [Index(value = ["createdAtMillis"])],
 )
 data class SuggestionEntity(
     @PrimaryKey(autoGenerate = true)

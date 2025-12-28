@@ -13,25 +13,25 @@ import com.example.refocus.core.preset.CustomizePresetValues.default
  * - [debug] はデバッグ時に体感しやすい値へ寄せたプリセット。
  */
 object CustomizePresetValues {
-
     /** 通常利用時のプリセット。Customize のデフォルト値をそのまま使う。 */
     val default: Customize = Customize()
 
     /** デバッグ用。体感しやすい値へ寄せる。 */
-    val debug: Customize = Customize(
-        gracePeriodMillis = 10_000L,
-        pollingIntervalMillis = 500L,
-        minFontSizeSp = 32f,
-        maxFontSizeSp = 96f,
-        timeToMaxSeconds = 60,
-        growthMode = TimerGrowthMode.SlowFastSlow,
-        colorMode = TimerColorMode.GradientThree,
-        suggestionEnabled = true,
-        restSuggestionEnabled = true,
-        suggestionTriggerSeconds = 20,
-        suggestionTimeoutSeconds = 0,
-        suggestionCooldownSeconds = 20,
-        suggestionForegroundStableSeconds = 10,
-        suggestionInteractionLockoutMillis = 400L,
-    )
+    val debug: Customize =
+        Customize(
+            gracePeriodMillis = 10_000L,
+            pollingIntervalMillis = 500L,
+            minFontSizeSp = 32f,
+            maxFontSizeSp = 96f,
+            timeToMaxSeconds = 60,
+            growthMode = TimerGrowthMode.SlowFastSlow,
+            colorMode = TimerColorMode.GradientThree,
+            suggestionEnabled = true,
+            restSuggestionEnabled = true,
+            suggestionTriggerSeconds = 20,
+            suggestionTimeoutSeconds = 0,
+            suggestionCooldownSeconds = 20,
+            suggestionForegroundStableSeconds = 10,
+            suggestionInteractionLockoutMillis = 400L,
+        )
 }

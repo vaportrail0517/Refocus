@@ -9,7 +9,7 @@ import com.example.refocus.ui.components.LongSliderDialog
 fun SuggestionTriggerTimeDialog(
     currentSeconds: Int,
     onConfirm: (Int) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     DurationHmsPickerDialog(
         title = "提案を出すまでのセッション継続時間",
@@ -27,7 +27,7 @@ fun SuggestionTriggerTimeDialog(
 fun SuggestionForegroundStableDialog(
     currentSeconds: Int,
     onConfirm: (Int) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     LongSliderDialog(
         title = "前面アプリの安定時間",
@@ -49,7 +49,7 @@ fun SuggestionForegroundStableDialog(
 fun SuggestionCooldownDialog(
     currentSeconds: Int,
     onConfirm: (Int) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     DurationHmsPickerDialog(
         title = "次の提案までの間隔",
@@ -67,7 +67,7 @@ fun SuggestionCooldownDialog(
 fun SuggestionTimeoutDialog(
     currentSeconds: Int,
     onConfirm: (Int) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     LongSliderDialog(
         title = "提案カードを自動で閉じるまでの時間",
@@ -79,7 +79,7 @@ fun SuggestionTimeoutDialog(
         valueLabel = { seconds ->
             formatDurationSeconds(
                 seconds,
-                zeroLabel = "時間経過で閉じない"
+                zeroLabel = "時間経過で閉じない",
             )
         },
         hintLabel = "0〜30秒 / 1秒刻み",
@@ -94,7 +94,7 @@ fun SuggestionTimeoutDialog(
 fun SuggestionInteractionLockoutDialog(
     currentMillis: Long,
     onConfirm: (Long) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     LongSliderDialog(
         title = "提案表示直後の誤タップ防止時間",
@@ -103,7 +103,7 @@ fun SuggestionInteractionLockoutDialog(
         max = 2000L,
         step = 100L,
         initial = currentMillis.coerceIn(0L, 2000L),
-        valueLabel = { millis -> "${millis} ms" },
+        valueLabel = { millis -> "$millis ms" },
         hintLabel = "0〜2000ms / 100ms刻み",
         onConfirm = { selectedMillis ->
             onConfirm(selectedMillis)

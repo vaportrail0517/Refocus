@@ -8,5 +8,6 @@ import com.example.refocus.core.util.TimeSource
  */
 class SystemTimeSource : TimeSource {
     override fun nowMillis(): Long = System.currentTimeMillis()
+
     override fun elapsedRealtime(): Long = SystemClock.elapsedRealtime()
 }

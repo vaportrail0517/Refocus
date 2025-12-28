@@ -13,7 +13,6 @@ import java.time.ZoneId
  * 実際の集計ロジックは SuggestionStatsCalculator に委譲する。
  */
 object SuggestionProjector {
-
     /**
      * 指定した日付について SuggestionDailyStats を構築する。
      *
@@ -29,13 +28,12 @@ object SuggestionProjector {
         targetDate: LocalDate,
         zoneId: ZoneId,
         endSoonThresholdMillis: Long = 2 * 60_000L,
-    ): SuggestionDailyStats? {
-        return SuggestionStatsCalculator.buildDailyStats(
+    ): SuggestionDailyStats? =
+        SuggestionStatsCalculator.buildDailyStats(
             sessions = sessions,
             eventsBySessionId = eventsBySessionId,
             targetDate = targetDate,
             zoneId = zoneId,
             endSoonThresholdMillis = endSoonThresholdMillis,
         )
-    }
 }

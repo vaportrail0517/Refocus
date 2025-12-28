@@ -15,7 +15,6 @@ import com.example.refocus.core.util.TimeSource
 class OverlaySessionTracker(
     private val timeSource: TimeSource,
 ) {
-
     private data class State(
         val packageName: String,
         // 論理セッションの累積（前回までに積み上がった分）
@@ -53,13 +52,14 @@ class OverlaySessionTracker(
         val existing = states[packageName]
         if (existing == null) {
             // 完全な新規（ランタイム上はまだ見たことがないパッケージ）
-            states[packageName] = State(
-                packageName = packageName,
-                accumulatedElapsedMillis = initialElapsedIfNew.coerceAtLeast(0L),
-                activeStartElapsedRealtime = nowElapsed,
-                foregroundStableStartElapsedRealtime = nowElapsed,
-                lastLeaveAtElapsedRealtime = null,
-            )
+            states[packageName] =
+                State(
+                    packageName = packageName,
+                    accumulatedElapsedMillis = initialElapsedIfNew.coerceAtLeast(0L),
+                    activeStartElapsedRealtime = nowElapsed,
+                    foregroundStableStartElapsedRealtime = nowElapsed,
+                    lastLeaveAtElapsedRealtime = null,
+                )
             // 「ランタイムとしては新規セッション」なので true
             return true
         }
@@ -90,8 +90,9 @@ class OverlaySessionTracker(
         // すでに leave 済みなら二重加算しない
         if (state.lastLeaveAtElapsedRealtime != null) return
         val nowElapsed = timeSource.elapsedRealtime()
-        val delta = (nowElapsed - state.activeStartElapsedRealtime)
-            .coerceAtLeast(0L)
+        val delta =
+            (nowElapsed - state.activeStartElapsedRealtime)
+                .coerceAtLeast(0L)
 
         state.accumulatedElapsedMillis += delta
         state.lastLeaveAtElapsedRealtime = nowElapsed

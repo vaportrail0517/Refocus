@@ -32,26 +32,26 @@ import com.example.refocus.feature.common.overlay.rememberOverlayServiceStatusPr
 import com.example.refocus.feature.common.permissions.rememberPermissionUiState
 import kotlinx.coroutines.launch
 
-private enum class CustomizeTab(val title: String) {
+private enum class CustomizeTab(
+    val title: String,
+) {
     Basic("基本"),
     Advanced("詳細"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun CustomizeScreen(
-    modifier: Modifier = Modifier,
-) {
+fun CustomizeScreen(modifier: Modifier = Modifier) {
     val viewModel: CustomizeViewModel = hiltViewModel()
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var activeDialog by remember { mutableStateOf<CustomizeDialogType?>(null) }
     var fontRange by remember(
         uiState.customize.minFontSizeSp,
-        uiState.customize.maxFontSizeSp
+        uiState.customize.maxFontSizeSp,
     ) {
         mutableStateOf(
-            uiState.customize.minFontSizeSp..uiState.customize.maxFontSizeSp
+            uiState.customize.minFontSizeSp..uiState.customize.maxFontSizeSp,
         )
     }
 
@@ -62,10 +62,11 @@ fun CustomizeScreen(
     }
 
     val tabs = CustomizeTab.entries
-    val pagerState = rememberPagerState(
-        initialPage = tabs.indexOf(CustomizeTab.Basic).coerceAtLeast(0),
-        pageCount = { tabs.size },
-    )
+    val pagerState =
+        rememberPagerState(
+            initialPage = tabs.indexOf(CustomizeTab.Basic).coerceAtLeast(0),
+            pageCount = { tabs.size },
+        )
     val scope = rememberCoroutineScope()
     val basicScrollState = rememberScrollState()
     val advancedScrollState = rememberScrollState()
@@ -101,9 +102,10 @@ fun CustomizeScreen(
         contentWindowInsets = WindowInsets(0.dp),
     ) { innerPadding ->
         Box(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 TabRow(selectedTabIndex = pagerState.currentPage) {
@@ -120,17 +122,19 @@ fun CustomizeScreen(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize(),
                 ) { page ->
-                    val scrollState = if (tabs[page] == CustomizeTab.Basic) {
-                        basicScrollState
-                    } else {
-                        advancedScrollState
-                    }
+                    val scrollState =
+                        if (tabs[page] == CustomizeTab.Basic) {
+                            basicScrollState
+                        } else {
+                            advancedScrollState
+                        }
 
                     Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(scrollState)
-                            .padding(16.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .verticalScroll(scrollState)
+                                .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         when (tabs[page]) {
@@ -162,8 +166,7 @@ fun CustomizeScreen(
                                         activeDialog = CustomizeDialogType.GraceTime
                                     },
                                     onOpenFontDialog = {
-                                        fontRange = uiState.customize.minFontSizeSp..
-                                                uiState.customize.maxFontSizeSp
+                                        fontRange = uiState.customize.minFontSizeSp..uiState.customize.maxFontSizeSp
                                         activeDialog = CustomizeDialogType.FontRange
                                     },
                                     onOpenTimeToMaxDialog = {

@@ -16,23 +16,22 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DataStoreModule {
-
     @Provides
     @Singleton
     fun provideSettingsDataStore(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
     ): SettingsDataStore = SettingsDataStore(context)
 
     @Provides
     @Singleton
     fun provideOnboardingDataStore(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
     ): OnboardingDataStore = OnboardingDataStore(context)
 
     @Provides
     @Singleton
     fun provideTargetsDataStore(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
     ): TargetsDataStore = TargetsDataStore(context)
 
     @Provides

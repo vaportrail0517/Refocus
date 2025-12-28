@@ -6,6 +6,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class OverlayServiceStatusProviderImpl @Inject constructor() : OverlayServiceStatusProvider {
-    override fun isRunning(): Boolean = OverlayService.isRunning
-}
+class OverlayServiceStatusProviderImpl
+    @Inject
+    constructor() : OverlayServiceStatusProvider {
+        override fun isRunning(): Boolean = OverlayService.isRunning
+    }

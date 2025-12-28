@@ -9,5 +9,6 @@ import com.example.refocus.core.model.PermissionSnapshot
  */
 interface PermissionSnapshotStore {
     suspend fun readOrNull(): PermissionSnapshot?
+
     suspend fun write(snapshot: PermissionSnapshot)
 }

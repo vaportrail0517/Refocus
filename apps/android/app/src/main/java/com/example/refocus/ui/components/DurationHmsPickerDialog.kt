@@ -58,15 +58,17 @@ fun DurationHmsPickerDialog(
     val showMinute = effectiveMax >= 60
 
     val initHour = if (showHour) (clampedInitial / 3600).coerceIn(0, 23) else 0
-    val initMinute = when {
-        !showMinute -> 0
-        showHour -> ((clampedInitial % 3600) / 60).coerceIn(0, 59)
-        else -> (clampedInitial / 60).coerceAtLeast(0)
-    }
-    val initSecond = when {
-        !showMinute -> clampedInitial.coerceAtLeast(0)
-        else -> (clampedInitial % 60).coerceIn(0, 59)
-    }
+    val initMinute =
+        when {
+            !showMinute -> 0
+            showHour -> ((clampedInitial % 3600) / 60).coerceIn(0, 59)
+            else -> (clampedInitial / 60).coerceAtLeast(0)
+        }
+    val initSecond =
+        when {
+            !showMinute -> clampedInitial.coerceAtLeast(0)
+            else -> (clampedInitial % 60).coerceIn(0, 59)
+        }
 
     var hour by remember { mutableStateOf(initHour) }
     var minute by remember { mutableStateOf(initMinute) }
@@ -212,10 +214,11 @@ private fun WheelNumberPicker(
     val alignedMiddle = middle - floorMod(middle, valuesCount)
     val targetFirstVisibleIndex = alignedMiddle + valueIndex - paddingCount
 
-    val state = remember(valuesCount) {
-        // valuesCount が変わった（＝表示レンジが変わった）場合は state を作り直して選択値を揃える
-        LazyListState(firstVisibleItemIndex = targetFirstVisibleIndex)
-    }
+    val state =
+        remember(valuesCount) {
+            // valuesCount が変わった（＝表示レンジが変わった）場合は state を作り直して選択値を揃える
+            LazyListState(firstVisibleItemIndex = targetFirstVisibleIndex)
+        }
     val fling = rememberSnapFlingBehavior(lazyListState = state)
 
     // 「見た目で中央に来ている行」を確実に選択値として扱うため，
@@ -229,9 +232,10 @@ private fun WheelNumberPicker(
             } else {
                 val viewportCenter =
                     (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
-                visible.minBy { item ->
-                    kotlin.math.abs((item.offset + item.size / 2) - viewportCenter)
-                }.index
+                visible
+                    .minBy { item ->
+                        kotlin.math.abs((item.offset + item.size / 2) - viewportCenter)
+                    }.index
             }
         }
     }
@@ -284,18 +288,20 @@ private fun WheelNumberPicker(
         Spacer(modifier = Modifier.height(8.dp))
 
         Box(
-            modifier = Modifier
-                .height(itemHeight * visibleCount.toFloat())
-                .fillMaxWidth(),
+            modifier =
+                Modifier
+                    .height(itemHeight * visibleCount.toFloat())
+                    .fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
             // 選択中の帯（背景）
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(itemHeight)
-                    .clip(MaterialTheme.shapes.small)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(itemHeight)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
             )
 
             LazyColumn(
@@ -310,23 +316,25 @@ private fun WheelNumberPicker(
                     val isSelected = vIndex == floorMod(selectedIndex, valuesCount)
 
                     Box(
-                        modifier = Modifier
-                            .height(itemHeight)
-                            .fillMaxWidth(),
+                        modifier =
+                            Modifier
+                                .height(itemHeight)
+                                .fillMaxWidth(),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = valueFormatter(v),
-                            style = if (isSelected) {
-                                MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                            } else {
-                                MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Normal,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                                )
-                            },
+                            style =
+                                if (isSelected) {
+                                    MaterialTheme.typography.titleLarge.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                } else {
+                                    MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Normal,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                    )
+                                },
                             textAlign = TextAlign.Center,
                         )
                     }
@@ -336,7 +344,10 @@ private fun WheelNumberPicker(
     }
 }
 
-private fun floorMod(value: Int, modulus: Int): Int {
+private fun floorMod(
+    value: Int,
+    modulus: Int,
+): Int {
     val r = value % modulus
     return if (r >= 0) r else r + modulus
 }

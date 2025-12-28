@@ -36,20 +36,20 @@ internal fun TimelineCard(
 }
 
 @Composable
-internal fun TimelineChart(
-    timeBuckets: List<TimeBucketStats>,
-) {
+internal fun TimelineChart(timeBuckets: List<TimeBucketStats>) {
     // 縦軸のベースは「対象アプリの利用時間（分）」で見る
-    val maxTargetMinutes = (timeBuckets.maxOfOrNull { it.targetUsageMinutes } ?: 0)
-        .coerceAtLeast(1)
+    val maxTargetMinutes =
+        (timeBuckets.maxOfOrNull { it.targetUsageMinutes } ?: 0)
+            .coerceAtLeast(1)
     // 縦軸の最大値を「10分刻み」で丸める（例: 7分 -> 10, 18分 -> 20, 35分 -> 40）
     val axisMaxMinutes = ((maxTargetMinutes + 9) / 10) * 10
-    val yLabels = listOf(
-        axisMaxMinutes,
-        (axisMaxMinutes * 2) / 3,
-        axisMaxMinutes / 3,
-        0,
-    )
+    val yLabels =
+        listOf(
+            axisMaxMinutes,
+            (axisMaxMinutes * 2) / 3,
+            axisMaxMinutes / 3,
+            0,
+        )
     val yAxisWidth = 40.dp
 
     Column(
@@ -57,15 +57,17 @@ internal fun TimelineChart(
     ) {
         // 上段: Y 軸 + バー
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(120.dp),
         ) {
             // Y 軸ラベル
             Column(
-                modifier = Modifier
-                    .width(yAxisWidth)
-                    .fillMaxHeight(),
+                modifier =
+                    Modifier
+                        .width(yAxisWidth)
+                        .fillMaxHeight(),
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.End,
             ) {
@@ -81,9 +83,10 @@ internal fun TimelineChart(
 
             // バー本体
             Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom,
             ) {
@@ -93,41 +96,46 @@ internal fun TimelineChart(
                         (usageMinutes.toFloat() / axisMaxMinutes.toFloat()).coerceIn(0f, 1f)
 
                     Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight(),
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
                         contentAlignment = Alignment.BottomCenter,
                     ) {
                         // 背景: Refocus 監視状態
                         Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth()
-                                .background(
-                                    color = if (bucket.monitoringMinutes > 0) {
-                                        // 監視していた時間帯
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                                    } else {
-                                        // Refocus が動いていなかった時間帯（未知）
-                                        MaterialTheme.colorScheme.surfaceVariant
-                                    },
-                                    shape = RoundedCornerShape(2.dp),
-                                )
+                            modifier =
+                                Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth()
+                                    .background(
+                                        color =
+                                            if (bucket.monitoringMinutes > 0) {
+                                                // 監視していた時間帯
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                            } else {
+                                                // Refocus が動いていなかった時間帯（未知）
+                                                MaterialTheme.colorScheme.surfaceVariant
+                                            },
+                                        shape = RoundedCornerShape(2.dp),
+                                    ),
                         )
 
                         // 前景: 対象アプリの利用時間バー
                         if (usageMinutes > 0) {
                             Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .fillMaxHeight(usageHeightFraction)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                        shape = RoundedCornerShape(
-                                            topStart = 2.dp,
-                                            topEnd = 2.dp,
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .fillMaxHeight(usageHeightFraction)
+                                        .background(
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                            shape =
+                                                RoundedCornerShape(
+                                                    topStart = 2.dp,
+                                                    topEnd = 2.dp,
+                                                ),
                                         ),
-                                    )
                             )
                         }
                     }
@@ -141,21 +149,21 @@ internal fun TimelineChart(
 }
 
 @Composable
-internal fun TimelineXAxis(
-    yAxisWidth: Dp,
-) {
+internal fun TimelineXAxis(yAxisWidth: Dp) {
     val labels = listOf("0時", "6時", "12時", "18時", "24時")
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(28.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(28.dp),
         verticalAlignment = Alignment.Top,
     ) {
         Spacer(modifier = Modifier.width(yAxisWidth))
         Row(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight(),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             labels.forEach { label ->
@@ -163,10 +171,11 @@ internal fun TimelineXAxis(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Box(
-                        modifier = Modifier
-                            .height(6.dp)
-                            .width(1.dp)
-                            .background(MaterialTheme.colorScheme.outlineVariant),
+                        modifier =
+                            Modifier
+                                .height(6.dp)
+                                .width(1.dp)
+                                .background(MaterialTheme.colorScheme.outlineVariant),
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(

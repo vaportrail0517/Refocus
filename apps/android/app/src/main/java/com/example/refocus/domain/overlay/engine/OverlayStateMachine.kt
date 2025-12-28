@@ -12,28 +12,26 @@ import com.example.refocus.core.model.Customize
  * 現在の状態を保持する。
  */
 class OverlayStateMachine {
-
     /**
      * 与えられた [current] と [event] から次の状態を返す。
      */
     fun transition(
         current: OverlayState,
         event: OverlayEvent,
-    ): OverlayState {
-        return when (current) {
+    ): OverlayState =
+        when (current) {
             is OverlayState.Idle -> reduceIdle(current, event)
             is OverlayState.Tracking -> reduceTracking(current, event)
             is OverlayState.Paused -> reducePaused(current, event)
             is OverlayState.Suggesting -> reduceSuggesting(current, event)
             is OverlayState.Disabled -> reduceDisabled(current, event)
         }
-    }
 
     private fun reduceIdle(
         current: OverlayState.Idle,
         event: OverlayEvent,
-    ): OverlayState {
-        return when (event) {
+    ): OverlayState =
+        when (event) {
             is OverlayEvent.EnterTargetApp -> OverlayState.Tracking(event.packageName)
 
             is OverlayEvent.SettingsChanged -> {
@@ -45,13 +43,12 @@ class OverlayStateMachine {
             // Idle 中の ScreenOn/Off や LeaveTargetApp は無視
             else -> current
         }
-    }
 
     private fun reduceTracking(
         current: OverlayState.Tracking,
         event: OverlayEvent,
-    ): OverlayState {
-        return when (event) {
+    ): OverlayState =
+        when (event) {
             is OverlayEvent.LeaveTargetApp -> OverlayState.Idle
 
             is OverlayEvent.ScreenOff -> {
@@ -69,7 +66,6 @@ class OverlayStateMachine {
             // EnterTargetApp(同じ package) や ScreenOn は Tracking 継続
             else -> current
         }
-    }
 
     private fun reducePaused(
         current: OverlayState.Paused,
@@ -80,7 +76,8 @@ class OverlayStateMachine {
         return when (event) {
             is OverlayEvent.EnterTargetApp -> OverlayState.Tracking(event.packageName)
             is OverlayEvent.LeaveTargetApp,
-            is OverlayEvent.ScreenOff -> OverlayState.Idle
+            is OverlayEvent.ScreenOff,
+            -> OverlayState.Idle
 
             is OverlayEvent.SettingsChanged -> {
                 if (event.customize.overlayEnabled) current else OverlayState.Disabled
@@ -99,7 +96,8 @@ class OverlayStateMachine {
         // Suggesting → Tracking / Idle の遷移は今後の拡張で詳細化する。
         return when (event) {
             is OverlayEvent.LeaveTargetApp,
-            is OverlayEvent.ScreenOff -> OverlayState.Idle
+            is OverlayEvent.ScreenOff,
+            -> OverlayState.Idle
 
             is OverlayEvent.SettingsChanged -> {
                 if (event.customize.overlayEnabled) current else OverlayState.Disabled
@@ -114,8 +112,8 @@ class OverlayStateMachine {
     private fun reduceDisabled(
         current: OverlayState.Disabled,
         event: OverlayEvent,
-    ): OverlayState {
-        return when (event) {
+    ): OverlayState =
+        when (event) {
             is OverlayEvent.SettingsChanged -> {
                 // overlayEnabled が true に戻ったら Idle に遷移
                 if (event.customize.overlayEnabled) OverlayState.Idle else current
@@ -123,7 +121,6 @@ class OverlayStateMachine {
 
             else -> current
         }
-    }
 }
 
 /**
@@ -139,7 +136,6 @@ class OverlayStateMachine {
  * Paused / Suggesting は今後の拡張のためのプレースホルダとする。
  */
 sealed class OverlayState {
-
     object Idle : OverlayState()
 
     data class Tracking(
@@ -170,7 +166,6 @@ sealed class OverlayState {
  * OverlayOrchestrator / Service 側から生成し、OverlayStateMachine に渡す。
  */
 sealed class OverlayEvent {
-
     data class EnterTargetApp(
         val packageName: String,
         val nowMillis: Long,

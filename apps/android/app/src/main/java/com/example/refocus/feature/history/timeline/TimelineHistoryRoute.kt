@@ -7,9 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 @Composable
-fun TimelineHistoryRoute(
-    modifier: Modifier = Modifier,
-) {
+fun TimelineHistoryRoute(modifier: Modifier = Modifier) {
     val viewModel: TimelineHistoryViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
 

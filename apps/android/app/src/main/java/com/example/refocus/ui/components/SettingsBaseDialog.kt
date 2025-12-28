@@ -41,7 +41,7 @@ fun SettingsBaseDialog(
                 if (description != null) {
                     Text(
                         text = description,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                 }
@@ -59,6 +59,6 @@ fun SettingsBaseDialog(
                     Text(dismissLabel)
                 }
             }
-        }
+        },
     )
 }

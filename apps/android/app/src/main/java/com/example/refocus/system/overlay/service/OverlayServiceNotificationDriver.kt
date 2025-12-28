@@ -23,11 +23,12 @@ internal class OverlayServiceNotificationDriver(
     fun start() {
         if (job?.isActive == true) return
 
-        job = scope.launch {
-            overlayCoordinator.presentationStateFlow.collect { state ->
-                publishNotification(state)
+        job =
+            scope.launch {
+                overlayCoordinator.presentationStateFlow.collect { state ->
+                    publishNotification(state)
+                }
             }
-        }
 
         publishNotification(overlayCoordinator.currentPresentationState())
     }
@@ -39,25 +40,26 @@ internal class OverlayServiceNotificationDriver(
 
     private fun publishNotification(presentation: OverlayPresentationState) {
         val pkg = presentation.trackingPackage
-        val state = if (pkg == null) {
-            OverlayNotificationUiState(
-                isTracking = false,
-                trackingAppLabel = null,
-                elapsedLabel = null,
-                isTimerVisible = false,
-                touchMode = presentation.touchMode,
-            )
-        } else {
-            val label = appLabelResolver.labelOf(pkg) ?: pkg
-            val elapsedMillis = presentation.timerDisplayMillis ?: 0L
-            OverlayNotificationUiState(
-                isTracking = true,
-                trackingAppLabel = label,
-                elapsedLabel = formatDurationForTimerBubble(elapsedMillis),
-                isTimerVisible = presentation.isTimerVisible,
-                touchMode = presentation.touchMode,
-            )
-        }
+        val state =
+            if (pkg == null) {
+                OverlayNotificationUiState(
+                    isTracking = false,
+                    trackingAppLabel = null,
+                    elapsedLabel = null,
+                    isTimerVisible = false,
+                    touchMode = presentation.touchMode,
+                )
+            } else {
+                val label = appLabelResolver.labelOf(pkg) ?: pkg
+                val elapsedMillis = presentation.timerDisplayMillis ?: 0L
+                OverlayNotificationUiState(
+                    isTracking = true,
+                    trackingAppLabel = label,
+                    elapsedLabel = formatDurationForTimerBubble(elapsedMillis),
+                    isTimerVisible = presentation.isTimerVisible,
+                    touchMode = presentation.touchMode,
+                )
+            }
 
         try {
             notificationController.notify(notificationId, state)

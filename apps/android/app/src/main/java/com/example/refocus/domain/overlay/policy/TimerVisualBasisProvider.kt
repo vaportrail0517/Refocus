@@ -10,7 +10,6 @@ import com.example.refocus.domain.overlay.orchestration.OverlaySessionTracker
  * - TimerVisualTimeBasis の追加に伴う when 分岐の拡散を防ぐ
  */
 internal interface TimerVisualBasisProvider {
-
     /**
      * @param nowElapsedRealtime 呼び出し時点の elapsedRealtime
      * @param displayMillis 同じ時点における「表示値（text）」
@@ -29,9 +28,7 @@ internal class SessionElapsedVisualBasisProvider(
         packageName: String,
         nowElapsedRealtime: Long,
         displayMillis: Long,
-    ): Long {
-        return sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
-    }
+    ): Long = sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
 }
 
 internal object FollowDisplayTimeVisualBasisProvider : TimerVisualBasisProvider {
@@ -39,9 +36,7 @@ internal object FollowDisplayTimeVisualBasisProvider : TimerVisualBasisProvider 
         packageName: String,
         nowElapsedRealtime: Long,
         displayMillis: Long,
-    ): Long {
-        return displayMillis
-    }
+    ): Long = displayMillis
 }
 
 /**
@@ -50,12 +45,12 @@ internal object FollowDisplayTimeVisualBasisProvider : TimerVisualBasisProvider 
 internal class TimerVisualBasisProviderSelector(
     sessionTracker: OverlaySessionTracker,
 ) {
-    private val providers: Map<TimerVisualTimeBasis, TimerVisualBasisProvider> = mapOf(
-        TimerVisualTimeBasis.SessionElapsed to SessionElapsedVisualBasisProvider(sessionTracker),
-        TimerVisualTimeBasis.FollowDisplayTime to FollowDisplayTimeVisualBasisProvider,
-    )
+    private val providers: Map<TimerVisualTimeBasis, TimerVisualBasisProvider> =
+        mapOf(
+            TimerVisualTimeBasis.SessionElapsed to SessionElapsedVisualBasisProvider(sessionTracker),
+            TimerVisualTimeBasis.FollowDisplayTime to FollowDisplayTimeVisualBasisProvider,
+        )
 
-    fun select(basis: TimerVisualTimeBasis): TimerVisualBasisProvider {
-        return providers[basis] ?: providers.getValue(TimerVisualTimeBasis.SessionElapsed)
-    }
+    fun select(basis: TimerVisualTimeBasis): TimerVisualBasisProvider =
+        providers[basis] ?: providers.getValue(TimerVisualTimeBasis.SessionElapsed)
 }

@@ -22,9 +22,10 @@ import com.example.refocus.core.util.interpolateColor
 
 @Deprecated(
     message = "Use TimerOverlay(customize, visualMillis, text) instead.",
-    replaceWith = ReplaceWith(
-        "TimerOverlay(customize = customize, visualMillis = visualMillis, text = formatDurationForTimerBubble(displayMillis), modifier = modifier)"
-    ),
+    replaceWith =
+        ReplaceWith(
+            "TimerOverlay(customize = customize, visualMillis = visualMillis, text = formatDurationForTimerBubble(displayMillis), modifier = modifier)",
+        ),
 )
 @Composable
 fun TimerOverlay(
@@ -56,43 +57,46 @@ fun TimerOverlay(
     val denomSeconds = customize.timeToMaxSeconds
 
     // 0秒なら「即座に最大サイズ」とみなす
-    val raw = if (denomSeconds <= 0) {
-        1f
-    } else {
-        (visualSeconds / denomSeconds.toFloat()).coerceIn(0f, 1f)
-    }
-
-    val p = when (customize.growthMode) {
-        TimerGrowthMode.Linear -> raw
-        TimerGrowthMode.FastToSlow -> kotlin.math.sqrt(raw)
-        TimerGrowthMode.SlowToFast -> raw * raw
-        TimerGrowthMode.SlowFastSlow -> {
-            // 0..1 を滑らかに（スムーズステップ）
-            3f * raw * raw - 2f * raw * raw * raw
+    val raw =
+        if (denomSeconds <= 0) {
+            1f
+        } else {
+            (visualSeconds / denomSeconds.toFloat()).coerceIn(0f, 1f)
         }
-    }
+
+    val p =
+        when (customize.growthMode) {
+            TimerGrowthMode.Linear -> raw
+            TimerGrowthMode.FastToSlow -> kotlin.math.sqrt(raw)
+            TimerGrowthMode.SlowToFast -> raw * raw
+            TimerGrowthMode.SlowFastSlow -> {
+                // 0..1 を滑らかに（スムーズステップ）
+                3f * raw * raw - 2f * raw * raw * raw
+            }
+        }
 
     val size = minSize + (maxSize - minSize) * p
 
-    val baseColor = when (customize.colorMode) {
-        TimerColorMode.Fixed -> Color(customize.fixedColorArgb)
-        TimerColorMode.GradientTwo -> {
-            val start = Color(customize.gradientStartColorArgb)
-            val end = Color(customize.gradientEndColorArgb)
-            interpolateColor(start, end, p)
-        }
+    val baseColor =
+        when (customize.colorMode) {
+            TimerColorMode.Fixed -> Color(customize.fixedColorArgb)
+            TimerColorMode.GradientTwo -> {
+                val start = Color(customize.gradientStartColorArgb)
+                val end = Color(customize.gradientEndColorArgb)
+                interpolateColor(start, end, p)
+            }
 
-        TimerColorMode.GradientThree -> {
-            val start = Color(customize.gradientStartColorArgb)
-            val mid = Color(customize.gradientMiddleColorArgb)
-            val end = Color(customize.gradientEndColorArgb)
-            if (p < 0.5f) {
-                interpolateColor(start, mid, p / 0.5f)
-            } else {
-                interpolateColor(mid, end, (p - 0.5f) / 0.5f)
+            TimerColorMode.GradientThree -> {
+                val start = Color(customize.gradientStartColorArgb)
+                val mid = Color(customize.gradientMiddleColorArgb)
+                val end = Color(customize.gradientEndColorArgb)
+                if (p < 0.5f) {
+                    interpolateColor(start, mid, p / 0.5f)
+                } else {
+                    interpolateColor(mid, end, (p - 0.5f) / 0.5f)
+                }
             }
         }
-    }
 
     Box(
         modifier = modifier,
@@ -119,17 +123,16 @@ private fun TimerBubble(
     val textColor = chooseOnColorForBackground(backgroundColor)
 
     Box(
-        modifier = modifier
-            .shadow(
-                elevation = 4.dp,
-                shape = MaterialTheme.shapes.medium,
-                clip = false,
-            )
-            .background(
-                color = backgroundColor,
-                shape = MaterialTheme.shapes.medium,
-            )
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+        modifier =
+            modifier
+                .shadow(
+                    elevation = 4.dp,
+                    shape = MaterialTheme.shapes.medium,
+                    clip = false,
+                ).background(
+                    color = backgroundColor,
+                    shape = MaterialTheme.shapes.medium,
+                ).padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(

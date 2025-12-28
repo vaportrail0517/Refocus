@@ -96,82 +96,87 @@ class SuggestionOrchestrator(
 
         val customize = customizeProvider()
 
-        val input = SuggestionEngine.Input(
-            elapsedMillis = elapsedMillis,
-            sinceForegroundMillis = sinceForegroundMillis,
-            customize = customize,
-            lastDecisionElapsedMillis = sessionGate.lastDecisionElapsedMillis,
-            isOverlayShown = isSuggestionOverlayShown,
-            disabledForThisSession = sessionGate.disabledForThisSession,
-        )
+        val input =
+            SuggestionEngine.Input(
+                elapsedMillis = elapsedMillis,
+                sinceForegroundMillis = sinceForegroundMillis,
+                customize = customize,
+                lastDecisionElapsedMillis = sessionGate.lastDecisionElapsedMillis,
+                isOverlayShown = isSuggestionOverlayShown,
+                disabledForThisSession = sessionGate.disabledForThisSession,
+            )
 
         if (!suggestionEngine.shouldShow(input)) return
 
-        showSuggestionJob = scope.launch {
-            try {
-                val suggestions = suggestionsRepository.getSuggestionsSnapshot()
-                val selected = suggestionSelector.select(
-                    suggestions = suggestions,
-                    nowMillis = nowMillis,
-                    elapsedMillis = elapsedMillis,
-                )
-                val hasSuggestion = selected != null
-
-                if (!hasSuggestion && !customize.restSuggestionEnabled) {
-                    RefocusLog.d(TAG) { "No suggestion and restSuggestion disabled, skip overlay" }
-                    return@launch
-                }
-
-                val (title, mode, suggestionId) = if (selected != null) {
-                    Triple(
-                        selected.title,
-                        SuggestionMode.Generic,
-                        selected.id,
-                    )
-                } else {
-                    Triple(
-                        "画面から少し離れて休憩する",
-                        SuggestionMode.Rest,
-                        0L,
-                    )
-                }
-
-                val pkg = overlayPackageProvider() ?: packageName
-                val shown = uiController.showSuggestion(
-                    SuggestionOverlayUiModel(
-                        title = title,
-                        mode = mode,
-                        autoDismissMillis = suggestionTimeoutMillis(customize),
-                        interactionLockoutMillis = suggestionInteractionLockoutMillis(customize),
-                        onSnoozeLater = { handleSuggestionSnoozeLater() },
-                        onDisableThisSession = { handleSuggestionDisableThisSession() },
-                        onDismissOnly = { handleSuggestionDismissOnly() },
-                    )
-                )
-
-                if (!shown) {
-                    RefocusLog.w(TAG) { "Suggestion overlay was NOT shown (addView failed etc). Will retry." }
-                    return@launch
-                }
-
-                isSuggestionOverlayShown = true
-                currentSuggestionId = suggestionId
+        showSuggestionJob =
+            scope.launch {
                 try {
-                    eventRecorder.onSuggestionShown(
-                        packageName = pkg,
-                        suggestionId = suggestionId,
-                    )
+                    val suggestions = suggestionsRepository.getSuggestionsSnapshot()
+                    val selected =
+                        suggestionSelector.select(
+                            suggestions = suggestions,
+                            nowMillis = nowMillis,
+                            elapsedMillis = elapsedMillis,
+                        )
+                    val hasSuggestion = selected != null
+
+                    if (!hasSuggestion && !customize.restSuggestionEnabled) {
+                        RefocusLog.d(TAG) { "No suggestion and restSuggestion disabled, skip overlay" }
+                        return@launch
+                    }
+
+                    val (title, mode, suggestionId) =
+                        if (selected != null) {
+                            Triple(
+                                selected.title,
+                                SuggestionMode.Generic,
+                                selected.id,
+                            )
+                        } else {
+                            Triple(
+                                "画面から少し離れて休憩する",
+                                SuggestionMode.Rest,
+                                0L,
+                            )
+                        }
+
+                    val pkg = overlayPackageProvider() ?: packageName
+                    val shown =
+                        uiController.showSuggestion(
+                            SuggestionOverlayUiModel(
+                                title = title,
+                                mode = mode,
+                                autoDismissMillis = suggestionTimeoutMillis(customize),
+                                interactionLockoutMillis = suggestionInteractionLockoutMillis(customize),
+                                onSnoozeLater = { handleSuggestionSnoozeLater() },
+                                onDisableThisSession = { handleSuggestionDisableThisSession() },
+                                onDismissOnly = { handleSuggestionDismissOnly() },
+                            ),
+                        )
+
+                    if (!shown) {
+                        RefocusLog.w(TAG) { "Suggestion overlay was NOT shown (addView failed etc). Will retry." }
+                        return@launch
+                    }
+
+                    isSuggestionOverlayShown = true
+                    currentSuggestionId = suggestionId
+                    try {
+                        eventRecorder.onSuggestionShown(
+                            packageName = pkg,
+                            suggestionId = suggestionId,
+                        )
+                    } catch (e: Exception) {
+                        RefocusLog.e(TAG, e) { "Failed to record SuggestionShown for $pkg" }
+                    }
                 } catch (e: Exception) {
-                    RefocusLog.e(TAG, e) { "Failed to record SuggestionShown for $pkg" }
+                    RefocusLog.e(TAG, e) { "Failed to show suggestion overlay for $packageName" }
+                    isSuggestionOverlayShown = false
+                    currentSuggestionId = null
+                } finally {
+                    showSuggestionJob = null
                 }
-            } catch (e: Exception) {
-                RefocusLog.e(TAG, e) { "Failed to show suggestion overlay for $packageName" }
-                isSuggestionOverlayShown = false
-                currentSuggestionId = null
-            } finally {
-                showSuggestionJob = null
             }
-        }
     }
 
     private fun suggestionTimeoutMillis(customize: Customize): Long {
@@ -179,9 +184,8 @@ class SuggestionOrchestrator(
         return seconds.toLong() * 1_000L
     }
 
-    private fun suggestionInteractionLockoutMillis(customize: Customize): Long {
-        return customize.suggestionInteractionLockoutMillis.coerceAtLeast(0L)
-    }
+    private fun suggestionInteractionLockoutMillis(customize: Customize): Long =
+        customize.suggestionInteractionLockoutMillis.coerceAtLeast(0L)
 
     private fun handleSuggestionSnooze() {
         clearOverlayState()
@@ -260,7 +264,7 @@ class SuggestionOrchestrator(
             } catch (e: Exception) {
                 RefocusLog.e(
                     TAG,
-                    e
+                    e,
                 ) { "Failed to record SuggestionDisabledForSession for $packageName" }
             }
         }

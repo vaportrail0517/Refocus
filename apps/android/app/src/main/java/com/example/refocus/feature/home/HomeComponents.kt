@@ -60,10 +60,11 @@ internal fun HomeContent(
     onOpenAppSelect: () -> Unit,
 ) {
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(innerPadding)
-            .padding(16.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
@@ -104,21 +105,20 @@ internal fun HomeContent(
     }
 }
 
-
 @Composable
-internal fun PermissionWarningCard(
-    onClick: () -> Unit,
-) {
+internal fun PermissionWarningCard(onClick: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clickable(onClick = onClick),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        )
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+            ),
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -144,19 +144,19 @@ internal fun PermissionWarningCard(
 }
 
 @Composable
-internal fun NotificationWarningCard(
-    onClick: () -> Unit,
-) {
+internal fun NotificationWarningCard(onClick: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clickable(onClick = onClick),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -181,7 +181,6 @@ internal fun NotificationWarningCard(
     }
 }
 
-
 /*
  * フォーカス
  */
@@ -197,10 +196,11 @@ private fun FocusSection(
     val focusItems = buildFocusItems(stats, appLabelByPackage)
     if (focusItems.isEmpty()) return
 
-    val pagerState = rememberPagerState(
-        initialPage = 0,
-        pageCount = { focusItems.size },
-    )
+    val pagerState =
+        rememberPagerState(
+            initialPage = 0,
+            pageCount = { focusItems.size },
+        )
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -249,32 +249,35 @@ private fun buildFocusItems(
     if (stats == null) return items
 
     // カード1: 今日の合計利用時間
-    items += FocusItem(
-        title = "今日の合計利用時間",
-        value = formatDurationMilliSeconds(stats.totalUsageMillis),
-        subtitle = "${stats.sessionCount} セッション",
-        section = StatsDetailSection.UsageSummary,
-    )
+    items +=
+        FocusItem(
+            title = "今日の合計利用時間",
+            value = formatDurationMilliSeconds(stats.totalUsageMillis),
+            subtitle = "${stats.sessionCount} セッション",
+            section = StatsDetailSection.UsageSummary,
+        )
 
     // カード2: 一番使っているアプリ
     stats.appUsageStats.maxByOrNull { it.totalUsageMillis }?.let { topApp ->
         val label = appLabelByPackage[topApp.packageName] ?: topApp.packageName
-        items += FocusItem(
-            title = "よく使ったアプリ",
-            value = label,
-            subtitle = formatDurationMilliSeconds(topApp.totalUsageMillis),
-            section = StatsDetailSection.AppUsage,
-        )
+        items +=
+            FocusItem(
+                title = "よく使ったアプリ",
+                value = label,
+                subtitle = formatDurationMilliSeconds(topApp.totalUsageMillis),
+                section = StatsDetailSection.AppUsage,
+            )
     }
 
     // カード3: 今日の提案
     stats.suggestionStats?.let { s ->
-        items += FocusItem(
-            title = "今日の提案",
-            value = "${s.totalShown} 回",
-            subtitle = "見送った: ${s.skippedCount} 回",
-            section = StatsDetailSection.Suggestions,
-        )
+        items +=
+            FocusItem(
+                title = "今日の提案",
+                value = "${s.totalShown} 回",
+                subtitle = "見送った: ${s.skippedCount} 回",
+                section = StatsDetailSection.Suggestions,
+            )
     }
 
     return items
@@ -288,10 +291,11 @@ private fun FocusCard(
     onClick: () -> Unit,
 ) {
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()            // 画面幅の 9 割
-            .heightIn(min = 120.dp)
-            .clickable(onClick = onClick),
+        modifier =
+            Modifier
+                .fillMaxWidth() // 画面幅の 9 割
+                .heightIn(min = 120.dp)
+                .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.primaryContainer,
     ) {
@@ -329,23 +333,25 @@ private fun PagerIndicator(
         repeat(pageCount) { index ->
             val selected = index == currentPage
             Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(
-                        color = if (selected) {
-                            MaterialTheme.colorScheme.onPrimary
-                        } else {
-                            MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f)
-                        },
-                        shape = CircleShape,
-                    )
+                modifier =
+                    Modifier
+                        .size(8.dp)
+                        .background(
+                            color =
+                                if (selected) {
+                                    MaterialTheme.colorScheme.onPrimary
+                                } else {
+                                    MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f)
+                                },
+                            shape = CircleShape,
+                        ),
             )
         }
     }
 }
 
 // フォーカス用の短めフォーマット
-//private fun formatDurationShort(durationMillis: Long): String {
+// private fun formatDurationShort(durationMillis: Long): String {
 //    val totalSeconds = durationMillis / 1000
 //    val minutes = totalSeconds / 60
 //    val hours = minutes / 60
@@ -355,8 +361,7 @@ private fun PagerIndicator(
 //    } else {
 //        String.format("%d分", remMinutes)
 //    }
-//}
-
+// }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -366,9 +371,10 @@ internal fun TargetAppsSection(
     onAppClick: (String) -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
@@ -380,7 +386,7 @@ internal fun TargetAppsSection(
             apps = apps,
             onAddClick = onAddClick,
             onAppClick = onAppClick,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
@@ -406,12 +412,12 @@ internal fun TargetAppsGrid(
                 TargetAppCard(
                     app = app,
                     onClick = { onAppClick(app.packageName) },
-                    modifier = Modifier.width(itemWidth)
+                    modifier = Modifier.width(itemWidth),
                 )
             }
             AddTargetAppCard(
                 onClick = onAddClick,
-                modifier = Modifier.width(itemWidth)
+                modifier = Modifier.width(itemWidth),
             )
         }
     }
@@ -423,36 +429,38 @@ internal fun AddTargetAppCard(
     modifier: Modifier = Modifier,
 ) {
     Card(
-        modifier = modifier,  // Grid 側から width(itemWidth) が渡される前提
+        modifier = modifier, // Grid 側から width(itemWidth) が渡される前提
         onClick = onClick,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            ),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = Icons.Filled.AddCircleOutline,
                 contentDescription = "追加",
-                modifier = Modifier.size(40.dp) // TargetAppCard のアイコンと揃える
+                modifier = Modifier.size(40.dp), // TargetAppCard のアイコンと揃える
             )
 
             Text(
                 text = "追加",
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
-                modifier = Modifier
-                    .padding(start = 12.dp)
-                    .weight(1f),
+                modifier =
+                    Modifier
+                        .padding(start = 12.dp)
+                        .weight(1f),
             )
         }
     }
 }
-
 
 @Composable
 internal fun TargetAppCard(
@@ -461,35 +469,39 @@ internal fun TargetAppCard(
     modifier: Modifier = Modifier,
 ) {
     val isLong = app.label.displayLength() > 6.0
-    val textStyle = if (isLong) {
-        MaterialTheme.typography.bodySmall
-    } else {
-        MaterialTheme.typography.bodyMedium
-    }
+    val textStyle =
+        if (isLong) {
+            MaterialTheme.typography.bodySmall
+        } else {
+            MaterialTheme.typography.bodyMedium
+        }
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Drawable → Painter 変換を remember でキャッシュ
-            val iconPainter = remember(app.packageName, app.icon) {
-                app.icon?.let { drawable ->
-                    val bitmap = drawable.toBitmap()          // Drawable → Bitmap
-                    BitmapPainter(bitmap.asImageBitmap())     // Bitmap → Painter
+            val iconPainter =
+                remember(app.packageName, app.icon) {
+                    app.icon?.let { drawable ->
+                        val bitmap = drawable.toBitmap() // Drawable → Bitmap
+                        BitmapPainter(bitmap.asImageBitmap()) // Bitmap → Painter
+                    }
                 }
-            }
 
             if (iconPainter != null) {
                 Image(
                     painter = iconPainter,
                     contentDescription = app.label,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(40.dp),
                 )
             } else {
                 // アイコンが取れなかったときのプレースホルダ
@@ -511,9 +523,10 @@ internal fun TargetAppCard(
                 maxLines = 2,
                 softWrap = true,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .padding(start = 12.dp)
-                    .weight(1f),
+                modifier =
+                    Modifier
+                        .padding(start = 12.dp)
+                        .weight(1f),
             )
         }
     }

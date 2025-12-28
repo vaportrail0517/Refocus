@@ -8,7 +8,6 @@ import com.example.refocus.data.db.entity.AppCatalogEntity
 
 @Dao
 interface AppCatalogDao {
-
     /**
      * 初回値（firstTargeted*）を守りたいので IGNORE を使う．
      * 返り値は挿入できた場合 rowId，既に存在した場合 -1 が返る．
@@ -22,7 +21,7 @@ interface AppCatalogDao {
         SET lastKnownLabel = :label,
             lastUpdatedAtMillis = :updatedAtMillis
         WHERE packageName = :packageName
-        """
+        """,
     )
     suspend fun updateLastKnownLabel(
         packageName: String,
@@ -36,7 +35,7 @@ interface AppCatalogDao {
         FROM app_catalog
         WHERE packageName = :packageName
         LIMIT 1
-        """
+        """,
     )
     suspend fun getFirstTargetedLabel(packageName: String): String?
 
@@ -46,7 +45,7 @@ interface AppCatalogDao {
         FROM app_catalog
         WHERE packageName = :packageName
         LIMIT 1
-        """
+        """,
     )
     suspend fun getLastKnownLabel(packageName: String): String?
 }

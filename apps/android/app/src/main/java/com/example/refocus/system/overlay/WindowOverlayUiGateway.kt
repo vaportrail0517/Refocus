@@ -17,7 +17,6 @@ class WindowOverlayUiGateway(
     private val timerOverlayController: TimerOverlayController,
     private val suggestionOverlayController: SuggestionOverlayController,
 ) : OverlayUiGateway {
-
     override fun applySettings(customize: Customize) {
         scope.launch(Dispatchers.Main) {
             timerOverlayController.overlayCustomize = customize
@@ -46,8 +45,8 @@ class WindowOverlayUiGateway(
         }
     }
 
-    override suspend fun showSuggestion(model: SuggestionOverlayUiModel): Boolean {
-        return withContext(Dispatchers.Main) {
+    override suspend fun showSuggestion(model: SuggestionOverlayUiModel): Boolean =
+        withContext(Dispatchers.Main) {
             suggestionOverlayController.showSuggestionOverlay(
                 title = model.title,
                 mode = model.mode,
@@ -64,7 +63,6 @@ class WindowOverlayUiGateway(
                 },
             )
         }
-    }
 
     override fun hideSuggestion() {
         scope.launch(Dispatchers.Main) {

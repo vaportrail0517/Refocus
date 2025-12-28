@@ -20,12 +20,13 @@ fun rememberOverlayServiceController(): OverlayServiceController {
     val context = LocalContext.current
     val appContext = context.applicationContext
 
-    val entryPoint = remember(appContext) {
-        EntryPointAccessors.fromApplication(
-            appContext,
-            OverlayServiceControllerEntryPoint::class.java
-        )
-    }
+    val entryPoint =
+        remember(appContext) {
+            EntryPointAccessors.fromApplication(
+                appContext,
+                OverlayServiceControllerEntryPoint::class.java,
+            )
+        }
     return remember(entryPoint) {
         entryPoint.overlayServiceController()
     }

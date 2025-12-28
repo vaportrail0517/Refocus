@@ -19,16 +19,17 @@ internal class OverlayCorePermissionSupervisor(
 
     fun start() {
         if (job?.isActive == true) return
-        job = scope.launch {
-            // 初回チェック
-            checkAndHandleCorePermissions(reason = "service_start")
+        job =
+            scope.launch {
+                // 初回チェック
+                checkAndHandleCorePermissions(reason = "service_start")
 
-            // 以降は定期的に確認（差分イベントは watcher 側で抑制される）
-            while (isActive) {
-                delay(30_000)
-                checkAndHandleCorePermissions(reason = "periodic")
+                // 以降は定期的に確認（差分イベントは watcher 側で抑制される）
+                while (isActive) {
+                    delay(30_000)
+                    checkAndHandleCorePermissions(reason = "periodic")
+                }
             }
-        }
     }
 
     fun stop() {
@@ -41,12 +42,13 @@ internal class OverlayCorePermissionSupervisor(
     }
 
     private suspend fun checkAndHandleCorePermissions(reason: String) {
-        val snapshot = try {
-            permissionStateWatcher.checkAndRecord()
-        } catch (e: Exception) {
-            RefocusLog.e("OverlayService", e) { "Permission check/record failed ($reason)" }
-            return
-        }
+        val snapshot =
+            try {
+                permissionStateWatcher.checkAndRecord()
+            } catch (e: Exception) {
+                RefocusLog.e("OverlayService", e) { "Permission check/record failed ($reason)" }
+                return
+            }
 
         if (!snapshot.hasAllCorePermissions()) {
             RefocusLog.w("OverlayService") { "core permissions missing ($reason)" }

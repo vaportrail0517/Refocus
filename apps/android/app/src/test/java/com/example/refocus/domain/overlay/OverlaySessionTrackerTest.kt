@@ -8,12 +8,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OverlaySessionTrackerTest {
-
     private class FakeTimeSource(
         var nowMillis: Long,
         var elapsedRealtime: Long,
     ) : TimeSource {
         override fun nowMillis(): Long = nowMillis
+
         override fun elapsedRealtime(): Long = elapsedRealtime
     }
 

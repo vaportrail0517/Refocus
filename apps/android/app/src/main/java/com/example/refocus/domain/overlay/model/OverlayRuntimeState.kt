@@ -18,13 +18,11 @@ data class OverlayRuntimeState(
     val timerVisible: Boolean = false,
     val overlayState: OverlayState = OverlayState.Idle,
     val lastTargetPackages: Set<String> = emptySet(),
-
     /**
      * 「この論理セッションだけ」オーバーレイタイマーを非表示にするフラグ．
      * キーは packageName．
      */
     val timerSuppressedForSession: Map<String, Boolean> = emptyMap(),
-
     /**
      * 最新の設定スナップショット．
      * SettingsDataStore の Flow を購読して差し替える．

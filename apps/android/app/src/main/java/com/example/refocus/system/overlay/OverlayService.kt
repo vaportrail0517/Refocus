@@ -48,7 +48,6 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class OverlayService : LifecycleService() {
-
     companion object {
         private const val TAG = "OverlayService"
         private const val NOTIFICATION_ID = 1
@@ -130,56 +129,62 @@ class OverlayService : LifecycleService() {
             }
         }
 
-        timerOverlayController = TimerOverlayController(
-            context = this,
-            lifecycleOwner = this,
-            timeSource = timeSource,
-            scope = serviceScope,
-        )
-        suggestionOverlayController = SuggestionOverlayController(
-            context = this,
-            lifecycleOwner = this,
-        )
+        timerOverlayController =
+            TimerOverlayController(
+                context = this,
+                lifecycleOwner = this,
+                timeSource = timeSource,
+                scope = serviceScope,
+            )
+        suggestionOverlayController =
+            SuggestionOverlayController(
+                context = this,
+                lifecycleOwner = this,
+            )
 
-        overlayUiController = WindowOverlayUiGateway(
-            scope = serviceScope,
-            timerOverlayController = timerOverlayController,
-            suggestionOverlayController = suggestionOverlayController,
-        )
+        overlayUiController =
+            WindowOverlayUiGateway(
+                scope = serviceScope,
+                timerOverlayController = timerOverlayController,
+                suggestionOverlayController = suggestionOverlayController,
+            )
 
-        overlayCoordinator = OverlayCoordinator(
-            scope = serviceScope,
-            timeSource = timeSource,
-            targetsRepository = targetsRepository,
-            settingsRepository = settingsRepository,
-            settingsCommand = settingsCommand,
-            suggestionsRepository = suggestionsRepository,
-            foregroundAppObserver = foregroundAppObserver,
-            suggestionEngine = suggestionEngine,
-            suggestionSelector = suggestionSelector,
-            uiController = overlayUiController,
-            eventRecorder = eventRecorder,
-            timelineRepository = timelineRepository,
-        )
+        overlayCoordinator =
+            OverlayCoordinator(
+                scope = serviceScope,
+                timeSource = timeSource,
+                targetsRepository = targetsRepository,
+                settingsRepository = settingsRepository,
+                settingsCommand = settingsCommand,
+                suggestionsRepository = suggestionsRepository,
+                foregroundAppObserver = foregroundAppObserver,
+                suggestionEngine = suggestionEngine,
+                suggestionSelector = suggestionSelector,
+                uiController = overlayUiController,
+                eventRecorder = eventRecorder,
+                timelineRepository = timelineRepository,
+            )
 
         notificationController = OverlayServiceNotificationController(this)
         startForegroundWithNotification()
 
         // 通知更新ドライバ
-        notificationDriver = OverlayServiceNotificationDriver(
-            scope = serviceScope,
-            overlayCoordinator = overlayCoordinator,
-            appLabelResolver = appLabelResolver,
-            notificationController = notificationController,
-            notificationId = NOTIFICATION_ID,
-        ).also { it.start() }
+        notificationDriver =
+            OverlayServiceNotificationDriver(
+                scope = serviceScope,
+                overlayCoordinator = overlayCoordinator,
+                appLabelResolver = appLabelResolver,
+                notificationController = notificationController,
+                notificationId = NOTIFICATION_ID,
+            ).also { it.start() }
 
         // overlayEnabled=false になったらサービス自体を止めて，監視を完全に停止する
-        runSupervisor = OverlayServiceRunSupervisor(
-            scope = serviceScope,
-            settingsRepository = settingsRepository,
-            onOverlayDisabled = ::stopFromSettingsDisabled,
-        ).also { it.start() }
+        runSupervisor =
+            OverlayServiceRunSupervisor(
+                scope = serviceScope,
+                settingsRepository = settingsRepository,
+                onOverlayDisabled = ::stopFromSettingsDisabled,
+            ).also { it.start() }
 
         requestTileStateRefresh()
         QsTileStateBroadcaster.notifyExpectedRunning(this, expectedRunning = true)
@@ -194,7 +199,7 @@ class OverlayService : LifecycleService() {
                     } catch (e: Exception) {
                         RefocusLog.e(
                             TAG,
-                            e
+                            e,
                         ) { "Failed to check/record permission state before stopping" }
                     }
                     settingsCommand.setOverlayEnabled(
@@ -212,41 +217,48 @@ class OverlayService : LifecycleService() {
         }
 
         // 権限状態の変化を継続的に検知し，失効時はフェイルセーフに停止する
-        permissionSupervisor = OverlayCorePermissionSupervisor(
-            scope = serviceScope,
-            permissionStateWatcher = permissionStateWatcher,
-            settingsCommand = settingsCommand,
-            onCorePermissionMissing = { stopSelf() },
-        ).also { it.start() }
+        permissionSupervisor =
+            OverlayCorePermissionSupervisor(
+                scope = serviceScope,
+                permissionStateWatcher = permissionStateWatcher,
+                settingsCommand = settingsCommand,
+                onCorePermissionMissing = { stopSelf() },
+            ).also { it.start() }
 
         // 画面 ON/OFF 監視
-        screenStateReceiver = OverlayScreenStateReceiver(
-            context = this,
-            scope = serviceScope,
-            overlayCoordinator = overlayCoordinator,
-            eventRecorder = eventRecorder,
-            onScreenOn = { permissionSupervisor?.requestImmediateCheck(reason = "screen_on") },
-        ).also {
-            it.register()
-            it.syncInitialScreenState()
-        }
+        screenStateReceiver =
+            OverlayScreenStateReceiver(
+                context = this,
+                scope = serviceScope,
+                overlayCoordinator = overlayCoordinator,
+                eventRecorder = eventRecorder,
+                onScreenOn = { permissionSupervisor?.requestImmediateCheck(reason = "screen_on") },
+            ).also {
+                it.register()
+                it.syncInitialScreenState()
+            }
 
         // 通知アクションのハンドラ
-        intentHandler = OverlayServiceIntentHandler(
-            scope = serviceScope,
-            overlayCoordinator = overlayCoordinator,
-            settingsRepository = settingsRepository,
-            settingsCommand = settingsCommand,
-            actionStop = ACTION_STOP,
-            actionToggleTimerVisibility = ACTION_TOGGLE_TIMER_VISIBILITY,
-            actionToggleTouchMode = ACTION_TOGGLE_TOUCH_MODE,
-            onStopRequested = ::stopFromUserAction,
-        )
+        intentHandler =
+            OverlayServiceIntentHandler(
+                scope = serviceScope,
+                overlayCoordinator = overlayCoordinator,
+                settingsRepository = settingsRepository,
+                settingsCommand = settingsCommand,
+                actionStop = ACTION_STOP,
+                actionToggleTimerVisibility = ACTION_TOGGLE_TIMER_VISIBILITY,
+                actionToggleTouchMode = ACTION_TOGGLE_TOUCH_MODE,
+                onStopRequested = ::stopFromUserAction,
+            )
 
         overlayCoordinator.start()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         val handled = intentHandler?.handle(intent) == true
         if (handled) {
             // STOP は sticky で復帰させない
@@ -295,23 +307,25 @@ class OverlayService : LifecycleService() {
     private fun startForegroundWithNotification() {
         notificationController.ensureChannel()
 
-        val initial = OverlayNotificationUiState(
-            isTracking = false,
-            trackingAppLabel = null,
-            elapsedLabel = null,
-            isTimerVisible = false,
-            touchMode = TimerTouchMode.Drag,
-        )
+        val initial =
+            OverlayNotificationUiState(
+                isTracking = false,
+                trackingAppLabel = null,
+                elapsedLabel = null,
+                isTimerVisible = false,
+                touchMode = TimerTouchMode.Drag,
+            )
         val notification = notificationController.build(initial)
 
         // NOTE:
         // - Android 14 (API 34) 以降でのみ specialUse を指定する
         // - それ未満の OS で未知の type を渡すと例外になる可能性があるため，0 を渡す
-        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-        } else {
-            0
-        }
+        val type =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            } else {
+                0
+            }
 
         ServiceCompat.startForeground(
             this,
@@ -353,7 +367,7 @@ class OverlayService : LifecycleService() {
                 settingsCommand.setOverlayEnabled(
                     enabled = false,
                     source = "service",
-                    reason = "user_stop"
+                    reason = "user_stop",
                 )
             } catch (e: Exception) {
                 RefocusLog.e(TAG, e) { "Failed to disable overlay on user stop" }

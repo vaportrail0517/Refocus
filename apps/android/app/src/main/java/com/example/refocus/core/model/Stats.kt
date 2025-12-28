@@ -12,7 +12,7 @@ import java.time.LocalDate
 enum class SessionStatus {
     RUNNING,
     GRACE,
-    FINISHED
+    FINISHED,
 }
 
 /**
@@ -40,7 +40,7 @@ data class SessionStats(
 data class DailyStats(
     val date: LocalDate,
     // 監視状況
-    val monitoringTotalMinutes: Int,      // Refocus が監視していた合計時間
+    val monitoringTotalMinutes: Int, // Refocus が監視していた合計時間
     val monitoringWithTargetMinutes: Int, // 監視中に対象アプリを使っていた時間
     // セッション軸
     val sessionCount: Int,
@@ -74,7 +74,7 @@ data class TimeBucketStats(
     val startMinutesOfDay: Int,
     val endMinutesOfDay: Int,
     // このバケット内で「Refocus が監視できていた時間」
-    val monitoringMinutes: Int,   // 0〜(end - start)
+    val monitoringMinutes: Int, // 0〜(end - start)
     // このバケット内で「対象アプリを実際に使っていた時間」（監視中のみ）
     val targetUsageMinutes: Int,
     // 従来のフィールド（合計利用時間 / 最も使っていたアプリ）
@@ -85,15 +85,12 @@ data class TimeBucketStats(
 data class SuggestionDailyStats(
     val date: LocalDate,
     val totalShown: Int,
-
     val snoozedCount: Int,
     val dismissedCount: Int,
     val disabledForSessionCount: Int,
-
-    val endedSoonCount: Int,        // しきい値以内に終了した提案
-    val continuedCount: Int,        // しきい値より長く続いた提案
-    val noEndYetCount: Int,         // セッションがまだ終わっていない or 情報不足
-
+    val endedSoonCount: Int, // しきい値以内に終了した提案
+    val continuedCount: Int, // しきい値より長く続いた提案
+    val noEndYetCount: Int, // セッションがまだ終わっていない or 情報不足
     // オプション: 決定別に「短時間で終了した件数」を持ちたいなら
     val endedSoonByDecision: Map<SuggestionDecision, Int> = emptyMap(),
 ) {

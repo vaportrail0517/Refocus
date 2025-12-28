@@ -19,7 +19,6 @@ import java.time.ZoneId
  *   呼び出し側で status を見て制御する．
  */
 object SessionPartGenerator {
-
     fun generateParts(
         sessions: List<Session>,
         eventsBySessionId: Map<Long, List<SessionEvent>>,
@@ -29,12 +28,13 @@ object SessionPartGenerator {
         if (sessions.isEmpty()) return emptyList()
 
         // stats は主に packageName / status の補助情報として取得
-        val statsList = SessionStatsCalculator.buildSessionStats(
-            sessions = sessions,
-            eventsMap = eventsBySessionId,
-            foregroundPackage = null,
-            nowMillis = nowMillis,
-        )
+        val statsList =
+            SessionStatsCalculator.buildSessionStats(
+                sessions = sessions,
+                eventsMap = eventsBySessionId,
+                foregroundPackage = null,
+                nowMillis = nowMillis,
+            )
         val statsById = statsList.associateBy { it.id }
 
         val parts = mutableListOf<SessionPart>()
@@ -78,18 +78,21 @@ object SessionPartGenerator {
                         val endMinutes =
                             segEnd.toLocalTime().hour * 60 + segEnd.toLocalTime().minute
                         val durationMillis =
-                            java.time.Duration.between(segStart, segEnd).toMillis()
+                            java.time.Duration
+                                .between(segStart, segEnd)
+                                .toMillis()
 
-                        parts += SessionPart(
-                            sessionId = id,
-                            packageName = session.packageName,
-                            date = date,
-                            startDateTime = segStart.toInstant(),
-                            endDateTime = segEnd.toInstant(),
-                            startMinutesOfDay = startMinutes,
-                            endMinutesOfDay = endMinutes,
-                            durationMillis = durationMillis,
-                        )
+                        parts +=
+                            SessionPart(
+                                sessionId = id,
+                                packageName = session.packageName,
+                                date = date,
+                                startDateTime = segStart.toInstant(),
+                                endDateTime = segEnd.toInstant(),
+                                startMinutesOfDay = startMinutes,
+                                endMinutesOfDay = endMinutes,
+                                durationMillis = durationMillis,
+                            )
                     }
 
                     // 次の日へ

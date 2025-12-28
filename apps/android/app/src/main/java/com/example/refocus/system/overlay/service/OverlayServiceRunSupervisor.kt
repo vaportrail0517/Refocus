@@ -24,21 +24,23 @@ class OverlayServiceRunSupervisor(
     fun start() {
         if (job?.isActive == true) return
         hasEverBeenEnabled = false
-        job = scope.launch {
-            settingsRepository.observeOverlaySettings()
-                .map { it.overlayEnabled }
-                .distinctUntilChanged()
-                .collect { enabled ->
-                    if (enabled) {
-                        hasEverBeenEnabled = true
-                        return@collect
-                    }
+        job =
+            scope.launch {
+                settingsRepository
+                    .observeOverlaySettings()
+                    .map { it.overlayEnabled }
+                    .distinctUntilChanged()
+                    .collect { enabled ->
+                        if (enabled) {
+                            hasEverBeenEnabled = true
+                            return@collect
+                        }
 
-                    // 起動直後は DataStore の初期値（false）が先に流れてくることがある．
-                    // 「一度でも true を観測した後」に false になった場合のみ停止する．
-                    if (hasEverBeenEnabled) onOverlayDisabled()
-                }
-        }
+                        // 起動直後は DataStore の初期値（false）が先に流れてくることがある．
+                        // 「一度でも true を観測した後」に false になった場合のみ停止する．
+                        if (hasEverBeenEnabled) onOverlayDisabled()
+                    }
+            }
     }
 
     fun stop() {

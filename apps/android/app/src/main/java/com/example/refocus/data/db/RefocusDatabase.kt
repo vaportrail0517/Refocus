@@ -16,11 +16,12 @@ import com.example.refocus.data.db.entity.TimelineEventEntity
         AppCatalogEntity::class,
     ],
     version = REFOCUS_DB_VERSION,
-    exportSchema = false
+    exportSchema = false,
 )
 abstract class RefocusDatabase : RoomDatabase() {
-
     abstract fun timelineEventDao(): TimelineEventDao
+
     abstract fun suggestionDao(): SuggestionDao
+
     abstract fun appCatalogDao(): AppCatalogDao
 }

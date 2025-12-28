@@ -7,7 +7,6 @@ import com.example.refocus.domain.repository.AppCatalogRepository
 class AppCatalogRepositoryImpl(
     private val dao: AppCatalogDao,
 ) : AppCatalogRepository {
-
     override suspend fun recordTargetedApp(
         packageName: String,
         label: String,
@@ -21,7 +20,7 @@ class AppCatalogRepositoryImpl(
                 firstTargetedLabel = label,
                 lastKnownLabel = label,
                 lastUpdatedAtMillis = atMillis,
-            )
+            ),
         )
 
         // 既に存在していても lastKnown は更新したいので UPDATE する．
@@ -32,9 +31,7 @@ class AppCatalogRepositoryImpl(
         )
     }
 
-    override suspend fun getFirstTargetedLabel(packageName: String): String? =
-        dao.getFirstTargetedLabel(packageName)
+    override suspend fun getFirstTargetedLabel(packageName: String): String? = dao.getFirstTargetedLabel(packageName)
 
-    override suspend fun getLastKnownLabel(packageName: String): String? =
-        dao.getLastKnownLabel(packageName)
+    override suspend fun getLastKnownLabel(packageName: String): String? = dao.getLastKnownLabel(packageName)
 }

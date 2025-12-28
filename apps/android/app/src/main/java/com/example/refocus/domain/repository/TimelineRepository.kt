@@ -9,7 +9,6 @@ import java.time.ZoneId
  * タイムラインイベントの永続化と購読の抽象。
  */
 interface TimelineRepository {
-
     suspend fun append(event: TimelineEvent): Long
 
     suspend fun getEvents(

@@ -23,42 +23,43 @@ fun PermissionDetailCard(
     title: String = "手順を表示",
     collapsedLabel: String = "タップして手順を表示",
     expandedLabel: String = "タップして手順を隠す",
-    steps: List<String>
+    steps: List<String>,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
     Card(
         onClick = { expanded = !expanded },
         modifier = Modifier.Companion.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            ),
     ) {
         Column(
             modifier = Modifier.Companion.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleSmall
+                style = MaterialTheme.typography.titleSmall,
             )
 
             Text(
                 text = if (expanded) expandedLabel else collapsedLabel,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             AnimatedVisibility(visible = expanded) {
                 Column(
                     modifier = Modifier.Companion.padding(top = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Divider()
                     steps.forEachIndexed { index, step ->
                         Text(
                             text = "${index + 1}. $step",
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
                 }

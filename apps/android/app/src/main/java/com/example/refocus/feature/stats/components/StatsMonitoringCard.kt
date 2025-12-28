@@ -63,24 +63,26 @@ internal fun MonitoringSummaryCard(
             Spacer(Modifier.height(8.dp))
 
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(999.dp),
-                    )
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(999.dp),
+                        ),
             ) {
                 val fraction =
                     if (total > 0) withTarget.toFloat() / total.toFloat() else 0f
                 Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(fraction.coerceIn(0f, 1f))
-                        .background(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = RoundedCornerShape(999.dp),
-                        )
+                    modifier =
+                        Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(fraction.coerceIn(0f, 1f))
+                            .background(
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = RoundedCornerShape(999.dp),
+                            ),
                 )
             }
         }

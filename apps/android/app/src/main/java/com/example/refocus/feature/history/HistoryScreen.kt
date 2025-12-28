@@ -35,20 +35,20 @@ private enum class HistoryTab(
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun HistoryScreen(
-    onNavigateBack: () -> Unit,
-) {
+fun HistoryScreen(onNavigateBack: () -> Unit) {
     val tabs = HistoryTab.entries
-    val pagerState = rememberPagerState(
-        initialPage = tabs.indexOf(HistoryTab.Sessions).coerceAtLeast(0),
-        pageCount = { tabs.size },
-    )
+    val pagerState =
+        rememberPagerState(
+            initialPage = tabs.indexOf(HistoryTab.Sessions).coerceAtLeast(0),
+            pageCount = { tabs.size },
+        )
     val scope = rememberCoroutineScope()
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .systemBarsPadding(),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .systemBarsPadding(),
         topBar = {
             TopAppBar(
                 title = { Text(text = "履歴") },
@@ -66,9 +66,10 @@ fun HistoryScreen(
         contentWindowInsets = WindowInsets(0.dp),
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
         ) {
             TabRow(selectedTabIndex = pagerState.currentPage) {
                 tabs.forEachIndexed { index, tab ->
@@ -92,17 +93,19 @@ fun HistoryScreen(
                 when (tabs[page]) {
                     HistoryTab.Sessions -> {
                         SessionHistoryRoute(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp),
                         )
                     }
 
                     HistoryTab.Timeline -> {
                         TimelineHistoryRoute(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp),
                         )
                     }
                 }

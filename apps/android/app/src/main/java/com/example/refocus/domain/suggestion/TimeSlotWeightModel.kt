@@ -21,20 +21,25 @@ interface TimeSlotWeightModel {
 class GaussianCircularTimeSlotWeightModel(
     private val profiles: Map<SuggestionTimeSlot, GaussianProfile> = defaultProfiles(),
 ) : TimeSlotWeightModel {
-
     data class GaussianProfile(
-        val meanMinutes: Int,   // 0..1439
-        val sigmaMinutes: Double
+        val meanMinutes: Int, // 0..1439
+        val sigmaMinutes: Double,
     )
 
-    override fun weight(slot: SuggestionTimeSlot, nowMillis: Long, zoneId: ZoneId): Double {
+    override fun weight(
+        slot: SuggestionTimeSlot,
+        nowMillis: Long,
+        zoneId: ZoneId,
+    ): Double {
         if (slot == SuggestionTimeSlot.Anytime) return 1.0
 
         val p = profiles[slot] ?: return 0.0
-        val minutes = Instant.ofEpochMilli(nowMillis)
-            .atZone(zoneId)
-            .toLocalTime()
-            .let { it.hour * 60 + it.minute } // 0..1439
+        val minutes =
+            Instant
+                .ofEpochMilli(nowMillis)
+                .atZone(zoneId)
+                .toLocalTime()
+                .let { it.hour * 60 + it.minute } // 0..1439
 
         val d = circularDistance(minutes, p.meanMinutes, 24 * 60)
         val sigma = p.sigmaMinutes
@@ -43,41 +48,60 @@ class GaussianCircularTimeSlotWeightModel(
         return exp(-(d.toDouble() * d.toDouble()) / (2.0 * sigma * sigma))
     }
 
-    private fun circularDistance(x: Int, mu: Int, period: Int): Int {
+    private fun circularDistance(
+        x: Int,
+        mu: Int,
+        period: Int,
+    ): Int {
         val raw = abs(x - mu)
         return min(raw, period - raw)
     }
 
     companion object {
-        fun defaultProfiles(): Map<SuggestionTimeSlot, GaussianProfile> = mapOf(
-            SuggestionTimeSlot.Dawn to GaussianProfile(
-                meanMinutes = 5 * 60 + 30,
-                sigmaMinutes = 90.0
-            ), // 05:30 ±1.5h
-            SuggestionTimeSlot.Morning to GaussianProfile(
-                meanMinutes = 9 * 60 + 30,
-                sigmaMinutes = 150.0
-            ), // 09:30 ±2.5h
-            SuggestionTimeSlot.Noon to GaussianProfile(
-                meanMinutes = 12 * 60 + 30,
-                sigmaMinutes = 90.0
-            ), // 12:30 ±1.5h
-            SuggestionTimeSlot.Afternoon to GaussianProfile(
-                meanMinutes = 15 * 60 + 30,
-                sigmaMinutes = 150.0
-            ), // 15:30 ±2.5h
-            SuggestionTimeSlot.Evening to GaussianProfile(
-                meanMinutes = 18 * 60 + 0,
-                sigmaMinutes = 120.0
-            ), // 18:00 ±2h
-            SuggestionTimeSlot.Night to GaussianProfile(
-                meanMinutes = 21 * 60 + 0,
-                sigmaMinutes = 150.0
-            ), // 21:00 ±2.5h
-            SuggestionTimeSlot.LateNight to GaussianProfile(
-                meanMinutes = 0 * 60 + 30,
-                sigmaMinutes = 150.0
-            ), // 00:30 ±2.5h（円環で日跨ぎOK）
-        )
+        fun defaultProfiles(): Map<SuggestionTimeSlot, GaussianProfile> =
+            mapOf(
+                SuggestionTimeSlot.Dawn to
+                    GaussianProfile(
+                        meanMinutes = 5 * 60 + 30,
+                        sigmaMinutes = 90.0,
+                    ),
+                // 05:30 ±1.5h
+                SuggestionTimeSlot.Morning to
+                    GaussianProfile(
+                        meanMinutes = 9 * 60 + 30,
+                        sigmaMinutes = 150.0,
+                    ),
+                // 09:30 ±2.5h
+                SuggestionTimeSlot.Noon to
+                    GaussianProfile(
+                        meanMinutes = 12 * 60 + 30,
+                        sigmaMinutes = 90.0,
+                    ),
+                // 12:30 ±1.5h
+                SuggestionTimeSlot.Afternoon to
+                    GaussianProfile(
+                        meanMinutes = 15 * 60 + 30,
+                        sigmaMinutes = 150.0,
+                    ),
+                // 15:30 ±2.5h
+                SuggestionTimeSlot.Evening to
+                    GaussianProfile(
+                        meanMinutes = 18 * 60 + 0,
+                        sigmaMinutes = 120.0,
+                    ),
+                // 18:00 ±2h
+                SuggestionTimeSlot.Night to
+                    GaussianProfile(
+                        meanMinutes = 21 * 60 + 0,
+                        sigmaMinutes = 150.0,
+                    ),
+                // 21:00 ±2.5h
+                SuggestionTimeSlot.LateNight to
+                    GaussianProfile(
+                        meanMinutes = 0 * 60 + 30,
+                        sigmaMinutes = 150.0,
+                    ),
+                // 00:30 ±2.5h（円環で日跨ぎOK）
+            )
     }
 }

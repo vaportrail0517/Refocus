@@ -9,6 +9,8 @@ import android.app.Activity
  */
 interface PermissionNavigator {
     fun openUsageAccessSettings(activity: Activity)
+
     fun openOverlaySettings(activity: Activity)
+
     fun openNotificationSettings(activity: Activity)
 }

@@ -22,41 +22,44 @@ fun BasicCustomizeContent(
     SectionCard(title = "タイマー") {
         SettingRow(
             title = "タイマーに表示する時間",
-            subtitle = when (settings.timerTimeMode) {
-                TimerTimeMode.SessionElapsed -> "現在: セッションの経過時間を表示します。"
-                TimerTimeMode.TodayThisTarget -> "現在: このアプリの今日の累計使用時間を表示します。"
-                TimerTimeMode.TodayAllTargets -> "現在: 全対象アプリの今日の累計使用時間を表示します。"
-            },
+            subtitle =
+                when (settings.timerTimeMode) {
+                    TimerTimeMode.SessionElapsed -> "現在: セッションの経過時間を表示します。"
+                    TimerTimeMode.TodayThisTarget -> "現在: このアプリの今日の累計使用時間を表示します。"
+                    TimerTimeMode.TodayAllTargets -> "現在: 全対象アプリの今日の累計使用時間を表示します。"
+                },
             onClick = onOpenTimerTimeModeDialog,
         )
 
         SettingRow(
             title = "色とサイズの変化の基準",
-            subtitle = when (settings.timerVisualTimeBasis) {
-                TimerVisualTimeBasis.SessionElapsed ->
-                    "現在: セッションの経過時間を基準に、色とサイズが変化します。"
+            subtitle =
+                when (settings.timerVisualTimeBasis) {
+                    TimerVisualTimeBasis.SessionElapsed ->
+                        "現在: セッションの経過時間を基準に、色とサイズが変化します。"
 
-                TimerVisualTimeBasis.FollowDisplayTime ->
-                    "現在: タイマーに表示している時間を基準に、色とサイズが変化します。"
-            },
+                    TimerVisualTimeBasis.FollowDisplayTime ->
+                        "現在: タイマーに表示している時間を基準に、色とサイズが変化します。"
+                },
             onClick = onOpenTimerVisualTimeBasisDialog,
         )
 
         val dragEnabled = settings.touchMode == TimerTouchMode.Drag
         SettingRow(
             title = "タイマーのタッチ操作",
-            subtitle = if (dragEnabled) {
-                "ドラッグで移動：タイマーをドラッグして位置を変えられます。"
-            } else {
-                "タップを透過：タイマーは固定され、タップは背面アプリに届きます。"
-            },
+            subtitle =
+                if (dragEnabled) {
+                    "ドラッグで移動：タイマーをドラッグして位置を変えられます。"
+                } else {
+                    "タップを透過：タイマーは固定され、タップは背面アプリに届きます。"
+                },
             trailing = {
                 Switch(
                     checked = dragEnabled,
                     onCheckedChange = { isOn ->
                         val mode = if (isOn) TimerTouchMode.Drag else TimerTouchMode.PassThrough
                         viewModel.updateOverlayTouchMode(mode)
-                    }
+                    },
                 )
             },
             onClick = {
@@ -65,7 +68,6 @@ fun BasicCustomizeContent(
                 viewModel.updateOverlayTouchMode(newMode)
             },
         )
-
     }
 
     // --- 提案（簡易） ---
@@ -75,11 +77,12 @@ fun BasicCustomizeContent(
 
         SettingRow(
             title = "やりたいことの提案",
-            subtitle = if (suggestionEnabled) {
-                "オン：一定時間経過すると、やりたいことを提案します。"
-            } else {
-                "オフ：提案カードを表示しません。"
-            },
+            subtitle =
+                if (suggestionEnabled) {
+                    "オン：一定時間経過すると、やりたいことを提案します。"
+                } else {
+                    "オフ：提案カードを表示しません。"
+                },
             trailing = {
                 Switch(
                     checked = suggestionEnabled,
@@ -91,16 +94,17 @@ fun BasicCustomizeContent(
 
         SettingRow(
             title = "休憩の提案",
-            subtitle = when {
-                !suggestionEnabled ->
-                    "提案が無効になっています。"
+            subtitle =
+                when {
+                    !suggestionEnabled ->
+                        "提案が無効になっています。"
 
-                restSuggestionEnabled ->
-                    "オン：やりたいことが未登録のとき、休憩を提案します。"
+                    restSuggestionEnabled ->
+                        "オン：やりたいことが未登録のとき、休憩を提案します。"
 
-                else ->
-                    "オフ：休憩を提案しません。"
-            },
+                    else ->
+                        "オフ：休憩を提案しません。"
+                },
             trailing = {
                 Switch(
                     checked = restSuggestionEnabled,
@@ -108,7 +112,7 @@ fun BasicCustomizeContent(
                     onCheckedChange = { isOn ->
                         if (!suggestionEnabled) return@Switch
                         viewModel.updateRestSuggestionEnabled(isOn)
-                    }
+                    },
                 )
             },
             onClick = {
@@ -116,7 +120,6 @@ fun BasicCustomizeContent(
                 viewModel.updateRestSuggestionEnabled(!restSuggestionEnabled)
             },
         )
-
     }
 
     // --- プリセット（入口のみ） ---

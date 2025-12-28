@@ -8,9 +8,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SuggestionsRoute(
-    viewModel: SuggestionsViewModel = hiltViewModel(),
-) {
+fun SuggestionsRoute(viewModel: SuggestionsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     SuggestionsScreen(

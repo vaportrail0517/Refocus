@@ -66,20 +66,22 @@ internal class OverlaySessionLifecycle(
         val settings = runtimeState.value.customize
         val grace = settings.gracePeriodMillis
 
-        val bootstrap = sessionBootstrapper.computeBootstrapFromTimeline(
-            packageName = packageName,
-            customize = settings,
-            nowMillis = nowMillis,
-            force = false,
-            sessionTracker = sessionTracker,
-        )
+        val bootstrap =
+            sessionBootstrapper.computeBootstrapFromTimeline(
+                packageName = packageName,
+                customize = settings,
+                nowMillis = nowMillis,
+                force = false,
+                sessionTracker = sessionTracker,
+            )
 
         val initialElapsed = bootstrap?.initialElapsedMillis ?: 0L
-        val isNewSession = sessionTracker.onEnterTargetApp(
-            packageName = packageName,
-            gracePeriodMillis = grace,
-            initialElapsedIfNew = initialElapsed,
-        )
+        val isNewSession =
+            sessionTracker.onEnterTargetApp(
+                packageName = packageName,
+                gracePeriodMillis = grace,
+                initialElapsedIfNew = initialElapsed,
+            )
 
         if (isNewSession) {
             suggestionOrchestrator.onNewSession(bootstrap)
@@ -151,11 +153,13 @@ internal class OverlaySessionLifecycle(
         )
     }
 
-    private fun isTimerSuppressedForCurrentSession(packageName: String): Boolean {
-        return runtimeState.value.timerSuppressedForSession[packageName] == true
-    }
+    private fun isTimerSuppressedForCurrentSession(packageName: String): Boolean =
+        runtimeState.value.timerSuppressedForSession[packageName] == true
 
-    private fun onOverlayPositionChanged(x: Int, y: Int) {
+    private fun onOverlayPositionChanged(
+        x: Int,
+        y: Int,
+    ) {
         scope.launch {
             try {
                 settingsCommand.setOverlayPosition(

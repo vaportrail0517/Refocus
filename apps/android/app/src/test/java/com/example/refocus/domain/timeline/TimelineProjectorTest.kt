@@ -1,6 +1,5 @@
 package com.example.refocus.domain.timeline
 
-import com.example.refocus.core.model.TimelineEvent
 import com.example.refocus.core.model.ForegroundAppEvent
 import com.example.refocus.core.model.PermissionEvent
 import com.example.refocus.core.model.PermissionKind
@@ -10,16 +9,15 @@ import com.example.refocus.core.model.ScreenState
 import com.example.refocus.core.model.ServiceLifecycleEvent
 import com.example.refocus.core.model.ServiceState
 import com.example.refocus.core.model.TargetAppsChangedEvent
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 class TimelineProjectorTest {
-
     @Test
     fun project_splitsSessionPartsAcrossMidnight() {
         val zone = ZoneId.of("UTC")
@@ -29,45 +27,47 @@ class TimelineProjectorTest {
 
         val pkg = "com.example.a"
 
-        val events = listOf(
-            TargetAppsChangedEvent(
-                timestampMillis = t0,
-                targetPackages = setOf(pkg),
-            ),
-            ServiceLifecycleEvent(
-                timestampMillis = t0,
-                state = ServiceState.Started,
-            ),
-            PermissionEvent(
-                timestampMillis = t0,
-                permission = PermissionKind.UsageStats,
-                state = PermissionState.Granted,
-            ),
-            PermissionEvent(
-                timestampMillis = t0,
-                permission = PermissionKind.Overlay,
-                state = PermissionState.Granted,
-            ),
-            ScreenEvent(
-                timestampMillis = t0,
-                state = ScreenState.On,
-            ),
-            ForegroundAppEvent(
-                timestampMillis = tStart,
-                packageName = pkg,
-            ),
-            ForegroundAppEvent(
-                timestampMillis = tPause,
-                packageName = null,
-            ),
-        )
+        val events =
+            listOf(
+                TargetAppsChangedEvent(
+                    timestampMillis = t0,
+                    targetPackages = setOf(pkg),
+                ),
+                ServiceLifecycleEvent(
+                    timestampMillis = t0,
+                    state = ServiceState.Started,
+                ),
+                PermissionEvent(
+                    timestampMillis = t0,
+                    permission = PermissionKind.UsageStats,
+                    state = PermissionState.Granted,
+                ),
+                PermissionEvent(
+                    timestampMillis = t0,
+                    permission = PermissionKind.Overlay,
+                    state = PermissionState.Granted,
+                ),
+                ScreenEvent(
+                    timestampMillis = t0,
+                    state = ScreenState.On,
+                ),
+                ForegroundAppEvent(
+                    timestampMillis = tStart,
+                    packageName = pkg,
+                ),
+                ForegroundAppEvent(
+                    timestampMillis = tPause,
+                    packageName = null,
+                ),
+            )
 
-        val projection = TimelineProjector.project(
-            events = events,
-            config = TimelineInterpretationConfig(stopGracePeriodMillis = 5 * 60 * 1_000L),
-            nowMillis = tPause,
-            zoneId = zone,
-        )
+        val projection =
+            TimelineProjector.project(
+                events = events,
+                config = TimelineInterpretationConfig(stopGracePeriodMillis = 5 * 60 * 1_000L),
+                nowMillis = tPause,
+                zoneId = zone,
+            )
 
         val parts = projection.sessionParts.filter { it.packageName == pkg }
         assertEquals(2, parts.size)
@@ -90,49 +90,51 @@ class TimelineProjectorTest {
 
         val pkg = "com.example.a"
 
-        val events = listOf(
-            TargetAppsChangedEvent(
-                timestampMillis = t0,
-                targetPackages = setOf(pkg),
-            ),
-            ServiceLifecycleEvent(
-                timestampMillis = t0,
-                state = ServiceState.Started,
-            ),
-            PermissionEvent(
-                timestampMillis = t0,
-                permission = PermissionKind.UsageStats,
-                state = PermissionState.Granted,
-            ),
-            PermissionEvent(
-                timestampMillis = t0,
-                permission = PermissionKind.Overlay,
-                state = PermissionState.Granted,
-            ),
-            ScreenEvent(
-                timestampMillis = t0,
-                state = ScreenState.On,
-            ),
-            ForegroundAppEvent(
-                timestampMillis = tStart,
-                packageName = pkg,
-            ),
-            ForegroundAppEvent(
-                timestampMillis = tPause,
-                packageName = null,
-            ),
-            ForegroundAppEvent(
-                timestampMillis = tResume,
-                packageName = pkg,
-            ),
-        )
+        val events =
+            listOf(
+                TargetAppsChangedEvent(
+                    timestampMillis = t0,
+                    targetPackages = setOf(pkg),
+                ),
+                ServiceLifecycleEvent(
+                    timestampMillis = t0,
+                    state = ServiceState.Started,
+                ),
+                PermissionEvent(
+                    timestampMillis = t0,
+                    permission = PermissionKind.UsageStats,
+                    state = PermissionState.Granted,
+                ),
+                PermissionEvent(
+                    timestampMillis = t0,
+                    permission = PermissionKind.Overlay,
+                    state = PermissionState.Granted,
+                ),
+                ScreenEvent(
+                    timestampMillis = t0,
+                    state = ScreenState.On,
+                ),
+                ForegroundAppEvent(
+                    timestampMillis = tStart,
+                    packageName = pkg,
+                ),
+                ForegroundAppEvent(
+                    timestampMillis = tPause,
+                    packageName = null,
+                ),
+                ForegroundAppEvent(
+                    timestampMillis = tResume,
+                    packageName = pkg,
+                ),
+            )
 
-        val projection = TimelineProjector.project(
-            events = events,
-            config = TimelineInterpretationConfig(stopGracePeriodMillis = 5 * 60 * 1_000L),
-            nowMillis = now,
-            zoneId = zone,
-        )
+        val projection =
+            TimelineProjector.project(
+                events = events,
+                config = TimelineInterpretationConfig(stopGracePeriodMillis = 5 * 60 * 1_000L),
+                nowMillis = now,
+                zoneId = zone,
+            )
 
         val sessions = projection.sessionsWithEvents.filter { it.session.packageName == pkg }
         assertEquals(1, sessions.size)
@@ -143,7 +145,6 @@ class TimelineProjectorTest {
         assertTrue(eventTypes.contains(com.example.refocus.core.model.SessionEventType.Resume))
         assertFalse(eventTypes.contains(com.example.refocus.core.model.SessionEventType.End))
     }
-
 
     @Test
     fun project_interpretationChangesWhenGracePeriodChanges() {
@@ -156,50 +157,52 @@ class TimelineProjectorTest {
 
         val pkg = "com.example.a"
 
-        val events = listOf(
-            TargetAppsChangedEvent(
-                timestampMillis = t0,
-                targetPackages = setOf(pkg),
-            ),
-            ServiceLifecycleEvent(
-                timestampMillis = t0,
-                state = ServiceState.Started,
-            ),
-            PermissionEvent(
-                timestampMillis = t0,
-                permission = PermissionKind.UsageStats,
-                state = PermissionState.Granted,
-            ),
-            PermissionEvent(
-                timestampMillis = t0,
-                permission = PermissionKind.Overlay,
-                state = PermissionState.Granted,
-            ),
-            ScreenEvent(
-                timestampMillis = t0,
-                state = ScreenState.On,
-            ),
-            ForegroundAppEvent(
-                timestampMillis = tStart,
-                packageName = pkg,
-            ),
-            ForegroundAppEvent(
-                timestampMillis = tPause,
-                packageName = null,
-            ),
-            ForegroundAppEvent(
-                timestampMillis = tResume,
-                packageName = pkg,
-            ),
-        )
+        val events =
+            listOf(
+                TargetAppsChangedEvent(
+                    timestampMillis = t0,
+                    targetPackages = setOf(pkg),
+                ),
+                ServiceLifecycleEvent(
+                    timestampMillis = t0,
+                    state = ServiceState.Started,
+                ),
+                PermissionEvent(
+                    timestampMillis = t0,
+                    permission = PermissionKind.UsageStats,
+                    state = PermissionState.Granted,
+                ),
+                PermissionEvent(
+                    timestampMillis = t0,
+                    permission = PermissionKind.Overlay,
+                    state = PermissionState.Granted,
+                ),
+                ScreenEvent(
+                    timestampMillis = t0,
+                    state = ScreenState.On,
+                ),
+                ForegroundAppEvent(
+                    timestampMillis = tStart,
+                    packageName = pkg,
+                ),
+                ForegroundAppEvent(
+                    timestampMillis = tPause,
+                    packageName = null,
+                ),
+                ForegroundAppEvent(
+                    timestampMillis = tResume,
+                    packageName = pkg,
+                ),
+            )
 
         // grace = 5min -> same session (Pause/Resume)
-        val projectionGrace5m = TimelineProjector.project(
-            events = events,
-            config = TimelineInterpretationConfig(stopGracePeriodMillis = 5 * 60 * 1_000L),
-            nowMillis = now,
-            zoneId = zone,
-        )
+        val projectionGrace5m =
+            TimelineProjector.project(
+                events = events,
+                config = TimelineInterpretationConfig(stopGracePeriodMillis = 5 * 60 * 1_000L),
+                nowMillis = now,
+                zoneId = zone,
+            )
         val sessions5m = projectionGrace5m.sessionsWithEvents.filter { it.session.packageName == pkg }
         assertEquals(1, sessions5m.size)
         val types5m = sessions5m.single().events.map { it.type }
@@ -207,12 +210,13 @@ class TimelineProjectorTest {
         assertTrue(types5m.contains(com.example.refocus.core.model.SessionEventType.Resume))
 
         // grace = 3min -> split into two sessions
-        val projectionGrace3m = TimelineProjector.project(
-            events = events,
-            config = TimelineInterpretationConfig(stopGracePeriodMillis = 3 * 60 * 1_000L),
-            nowMillis = now,
-            zoneId = zone,
-        )
+        val projectionGrace3m =
+            TimelineProjector.project(
+                events = events,
+                config = TimelineInterpretationConfig(stopGracePeriodMillis = 3 * 60 * 1_000L),
+                nowMillis = now,
+                zoneId = zone,
+            )
         val sessions3m = projectionGrace3m.sessionsWithEvents.filter { it.session.packageName == pkg }
         assertEquals(2, sessions3m.size)
 
@@ -228,5 +232,4 @@ class TimelineProjectorTest {
         val secondTypes = second.events.map { it.type }
         assertTrue(secondTypes.contains(com.example.refocus.core.model.SessionEventType.Start))
     }
-
 }

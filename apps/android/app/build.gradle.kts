@@ -1,7 +1,7 @@
 import com.android.build.api.variant.impl.VariantOutputImpl
+import org.gradle.api.GradleException
 import java.text.SimpleDateFormat
 import java.util.Date
-import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.android.application)
@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.hilt.android)
+    alias(libs.plugins.ktlint)
 }
 
 android {
@@ -20,7 +21,7 @@ android {
         applicationId = "com.example.refocus"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8       // APK配布時に毎回インクリメント
+        versionCode = 8 // APK配布時に毎回インクリメント
         versionName = "0.5.1" // (大きな区切り・互換性のない変更).(後方互換ありの機能追加).(バグ修正など)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -29,7 +30,7 @@ android {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -57,7 +58,22 @@ hilt {
     enableAggregatingTask = false
 }
 
+ktlint {
+    // Kotlin 公式スタイル（IntelliJ の KOTLIN_OFFICIAL）に寄せる
+    android.set(false)
+    ignoreFailures.set(false)
+    outputToConsole.set(true)
+    verbose.set(true)
+
+    // Android / Hilt / Room などの生成物は対象外
+    filter {
+        exclude("**/build/**")
+        exclude("**/generated/**")
+    }
+}
+
 dependencies {
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.android)
@@ -99,19 +115,22 @@ dependencies {
  * Kotlin/Java の import 以外（FQCN 直書きなど）は検知できないが，
  * レイヤ境界の逸脱を早期に止める用途としては十分有効．
  */
-val domainSourceRoots = listOf(
-    file("src/main/java/com/example/refocus/domain"),
-    file("src/main/kotlin/com/example/refocus/domain"),
-)
+val domainSourceRoots =
+    listOf(
+        file("src/main/java/com/example/refocus/domain"),
+        file("src/main/kotlin/com/example/refocus/domain"),
+    )
 
-val featureSourceRoots = listOf(
-    file("src/main/java/com/example/refocus/feature"),
-    file("src/main/kotlin/com/example/refocus/feature"),
-)
-val systemSourceRoots = listOf(
-    file("src/main/java/com/example/refocus/system"),
-    file("src/main/kotlin/com/example/refocus/system"),
-)
+val featureSourceRoots =
+    listOf(
+        file("src/main/java/com/example/refocus/feature"),
+        file("src/main/kotlin/com/example/refocus/feature"),
+    )
+val systemSourceRoots =
+    listOf(
+        file("src/main/java/com/example/refocus/system"),
+        file("src/main/kotlin/com/example/refocus/system"),
+    )
 
 tasks.register("checkDomainBoundaries") {
     group = "verification"
@@ -119,26 +138,28 @@ tasks.register("checkDomainBoundaries") {
 
     doLast {
         // Domain は純 Kotlin を前提にし，Android/UI/データ層へ直接依存しない．
-        val forbiddenImportPrefixes = listOf(
-            "android.",
-            "androidx.",
-            "com.google.android.",
-            // app/system は Android 実装に寄るため，domain からは直接参照しない
-            "com.example.refocus.app.",
-            "com.example.refocus.system.",
-            "com.example.refocus.data.",
-            "com.example.refocus.feature.",
-            "com.example.refocus.ui.",
-            "com.example.refocus.gateway.",
-            // プリセットやデフォルト値などの「アプリ設定」は domain へ流れ込ませない
-        )
+        val forbiddenImportPrefixes =
+            listOf(
+                "android.",
+                "androidx.",
+                "com.google.android.",
+                // app/system は Android 実装に寄るため，domain からは直接参照しない
+                "com.example.refocus.app.",
+                "com.example.refocus.system.",
+                "com.example.refocus.data.",
+                "com.example.refocus.feature.",
+                "com.example.refocus.ui.",
+                "com.example.refocus.gateway.",
+                // プリセットやデフォルト値などの「アプリ設定」は domain へ流れ込ませない
+            )
 
         val violations = mutableListOf<String>()
 
         domainSourceRoots
             .filter { it.exists() }
             .forEach { root ->
-                root.walkTopDown()
+                root
+                    .walkTopDown()
                     .filter { it.isFile && (it.extension == "kt" || it.extension == "java") }
                     .forEach { file ->
                         file.useLines { lines ->
@@ -147,10 +168,11 @@ tasks.register("checkDomainBoundaries") {
                                 if (!trimmed.startsWith("import ")) return@forEachIndexed
 
                                 // Kotlin: import a.b.C / Java: import a.b.C;
-                                val imported = trimmed
-                                    .removePrefix("import ")
-                                    .trim()
-                                    .removeSuffix(";")
+                                val imported =
+                                    trimmed
+                                        .removePrefix("import ")
+                                        .trim()
+                                        .removeSuffix(";")
 
                                 if (forbiddenImportPrefixes.any { imported.startsWith(it) }) {
                                     violations += "${file.relativeTo(projectDir)}:${index + 1}: $trimmed"
@@ -182,19 +204,21 @@ tasks.register("checkFeatureBoundaries") {
     description = "Fails if feature layer depends on system/data layers via imports."
 
     doLast {
-        val forbiddenImportPrefixes = listOf(
-            "com.example.refocus.system.",
-            "com.example.refocus.data.",
-            // feature は app 層へ依存しない（navigation/DI などは app 側が feature を参照する）
-            "com.example.refocus.app.",
-        )
+        val forbiddenImportPrefixes =
+            listOf(
+                "com.example.refocus.system.",
+                "com.example.refocus.data.",
+                // feature は app 層へ依存しない（navigation/DI などは app 側が feature を参照する）
+                "com.example.refocus.app.",
+            )
 
         val violations = mutableListOf<String>()
 
         featureSourceRoots
             .filter { it.exists() }
             .forEach { root ->
-                root.walkTopDown()
+                root
+                    .walkTopDown()
                     .filter { it.isFile && (it.extension == "kt" || it.extension == "java") }
                     .forEach { file ->
                         file.useLines { lines ->
@@ -202,10 +226,11 @@ tasks.register("checkFeatureBoundaries") {
                                 val trimmed = line.trim()
                                 if (!trimmed.startsWith("import ")) return@forEachIndexed
 
-                                val imported = trimmed
-                                    .removePrefix("import ")
-                                    .trim()
-                                    .removeSuffix(";")
+                                val imported =
+                                    trimmed
+                                        .removePrefix("import ")
+                                        .trim()
+                                        .removeSuffix(";")
 
                                 if (forbiddenImportPrefixes.any { imported.startsWith(it) }) {
                                     violations += "${file.relativeTo(projectDir)}:${index + 1}: $trimmed"
@@ -237,20 +262,22 @@ tasks.register("checkSystemBoundaries") {
     description = "Fails if system layer depends on app/feature/data layers via imports."
 
     doLast {
-        val forbiddenImportPrefixes = listOf(
-            "com.example.refocus.app.",
-            "com.example.refocus.feature.",
-            // プリセットやデフォルト値などの「アプリ設定」は app 側に閉じる
-            // system は repository 実装に直接依存せず，domain 経由で注入する
-            "com.example.refocus.data.",
-        )
+        val forbiddenImportPrefixes =
+            listOf(
+                "com.example.refocus.app.",
+                "com.example.refocus.feature.",
+                // プリセットやデフォルト値などの「アプリ設定」は app 側に閉じる
+                // system は repository 実装に直接依存せず，domain 経由で注入する
+                "com.example.refocus.data.",
+            )
 
         val violations = mutableListOf<String>()
 
         systemSourceRoots
             .filter { it.exists() }
             .forEach { root ->
-                root.walkTopDown()
+                root
+                    .walkTopDown()
                     .filter { it.isFile && (it.extension == "kt" || it.extension == "java") }
                     .forEach { file ->
                         file.useLines { lines ->
@@ -258,10 +285,11 @@ tasks.register("checkSystemBoundaries") {
                                 val trimmed = line.trim()
                                 if (!trimmed.startsWith("import ")) return@forEachIndexed
 
-                                val imported = trimmed
-                                    .removePrefix("import ")
-                                    .trim()
-                                    .removeSuffix(";")
+                                val imported =
+                                    trimmed
+                                        .removePrefix("import ")
+                                        .trim()
+                                        .removeSuffix(";")
 
                                 if (forbiddenImportPrefixes.any { imported.startsWith(it) }) {
                                     violations += "${file.relativeTo(projectDir)}:${index + 1}: $trimmed"
@@ -281,11 +309,28 @@ tasks.register("checkSystemBoundaries") {
         }
     }
 }
-// 既存の CI / 手元チェックの流れに自然に乗せる
+// 既存の手元チェックの流れに自然に乗せる（Android Studio から :app:check を実行する想定）
 tasks.named("check").configure {
     dependsOn("checkDomainBoundaries")
     dependsOn("checkFeatureBoundaries")
     dependsOn("checkSystemBoundaries")
+    dependsOn("ktlintCheck")
+}
+
+tasks.register("formatCode") {
+    group = "formatting"
+    description = "Auto-formats Kotlin sources using ktlint."
+    dependsOn("ktlintFormat")
+}
+
+tasks.register("verifyLocal") {
+    group = "verification"
+    description = "Runs unit tests + layer boundary checks + ktlint (without Android Lint)."
+    dependsOn("testDebugUnitTest")
+    dependsOn("checkDomainBoundaries")
+    dependsOn("checkFeatureBoundaries")
+    dependsOn("checkSystemBoundaries")
+    dependsOn("ktlintCheck")
 }
 
 androidComponents {
@@ -296,7 +341,7 @@ androidComponents {
             if (output is VariantOutputImpl) {
                 val vName = output.versionName.get()
                 output.outputFileName =
-                    "${appName}-android-v${vName}-debug-${date}.apk"
+                    "$appName-android-v$vName-debug-$date.apk"
             }
         }
     }

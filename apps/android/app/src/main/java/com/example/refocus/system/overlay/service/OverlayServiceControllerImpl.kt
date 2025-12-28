@@ -10,7 +10,6 @@ import com.example.refocus.system.permissions.PermissionHelper
 class OverlayServiceControllerImpl(
     private val appContext: Context,
 ) : OverlayServiceController {
-
     override fun startIfReady(source: String): Boolean {
         val ok = PermissionHelper.hasAllCorePermissions(appContext)
         if (!ok) {

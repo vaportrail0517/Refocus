@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.mapLatest
 class TimelineWindowEventsLoader(
     private val timelineRepository: TimelineRepository,
 ) {
-
     suspend fun loadWithSeed(
         windowStartMillis: Long,
         windowEndMillis: Long,
@@ -24,12 +23,13 @@ class TimelineWindowEventsLoader(
         val seed = timelineRepository.getSeedEventsBefore(windowStartMillis)
         val window = timelineRepository.getEvents(windowStartMillis, windowEndMillis)
 
-        val filteredSeed = if (seedLookbackMillis != null) {
-            val minSeedMillis = (windowStartMillis - seedLookbackMillis).coerceAtLeast(0L)
-            seed.filter { it.timestampMillis >= minSeedMillis }
-        } else {
-            seed
-        }
+        val filteredSeed =
+            if (seedLookbackMillis != null) {
+                val minSeedMillis = (windowStartMillis - seedLookbackMillis).coerceAtLeast(0L)
+                seed.filter { it.timestampMillis >= minSeedMillis }
+            } else {
+                seed
+            }
 
         return (filteredSeed + window)
             .sortedBy { it.timestampMillis }
@@ -39,18 +39,19 @@ class TimelineWindowEventsLoader(
         windowStartMillis: Long,
         windowEndMillis: Long,
         seedLookbackMillis: Long? = null,
-    ): Flow<List<TimelineEvent>> {
-        return timelineRepository.observeEventsBetween(windowStartMillis, windowEndMillis)
+    ): Flow<List<TimelineEvent>> =
+        timelineRepository
+            .observeEventsBetween(windowStartMillis, windowEndMillis)
             .mapLatest { windowEvents ->
                 val seed = timelineRepository.getSeedEventsBefore(windowStartMillis)
-                val filteredSeed = if (seedLookbackMillis != null) {
-                    val minSeedMillis = (windowStartMillis - seedLookbackMillis).coerceAtLeast(0L)
-                    seed.filter { it.timestampMillis >= minSeedMillis }
-                } else {
-                    seed
-                }
+                val filteredSeed =
+                    if (seedLookbackMillis != null) {
+                        val minSeedMillis = (windowStartMillis - seedLookbackMillis).coerceAtLeast(0L)
+                        seed.filter { it.timestampMillis >= minSeedMillis }
+                    } else {
+                        seed
+                    }
                 (filteredSeed + windowEvents)
                     .sortedBy { it.timestampMillis }
             }
-    }
 }

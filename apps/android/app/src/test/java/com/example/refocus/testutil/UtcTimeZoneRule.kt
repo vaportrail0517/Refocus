@@ -1,7 +1,7 @@
 package com.example.refocus.testutil
 
-import java.util.TimeZone
 import org.junit.rules.ExternalResource
+import java.util.TimeZone
 
 /**
  * JVM 単体テスト用にデフォルトタイムゾーンを UTC に固定する Rule．
@@ -10,7 +10,6 @@ import org.junit.rules.ExternalResource
  * テストが不安定になるのを防ぐ．
  */
 class UtcTimeZoneRule : ExternalResource() {
-
     private lateinit var original: TimeZone
 
     override fun before() {

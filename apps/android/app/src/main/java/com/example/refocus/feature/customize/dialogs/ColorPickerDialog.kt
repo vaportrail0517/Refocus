@@ -55,17 +55,18 @@ fun ColorPickerDialog(
     val themePrimary = MaterialTheme.colorScheme.primary
 
     // 初期色
-    val initialColor = remember(initialColorArgb) {
-        if (initialColorArgb == null || initialColorArgb == 0) {
-            themePrimary
-        } else {
-            Color(initialColorArgb)
+    val initialColor =
+        remember(initialColorArgb) {
+            if (initialColorArgb == null || initialColorArgb == 0) {
+                themePrimary
+            } else {
+                Color(initialColorArgb)
+            }
         }
-    }
 
-    var hue by rememberSaveable { mutableFloatStateOf(0f) }         // 0..360
-    var saturation by rememberSaveable { mutableFloatStateOf(1f) }  // 0..1
-    var value by rememberSaveable { mutableFloatStateOf(1f) }       // 0..1
+    var hue by rememberSaveable { mutableFloatStateOf(0f) } // 0..360
+    var saturation by rememberSaveable { mutableFloatStateOf(1f) } // 0..1
+    var value by rememberSaveable { mutableFloatStateOf(1f) } // 0..1
 
     // 初期 HSV への変換（remember で1回だけ）
     remember(initialColorArgb) {
@@ -76,12 +77,13 @@ fun ColorPickerDialog(
         val min = minOf(r, g, b)
         val delta = max - min
 
-        val h = when {
-            delta == 0f -> 0f
-            max == r -> 60f * (((g - b) / delta) % 6f)
-            max == g -> 60f * (((b - r) / delta) + 2f)
-            else -> 60f * (((r - g) / delta) + 4f)
-        }.let { if (it < 0f) it + 360f else it }
+        val h =
+            when {
+                delta == 0f -> 0f
+                max == r -> 60f * (((g - b) / delta) % 6f)
+                max == g -> 60f * (((b - r) / delta) + 2f)
+                else -> 60f * (((r - g) / delta) + 4f)
+            }.let { if (it < 0f) it + 360f else it }
 
         val v = max
         val s = if (max == 0f) 0f else delta / max
@@ -92,11 +94,12 @@ fun ColorPickerDialog(
         true
     }
 
-    val currentColor = Color.hsv(
-        hue = hue,
-        saturation = saturation.coerceIn(0f, 1f),
-        value = value.coerceIn(0f, 1f),
-    )
+    val currentColor =
+        Color.hsv(
+            hue = hue,
+            saturation = saturation.coerceIn(0f, 1f),
+            value = value.coerceIn(0f, 1f),
+        )
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -115,16 +118,17 @@ fun ColorPickerDialog(
 
                 // プレビュー
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .clip(MaterialTheme.shapes.medium)
-                        .background(currentColor)
-                        .border(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                            shape = MaterialTheme.shapes.medium
-                        ),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                            .background(currentColor)
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                                shape = MaterialTheme.shapes.medium,
+                            ),
                 )
 
                 // SV 正方形
@@ -155,7 +159,7 @@ fun ColorPickerDialog(
                 onClick = {
                     val argb = argbIntFromColor(currentColor)
                     onConfirm(argb)
-                }
+                },
             ) {
                 Text("決定")
             }
@@ -164,7 +168,7 @@ fun ColorPickerDialog(
             TextButton(onClick = onDismiss) {
                 Text("キャンセル")
             }
-        }
+        },
     )
 }
 
@@ -183,28 +187,30 @@ private fun SVColorSquare(
     modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(1f)
-            .clip(MaterialTheme.shapes.medium),
-        contentAlignment = Alignment.Center
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(MaterialTheme.shapes.medium),
+        contentAlignment = Alignment.Center,
     ) {
         var boxWidth by remember { mutableFloatStateOf(0f) }
         var boxHeight by remember { mutableFloatStateOf(0f) }
 
         Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(hue) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            onChangeFromOffset(offset, boxWidth, boxHeight, onChange)
-                        },
-                        onDrag = { change, _ ->
-                            onChangeFromOffset(change.position, boxWidth, boxHeight, onChange)
-                        }
-                    )
-                }
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(hue) {
+                        detectDragGestures(
+                            onDragStart = { offset ->
+                                onChangeFromOffset(offset, boxWidth, boxHeight, onChange)
+                            },
+                            onDrag = { change, _ ->
+                                onChangeFromOffset(change.position, boxWidth, boxHeight, onChange)
+                            },
+                        )
+                    },
         ) {
             // Canvas のサイズを保存
             boxWidth = size.width
@@ -214,19 +220,21 @@ private fun SVColorSquare(
 
             // 横方向: 白→Hue カラー
             drawRect(
-                brush = Brush.horizontalGradient(
-                    0f to Color.White,
-                    1f to hueColor,
-                )
+                brush =
+                    Brush.horizontalGradient(
+                        0f to Color.White,
+                        1f to hueColor,
+                    ),
             )
 
             // 縦方向: 透明→黒 を Multiply で重ねて Value を表現
             drawRect(
-                brush = Brush.verticalGradient(
-                    0f to Color.Transparent,
-                    1f to Color.Black,
-                ),
-                blendMode = BlendMode.Multiply
+                brush =
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        1f to Color.Black,
+                    ),
+                blendMode = BlendMode.Multiply,
             )
 
             // 選択位置のハンドル
@@ -276,10 +284,11 @@ private fun HueSlider(
     onHueChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val gradientColors = remember {
-        val stops = listOf(0f, 60f, 120f, 180f, 240f, 300f, 360f)
-        stops.map { h -> Color.hsv(h, 1f, 1f) }
-    }
+    val gradientColors =
+        remember {
+            val stops = listOf(0f, 60f, 120f, 180f, 240f, 300f, 360f)
+            stops.map { h -> Color.hsv(h, 1f, 1f) }
+        }
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -287,22 +296,24 @@ private fun HueSlider(
     ) {
         Text(text = "色相 (Hue): ${hue.roundToInt()}°")
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(24.dp)
-                .clip(MaterialTheme.shapes.small)
-                .background(
-                    Brush.horizontalGradient(colors = gradientColors)
-                ),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(24.dp)
+                    .clip(MaterialTheme.shapes.small)
+                    .background(
+                        Brush.horizontalGradient(colors = gradientColors),
+                    ),
+            contentAlignment = Alignment.Center,
         ) {
             Slider(
                 value = hue,
                 onValueChange = { onHueChange(it.coerceIn(0f, 360f)) },
                 valueRange = 0f..360f,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 0.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 0.dp),
             )
         }
     }

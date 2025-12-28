@@ -87,8 +87,7 @@ class SettingsDataStore(
                 } else {
                     throw e
                 }
-            }
-            .map { prefs ->
+            }.map { prefs ->
                 prefs.toOverlaySettings()
             }
 
@@ -104,8 +103,7 @@ class SettingsDataStore(
                 } else {
                     throw e
                 }
-            }
-            .map { prefs ->
+            }.map { prefs ->
                 decodeEnum(
                     name = prefs[Keys.SETTINGS_PRESET_NAME],
                     ordinal = prefs[Keys.SETTINGS_PRESET],
@@ -115,9 +113,7 @@ class SettingsDataStore(
                 )
             }
 
-    suspend fun update(
-        transform: (Customize) -> Customize,
-    ) {
+    suspend fun update(transform: (Customize) -> Customize) {
         context.settingsDataStore.edit { prefs ->
             // まず現在値（保存値＋デフォルト）を Customize にデコード
             val current = prefs.toOverlaySettings()
@@ -185,93 +181,115 @@ class SettingsDataStore(
         // Customize() のデフォルトは core.model.CustomizeDefaults を参照している
         val base = Customize()
 
-        val touchMode = decodeEnum(
-            name = this[Keys.TOUCH_MODE_NAME],
-            ordinal = this[Keys.TOUCH_MODE],
-            entries = TimerTouchMode.entries,
-            default = base.touchMode,
-            valueOf = { TimerTouchMode.valueOf(it) },
-        )
+        val touchMode =
+            decodeEnum(
+                name = this[Keys.TOUCH_MODE_NAME],
+                ordinal = this[Keys.TOUCH_MODE],
+                entries = TimerTouchMode.entries,
+                default = base.touchMode,
+                valueOf = { TimerTouchMode.valueOf(it) },
+            )
 
-        val timerTimeMode = decodeEnum(
-            name = this[Keys.TIMER_TIME_MODE_NAME],
-            ordinal = this[Keys.TIMER_TIME_MODE],
-            entries = TimerTimeMode.entries,
-            default = base.timerTimeMode,
-            valueOf = { TimerTimeMode.valueOf(it) },
-        )
+        val timerTimeMode =
+            decodeEnum(
+                name = this[Keys.TIMER_TIME_MODE_NAME],
+                ordinal = this[Keys.TIMER_TIME_MODE],
+                entries = TimerTimeMode.entries,
+                default = base.timerTimeMode,
+                valueOf = { TimerTimeMode.valueOf(it) },
+            )
 
-        val timerVisualTimeBasis = decodeEnum(
-            name = this[Keys.TIMER_VISUAL_TIME_BASIS_NAME],
-            ordinal = this[Keys.TIMER_VISUAL_TIME_BASIS],
-            entries = TimerVisualTimeBasis.entries,
-            default = base.timerVisualTimeBasis,
-            valueOf = { TimerVisualTimeBasis.valueOf(it) },
-        )
+        val timerVisualTimeBasis =
+            decodeEnum(
+                name = this[Keys.TIMER_VISUAL_TIME_BASIS_NAME],
+                ordinal = this[Keys.TIMER_VISUAL_TIME_BASIS],
+                entries = TimerVisualTimeBasis.entries,
+                default = base.timerVisualTimeBasis,
+                valueOf = { TimerVisualTimeBasis.valueOf(it) },
+            )
 
-        val growthMode = decodeEnum(
-            name = this[Keys.GROWTH_MODE_NAME],
-            ordinal = this[Keys.GROWTH_MODE],
-            entries = TimerGrowthMode.entries,
-            default = base.growthMode,
-            valueOf = { TimerGrowthMode.valueOf(it) },
-        )
+        val growthMode =
+            decodeEnum(
+                name = this[Keys.GROWTH_MODE_NAME],
+                ordinal = this[Keys.GROWTH_MODE],
+                entries = TimerGrowthMode.entries,
+                default = base.growthMode,
+                valueOf = { TimerGrowthMode.valueOf(it) },
+            )
 
-        val colorMode = decodeEnum(
-            name = this[Keys.COLOR_MODE_NAME],
-            ordinal = this[Keys.COLOR_MODE],
-            entries = TimerColorMode.entries,
-            default = base.colorMode,
-            valueOf = { TimerColorMode.valueOf(it) },
-        )
+        val colorMode =
+            decodeEnum(
+                name = this[Keys.COLOR_MODE_NAME],
+                ordinal = this[Keys.COLOR_MODE],
+                entries = TimerColorMode.entries,
+                default = base.colorMode,
+                valueOf = { TimerColorMode.valueOf(it) },
+            )
 
-        val timeToMaxSeconds = this[Keys.TIME_TO_MAX_SECONDS]
-            ?: this[Keys.TIME_TO_MAX_MINUTES]?.let { it * 60 }
-            ?: base.timeToMaxSeconds
+        val timeToMaxSeconds =
+            this[Keys.TIME_TO_MAX_SECONDS]
+                ?: this[Keys.TIME_TO_MAX_MINUTES]?.let { it * 60 }
+                ?: base.timeToMaxSeconds
 
         return base.copy(
-            gracePeriodMillis = this[Keys.GRACE_PERIOD_MS]
-                ?: base.gracePeriodMillis,
-            pollingIntervalMillis = this[Keys.POLLING_INTERVAL_MS]
-                ?: base.pollingIntervalMillis,
-            minFontSizeSp = this[Keys.MIN_FONT_SIZE_SP]
-                ?: base.minFontSizeSp,
-            maxFontSizeSp = this[Keys.MAX_FONT_SIZE_SP]
-                ?: base.maxFontSizeSp,
+            gracePeriodMillis =
+                this[Keys.GRACE_PERIOD_MS]
+                    ?: base.gracePeriodMillis,
+            pollingIntervalMillis =
+                this[Keys.POLLING_INTERVAL_MS]
+                    ?: base.pollingIntervalMillis,
+            minFontSizeSp =
+                this[Keys.MIN_FONT_SIZE_SP]
+                    ?: base.minFontSizeSp,
+            maxFontSizeSp =
+                this[Keys.MAX_FONT_SIZE_SP]
+                    ?: base.maxFontSizeSp,
             timeToMaxSeconds = timeToMaxSeconds,
-            overlayEnabled = this[Keys.OVERLAY_ENABLED]
-                ?: base.overlayEnabled,
-            autoStartOnBoot = this[Keys.AUTO_START_ON_BOOT]
-                ?: base.autoStartOnBoot,
-            positionX = this[Keys.POSITION_X]
-                ?: base.positionX,
-            positionY = this[Keys.POSITION_Y]
-                ?: base.positionY,
+            overlayEnabled =
+                this[Keys.OVERLAY_ENABLED]
+                    ?: base.overlayEnabled,
+            autoStartOnBoot =
+                this[Keys.AUTO_START_ON_BOOT]
+                    ?: base.autoStartOnBoot,
+            positionX =
+                this[Keys.POSITION_X]
+                    ?: base.positionX,
+            positionY =
+                this[Keys.POSITION_Y]
+                    ?: base.positionY,
             touchMode = touchMode,
             timerTimeMode = timerTimeMode,
             timerVisualTimeBasis = timerVisualTimeBasis,
             growthMode = growthMode,
             colorMode = colorMode,
             fixedColorArgb = this[Keys.FIXED_COLOR_ARGB] ?: base.fixedColorArgb,
-            gradientStartColorArgb = this[Keys.GRADIENT_START_COLOR_ARGB]
-                ?: base.gradientStartColorArgb,
-            gradientMiddleColorArgb = this[Keys.GRADIENT_MIDDLE_COLOR_ARGB]
-                ?: base.gradientMiddleColorArgb,
-            gradientEndColorArgb = this[Keys.GRADIENT_END_COLOR_ARGB]
-                ?: base.gradientEndColorArgb,
-            suggestionEnabled = this[Keys.SUGGESTION_ENABLED]
-                ?: base.suggestionEnabled,
-            suggestionTriggerSeconds = this[Keys.SUGGESTION_TRIGGER_SECONDS]
-                ?: base.suggestionTriggerSeconds,
-            suggestionTimeoutSeconds = this[Keys.SUGGESTION_TIMEOUT_SECONDS]
-                ?: base.suggestionTimeoutSeconds,
-            suggestionCooldownSeconds = this[Keys.SUGGESTION_COOLDOWN_SECONDS]
-                ?: base.suggestionCooldownSeconds,
+            gradientStartColorArgb =
+                this[Keys.GRADIENT_START_COLOR_ARGB]
+                    ?: base.gradientStartColorArgb,
+            gradientMiddleColorArgb =
+                this[Keys.GRADIENT_MIDDLE_COLOR_ARGB]
+                    ?: base.gradientMiddleColorArgb,
+            gradientEndColorArgb =
+                this[Keys.GRADIENT_END_COLOR_ARGB]
+                    ?: base.gradientEndColorArgb,
+            suggestionEnabled =
+                this[Keys.SUGGESTION_ENABLED]
+                    ?: base.suggestionEnabled,
+            suggestionTriggerSeconds =
+                this[Keys.SUGGESTION_TRIGGER_SECONDS]
+                    ?: base.suggestionTriggerSeconds,
+            suggestionTimeoutSeconds =
+                this[Keys.SUGGESTION_TIMEOUT_SECONDS]
+                    ?: base.suggestionTimeoutSeconds,
+            suggestionCooldownSeconds =
+                this[Keys.SUGGESTION_COOLDOWN_SECONDS]
+                    ?: base.suggestionCooldownSeconds,
             suggestionForegroundStableSeconds =
                 this[Keys.SUGGESTION_FOREGROUND_STABLE_SECONDS]
                     ?: base.suggestionForegroundStableSeconds,
-            restSuggestionEnabled = this[Keys.REST_SUGGESTION_ENABLED]
-                ?: base.restSuggestionEnabled,
+            restSuggestionEnabled =
+                this[Keys.REST_SUGGESTION_ENABLED]
+                    ?: base.restSuggestionEnabled,
             suggestionInteractionLockoutMillis =
                 this[Keys.SUGGESTION_INTERACTION_LOCKOUT_MS]
                     ?: base.suggestionInteractionLockoutMillis,

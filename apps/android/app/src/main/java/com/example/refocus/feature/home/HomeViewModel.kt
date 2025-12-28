@@ -16,35 +16,35 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
-class HomeViewModel @Inject constructor(
-    private val targetsRepository: TargetsRepository,
-    private val appLabelProvider: AppLabelProvider,
-    private val appIconResolver: AppIconProvider,
-) : ViewModel() {
+class HomeViewModel
+    @Inject
+    constructor(
+        private val targetsRepository: TargetsRepository,
+        private val appLabelProvider: AppLabelProvider,
+        private val appIconResolver: AppIconProvider,
+    ) : ViewModel() {
+        data class TargetAppUiModel(
+            val packageName: String,
+            val label: String,
+            val icon: Drawable?,
+        )
 
-    data class TargetAppUiModel(
-        val packageName: String,
-        val label: String,
-        val icon: Drawable?,
-    )
-
-    val targetApps: StateFlow<List<TargetAppUiModel>> =
-        targetsRepository
-            .observeTargets()
-            .mapLatest { pkgs: Set<String> ->
-                withContext(Dispatchers.Default) {
-                    pkgs.map { pkg: String ->
-                        TargetAppUiModel(
-                            packageName = pkg,
-                            label = appLabelProvider.labelOf(pkg),
-                            icon = appIconResolver.iconOf(pkg),
-                        )
+        val targetApps: StateFlow<List<TargetAppUiModel>> =
+            targetsRepository
+                .observeTargets()
+                .mapLatest { pkgs: Set<String> ->
+                    withContext(Dispatchers.Default) {
+                        pkgs.map { pkg: String ->
+                            TargetAppUiModel(
+                                packageName = pkg,
+                                label = appLabelProvider.labelOf(pkg),
+                                icon = appIconResolver.iconOf(pkg),
+                            )
+                        }
                     }
-                }
-            }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = emptyList(),
-            )
-}
+                }.stateIn(
+                    scope = viewModelScope,
+                    started = SharingStarted.WhileSubscribed(5_000),
+                    initialValue = emptyList(),
+                )
+    }

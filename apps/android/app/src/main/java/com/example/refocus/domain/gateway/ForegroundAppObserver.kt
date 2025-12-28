@@ -9,13 +9,10 @@ import kotlinx.coroutines.flow.Flow
  * system 層に実装を置く。
  */
 interface ForegroundAppObserver {
-
     data class ForegroundSample(
         val packageName: String?,
         val generation: Long,
     )
 
-    fun foregroundSampleFlow(
-        pollingIntervalMs: Long = 1_000L,
-    ): Flow<ForegroundSample>
+    fun foregroundSampleFlow(pollingIntervalMs: Long = 1_000L): Flow<ForegroundSample>
 }

@@ -27,7 +27,6 @@ import com.example.refocus.core.model.TimelineEvent
  *   過去のセッション解釈が変わる
  */
 object SessionProjector {
-
     data class SessionWithEvents(
         val session: Session,
         val events: List<SessionEvent>,
@@ -44,7 +43,6 @@ object SessionProjector {
         stopGracePeriodMillis: Long,
         nowMillis: Long,
     ): List<SessionWithEvents> {
-
         var currentForeground: String? = null
         var screenOn: Boolean = true
         var monitoringEnabled: Boolean = true
@@ -82,7 +80,11 @@ object SessionProjector {
          * セッション境界には影響させず「その時点でアクティブなセッション」にイベントだけ付与する。
          * （提案の表示/操作など）
          */
-        fun appendEventIfActive(pkg: String, type: SessionEventType, ts: Long) {
+        fun appendEventIfActive(
+            pkg: String,
+            type: SessionEventType,
+            ts: Long,
+        ) {
             val state = activeSessions[pkg] ?: return
             state.events.add(
                 SessionEvent(
@@ -90,11 +92,14 @@ object SessionProjector {
                     sessionId = state.sessionId,
                     type = type,
                     timestampMillis = ts,
-                )
+                ),
             )
         }
 
-        fun startSession(pkg: String, ts: Long) {
+        fun startSession(
+            pkg: String,
+            ts: Long,
+        ) {
             if (pkg !in currentTargetPackages) return
             if (activeSessions.containsKey(pkg)) return
 
@@ -106,16 +111,20 @@ object SessionProjector {
                     sessionId = id,
                     type = SessionEventType.Start,
                     timestampMillis = ts,
+                ),
+            )
+            activeSessions[pkg] =
+                ActiveState(
+                    sessionId = id,
+                    events = evs,
+                    lastInactiveAtMillis = null,
                 )
-            )
-            activeSessions[pkg] = ActiveState(
-                sessionId = id,
-                events = evs,
-                lastInactiveAtMillis = null,
-            )
         }
 
-        fun endSession(pkg: String, endTimestamp: Long) {
+        fun endSession(
+            pkg: String,
+            endTimestamp: Long,
+        ) {
             val state = activeSessions.remove(pkg) ?: return
             state.events.add(
                 SessionEvent(
@@ -123,21 +132,26 @@ object SessionProjector {
                     sessionId = state.sessionId,
                     type = SessionEventType.End,
                     timestampMillis = endTimestamp,
-                )
-            )
-            finished += SessionWithEvents(
-                session = Session(
-                    id = state.sessionId,
-                    packageName = pkg,
                 ),
-                events = state.events.sortedBy { it.timestampMillis },
             )
+            finished +=
+                SessionWithEvents(
+                    session =
+                        Session(
+                            id = state.sessionId,
+                            packageName = pkg,
+                        ),
+                    events = state.events.sortedBy { it.timestampMillis },
+                )
         }
 
         /**
          * アプリが「アクティブでなくなった」ことを記録（Pause + 非アクティブ開始時刻）。
          */
-        fun markInactive(pkg: String, ts: Long) {
+        fun markInactive(
+            pkg: String,
+            ts: Long,
+        ) {
             val state = activeSessions[pkg] ?: return
             // すでに非アクティブなら何もしない
             if (state.lastInactiveAtMillis != null) return
@@ -149,7 +163,7 @@ object SessionProjector {
                     sessionId = state.sessionId,
                     type = SessionEventType.Pause,
                     timestampMillis = ts,
-                )
+                ),
             )
         }
 
@@ -184,7 +198,7 @@ object SessionProjector {
                     sessionId = state.sessionId,
                     type = SessionEventType.Resume,
                     timestampMillis = ts,
-                )
+                ),
             )
         }
 
@@ -195,15 +209,16 @@ object SessionProjector {
          * 揃えておき、停止猶予はあくまで「同じセッションを再利用するための窓」として使う。
          */
         fun applyGraceTimeout(cutoffTs: Long) {
-            val toClose = activeSessions
-                .mapNotNull { (pkg, state) ->
-                    val inactiveAt = state.lastInactiveAtMillis ?: return@mapNotNull null
-                    if (cutoffTs - inactiveAt >= stopGracePeriodMillis) {
-                        pkg to inactiveAt
-                    } else {
-                        null
+            val toClose =
+                activeSessions
+                    .mapNotNull { (pkg, state) ->
+                        val inactiveAt = state.lastInactiveAtMillis ?: return@mapNotNull null
+                        if (cutoffTs - inactiveAt >= stopGracePeriodMillis) {
+                            pkg to inactiveAt
+                        } else {
+                            null
+                        }
                     }
-                }
 
             for ((pkg, endAt) in toClose) {
                 endSession(pkg, endAt)
@@ -287,16 +302,17 @@ object SessionProjector {
 
                 is SuggestionDecisionEvent -> {
                     // 操作も同様に「アクティブなセッション」に付与する
-                    val t = when (event.decision) {
-                        SuggestionDecision.Snoozed ->
-                            SessionEventType.SuggestionSnoozed
+                    val t =
+                        when (event.decision) {
+                            SuggestionDecision.Snoozed ->
+                                SessionEventType.SuggestionSnoozed
 
-                        SuggestionDecision.Dismissed ->
-                            SessionEventType.SuggestionDismissed
+                            SuggestionDecision.Dismissed ->
+                                SessionEventType.SuggestionDismissed
 
-                        SuggestionDecision.DisabledForSession ->
-                            SessionEventType.SuggestionDisabledForSession
-                    }
+                            SuggestionDecision.DisabledForSession ->
+                                SessionEventType.SuggestionDisabledForSession
+                        }
                     appendEventIfActive(event.packageName, t, ts)
                 }
 
@@ -313,15 +329,17 @@ object SessionProjector {
         // - いまもアクティブ中
         // - 「停止猶予内で一時離脱中」
         // のどちらかなので、未終了セッションとして返す。
-        val ongoing = activeSessions.map { (pkg, state) ->
-            SessionWithEvents(
-                session = Session(
-                    id = state.sessionId,
-                    packageName = pkg,
-                ),
-                events = state.events.sortedBy { it.timestampMillis },
-            )
-        }
+        val ongoing =
+            activeSessions.map { (pkg, state) ->
+                SessionWithEvents(
+                    session =
+                        Session(
+                            id = state.sessionId,
+                            packageName = pkg,
+                        ),
+                    events = state.events.sortedBy { it.timestampMillis },
+                )
+            }
 
         return (finished + ongoing).sortedBy { it.session.id ?: 0L }
     }

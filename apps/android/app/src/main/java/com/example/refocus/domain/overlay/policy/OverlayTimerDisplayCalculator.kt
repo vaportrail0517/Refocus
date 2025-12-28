@@ -24,14 +24,16 @@ internal class OverlayTimerDisplayCalculator(
     private val customizeProvider: () -> Customize,
     private val lastTargetPackagesProvider: () -> Set<String>,
 ) {
-    private val displayProviderSelector = TimerDisplayValueProviderSelector(
-        sessionTracker = sessionTracker,
-        dailyUsageUseCase = dailyUsageUseCase,
-    )
+    private val displayProviderSelector =
+        TimerDisplayValueProviderSelector(
+            sessionTracker = sessionTracker,
+            dailyUsageUseCase = dailyUsageUseCase,
+        )
 
-    private val visualBasisProviderSelector = TimerVisualBasisProviderSelector(
-        sessionTracker = sessionTracker,
-    )
+    private val visualBasisProviderSelector =
+        TimerVisualBasisProviderSelector(
+            sessionTracker = sessionTracker,
+        )
 
     fun currentTimerDisplayMillis(trackingPackage: String?): Long? {
         val pkg = trackingPackage ?: return null

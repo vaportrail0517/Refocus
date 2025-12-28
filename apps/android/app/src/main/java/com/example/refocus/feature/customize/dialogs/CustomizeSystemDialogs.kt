@@ -13,7 +13,7 @@ import com.example.refocus.ui.components.SingleChoiceDialog
 fun GraceTimeDialog(
     currentMillis: Long,
     onConfirm: (Long) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val maxGraceMillis = 10 * 60_000L
     val stepMillis = 60_000L
@@ -39,7 +39,7 @@ fun GraceTimeDialog(
 fun PollingIntervalDialog(
     currentMillis: Long,
     onConfirm: (Long) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     data class PollingOption(
         val ms: Long,
@@ -48,18 +48,20 @@ fun PollingIntervalDialog(
         val label: String get() = "$ms ms"
     }
 
-    val pollingOptions = remember {
-        listOf(
-            PollingOption(250L, "最も素早い反応．バッテリ負荷やや高め．"),
-            PollingOption(500L, "標準的なバランス．反応と電池のバランスが良い．"),
-            PollingOption(1000L, "ややゆっくり．電池を少し節約したい場合．"),
-            PollingOption(2000L, "最も省エネ．反応はゆっくりになる．"),
-        )
-    }
+    val pollingOptions =
+        remember {
+            listOf(
+                PollingOption(250L, "最も素早い反応．バッテリ負荷やや高め．"),
+                PollingOption(500L, "標準的なバランス．反応と電池のバランスが良い．"),
+                PollingOption(1000L, "ややゆっくり．電池を少し節約したい場合．"),
+                PollingOption(2000L, "最も省エネ．反応はゆっくりになる．"),
+            )
+        }
 
-    val initialOption = pollingOptions.minByOrNull { option ->
-        kotlin.math.abs(option.ms - currentMillis)
-    } ?: pollingOptions[1]
+    val initialOption =
+        pollingOptions.minByOrNull { option ->
+            kotlin.math.abs(option.ms - currentMillis)
+        } ?: pollingOptions[1]
 
     SingleChoiceDialog(
         title = "監視間隔",

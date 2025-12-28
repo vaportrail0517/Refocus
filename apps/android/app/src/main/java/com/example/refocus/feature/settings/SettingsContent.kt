@@ -3,9 +3,7 @@ package com.example.refocus.feature.settings
 import android.app.Activity
 import android.content.Context
 import android.os.Build
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import com.example.refocus.domain.overlay.port.OverlayServiceController
@@ -39,7 +37,7 @@ fun SettingsContent(
 
     // --- 権限 ---
     SectionCard(
-        title = "権限"
+        title = "権限",
     ) {
         SettingRow(
             title = "使用状況へのアクセス",
@@ -48,12 +46,12 @@ fun SettingsContent(
                 Switch(
                     checked = usageGranted,
                     onCheckedChange = null,
-                    enabled = true
+                    enabled = true,
                 )
             },
             onClick = {
                 activity?.let { permissionNavigator.openUsageAccessSettings(it) }
-            }
+            },
         )
         SettingRow(
             title = "他のアプリの上に表示",
@@ -62,12 +60,12 @@ fun SettingsContent(
                 Switch(
                     checked = overlayGranted,
                     onCheckedChange = null,
-                    enabled = true
+                    enabled = true,
                 )
             },
             onClick = {
                 activity?.let { permissionNavigator.openOverlaySettings(it) }
-            }
+            },
         )
 
         SettingRow(
@@ -77,7 +75,7 @@ fun SettingsContent(
                 Switch(
                     checked = notificationGranted,
                     onCheckedChange = null,
-                    enabled = true
+                    enabled = true,
                 )
             },
             onClick = {
@@ -86,23 +84,24 @@ fun SettingsContent(
                 } else {
                     onOpenNotificationSettings()
                 }
-            }
+            },
         )
     }
 
     // --- 起動 ---
     SectionCard(
-        title = "起動"
+        title = "起動",
     ) {
         SettingRow(
             title = "Refocus を動かす",
-            subtitle = if (!hasCorePermissions) {
-                "権限が足りないため、現在 Refocus を動かすことはできません。上の「権限」から設定を有効にしてください。"
-            } else if (isServiceRunning) {
-                "現在: 計測中（対象アプリ利用時に連続使用時間を記録します）"
-            } else {
-                "現在: 停止中（対象アプリの計測は行われていません）"
-            },
+            subtitle =
+                if (!hasCorePermissions) {
+                    "権限が足りないため、現在 Refocus を動かすことはできません。上の「権限」から設定を有効にしてください。"
+                } else if (isServiceRunning) {
+                    "現在: 計測中（対象アプリ利用時に連続使用時間を記録します）"
+                } else {
+                    "現在: 停止中（対象アプリの計測は行われていません）"
+                },
             trailing = {
                 val checked = uiState.customize.overlayEnabled && isServiceRunning
                 Switch(
@@ -136,7 +135,7 @@ fun SettingsContent(
                                 onServiceRunningChange(false)
                             }
                         }
-                    }
+                    },
                 )
             },
             onClick = {
@@ -167,7 +166,7 @@ fun SettingsContent(
                         onServiceRunningChange(false)
                     }
                 }
-            }
+            },
         )
         SettingRow(
             title = "端末起動時に自動起動",
@@ -183,7 +182,7 @@ fun SettingsContent(
                             return@Switch
                         }
                         viewModel.updateAutoStartOnBoot(enabled)
-                    }
+                    },
                 )
             },
             onClick = {
@@ -192,7 +191,7 @@ fun SettingsContent(
                     return@SettingRow
                 }
                 viewModel.updateAutoStartOnBoot(!uiState.customize.autoStartOnBoot)
-            }
+            },
         )
     }
 

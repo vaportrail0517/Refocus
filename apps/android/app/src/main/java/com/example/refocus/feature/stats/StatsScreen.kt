@@ -62,9 +62,10 @@ fun StatsScreen(
         when {
             uiState.isLoading -> {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator()
@@ -73,10 +74,11 @@ fun StatsScreen(
 
             uiState.todayStats == null -> {
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                        .padding(16.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                            .padding(16.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text("まだ統計データがありません．")
@@ -92,9 +94,10 @@ fun StatsScreen(
                 StatsContent(
                     stats = uiState.todayStats,
                     appLabelByPackage = uiState.appLabelByPackage,
-                    modifier = Modifier
-                        .padding(innerPadding)
-                        .padding(16.dp),
+                    modifier =
+                        Modifier
+                            .padding(innerPadding)
+                            .padding(16.dp),
                     onOpenHistory = onOpenHistory,
                     onOpenSection = onOpenDetail,
                 )
@@ -112,9 +115,10 @@ private fun StatsContent(
     onOpenSection: (StatsDetailSection) -> Unit = {},
 ) {
     LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // Refocus の動作状況（監視時間）
