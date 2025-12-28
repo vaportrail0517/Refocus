@@ -9,8 +9,10 @@ import com.example.refocus.domain.timeline.TimelineInterpretationConfig
 import com.example.refocus.domain.timeline.TimelineProjector
 import com.example.refocus.domain.timeline.TimelineWindowEventsLoader
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
@@ -193,11 +195,14 @@ class DailyUsageUseCase(
         if (customize.timerTimeMode == TimerTimeMode.SessionElapsed) return
         if (!needsSnapshotRefresh(customize, targetPackages, nowMillis)) return
 
-        val job = refreshJob
-        if (job != null && job.isActive) return
+        // requestRefreshIfNeeded は複数箇所（overlay tick / 設定変更など）から並行に呼ばれ得る．
+        // - refreshJob のチェックと代入は lock で原子的に行い，多重起動を防ぐ
+        // - finally で refreshJob を無条件に null にすると，新しいジョブを古いジョブが消してしまう可能性がある
+        //   （invalidate→再起動，などのタイミングで起こり得る）ため，自己同一性を見てクリアする
 
-        refreshJob =
-            scope.launch {
+        val jobCandidate =
+            scope.launch(start = CoroutineStart.LAZY) {
+                val self = coroutineContext.job
                 try {
                     refreshIfNeeded(
                         customize = customize,
@@ -209,9 +214,31 @@ class DailyUsageUseCase(
                     if (e is CancellationException) throw e
                     RefocusLog.w(TAG, e) { "refreshIfNeeded failed" }
                 } finally {
-                    refreshJob = null
+                    synchronized(lock) {
+                        if (refreshJob === self) {
+                            refreshJob = null
+                        }
+                    }
                 }
             }
+
+        val shouldStart: Boolean =
+            synchronized(lock) {
+                val existing = refreshJob
+                if (existing != null && existing.isActive) {
+                    false
+                } else {
+                    refreshJob = jobCandidate
+                    true
+                }
+            }
+
+        if (!shouldStart) {
+            jobCandidate.cancel()
+            return
+        }
+
+        jobCandidate.start()
     }
 
     /**

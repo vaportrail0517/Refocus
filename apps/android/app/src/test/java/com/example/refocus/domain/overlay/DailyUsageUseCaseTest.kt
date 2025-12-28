@@ -15,6 +15,7 @@ import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.domain.overlay.usecase.DailyUsageUseCase
 import com.example.refocus.testutil.BlockingTimelineRepository
 import com.example.refocus.testutil.FakeTimelineRepository
+import com.example.refocus.testutil.NonCancellableBlockingTimelineRepository
 import com.example.refocus.testutil.TestTimeSource
 import com.example.refocus.testutil.UtcTimeZoneRule
 import kotlinx.coroutines.CoroutineScope
@@ -275,6 +276,97 @@ class DailyUsageUseCaseTest {
             assertEquals(10 * 60 * 1_000L + 1_000L, useCase.getTodayThisTargetMillis(pkgA))
             assertEquals(5 * 60 * 1_000L, useCase.getTodayThisTargetMillis(pkgB))
             assertEquals(15 * 60 * 1_000L + 1_000L, useCase.getTodayAllTargetsMillis())
+        }
+
+    @Test
+    fun requestRefreshIfNeeded_doesNotStartAnotherRefreshWhenOldJobFinishesAfterInvalidate() =
+        runBlocking<Unit> {
+            val pkgA = "com.example.a"
+
+            val dayStart = Instant.parse("2025-01-01T00:00:00Z").toEpochMilli()
+            val now = Instant.parse("2025-01-01T10:00:00Z").toEpochMilli()
+
+            val events: List<TimelineEvent> =
+                listOf(
+                    TargetAppsChangedEvent(
+                        timestampMillis = dayStart,
+                        targetPackages = setOf(pkgA),
+                    ),
+                    ServiceLifecycleEvent(
+                        timestampMillis = dayStart,
+                        state = ServiceState.Started,
+                    ),
+                    ScreenEvent(
+                        timestampMillis = dayStart,
+                        state = ScreenState.On,
+                    ),
+                )
+
+            val repo = NonCancellableBlockingTimelineRepository(initialEvents = events)
+            val timeSource = TestTimeSource(initialNowMillis = now, initialElapsedRealtime = 0L)
+
+            val useCase =
+                DailyUsageUseCase(
+                    scope = CoroutineScope(Dispatchers.Unconfined),
+                    timeSource = timeSource,
+                    timelineRepository = repo,
+                    lookbackHours = 24,
+                )
+
+            val customize =
+                Customize(
+                    timerTimeMode = TimerTimeMode.TodayAllTargets,
+                    gracePeriodMillis = 0L,
+                )
+
+            // 1 本目の refresh を開始し，getEvents でブロックさせる
+            useCase.requestRefreshIfNeeded(
+                customize = customize,
+                targetPackages = setOf(pkgA),
+                nowMillis = now,
+            )
+
+            withTimeout(1_000L) {
+                while (repo.getEventsCallCount.get() < 1) {
+                    delay(10L)
+                }
+            }
+
+            // cancel して refreshJob をクリアするが，getEvents は NonCancellable なので
+            // 1 本目のジョブは遅れて finally まで到達し得る
+            useCase.invalidate()
+
+            // 2 本目の refresh を開始し，こちらも getEvents でブロックさせる
+            useCase.requestRefreshIfNeeded(
+                customize = customize,
+                targetPackages = setOf(pkgA),
+                nowMillis = now,
+            )
+
+            withTimeout(1_000L) {
+                while (repo.getEventsCallCount.get() < 2) {
+                    delay(10L)
+                }
+            }
+
+            // 両方を解放．2 本目は repo 側でわざと遅延されるため，
+            // 1 本目の finally が 2 本目の実行中に走る時間窓ができる
+            repo.gate.complete(Unit)
+            delay(50L)
+
+            // ここで refreshJob の参照が壊れていると，3 本目が起動してしまう
+            useCase.requestRefreshIfNeeded(
+                customize = customize,
+                targetPackages = setOf(pkgA),
+                nowMillis = now,
+            )
+
+            // 起動してしまう場合は getEventsCallCount が増えるので，少し待って確認する
+            delay(150L)
+            assertEquals(2, repo.getEventsCallCount.get())
+
+            // バックグラウンドジョブの片付け（テストの安定化）
+            delay(400L)
         }
 
     @Test
