@@ -162,7 +162,6 @@ tasks.register("checkDomainBoundaries") {
             "com.example.refocus.feature.",
             "com.example.refocus.ui.",
             // プリセットやデフォルト値などの「アプリ設定」は domain へ流れ込ませない
-            "com.example.refocus.config.",
         )
 
         val violations = mutableListOf<String>()
@@ -268,14 +267,13 @@ tasks.register("checkFeatureBoundaries") {
  */
 tasks.register("checkSystemBoundaries") {
     group = "verification"
-    description = "Fails if system layer depends on app/feature/config/data layers via imports."
+    description = "Fails if system layer depends on app/feature/data layers via imports."
 
     doLast {
         val forbiddenImportPrefixes = listOf(
             "com.example.refocus.app.",
             "com.example.refocus.feature.",
             // プリセットやデフォルト値などの「アプリ設定」は app 側に閉じる
-            "com.example.refocus.config.",
             // system は repository 実装に直接依存せず，domain 経由で注入する
             "com.example.refocus.data.",
         )

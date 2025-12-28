@@ -66,10 +66,6 @@ class SettingsCommand @Inject constructor(
         const val SuggestionInteractionLockoutMillis = "suggestionInteractionLockoutMillis"
 
         const val OverlayPosition = "overlayPosition"
-        const val FontPreset = "fontPreset"
-        const val TimeToMaxPreset = "timeToMaxPreset"
-        const val GracePreset = "gracePreset"
-        const val SuggestionTriggerPreset = "suggestionTriggerPreset"
     }
 
     private fun buildValueDescription(

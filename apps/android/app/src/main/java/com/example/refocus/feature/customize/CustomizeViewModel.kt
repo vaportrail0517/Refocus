@@ -2,14 +2,6 @@ package com.example.refocus.feature.customize
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.refocus.config.CustomizeBasicPresets.withFontPreset
-import com.example.refocus.config.CustomizeBasicPresets.withGracePreset
-import com.example.refocus.config.CustomizeBasicPresets.withSuggestionTriggerPreset
-import com.example.refocus.config.CustomizeBasicPresets.withTimeToMaxPreset
-import com.example.refocus.config.FontPreset
-import com.example.refocus.config.GracePreset
-import com.example.refocus.config.SuggestionTriggerPreset
-import com.example.refocus.config.TimeToMaxPreset
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.CustomizePreset
 import com.example.refocus.core.model.TimerColorMode
@@ -294,30 +286,6 @@ class CustomizeViewModel @Inject constructor(
         ) { copy(suggestionInteractionLockoutMillis = ms) }
 
     // --- プリセット ---
-
-    fun applyFontPreset(preset: FontPreset) =
-        updateSettingsAsCustom(
-            key = SettingsCommand.Keys.FontPreset,
-            newValueDescription = preset.name,
-        ) { withFontPreset(preset) }
-
-    fun applyTimeToMaxPreset(preset: TimeToMaxPreset) =
-        updateSettingsAsCustom(
-            key = SettingsCommand.Keys.TimeToMaxPreset,
-            newValueDescription = preset.name,
-        ) { withTimeToMaxPreset(preset) }
-
-    fun applyGracePreset(preset: GracePreset) =
-        updateSettingsAsCustom(
-            key = SettingsCommand.Keys.GracePreset,
-            newValueDescription = preset.name,
-        ) { withGracePreset(preset) }
-
-    fun applySuggestionTriggerPreset(preset: SuggestionTriggerPreset) =
-        updateSettingsAsCustom(
-            key = SettingsCommand.Keys.SuggestionTriggerPreset,
-            newValueDescription = preset.name,
-        ) { withSuggestionTriggerPreset(preset) }
 
     fun applyPreset(preset: CustomizePreset) {
         viewModelScope.launch {

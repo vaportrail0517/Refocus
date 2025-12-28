@@ -1,6 +1,6 @@
 package com.example.refocus.data.repository
 
-import com.example.refocus.config.CustomizePresetValues
+import com.example.refocus.core.preset.CustomizePresetValues
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.CustomizePreset
 import com.example.refocus.data.datastore.SettingsDataStore
@@ -35,7 +35,7 @@ class SettingsRepositoryImpl(
         when (preset) {
             CustomizePreset.Default -> {
                 dataStore.update { current ->
-                    CustomizePresetValues.Default.copy(
+                    CustomizePresetValues.default.copy(
                         // 「状態」に近い値は引き継ぐ
                         overlayEnabled = current.overlayEnabled,
                         autoStartOnBoot = current.autoStartOnBoot,
@@ -51,7 +51,7 @@ class SettingsRepositoryImpl(
 
             CustomizePreset.Debug -> {
                 dataStore.update { current ->
-                    CustomizePresetValues.Debug.copy(
+                    CustomizePresetValues.debug.copy(
                         overlayEnabled = current.overlayEnabled,
                         autoStartOnBoot = current.autoStartOnBoot,
                         positionX = current.positionX,
