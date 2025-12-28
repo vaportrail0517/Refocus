@@ -43,19 +43,10 @@ android {
     buildFeatures {
         compose = true
     }
-
-    sourceSets {
-        // Room の schema JSON を migration テストで参照するために androidTest の assets に含める
-        getByName("androidTest") {
-            assets.srcDirs("$projectDir/schemas")
-        }
-    }
 }
 
 kapt {
     arguments {
-        // Room がスキーマJSONを吐き出すディレクトリ
-        arg("room.schemaLocation", "$projectDir/schemas")
         // お好みで（ビルド高速化系）
         arg("room.incremental", "true")
         arg("room.expandProjection", "true")
@@ -90,37 +81,15 @@ dependencies {
     implementation(libs.hilt.android)
     kapt(libs.hilt.android.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-
-    // Room の migration schema 読み込みは kotlinx.serialization を使う．
-    // kotlinx.serialization の runtime が「Room 側の serializer（Room がビルド時に想定した ABI）」とズレると，
-    // `AbstractMethodError: ... GeneratedSerializer.typeParametersSerializers()` のような実行時エラーで落ちることがある．
-    //
-    // 本プロジェクトでは，Room（room-migration）が 1.8.x 系で生成された serializer を含むため，
-    // runtime 側も 1.8.x に揃えておかないとテスト実行時に
-    // `AbstractMethodError: ... GeneratedSerializer.typeParametersSerializers()` で落ちることがある．
-    // そこで，app（debugRuntimeClasspath）と androidTest の両方で 1.8.1 に揃えて固定する．
-    constraints {
-        val serializationVersion = "1.8.1"
-
-        listOf("implementation", "androidTestImplementation").forEach { conf ->
-            add(conf, "org.jetbrains.kotlinx:kotlinx-serialization-core") {
-                version { strictly(serializationVersion) }
-            }
-            add(conf, "org.jetbrains.kotlinx:kotlinx-serialization-json") {
-                version { strictly(serializationVersion) }
-            }
-            add(conf, "org.jetbrains.kotlinx:kotlinx-serialization-json-okio") {
-                version { strictly(serializationVersion) }
-            }
-        }
-    }
 }
 
 /**
@@ -143,7 +112,6 @@ val systemSourceRoots = listOf(
     file("src/main/java/com/example/refocus/system"),
     file("src/main/kotlin/com/example/refocus/system"),
 )
-
 
 tasks.register("checkDomainBoundaries") {
     group = "verification"
@@ -256,8 +224,6 @@ tasks.register("checkFeatureBoundaries") {
         }
     }
 }
-
-
 
 /**
  * System（Android 実装）レイヤは，app / feature / config / data へ依存しない．

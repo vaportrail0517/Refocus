@@ -16,7 +16,7 @@ import com.example.refocus.data.db.entity.TimelineEventEntity
         AppCatalogEntity::class,
     ],
     version = REFOCUS_DB_VERSION,
-    exportSchema = true
+    exportSchema = false
 )
 abstract class RefocusDatabase : RoomDatabase() {
 
