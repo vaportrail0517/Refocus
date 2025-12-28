@@ -46,11 +46,6 @@ import com.example.refocus.feature.suggestions.components.SuggestionViewSheet
 import com.example.refocus.feature.suggestions.components.SwipeToDeleteBackground
 import kotlinx.coroutines.launch
 
-private enum class EditorSheetMode {
-    View,
-    Edit,
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SuggestionsScreen(
@@ -71,31 +66,18 @@ fun SuggestionsScreen(
     onDeleteConfirmed: (Long) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
-    var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var isEditorVisible by rememberSaveable { mutableStateOf(false) }
-    var editingSuggestionId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var isCreatingNew by rememberSaveable { mutableStateOf(false) }
-    var draftTitle by rememberSaveable { mutableStateOf("") }
-    var draftTimeSlots by rememberSaveable(stateSaver = TimeSlotsStateSaver) {
-        mutableStateOf(setOf(SuggestionTimeSlot.Anytime))
+
+    var screenState by rememberSaveable(stateSaver = SuggestionsScreenStateSaver) {
+        mutableStateOf(SuggestionsScreenState())
     }
-    var draftDurationTag by rememberSaveable { mutableStateOf(SuggestionDurationTag.Medium) }
-    var draftPriority by rememberSaveable { mutableStateOf(SuggestionPriority.Normal) }
-    var initialTitle by rememberSaveable { mutableStateOf("") }
-    var initialTimeSlots by rememberSaveable(stateSaver = TimeSlotsStateSaver) {
-        mutableStateOf(setOf(SuggestionTimeSlot.Anytime))
-    }
-    var initialDurationTag by rememberSaveable { mutableStateOf(SuggestionDurationTag.Medium) }
-    var initialPriority by rememberSaveable { mutableStateOf(SuggestionPriority.Normal) }
-    var showDiscardConfirm by rememberSaveable { mutableStateOf(false) }
-    var sheetMode by rememberSaveable { mutableStateOf(EditorSheetMode.View) }
+
     val sheetState =
         rememberModalBottomSheetState(
             skipPartiallyExpanded = false,
         )
 
-    LaunchedEffect(isEditorVisible) {
-        if (isEditorVisible) {
+    LaunchedEffect(screenState.isEditorVisible) {
+        if (screenState.isEditorVisible) {
             coroutineScope.launch {
                 sheetState.expand()
             }
@@ -148,7 +130,10 @@ fun SuggestionsScreen(
                             LaunchedEffect(dismissState.currentValue) {
                                 val value = dismissState.currentValue
                                 if (value != SwipeToDismissBoxValue.Settled) {
-                                    pendingDeleteId = suggestion.id
+                                    screenState =
+                                        screenState.copy(
+                                            pendingDeleteId = suggestion.id,
+                                        )
                                     dismissState.snapTo(SwipeToDismissBoxValue.Settled)
                                 }
                             }
@@ -170,20 +155,7 @@ fun SuggestionsScreen(
                                         SuggestionCard(
                                             suggestion = suggestion,
                                             onClick = {
-                                                editingSuggestionId = suggestion.id
-                                                isCreatingNew = false
-                                                // 初期値（開いた瞬間の値）
-                                                initialTitle = suggestion.title
-                                                initialTimeSlots = suggestion.timeSlots
-                                                initialDurationTag = suggestion.durationTag
-                                                initialPriority = suggestion.priority
-                                                // 編集用ドラフト（最初は初期値と同じ）
-                                                draftTitle = suggestion.title
-                                                draftTimeSlots = suggestion.timeSlots
-                                                draftDurationTag = suggestion.durationTag
-                                                draftPriority = suggestion.priority
-                                                sheetMode = EditorSheetMode.View
-                                                isEditorVisible = true
+                                                screenState = screenState.openForView(suggestion)
                                             },
                                         )
                                     },
@@ -196,20 +168,7 @@ fun SuggestionsScreen(
 
             FloatingActionButton(
                 onClick = {
-                    editingSuggestionId = null
-                    isCreatingNew = true
-                    // 新規の初期値
-                    initialTitle = ""
-                    initialTimeSlots = setOf(SuggestionTimeSlot.Anytime)
-                    initialDurationTag = SuggestionDurationTag.Medium
-                    initialPriority = SuggestionPriority.Normal
-                    // ドラフト
-                    draftTitle = ""
-                    draftTimeSlots = setOf(SuggestionTimeSlot.Anytime)
-                    draftDurationTag = SuggestionDurationTag.Medium
-                    draftPriority = SuggestionPriority.Normal
-                    sheetMode = EditorSheetMode.Edit
-                    isEditorVisible = true
+                    screenState = screenState.openForCreate()
                 },
                 modifier =
                     Modifier
@@ -222,43 +181,47 @@ fun SuggestionsScreen(
                 )
             }
 
-            if (isEditorVisible) {
+            if (screenState.isEditorVisible) {
                 ModalBottomSheet(
                     onDismissRequest = {
-                        if (sheetMode == EditorSheetMode.Edit) {
-                            val isDirty =
-                                draftTitle != initialTitle ||
-                                    draftTimeSlots != initialTimeSlots ||
-                                    draftDurationTag != initialDurationTag ||
-                                    draftPriority != initialPriority
-                            if (isDirty) {
-                                showDiscardConfirm = true
-                            } else {
-                                isEditorVisible = false
-                            }
+                        if (screenState.sheetMode == EditorSheetMode.Edit && screenState.isDirty) {
+                            screenState =
+                                screenState.copy(
+                                    showDiscardConfirm = true,
+                                )
                         } else {
-                            isEditorVisible = false
+                            screenState =
+                                screenState.copy(
+                                    isEditorVisible = false,
+                                    showDiscardConfirm = false,
+                                )
                         }
                     },
                     sheetState = sheetState,
                 ) {
-                    when (sheetMode) {
+                    when (screenState.sheetMode) {
                         EditorSheetMode.View -> {
                             SuggestionViewSheet(
-                                title = draftTitle,
-                                timeSlots = draftTimeSlots,
-                                durationTag = draftDurationTag,
-                                priority = draftPriority,
+                                title = screenState.draft.title,
+                                timeSlots = screenState.draft.timeSlots,
+                                durationTag = screenState.draft.durationTag,
+                                priority = screenState.draft.priority,
                                 onClose = {
-                                    isEditorVisible = false
+                                    screenState = screenState.closeEditor()
                                 },
                                 onEdit = {
-                                    sheetMode = EditorSheetMode.Edit
+                                    screenState =
+                                        screenState.copy(
+                                            sheetMode = EditorSheetMode.Edit,
+                                        )
                                 },
                                 onDelete = {
-                                    val id = editingSuggestionId
+                                    val id = screenState.editingSuggestionId
                                     if (id != null) {
-                                        pendingDeleteId = id
+                                        screenState =
+                                            screenState.copy(
+                                                pendingDeleteId = id,
+                                            )
                                     }
                                 },
                             )
@@ -266,62 +229,83 @@ fun SuggestionsScreen(
 
                         EditorSheetMode.Edit -> {
                             SuggestionEditorSheet(
-                                title = draftTitle,
-                                onTitleChange = { draftTitle = it },
+                                title = screenState.draft.title,
+                                onTitleChange = { title ->
+                                    screenState =
+                                        screenState.copy(
+                                            draft = screenState.draft.copy(title = title),
+                                        )
+                                },
                                 onConfirm = {
-                                    if (isCreatingNew) {
+                                    if (screenState.isCreatingNew) {
                                         onCreateSuggestion(
-                                            draftTitle,
-                                            draftTimeSlots,
-                                            draftDurationTag,
-                                            draftPriority,
+                                            screenState.draft.title,
+                                            screenState.draft.timeSlots,
+                                            screenState.draft.durationTag,
+                                            screenState.draft.priority,
                                         )
                                     } else {
-                                        val id = editingSuggestionId
+                                        val id = screenState.editingSuggestionId
                                         if (id != null) {
                                             onUpdateSuggestion(
                                                 id,
-                                                draftTitle,
-                                                draftTimeSlots,
-                                                draftDurationTag,
-                                                draftPriority,
+                                                screenState.draft.title,
+                                                screenState.draft.timeSlots,
+                                                screenState.draft.durationTag,
+                                                screenState.draft.priority,
                                             )
                                         }
                                     }
-                                    isEditorVisible = false
+                                    screenState = screenState.closeEditor()
                                 },
                                 onCancel = {
-                                    val isDirty =
-                                        draftTitle != initialTitle ||
-                                            draftTimeSlots != initialTimeSlots ||
-                                            draftDurationTag != initialDurationTag ||
-                                            draftPriority != initialPriority
-
-                                    if (isDirty) {
-                                        showDiscardConfirm = true
+                                    if (screenState.isDirty) {
+                                        screenState =
+                                            screenState.copy(
+                                                showDiscardConfirm = true,
+                                            )
                                     } else {
-                                        isEditorVisible = false
+                                        screenState = screenState.closeEditor()
                                     }
                                 },
-                                timeSlots = draftTimeSlots,
+                                timeSlots = screenState.draft.timeSlots,
                                 onToggleTimeSlot = { slot ->
-                                    draftTimeSlots = toggleTimeSlots(draftTimeSlots, slot)
+                                    screenState =
+                                        screenState.copy(
+                                            draft =
+                                                screenState.draft.copy(
+                                                    timeSlots = toggleTimeSlots(screenState.draft.timeSlots, slot),
+                                                ),
+                                        )
                                 },
-                                durationTag = draftDurationTag,
-                                onDurationTagChange = { draftDurationTag = it },
-                                priority = draftPriority,
-                                onPriorityChange = { draftPriority = it },
+                                durationTag = screenState.draft.durationTag,
+                                onDurationTagChange = { tag ->
+                                    screenState =
+                                        screenState.copy(
+                                            draft = screenState.draft.copy(durationTag = tag),
+                                        )
+                                },
+                                priority = screenState.draft.priority,
+                                onPriorityChange = { priority ->
+                                    screenState =
+                                        screenState.copy(
+                                            draft = screenState.draft.copy(priority = priority),
+                                        )
+                                },
                             )
                         }
                     }
                 }
             }
 
-            if (showDiscardConfirm) {
+            if (screenState.showDiscardConfirm) {
                 AlertDialog(
                     onDismissRequest = {
-                        showDiscardConfirm = false
-                        if (isEditorVisible) {
+                        screenState =
+                            screenState.copy(
+                                showDiscardConfirm = false,
+                            )
+                        if (screenState.isEditorVisible) {
                             coroutineScope.launch {
                                 sheetState.show()
                             }
@@ -332,8 +316,7 @@ fun SuggestionsScreen(
                     confirmButton = {
                         TextButton(
                             onClick = {
-                                showDiscardConfirm = false
-                                isEditorVisible = false
+                                screenState = screenState.closeEditor()
                                 coroutineScope.launch {
                                     sheetState.hide()
                                 }
@@ -345,8 +328,11 @@ fun SuggestionsScreen(
                     dismissButton = {
                         TextButton(
                             onClick = {
-                                showDiscardConfirm = false
-                                if (isEditorVisible) {
+                                screenState =
+                                    screenState.copy(
+                                        showDiscardConfirm = false,
+                                    )
+                                if (screenState.isEditorVisible) {
                                     coroutineScope.launch {
                                         sheetState.show()
                                     }
@@ -359,24 +345,32 @@ fun SuggestionsScreen(
                 )
             }
 
-            if (pendingDeleteId != null) {
+            if (screenState.pendingDeleteId != null) {
                 AlertDialog(
-                    onDismissRequest = { pendingDeleteId = null },
+                    onDismissRequest = {
+                        screenState =
+                            screenState.copy(
+                                pendingDeleteId = null,
+                            )
+                    },
                     title = { Text("やりたいことを削除しますか？") },
                     text = { Text("このやりたいことを削除すると元には戻せません。") },
                     confirmButton = {
                         TextButton(
                             onClick = {
-                                val id = pendingDeleteId
+                                val id = screenState.pendingDeleteId
                                 if (id != null) {
                                     onDeleteConfirmed(id)
                                 }
 
-                                pendingDeleteId = null
-
-                                isEditorVisible = false
-                                editingSuggestionId = null
-                                isCreatingNew = false
+                                screenState =
+                                    screenState.copy(
+                                        pendingDeleteId = null,
+                                        isEditorVisible = false,
+                                        editingSuggestionId = null,
+                                        isCreatingNew = false,
+                                        showDiscardConfirm = false,
+                                    )
                             },
                         ) {
                             Text("削除する")
@@ -385,7 +379,10 @@ fun SuggestionsScreen(
                     dismissButton = {
                         TextButton(
                             onClick = {
-                                pendingDeleteId = null
+                                screenState =
+                                    screenState.copy(
+                                        pendingDeleteId = null,
+                                    )
                             },
                         ) {
                             Text("キャンセル")
