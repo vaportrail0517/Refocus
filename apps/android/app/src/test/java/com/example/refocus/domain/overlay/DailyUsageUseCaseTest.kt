@@ -13,6 +13,7 @@ import com.example.refocus.core.model.TargetAppsChangedEvent
 import com.example.refocus.core.model.TimelineEvent
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.domain.overlay.usecase.DailyUsageUseCase
+import com.example.refocus.domain.timeline.TimelineProjectionService
 import com.example.refocus.testutil.BlockingTimelineRepository
 import com.example.refocus.testutil.FakeTimelineRepository
 import com.example.refocus.testutil.NonCancellableBlockingTimelineRepository
@@ -94,7 +95,7 @@ class DailyUsageUseCaseTest {
                 DailyUsageUseCase(
                     scope = CoroutineScope(Dispatchers.Unconfined),
                     timeSource = timeSource,
-                    timelineRepository = repo,
+                    timelineProjectionService = TimelineProjectionService(repo),
                     lookbackHours = 24,
                 )
 
@@ -131,7 +132,7 @@ class DailyUsageUseCaseTest {
                 DailyUsageUseCase(
                     scope = CoroutineScope(Dispatchers.Unconfined),
                     timeSource = timeSource,
-                    timelineRepository = repo,
+                    timelineProjectionService = TimelineProjectionService(repo),
                     lookbackHours = 24,
                 )
 
@@ -228,7 +229,7 @@ class DailyUsageUseCaseTest {
                 DailyUsageUseCase(
                     scope = CoroutineScope(Dispatchers.Unconfined),
                     timeSource = timeSource,
-                    timelineRepository = repo,
+                    timelineProjectionService = TimelineProjectionService(repo),
                     lookbackHours = 24,
                 )
 
@@ -309,7 +310,7 @@ class DailyUsageUseCaseTest {
                 DailyUsageUseCase(
                     scope = CoroutineScope(Dispatchers.Unconfined),
                     timeSource = timeSource,
-                    timelineRepository = repo,
+                    timelineProjectionService = TimelineProjectionService(repo),
                     lookbackHours = 24,
                 )
 
@@ -384,7 +385,7 @@ class DailyUsageUseCaseTest {
                 DailyUsageUseCase(
                     scope = CoroutineScope(Dispatchers.Unconfined),
                     timeSource = timeSource,
-                    timelineRepository = repo,
+                    timelineProjectionService = TimelineProjectionService(repo),
                     lookbackHours = 24,
                 )
 

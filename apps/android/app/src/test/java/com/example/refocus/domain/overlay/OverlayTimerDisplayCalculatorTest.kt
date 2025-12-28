@@ -15,6 +15,7 @@ import com.example.refocus.core.model.TimerVisualTimeBasis
 import com.example.refocus.domain.overlay.orchestration.OverlaySessionTracker
 import com.example.refocus.domain.overlay.policy.OverlayTimerDisplayCalculator
 import com.example.refocus.domain.overlay.usecase.DailyUsageUseCase
+import com.example.refocus.domain.timeline.TimelineProjectionService
 import com.example.refocus.testutil.FakeTimelineRepository
 import com.example.refocus.testutil.TestTimeSource
 import com.example.refocus.testutil.UtcTimeZoneRule
@@ -92,7 +93,7 @@ class OverlayTimerDisplayCalculatorTest {
                 DailyUsageUseCase(
                     scope = CoroutineScope(Dispatchers.Unconfined),
                     timeSource = timeSource,
-                    timelineRepository = repo,
+                    timelineProjectionService = TimelineProjectionService(repo),
                     lookbackHours = 24,
                 )
 

@@ -7,14 +7,14 @@ import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionPart
 import com.example.refocus.core.model.SessionStats
 import com.example.refocus.core.model.TimelineEvent
+import com.example.refocus.core.util.MILLIS_PER_HOUR
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.TargetsRepository
-import com.example.refocus.domain.repository.TimelineRepository
 import com.example.refocus.domain.timeline.MonitoringPeriod
 import com.example.refocus.domain.timeline.TimelineInterpretationConfig
+import com.example.refocus.domain.timeline.TimelineProjectionService
 import com.example.refocus.domain.timeline.TimelineProjector
-import com.example.refocus.domain.timeline.TimelineWindowEventsLoader
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -38,21 +38,24 @@ import javax.inject.Singleton
 class DefaultStatsUseCase
     @Inject
     constructor(
-        private val timelineRepository: TimelineRepository,
+        private val timelineProjectionService: TimelineProjectionService,
         private val settingsRepository: SettingsRepository,
         private val targetsRepository: TargetsRepository,
         private val timeSource: TimeSource,
     ) {
         private val zoneId: ZoneId = ZoneId.systemDefault()
-        private val windowLoader = TimelineWindowEventsLoader(timelineRepository)
 
         /**
-         * 日次統計のために「日付境界を跨ぐセッション」や直前状態を拾うための巻き戻し幅。
+         * 日次統計のために「日付境界を跨ぐセッション」や直前状態を拾うための巻き戻し幅．
          *
-         * 大きすぎると集計コストが上がり，小さすぎると 0:00 直前開始のセッションが欠ける。
-         * 現状は安全側に倒して 36 時間とする。
+         * 大きすぎると集計コストが上がり，小さすぎると 0:00 直前開始のセッションが欠ける．
+         * 現状は安全側に倒して 36 時間とする．
          */
-        private val statsLookbackMillis: Long = 36L * 60L * 60L * 1_000L
+        private val statsLookbackMillis: Long = STATS_LOOKBACK_HOURS * MILLIS_PER_HOUR
+
+        private companion object {
+            private const val STATS_LOOKBACK_HOURS: Long = 36L
+        }
 
         /**
          * 日付変化を検知するための低頻度 ticker。
@@ -93,7 +96,7 @@ class DefaultStatsUseCase
                         .toEpochMilli()
                 val windowStart = (startOfDay - statsLookbackMillis).coerceAtLeast(0L)
 
-                windowLoader
+                timelineProjectionService
                     .observeWithSeed(
                         windowStartMillis = windowStart,
                         windowEndMillis = endOfDayExclusive,
@@ -136,7 +139,7 @@ class DefaultStatsUseCase
             // 「日付境界を跨ぐ可能性がある範囲」だけ取得し，直前の状態イベントを seed として補う。
             val windowStart = (startOfDay - statsLookbackMillis).coerceAtLeast(0L)
             val events =
-                windowLoader.loadWithSeed(
+                timelineProjectionService.loadWithSeed(
                     windowStartMillis = windowStart,
                     windowEndMillis = endOfDayExclusive,
                 )

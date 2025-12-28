@@ -3,11 +3,10 @@ package com.example.refocus.domain.overlay.usecase
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerTimeMode
+import com.example.refocus.core.util.MILLIS_PER_HOUR
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.domain.repository.TimelineRepository
 import com.example.refocus.domain.timeline.TimelineInterpretationConfig
-import com.example.refocus.domain.timeline.TimelineProjector
-import com.example.refocus.domain.timeline.TimelineWindowEventsLoader
+import com.example.refocus.domain.timeline.TimelineProjectionService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +32,7 @@ import java.util.concurrent.CancellationException
 class DailyUsageUseCase(
     private val scope: CoroutineScope,
     private val timeSource: TimeSource,
-    private val timelineRepository: TimelineRepository,
+    private val timelineProjectionService: TimelineProjectionService,
     private val lookbackHours: Long,
 ) {
     companion object {
@@ -85,7 +84,6 @@ class DailyUsageUseCase(
     )
 
     private val lock = Any()
-    private val windowLoader = TimelineWindowEventsLoader(timelineRepository)
 
     @Volatile
     private var snapshot: DailyUsageSnapshot? = null
@@ -277,10 +275,10 @@ class DailyUsageUseCase(
             } else {
                 // startOfDay 以前の状態復元に必要な seed + 今日のイベントだけを読み，
                 // 同じ投影ロジック（TimelineProjector）で「今日の累計」を再構成する．
-                val maxLookbackMillis = lookbackHours * 60L * 60L * 1_000L
+                val maxLookbackMillis = lookbackHours * MILLIS_PER_HOUR
                 val events =
                     withContext(Dispatchers.IO) {
-                        windowLoader.loadWithSeed(
+                        timelineProjectionService.loadWithSeed(
                             windowStartMillis = startOfDayMillis,
                             windowEndMillis = nowMillis,
                             seedLookbackMillis = maxLookbackMillis,
@@ -293,7 +291,7 @@ class DailyUsageUseCase(
                 val (perPkg, all) =
                     withContext(Dispatchers.Default) {
                         val projection =
-                            TimelineProjector.project(
+                            timelineProjectionService.project(
                                 events = events,
                                 config =
                                     TimelineInterpretationConfig(

@@ -24,6 +24,7 @@ import com.example.refocus.domain.settings.SettingsCommand
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
+import com.example.refocus.domain.timeline.TimelineProjectionService
 import com.example.refocus.system.notification.OverlayServiceNotificationController
 import com.example.refocus.system.overlay.SuggestionOverlayController
 import com.example.refocus.system.overlay.TimerOverlayController
@@ -86,10 +87,12 @@ internal class OverlayServiceComponentsFactory {
 
         val sessionTracker = OverlaySessionTracker(timeSource)
 
+        val timelineProjectionService = TimelineProjectionService(timelineRepository)
+
         val sessionBootstrapper =
             SessionBootstrapper(
                 timeSource = timeSource,
-                timelineRepository = timelineRepository,
+                timelineProjectionService = timelineProjectionService,
                 lookbackHours = BOOTSTRAP_LOOKBACK_HOURS,
             )
 
@@ -97,7 +100,7 @@ internal class OverlayServiceComponentsFactory {
             DailyUsageUseCase(
                 scope = scope,
                 timeSource = timeSource,
-                timelineRepository = timelineRepository,
+                timelineProjectionService = timelineProjectionService,
                 lookbackHours = BOOTSTRAP_LOOKBACK_HOURS,
             )
 
