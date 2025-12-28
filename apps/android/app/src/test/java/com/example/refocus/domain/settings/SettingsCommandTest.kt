@@ -103,6 +103,6 @@ class SettingsCommandTest {
             assertEquals(1, events.size)
             assertTrue(events.single() is SettingsChangedEvent)
             val e = events.single() as SettingsChangedEvent
-            assertEquals(SettingsCommand.Keys.SETTINGS_PRESET, e.key)
+            assertEquals(SettingsCommand.Keys.SETTINGS_PRESET.value, e.key)
         }
 }

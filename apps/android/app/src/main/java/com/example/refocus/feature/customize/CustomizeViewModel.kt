@@ -9,6 +9,7 @@ import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
+import com.example.refocus.core.settings.SettingsChangeKey
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.reset.port.AppDataResetter
 import com.example.refocus.domain.settings.SettingsCommand
@@ -66,7 +67,7 @@ class CustomizeViewModel
          * 同じパターンの関数を大量に書かなくてよくなる。
          */
         private fun updateSettingsAsCustom(
-            key: String,
+            key: SettingsChangeKey,
             newValueDescription: String?,
             transform: Customize.() -> Customize,
         ) {
@@ -83,7 +84,7 @@ class CustomizeViewModel
         }
 
         private fun updateSettingsWithoutPresetChange(
-            key: String,
+            key: SettingsChangeKey,
             newValueDescription: String?,
             transform: Customize.() -> Customize,
         ) {

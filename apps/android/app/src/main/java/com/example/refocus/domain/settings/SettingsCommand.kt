@@ -7,6 +7,8 @@ import com.example.refocus.core.model.ServiceConfigState
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
+import com.example.refocus.core.settings.SettingsChangeKey
+import com.example.refocus.core.settings.SettingsChangeKeys
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.timeline.EventRecorder
 import kotlinx.coroutines.flow.first
@@ -37,37 +39,43 @@ class SettingsCommand
         private val eventRecorder: EventRecorder,
     ) {
         object Keys {
-            const val OVERLAY_ENABLED = "overlayEnabled"
-            const val AUTO_START_ON_BOOT = "autoStartOnBoot"
-            const val TIMER_TIME_MODE = "timerTimeMode"
-            const val TIMER_VISUAL_TIME_BASIS = "timerVisualTimeBasis"
-            const val TOUCH_MODE = "touchMode"
-            const val SETTINGS_PRESET = "settingsPreset"
+            // SettingsChangedEvent のキーは DB に永続化されるため，core.settings で一元管理する．
+            val OVERLAY_ENABLED: SettingsChangeKey = SettingsChangeKeys.OVERLAY_ENABLED
+            val AUTO_START_ON_BOOT: SettingsChangeKey = SettingsChangeKeys.AUTO_START_ON_BOOT
+            val TIMER_TIME_MODE: SettingsChangeKey = SettingsChangeKeys.TIMER_TIME_MODE
+            val TIMER_VISUAL_TIME_BASIS: SettingsChangeKey = SettingsChangeKeys.TIMER_VISUAL_TIME_BASIS
+            val TOUCH_MODE: SettingsChangeKey = SettingsChangeKeys.TOUCH_MODE
+            val SETTINGS_PRESET: SettingsChangeKey = SettingsChangeKeys.SETTINGS_PRESET
 
-            const val GRACE_PERIOD_MILLIS = "gracePeriodMillis"
-            const val POLLING_INTERVAL_MILLIS = "pollingIntervalMillis"
-            const val MIN_FONT_SIZE_SP = "minFontSizeSp"
-            const val MAX_FONT_SIZE_SP = "maxFontSizeSp"
-            const val TIME_TO_MAX_SECONDS = "timeToMaxSeconds"
+            val GRACE_PERIOD_MILLIS: SettingsChangeKey = SettingsChangeKeys.GRACE_PERIOD_MILLIS
+            val POLLING_INTERVAL_MILLIS: SettingsChangeKey = SettingsChangeKeys.POLLING_INTERVAL_MILLIS
+            val MIN_FONT_SIZE_SP: SettingsChangeKey = SettingsChangeKeys.MIN_FONT_SIZE_SP
+            val MAX_FONT_SIZE_SP: SettingsChangeKey = SettingsChangeKeys.MAX_FONT_SIZE_SP
+            val TIME_TO_MAX_SECONDS: SettingsChangeKey = SettingsChangeKeys.TIME_TO_MAX_SECONDS
 
             // 旧キー: 既存のタイムラインイベント互換のため残す
-            const val TIME_TO_MAX_MINUTES = "timeToMaxMinutes"
-            const val GROWTH_MODE = "growthMode"
-            const val COLOR_MODE = "colorMode"
-            const val FIXED_COLOR_ARGB = "fixedColorArgb"
-            const val GRADIENT_START_COLOR_ARGB = "gradientStartColorArgb"
-            const val GRADIENT_MIDDLE_COLOR_ARGB = "gradientMiddleColorArgb"
-            const val GRADIENT_END_COLOR_ARGB = "gradientEndColorArgb"
+            @Suppress("unused")
+            val TIME_TO_MAX_MINUTES: SettingsChangeKey = SettingsChangeKeys.TIME_TO_MAX_MINUTES
+            val GROWTH_MODE: SettingsChangeKey = SettingsChangeKeys.GROWTH_MODE
+            val COLOR_MODE: SettingsChangeKey = SettingsChangeKeys.COLOR_MODE
+            val FIXED_COLOR_ARGB: SettingsChangeKey = SettingsChangeKeys.FIXED_COLOR_ARGB
+            val GRADIENT_START_COLOR_ARGB: SettingsChangeKey = SettingsChangeKeys.GRADIENT_START_COLOR_ARGB
+            val GRADIENT_MIDDLE_COLOR_ARGB: SettingsChangeKey = SettingsChangeKeys.GRADIENT_MIDDLE_COLOR_ARGB
+            val GRADIENT_END_COLOR_ARGB: SettingsChangeKey = SettingsChangeKeys.GRADIENT_END_COLOR_ARGB
 
-            const val SUGGESTION_ENABLED = "suggestionEnabled"
-            const val REST_SUGGESTION_ENABLED = "restSuggestionEnabled"
-            const val SUGGESTION_TRIGGER_SECONDS = "suggestionTriggerSeconds"
-            const val SUGGESTION_FOREGROUND_STABLE_SECONDS = "suggestionForegroundStableSeconds"
-            const val SUGGESTION_COOLDOWN_SECONDS = "suggestionCooldownSeconds"
-            const val SUGGESTION_TIMEOUT_SECONDS = "suggestionTimeoutSeconds"
-            const val SUGGESTION_INTERACTION_LOCKOUT_MILLIS = "suggestionInteractionLockoutMillis"
+            val SUGGESTION_ENABLED: SettingsChangeKey = SettingsChangeKeys.SUGGESTION_ENABLED
+            val REST_SUGGESTION_ENABLED: SettingsChangeKey = SettingsChangeKeys.REST_SUGGESTION_ENABLED
+            val SUGGESTION_TRIGGER_SECONDS: SettingsChangeKey = SettingsChangeKeys.SUGGESTION_TRIGGER_SECONDS
+            val SUGGESTION_FOREGROUND_STABLE_SECONDS: SettingsChangeKey =
+                SettingsChangeKeys.SUGGESTION_FOREGROUND_STABLE_SECONDS
+            val SUGGESTION_COOLDOWN_SECONDS: SettingsChangeKey = SettingsChangeKeys.SUGGESTION_COOLDOWN_SECONDS
+            val SUGGESTION_TIMEOUT_SECONDS: SettingsChangeKey = SettingsChangeKeys.SUGGESTION_TIMEOUT_SECONDS
+            val SUGGESTION_INTERACTION_LOCKOUT_MILLIS: SettingsChangeKey =
+                SettingsChangeKeys.SUGGESTION_INTERACTION_LOCKOUT_MILLIS
 
-            const val OVERLAY_POSITION = "overlayPosition"
+            val RESET_TO_DEFAULTS: SettingsChangeKey = SettingsChangeKeys.RESET_TO_DEFAULTS
+
+            val OVERLAY_POSITION: SettingsChangeKey = SettingsChangeKeys.OVERLAY_POSITION
         }
 
         private fun buildValueDescription(
@@ -95,7 +103,7 @@ class SettingsCommand
          * @param recordEvent false の場合，タイムラインへ SettingsChangedEvent を残さない
          */
         suspend fun updateCustomize(
-            key: String,
+            key: SettingsChangeKey,
             newValueDescription: String?,
             source: String,
             reason: String? = null,
@@ -113,7 +121,7 @@ class SettingsCommand
 
             if (recordEvent) {
                 eventRecorder.onSettingsChanged(
-                    key = key,
+                    key = key.value,
                     newValueDescription =
                         buildValueDescription(
                             value = newValueDescription,
@@ -146,7 +154,7 @@ class SettingsCommand
             settingsRepository.setSettingsPreset(preset)
             if (recordEvent) {
                 eventRecorder.onSettingsChanged(
-                    key = Keys.SETTINGS_PRESET,
+                    key = Keys.SETTINGS_PRESET.value,
                     newValueDescription =
                         buildValueDescription(
                             value = preset.name,
@@ -167,7 +175,7 @@ class SettingsCommand
             // 記録は「プリセット種別」に一本化する（ノイズ抑制）．
             settingsRepository.applyPreset(preset)
             eventRecorder.onSettingsChanged(
-                key = Keys.SETTINGS_PRESET,
+                key = Keys.SETTINGS_PRESET.value,
                 newValueDescription =
                     buildValueDescription(
                         value = preset.name,
@@ -312,7 +320,7 @@ class SettingsCommand
             settingsRepository.resetToDefaults()
             if (recordEvent) {
                 eventRecorder.onSettingsChanged(
-                    key = "resetToDefaults",
+                    key = Keys.RESET_TO_DEFAULTS.value,
                     newValueDescription =
                         buildValueDescription(
                             value = "done",
