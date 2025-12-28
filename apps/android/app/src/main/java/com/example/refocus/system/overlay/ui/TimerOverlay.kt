@@ -18,7 +18,7 @@ import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.util.formatDurationForTimerBubble
-import com.example.refocus.core.util.interpolateColor
+import com.example.refocus.ui.util.interpolateColor
 
 @Deprecated(
     message = "Use TimerOverlay(customize, visualMillis, text) instead.",

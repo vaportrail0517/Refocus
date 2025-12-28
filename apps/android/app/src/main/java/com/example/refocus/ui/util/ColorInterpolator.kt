@@ -1,4 +1,4 @@
-package com.example.refocus.core.util
+package com.example.refocus.ui.util
 
 import androidx.compose.ui.graphics.Color
 
