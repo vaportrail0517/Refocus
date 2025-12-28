@@ -15,6 +15,7 @@ import com.example.refocus.domain.timeline.MonitoringPeriod
 import com.example.refocus.domain.timeline.TimelineInterpretationConfig
 import com.example.refocus.domain.timeline.TimelineProjector
 import com.example.refocus.domain.timeline.TimelineWindowEventsLoader
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -74,6 +75,7 @@ class DefaultStatsUseCase
          *
          * タイムラインイベント / 設定 / 対象アプリが更新される度に再計算される。
          */
+        @OptIn(ExperimentalCoroutinesApi::class)
         fun observeTodayStats(): Flow<DailyStats?> =
             combine(
                 settingsRepository.observeOverlaySettings(),

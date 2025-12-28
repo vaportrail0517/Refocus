@@ -190,6 +190,9 @@ object SessionProjector {
             val pkg = currentForeground ?: return
             if (!isTarget(pkg)) return
             val state = activeSessions[pkg] ?: return
+            // すでにアクティブなら Resume を重複させない
+            if (state.lastInactiveAtMillis == null) return
+
             // 画面 ON / 再フォアグラウンドで復帰
             state.lastInactiveAtMillis = null
             state.events.add(

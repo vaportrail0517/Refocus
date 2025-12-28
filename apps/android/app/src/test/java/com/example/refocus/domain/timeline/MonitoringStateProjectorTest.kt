@@ -89,4 +89,31 @@ class MonitoringStateProjectorTest {
         assertEquals(dayStart + 200, periods[0].startMillis)
         assertEquals(dayStart + 500, periods[0].endMillis)
     }
+
+    @Test
+    fun `buildMonitoringPeriodsForDate startsAtDayStart when already active before day begins`() {
+        val zone = ZoneId.of("UTC")
+        val date = LocalDate.of(2025, 1, 1)
+        val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
+
+        val events: List<TimelineEvent> =
+            listOf(
+                // 前日からすでに監視中（サービス稼働 + 画面ON）
+                ServiceLifecycleEvent(timestampMillis = dayStart - 1_000, state = ServiceState.Started),
+                ScreenEvent(timestampMillis = dayStart - 900, state = ScreenState.On),
+            )
+
+        val nowMillis = dayStart + 600
+        val periods =
+            MonitoringStateProjector.buildMonitoringPeriodsForDate(
+                date = date,
+                zoneId = zone,
+                events = events,
+                nowMillis = nowMillis,
+            )
+
+        assertEquals(1, periods.size)
+        assertEquals(dayStart, periods[0].startMillis)
+        assertEquals(nowMillis, periods[0].endMillis)
+    }
 }

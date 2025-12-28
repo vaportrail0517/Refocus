@@ -5,11 +5,12 @@ import com.example.refocus.core.model.TimeBucketStats
 
 /**
  * Refocus が「監視できていた時間帯」を表すモデル。
- * OverlayService が起動している間などを 1 レコードとする。
+ *
+ * 重要: 統計投影では期間を必ず閉じる（endMillis を null にしない）。
  */
 data class MonitoringPeriod(
     val startMillis: Long,
-    val endMillis: Long?, // null = まだ継続中
+    val endMillis: Long,
 )
 
 /**
@@ -40,7 +41,7 @@ object MonitoringProjector {
         var totalMillis = 0L
         for (p in periods) {
             val start = maxOf(p.startMillis, dayStartMillis)
-            val rawEnd = p.endMillis ?: endOfRange
+            val rawEnd = p.endMillis
             val end = minOf(rawEnd, endOfRange)
 
             if (end > start) {
@@ -70,7 +71,7 @@ object MonitoringProjector {
 
             for (p in periods) {
                 val periodStart = maxOf(p.startMillis, dayStartMillis)
-                val rawPeriodEnd = p.endMillis ?: endOfRange
+                val rawPeriodEnd = p.endMillis
                 val periodEnd = minOf(rawPeriodEnd, endOfRange)
                 if (periodEnd <= periodStart) continue
 
@@ -120,7 +121,7 @@ object MonitoringProjector {
                 ((period.startMillis - dayStartMillis) / 60_000L)
                     .toInt()
                     .coerceIn(0, 24 * 60)
-            val endMillis = period.endMillis ?: (dayStartMillis + 24 * 60 * 60_000L)
+            val endMillis = period.endMillis
             val endMinutes =
                 ((endMillis - dayStartMillis) / 60_000L)
                     .toInt()

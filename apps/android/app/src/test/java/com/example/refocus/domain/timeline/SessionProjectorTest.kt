@@ -208,4 +208,34 @@ class SessionProjectorTest {
         // decision は close 後なので入らない
         assertFalse(types.contains(SessionEventType.SuggestionDismissed))
     }
+
+    @Test
+    fun `does not emit resume on repeated foreground events while already active`() {
+        val grace = 100L
+        val events: List<TimelineEvent> =
+            listOf(
+                TargetAppsChangedEvent(timestampMillis = 0L, targetPackages = setOf("A")),
+                ForegroundAppEvent(timestampMillis = 10L, packageName = "A"),
+                // 同一パッケージが連続で通知されても，Pause を挟んでいなければ Resume を出さない
+                ForegroundAppEvent(timestampMillis = 15L, packageName = "A"),
+                // 一度 Pause → Resume した後も，重複 Resume を出さない
+                ScreenEvent(timestampMillis = 20L, state = ScreenState.Off),
+                ScreenEvent(timestampMillis = 30L, state = ScreenState.On),
+                ForegroundAppEvent(timestampMillis = 35L, packageName = "A"),
+            )
+
+        val projected =
+            SessionProjector.projectSessions(
+                events = events,
+                stopGracePeriodMillis = grace,
+                nowMillis = 40L,
+            )
+
+        assertEquals(1, projected.size)
+        val session = projected.single()
+        val types = session.events.map { it.type }
+
+        // Start と Pause と Resume はあるが，Resume は 1 回だけ
+        assertEquals(listOf(SessionEventType.Start, SessionEventType.Pause, SessionEventType.Resume), types)
+    }
 }
