@@ -29,6 +29,7 @@ import com.example.refocus.system.notification.OverlayNotificationUiState
 import com.example.refocus.system.notification.OverlayServiceNotificationController
 import com.example.refocus.system.overlay.service.OverlayCorePermissionSupervisor
 import com.example.refocus.system.overlay.service.OverlayScreenStateReceiver
+import com.example.refocus.system.overlay.service.OverlayServiceComponentsFactory
 import com.example.refocus.system.overlay.service.OverlayServiceIntentHandler
 import com.example.refocus.system.overlay.service.OverlayServiceNotificationDriver
 import com.example.refocus.system.overlay.service.OverlayServiceRunSupervisor
@@ -64,6 +65,8 @@ class OverlayService : LifecycleService() {
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private val componentsFactory = OverlayServiceComponentsFactory()
 
     @Inject
     lateinit var timeSource: TimeSource
@@ -130,28 +133,10 @@ class OverlayService : LifecycleService() {
             }
         }
 
-        timerOverlayController =
-            TimerOverlayController(
+        val components =
+            componentsFactory.create(
                 context = this,
                 lifecycleOwner = this,
-                timeSource = timeSource,
-                scope = serviceScope,
-            )
-        suggestionOverlayController =
-            SuggestionOverlayController(
-                context = this,
-                lifecycleOwner = this,
-            )
-
-        overlayUiController =
-            WindowOverlayUiGateway(
-                scope = serviceScope,
-                timerOverlayController = timerOverlayController,
-                suggestionOverlayController = suggestionOverlayController,
-            )
-
-        overlayCoordinator =
-            OverlayCoordinator(
                 scope = serviceScope,
                 timeSource = timeSource,
                 targetsRepository = targetsRepository,
@@ -161,12 +146,15 @@ class OverlayService : LifecycleService() {
                 foregroundAppObserver = foregroundAppObserver,
                 suggestionEngine = suggestionEngine,
                 suggestionSelector = suggestionSelector,
-                uiController = overlayUiController,
                 eventRecorder = eventRecorder,
                 timelineRepository = timelineRepository,
             )
 
-        notificationController = OverlayServiceNotificationController(this)
+        timerOverlayController = components.timerOverlayController
+        suggestionOverlayController = components.suggestionOverlayController
+        overlayUiController = components.overlayUiController
+        overlayCoordinator = components.overlayCoordinator
+        notificationController = components.notificationController
         startForegroundWithNotification()
 
         // 通知更新ドライバ
@@ -338,14 +326,7 @@ class OverlayService : LifecycleService() {
 
     private fun stopFromSettingsDisabled() {
         // すでに設定側で overlayEnabled=false になっている前提で，サービスを停止する
-        if (isStopping) return
-        isStopping = true
-
-        QsTileStateBroadcaster.notifyExpectedRunning(this, expectedRunning = false)
-
-        // 先に通知更新を止めてから foreground を外す
-        notificationDriver?.stop()
-        removeForegroundNotification()
+        if (!beginStopping()) return
 
         // stopSelf は main で呼ぶ
         lifecycleScope.launch {
@@ -354,14 +335,7 @@ class OverlayService : LifecycleService() {
     }
 
     private fun stopFromUserAction() {
-        if (isStopping) return
-        isStopping = true
-
-        QsTileStateBroadcaster.notifyExpectedRunning(this, expectedRunning = false)
-
-        // 先に通知更新を止め，ユーザー操作の体感を良くする
-        notificationDriver?.stop()
-        removeForegroundNotification()
+        if (!beginStopping()) return
 
         lifecycleScope.launch {
             try {
@@ -375,6 +349,19 @@ class OverlayService : LifecycleService() {
             }
             stopSelf()
         }
+    }
+
+    private fun beginStopping(): Boolean {
+        if (isStopping) return false
+        isStopping = true
+
+        QsTileStateBroadcaster.notifyExpectedRunning(this, expectedRunning = false)
+
+        // 先に通知更新を止めてから foreground を外す．
+        // stopForeground + cancel を併用して確実に消す．
+        notificationDriver?.stop()
+        removeForegroundNotification()
+        return true
     }
 
     private fun removeForegroundNotification() {
