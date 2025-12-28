@@ -40,6 +40,10 @@ import androidx.compose.ui.unit.dp
 import com.example.refocus.core.model.SuggestionDurationTag
 import com.example.refocus.core.model.SuggestionPriority
 import com.example.refocus.core.model.SuggestionTimeSlot
+import com.example.refocus.feature.suggestions.components.SuggestionCard
+import com.example.refocus.feature.suggestions.components.SuggestionEditorSheet
+import com.example.refocus.feature.suggestions.components.SuggestionViewSheet
+import com.example.refocus.feature.suggestions.components.SwipeToDeleteBackground
 import kotlinx.coroutines.launch
 
 private enum class EditorSheetMode {
