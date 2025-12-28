@@ -129,6 +129,7 @@ tasks.register("checkDomainBoundaries") {
             "com.example.refocus.data.",
             "com.example.refocus.feature.",
             "com.example.refocus.ui.",
+            "com.example.refocus.gateway.",
             // プリセットやデフォルト値などの「アプリ設定」は domain へ流れ込ませない
         )
 
@@ -226,10 +227,10 @@ tasks.register("checkFeatureBoundaries") {
 }
 
 /**
- * System（Android 実装）レイヤは，app / feature / config / data へ依存しない．
+ * System（Android 実装）レイヤは，app / feature / data へ依存しない．
  *
  * - system は OS 依存やサービス，レシーバ，通知，オーバーレイ制御などを担う
- * - 画面やナビゲーションの統合（app），画面実装（feature），プリセット（config），repository 実装（data）は参照しない
+ * - 画面やナビゲーションの統合（app），画面実装（feature），repository 実装（data）は参照しない
  */
 tasks.register("checkSystemBoundaries") {
     group = "verification"

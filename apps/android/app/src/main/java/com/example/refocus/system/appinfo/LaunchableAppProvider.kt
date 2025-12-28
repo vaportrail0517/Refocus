@@ -5,8 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
-import com.example.refocus.ui.gateway.LaunchableAppInfo
-import com.example.refocus.ui.gateway.LaunchableAppProvider
+import com.example.refocus.gateway.LaunchableAppInfo
+import com.example.refocus.gateway.LaunchableAppProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton

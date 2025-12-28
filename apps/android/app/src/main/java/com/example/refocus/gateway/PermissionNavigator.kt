@@ -1,4 +1,4 @@
-package com.example.refocus.ui.gateway
+package com.example.refocus.gateway
 
 import android.app.Activity
 

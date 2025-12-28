@@ -1,12 +1,12 @@
 package com.example.refocus.system.overlay.service
 
-import com.example.refocus.system.overlay.OverlayCoordinator
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.util.formatDurationForTimerBubble
 import com.example.refocus.domain.overlay.model.OverlayPresentationState
 import com.example.refocus.system.appinfo.AppLabelResolver
 import com.example.refocus.system.notification.OverlayNotificationUiState
 import com.example.refocus.system.notification.OverlayServiceNotificationController
+import com.example.refocus.system.overlay.OverlayCoordinator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch

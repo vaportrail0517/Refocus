@@ -1,7 +1,7 @@
 package com.example.refocus.system.permissions
 
 import android.app.Activity
-import com.example.refocus.ui.gateway.PermissionNavigator
+import com.example.refocus.gateway.PermissionNavigator
 import javax.inject.Inject
 import javax.inject.Singleton
 

@@ -3,6 +3,8 @@ package com.example.refocus.core.preset
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
+import com.example.refocus.core.preset.CustomizePresetValues.debug
+import com.example.refocus.core.preset.CustomizePresetValues.default
 
 /**
  * 設定プリセットの具体的な値。

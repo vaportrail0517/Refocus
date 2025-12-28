@@ -3,7 +3,7 @@ package com.example.refocus.system.appinfo
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
-import com.example.refocus.ui.gateway.AppIconProvider
+import com.example.refocus.gateway.AppIconProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject

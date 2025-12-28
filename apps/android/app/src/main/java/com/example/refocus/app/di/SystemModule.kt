@@ -13,6 +13,9 @@ import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.suggestion.TimeSlotWeightModel
 import com.example.refocus.domain.timeline.EventRecorder
+import com.example.refocus.gateway.AppIconProvider
+import com.example.refocus.gateway.LaunchableAppProvider
+import com.example.refocus.gateway.PermissionNavigator
 import com.example.refocus.system.appinfo.AndroidAppIconResolver
 import com.example.refocus.system.appinfo.AndroidAppLabelResolver
 import com.example.refocus.system.appinfo.AndroidLaunchableAppProvider
@@ -25,9 +28,6 @@ import com.example.refocus.system.overlay.service.OverlayServiceStatusProviderIm
 import com.example.refocus.system.permissions.AndroidPermissionNavigator
 import com.example.refocus.system.permissions.AndroidPermissionStatusProvider
 import com.example.refocus.system.time.SystemTimeSource
-import com.example.refocus.ui.gateway.AppIconProvider
-import com.example.refocus.ui.gateway.LaunchableAppProvider
-import com.example.refocus.ui.gateway.PermissionNavigator
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

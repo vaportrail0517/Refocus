@@ -3,7 +3,7 @@ package com.example.refocus.feature.common.permissions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import com.example.refocus.ui.gateway.PermissionNavigator
+import com.example.refocus.gateway.PermissionNavigator
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors

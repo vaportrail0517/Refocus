@@ -1,4 +1,4 @@
-package com.example.refocus.ui.gateway
+package com.example.refocus.gateway
 
 import android.graphics.drawable.Drawable
 import java.util.concurrent.TimeUnit

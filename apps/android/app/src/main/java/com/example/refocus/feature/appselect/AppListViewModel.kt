@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.domain.targets.UpdateTargetsUseCase
-import com.example.refocus.ui.gateway.LaunchableAppProvider
+import com.example.refocus.gateway.LaunchableAppProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow

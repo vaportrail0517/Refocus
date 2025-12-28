@@ -41,9 +41,9 @@ import com.example.refocus.feature.common.permissions.rememberPermissionNavigato
 import com.example.refocus.feature.common.permissions.rememberPermissionStatusProvider
 import com.example.refocus.feature.common.permissions.rememberPermissionUiState
 import com.example.refocus.feature.common.permissions.toPermissionUiState
+import com.example.refocus.gateway.PermissionNavigator
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
-import com.example.refocus.ui.gateway.PermissionNavigator
 import kotlinx.coroutines.launch
 
 
