@@ -8,6 +8,7 @@ import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.gateway.AppIconProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.mapLatest
@@ -29,6 +30,7 @@ class HomeViewModel
             val icon: Drawable?,
         )
 
+        @OptIn(ExperimentalCoroutinesApi::class)
         val targetApps: StateFlow<List<TargetAppUiModel>> =
             targetsRepository
                 .observeTargets()
