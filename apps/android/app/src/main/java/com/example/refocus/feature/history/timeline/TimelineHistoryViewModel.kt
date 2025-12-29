@@ -97,10 +97,9 @@ class TimelineHistoryViewModel
             )
 
         private val selectedCategories =
-            MutableStateFlow(
-                TimelineCategory.entries.toSet(),
+            MutableStateFlow<Set<TimelineCategory>>(
+                emptySet(),
             )
-
         private val labelCache = mutableMapOf<String, String>()
 
         private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
@@ -128,16 +127,15 @@ class TimelineHistoryViewModel
                     val filtered = events.filter { categoryOf(it) in effectiveCategories }
                     val rows = buildRows(filtered)
 
-                    val isAllSelected = effectiveCategories.size == TimelineCategory.entries.size
+                    val isAllSelected = categories.isEmpty()
                     val categoryUiModels =
                         TimelineCategory.entries.map { cat ->
                             CategoryUiModel(
                                 category = cat,
                                 label = cat.label,
-                                selected = cat in effectiveCategories,
+                                selected = cat in categories,
                             )
                         }
-
                     val today = Instant.ofEpochMilli(timeSource.nowMillis()).atZone(zoneId).toLocalDate()
                     val canGoNext = date.isBefore(today)
 
@@ -178,7 +176,8 @@ class TimelineHistoryViewModel
         }
 
         fun onSelectAllCategories() {
-            selectedCategories.value = TimelineCategory.entries.toSet()
+            // 「すべて」は「何も選択していない状態」として扱う
+            selectedCategories.value = emptySet()
         }
 
         fun onToggleCategory(category: TimelineCategory) {
@@ -188,14 +187,15 @@ class TimelineHistoryViewModel
                     if (contains(category)) remove(category) else add(category)
                 }
 
-            // 0 件選択は使い勝手が悪いので「すべて」に戻す
-            selectedCategories.value = if (next.isEmpty()) TimelineCategory.entries.toSet() else next
+            // 0 件選択は「すべて（フィルタなし）」として扱う
+            selectedCategories.value = next
         }
 
         private suspend fun buildRows(events: List<TimelineEvent>): List<RowUiModel> {
             if (events.isEmpty()) return emptyList()
+            // 新しいイベントが上に来るように降順に並べる
             return events
-                .sortedBy { it.timestampMillis }
+                .sortedByDescending { it.timestampMillis }
                 .map { ev ->
                     val category = categoryOf(ev)
                     val (title, detail) = describeEvent(ev)

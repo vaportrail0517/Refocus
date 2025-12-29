@@ -1,4 +1,6 @@
 package com.example.refocus.feature.history.timeline
+
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,6 +16,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -39,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.util.Comparator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -134,21 +139,57 @@ fun TimelineHistoryContent(
             )
         }
 
+        // 折りたたみ状態は，日付やフィルタが変わったらリセットする
+        val filterKey =
+            if (uiState.isAllCategoriesSelected) {
+                "ALL"
+            } else {
+                uiState.categories
+                    .asSequence()
+                    .filter { it.selected }
+                    .map { it.category.name }
+                    .sorted()
+                    .joinToString(separator = ",")
+            }
+
+        var collapsedHours by remember(uiState.selectedDate, filterKey) { mutableStateOf(setOf<Int>()) }
+
         val grouped =
             remember(uiState.rows) {
-                uiState.rows.groupBy { it.hour }.toSortedMap()
+                // 上に行くほど新しい（大きい）時刻になるように，時台グループも降順に並べる
+                uiState.rows.groupBy { it.hour }.toSortedMap(Comparator.reverseOrder())
             }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
         ) {
             grouped.forEach { (hour, rows) ->
+                val isCollapsed = collapsedHours.contains(hour)
+
                 item(key = "hour-$hour") {
-                    TimelineHourHeader(hour = hour)
+                    TimelineHourHeader(
+                        hour = hour,
+                        eventCount = rows.size,
+                        collapsed = isCollapsed,
+                        onToggle = {
+                            collapsedHours =
+                                collapsedHours.toMutableSet().apply {
+                                    if (contains(hour)) remove(hour) else add(hour)
+                                }
+                        },
+                    )
                 }
-                items(rows) { row ->
-                    TimelineRowItem(row)
-                    HorizontalDivider()
+
+                if (!isCollapsed) {
+                    items(
+                        items = rows,
+                        key = { row ->
+                            row.id ?: "${row.hour}-${row.timeText}-${row.title}"
+                        },
+                    ) { row ->
+                        TimelineRowItem(row)
+                        HorizontalDivider()
+                    }
                 }
             }
             item {
@@ -247,18 +288,47 @@ private fun TimelineFilterCard(
 }
 
 @Composable
-private fun TimelineHourHeader(hour: Int) {
+private fun TimelineHourHeader(
+    hour: Int,
+    eventCount: Int,
+    collapsed: Boolean,
+    onToggle: () -> Unit,
+) {
     Card(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp),
+                .padding(top = 8.dp)
+                .clickable(onClick = onToggle),
     ) {
-        Text(
-            text = "${hour}時台",
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-        )
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = "${hour}時台",
+                style = MaterialTheme.typography.labelLarge,
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = "${eventCount}件",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Icon(
+                    imageVector = if (collapsed) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess,
+                    contentDescription = if (collapsed) "展開" else "折りたたむ",
+                )
+            }
+        }
     }
 }
 
