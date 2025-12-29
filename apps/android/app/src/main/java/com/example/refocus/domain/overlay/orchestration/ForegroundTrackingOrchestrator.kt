@@ -240,9 +240,10 @@ class ForegroundTrackingOrchestrator(
                             else -> Unit
                         }
 
-                        // Suggestion は Tracking 中だけ評価
+                        // Suggestion は Tracking 中かつタイマー表示中だけ評価
                         val stateSnapshot = runtimeState.value.overlayState
-                        if (stateSnapshot is OverlayState.Tracking && foregroundPackage != null) {
+                        val isTimerVisible = runtimeState.value.timerVisible
+                        if (stateSnapshot is OverlayState.Tracking && foregroundPackage != null && isTimerVisible) {
                             val elapsed =
                                 sessionTracker.computeElapsedFor(foregroundPackage, nowElapsed)
                                     ?: return@collect

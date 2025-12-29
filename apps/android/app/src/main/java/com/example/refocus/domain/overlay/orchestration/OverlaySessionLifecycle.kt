@@ -50,6 +50,8 @@ internal class OverlaySessionLifecycle(
 
         return if (newSuppressed) {
             uiController.hideTimer()
+            // タイマーを消したセッションでは，提案も連動して停止する
+            suggestionOrchestrator.stopForTimerHidden()
             runtimeState.update { it.copy(timerVisible = false) }
             false
         } else {

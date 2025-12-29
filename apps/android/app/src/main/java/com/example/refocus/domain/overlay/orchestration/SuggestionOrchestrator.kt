@@ -86,6 +86,20 @@ class SuggestionOrchestrator(
         // クールダウン / disabledForThisSession は sessionGate 側に保持する
     }
 
+    /**
+     * タイマーが『このセッションでは非表示』になったときに呼ぶ．
+     *
+     * - 進行中の show 処理をキャンセル
+     * - 表示中の提案オーバーレイを閉じる
+     * - 内部の overlay 状態をクリア
+     */
+    fun stopForTimerHidden() {
+        showSuggestionJob?.cancel()
+        showSuggestionJob = null
+        uiController.hideSuggestion()
+        clearOverlayState()
+    }
+
     fun maybeShowSuggestionIfNeeded(
         packageName: String,
         nowMillis: Long,
