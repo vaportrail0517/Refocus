@@ -1,10 +1,12 @@
 package com.example.refocus.feature.entry
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.refocus.data.repository.OnboardingRepository
+import com.example.refocus.core.logging.RefocusLog
+import com.example.refocus.domain.repository.OnboardingRepository
+import com.example.refocus.domain.targets.EnsureAppCatalogForCurrentTargetsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,21 +20,31 @@ data class EntryUiState(
 )
 
 @HiltViewModel
-class EntryViewModel @Inject constructor(
-    application: Application,
-    val onboardingRepository: OnboardingRepository
-) : AndroidViewModel(application) {
+class EntryViewModel
+    @Inject
+    constructor(
+        val onboardingRepository: OnboardingRepository,
+        private val ensureAppCatalogForCurrentTargetsUseCase: EnsureAppCatalogForCurrentTargetsUseCase,
+    ) : ViewModel() {
+        private val _uiState = MutableStateFlow(EntryUiState())
+        val uiState: StateFlow<EntryUiState> = _uiState.asStateFlow()
 
-    private val _uiState = MutableStateFlow(EntryUiState())
-    val uiState: StateFlow<EntryUiState> = _uiState.asStateFlow()
+        init {
+            viewModelScope.launch {
+                launch(Dispatchers.Default) {
+                    try {
+                        ensureAppCatalogForCurrentTargetsUseCase.ensure()
+                    } catch (e: Exception) {
+                        RefocusLog.w("EntryViewModel", e) { "Failed to bootstrap app catalog" }
+                    }
+                }
 
-    init {
-        viewModelScope.launch {
-            val completed = onboardingRepository.completedFlow.first()
-            _uiState.value = EntryUiState(
-                isLoading = false,
-                completed = completed
-            )
+                val completed = onboardingRepository.completedFlow.first()
+                _uiState.value =
+                    EntryUiState(
+                        isLoading = false,
+                        completed = completed,
+                    )
+            }
         }
     }
-}

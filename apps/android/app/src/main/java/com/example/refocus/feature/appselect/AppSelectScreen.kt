@@ -27,72 +27,84 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.example.refocus.system.permissions.PermissionHelper
-import com.example.refocus.ui.components.SearchBar
+import com.example.refocus.feature.appselect.components.SearchBar
+import com.example.refocus.feature.common.permissions.rememberPermissionStatusProvider
 
 @Composable
 fun AppSelectScreen(
     onFinished: () -> Unit,
-    onFinishedWithoutPermission: () -> Unit
+    onFinishedWithoutPermission: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val permissionStatusProvider = rememberPermissionStatusProvider()
     val viewModel: AppListViewModel = hiltViewModel()
     val apps by viewModel.apps.collectAsState()
     var query by remember { mutableStateOf(TextFieldValue("")) }
-    val filtered = remember(apps, query) {
-        val q = query.text.trim()
-        if (q.isEmpty()) apps
-        else apps.filter { it.label.contains(q, ignoreCase = true) }
-    }
+    val filtered =
+        remember(apps, query) {
+            val q = query.text.trim()
+            if (q.isEmpty()) {
+                apps
+            } else {
+                apps.filter { it.label.contains(q, ignoreCase = true) }
+            }
+        }
     Scaffold(
         bottomBar = {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 Button(
                     onClick = {
+                        val snapshot = permissionStatusProvider.readCurrentInstant()
+                        val hasCorePermissions = snapshot.usageGranted && snapshot.overlayGranted
                         viewModel.save(
-                            if (PermissionHelper.hasAllCorePermissions(context))
-                                onFinished else onFinishedWithoutPermission
+                            if (hasCorePermissions) {
+                                onFinished
+                            } else {
+                                onFinishedWithoutPermission
+                            },
                         )
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
+                    modifier =
+                        Modifier
+                            .fillMaxWidth(),
                 ) {
                     Text("完了")
                 }
             }
-        }
+        },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp),
         ) {
             SearchBar(
                 value = query,
                 onValueChange = { query = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                label = "検索"
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                label = "検索",
             )
             LazyColumn(
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             ) {
                 items(filtered) { appItem ->
                     AppRow(
                         app = appItem,
-                        onClick = { viewModel.toggleSelection(appItem.packageName) }
+                        onClick = { viewModel.toggleSelection(appItem.packageName) },
                     )
                 }
             }
@@ -103,48 +115,52 @@ fun AppSelectScreen(
 @Composable
 private fun AppRow(
     app: AppListViewModel.AppUiModel,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable { onClick() }
+                .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         // Drawable → Painter 変換（パッケージ名ごとに remember）
-        val iconPainter = remember(app.packageName) {
-            app.icon?.let { drawable ->
-                // サイズは Drawable 側に任せつつ、そのままBitmap化
-                val bitmap = drawable.toBitmap()
-                BitmapPainter(bitmap.asImageBitmap())
+        val iconPainter =
+            remember(app.packageName) {
+                app.icon?.let { drawable ->
+                    // サイズは Drawable 側に任せつつ、そのままBitmap化
+                    val bitmap = drawable.toBitmap()
+                    BitmapPainter(bitmap.asImageBitmap())
+                }
             }
-        }
         if (iconPainter != null) {
             Image(
                 painter = iconPainter,
                 contentDescription = app.label,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(40.dp),
             )
         } else {
             Box(
-                modifier = Modifier
-                    .size(40.dp)
+                modifier =
+                    Modifier
+                        .size(40.dp),
             ) {
                 //  Text(app.label.firstOrNull()?.toString() ?: "") などでもOK
             }
         }
         Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 12.dp)
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp),
         ) {
             Text(app.label)
             Text(formatUsage(app.usageTimeMs), style = MaterialTheme.typography.bodySmall)
         }
         Checkbox(
             checked = app.isSelected,
-            onCheckedChange = { onClick() }
+            onCheckedChange = { onClick() },
         )
     }
 }

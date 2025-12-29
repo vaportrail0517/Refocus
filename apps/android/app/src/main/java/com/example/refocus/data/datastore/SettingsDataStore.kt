@@ -8,12 +8,15 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.CustomizePreset
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
+import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimerTouchMode
+import com.example.refocus.core.model.TimerVisualTimeBasis
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -22,7 +25,7 @@ import java.io.IOException
 private val Context.settingsDataStore by preferencesDataStore(name = "overlay_settings")
 
 class SettingsDataStore(
-    private val context: Context
+    private val context: Context,
 ) {
     object Keys {
         // --- セッション・監視 ---
@@ -32,13 +35,29 @@ class SettingsDataStore(
         // --- オーバーレイ見た目 ---
         val MIN_FONT_SIZE_SP = floatPreferencesKey("min_font_size_sp")
         val MAX_FONT_SIZE_SP = floatPreferencesKey("max_font_size_sp")
+        val TIME_TO_MAX_SECONDS = intPreferencesKey("time_to_max_seconds")
+
+        // 旧: 分単位（後方互換のため読み込みのみ）
         val TIME_TO_MAX_MINUTES = intPreferencesKey("time_to_max_minutes")
         val POSITION_X = intPreferencesKey("overlay_position_x")
         val POSITION_Y = intPreferencesKey("overlay_position_y")
-        val TOUCH_MODE = intPreferencesKey("overlay_touch_mode")
 
+        // enum: legacy ordinal
+        val TOUCH_MODE = intPreferencesKey("overlay_touch_mode")
+        val TIMER_TIME_MODE = intPreferencesKey("timer_time_mode")
+        val TIMER_VISUAL_TIME_BASIS = intPreferencesKey("timer_visual_time_basis")
         val GROWTH_MODE = intPreferencesKey("growth_mode")
         val COLOR_MODE = intPreferencesKey("color_mode")
+        val SETTINGS_PRESET = intPreferencesKey("settings_preset")
+
+        // enum: new name
+        val TOUCH_MODE_NAME = stringPreferencesKey("overlay_touch_mode_name")
+        val TIMER_TIME_MODE_NAME = stringPreferencesKey("timer_time_mode_name")
+        val TIMER_VISUAL_TIME_BASIS_NAME = stringPreferencesKey("timer_visual_time_basis_name")
+        val GROWTH_MODE_NAME = stringPreferencesKey("growth_mode_name")
+        val COLOR_MODE_NAME = stringPreferencesKey("color_mode_name")
+        val SETTINGS_PRESET_NAME = stringPreferencesKey("settings_preset_name")
+
         val FIXED_COLOR_ARGB = intPreferencesKey("fixed_color_argb")
         val GRADIENT_START_COLOR_ARGB = intPreferencesKey("gradient_start_color_argb")
         val GRADIENT_MIDDLE_COLOR_ARGB = intPreferencesKey("gradient_middle_color_argb")
@@ -58,9 +77,6 @@ class SettingsDataStore(
         val REST_SUGGESTION_ENABLED = booleanPreferencesKey("rest_suggestion_enabled")
         val SUGGESTION_INTERACTION_LOCKOUT_MS =
             longPreferencesKey("suggestion_interaction_lockout_ms")
-
-        // --- 設定全体のプリセット種別 ---
-        val SETTINGS_PRESET = intPreferencesKey("settings_preset")
     }
 
     val customizeFlow: Flow<Customize> =
@@ -71,31 +87,33 @@ class SettingsDataStore(
                 } else {
                     throw e
                 }
-            }
-            .map { prefs ->
+            }.map { prefs ->
                 prefs.toOverlaySettings()
             }
 
     /**
-     * 現在のプリセット種別を流す Flow。
-     * 保存されていない場合は Default 扱いとする。
+     * 現在のプリセット種別を流す Flow．
+     * 保存されていない場合は Default 扱いとする．
      */
-    val presetFlow: Flow<CustomizePreset> = context.settingsDataStore.data
-        .catch { e ->
-            if (e is IOException) {
-                emit(emptyPreferences())
-            } else {
-                throw e
+    val presetFlow: Flow<CustomizePreset> =
+        context.settingsDataStore.data
+            .catch { e ->
+                if (e is IOException) {
+                    emit(emptyPreferences())
+                } else {
+                    throw e
+                }
+            }.map { prefs ->
+                decodeEnum(
+                    name = prefs[Keys.SETTINGS_PRESET_NAME],
+                    ordinal = prefs[Keys.SETTINGS_PRESET],
+                    entries = CustomizePreset.entries,
+                    default = CustomizePreset.Default,
+                    valueOf = { CustomizePreset.valueOf(it) },
+                )
             }
-        }
-        .map { prefs ->
-            val ordinal = prefs[Keys.SETTINGS_PRESET] ?: CustomizePreset.Default.ordinal
-            CustomizePreset.entries.getOrNull(ordinal) ?: CustomizePreset.Default
-        }
 
-    suspend fun update(
-        transform: (Customize) -> Customize
-    ) {
+    suspend fun update(transform: (Customize) -> Customize) {
         context.settingsDataStore.edit { prefs ->
             // まず現在値（保存値＋デフォルト）を Customize にデコード
             val current = prefs.toOverlaySettings()
@@ -107,15 +125,27 @@ class SettingsDataStore(
             prefs[Keys.POLLING_INTERVAL_MS] = updated.pollingIntervalMillis
             prefs[Keys.MIN_FONT_SIZE_SP] = updated.minFontSizeSp
             prefs[Keys.MAX_FONT_SIZE_SP] = updated.maxFontSizeSp
-            prefs[Keys.TIME_TO_MAX_MINUTES] = updated.timeToMaxMinutes
+            prefs[Keys.TIME_TO_MAX_SECONDS] = updated.timeToMaxSeconds
+            prefs.remove(Keys.TIME_TO_MAX_MINUTES)
             prefs[Keys.OVERLAY_ENABLED] = updated.overlayEnabled
             prefs[Keys.AUTO_START_ON_BOOT] = updated.autoStartOnBoot
             prefs[Keys.POSITION_X] = updated.positionX
             prefs[Keys.POSITION_Y] = updated.positionY
-            prefs[Keys.TOUCH_MODE] = updated.touchMode.ordinal
 
-            prefs[Keys.GROWTH_MODE] = updated.growthMode.ordinal
-            prefs[Keys.COLOR_MODE] = updated.colorMode.ordinal
+            // enum は name 保存へ移行
+            prefs[Keys.TOUCH_MODE_NAME] = updated.touchMode.name
+            prefs[Keys.TIMER_TIME_MODE_NAME] = updated.timerTimeMode.name
+            prefs[Keys.TIMER_VISUAL_TIME_BASIS_NAME] = updated.timerVisualTimeBasis.name
+            prefs[Keys.GROWTH_MODE_NAME] = updated.growthMode.name
+            prefs[Keys.COLOR_MODE_NAME] = updated.colorMode.name
+
+            // legacy ordinal は書き戻さず，更新時に削除して段階的に移行する
+            prefs.remove(Keys.TOUCH_MODE)
+            prefs.remove(Keys.TIMER_TIME_MODE)
+            prefs.remove(Keys.TIMER_VISUAL_TIME_BASIS)
+            prefs.remove(Keys.GROWTH_MODE)
+            prefs.remove(Keys.COLOR_MODE)
+
             prefs[Keys.FIXED_COLOR_ARGB] = updated.fixedColorArgb
             prefs[Keys.GRADIENT_START_COLOR_ARGB] = updated.gradientStartColorArgb
             prefs[Keys.GRADIENT_MIDDLE_COLOR_ARGB] = updated.gradientMiddleColorArgb
@@ -134,74 +164,150 @@ class SettingsDataStore(
     }
 
     /**
-     * プリセット種別だけを更新する。
+     * プリセット種別だけを更新する．
      */
     suspend fun setPreset(preset: CustomizePreset) {
         context.settingsDataStore.edit { prefs ->
-            prefs[Keys.SETTINGS_PRESET] = preset.ordinal
+            prefs[Keys.SETTINGS_PRESET_NAME] = preset.name
+            prefs.remove(Keys.SETTINGS_PRESET)
         }
     }
 
     /**
-     * Preferences -> Customize の変換を 1 箇所に集約。
-     * fallback はすべて Customize() のデフォルトを見る。
+     * Preferences -> Customize の変換を 1 箇所に集約．
+     * fallback はすべて Customize() のデフォルトを見る．
      */
     private fun Preferences.toOverlaySettings(): Customize {
-        // Customize() のデフォルトは SettingsConfig.CustomizeDefaults を参照している
+        // Customize() のデフォルトは core.model.CustomizeDefaults を参照している
         val base = Customize()
 
-        val touchModeOrdinal = this[Keys.TOUCH_MODE] ?: base.touchMode.ordinal
-        val touchMode = TimerTouchMode.entries.getOrNull(touchModeOrdinal)
-            ?: TimerTouchMode.Drag
+        val touchMode =
+            decodeEnum(
+                name = this[Keys.TOUCH_MODE_NAME],
+                ordinal = this[Keys.TOUCH_MODE],
+                entries = TimerTouchMode.entries,
+                default = base.touchMode,
+                valueOf = { TimerTouchMode.valueOf(it) },
+            )
+
+        val timerTimeMode =
+            decodeEnum(
+                name = this[Keys.TIMER_TIME_MODE_NAME],
+                ordinal = this[Keys.TIMER_TIME_MODE],
+                entries = TimerTimeMode.entries,
+                default = base.timerTimeMode,
+                valueOf = { TimerTimeMode.valueOf(it) },
+            )
+
+        val timerVisualTimeBasis =
+            decodeEnum(
+                name = this[Keys.TIMER_VISUAL_TIME_BASIS_NAME],
+                ordinal = this[Keys.TIMER_VISUAL_TIME_BASIS],
+                entries = TimerVisualTimeBasis.entries,
+                default = base.timerVisualTimeBasis,
+                valueOf = { TimerVisualTimeBasis.valueOf(it) },
+            )
+
+        val growthMode =
+            decodeEnum(
+                name = this[Keys.GROWTH_MODE_NAME],
+                ordinal = this[Keys.GROWTH_MODE],
+                entries = TimerGrowthMode.entries,
+                default = base.growthMode,
+                valueOf = { TimerGrowthMode.valueOf(it) },
+            )
+
+        val colorMode =
+            decodeEnum(
+                name = this[Keys.COLOR_MODE_NAME],
+                ordinal = this[Keys.COLOR_MODE],
+                entries = TimerColorMode.entries,
+                default = base.colorMode,
+                valueOf = { TimerColorMode.valueOf(it) },
+            )
+
+        val timeToMaxSeconds =
+            this[Keys.TIME_TO_MAX_SECONDS]
+                ?: this[Keys.TIME_TO_MAX_MINUTES]?.let { it * 60 }
+                ?: base.timeToMaxSeconds
 
         return base.copy(
-            gracePeriodMillis = this[Keys.GRACE_PERIOD_MS]
-                ?: base.gracePeriodMillis,
-            pollingIntervalMillis = this[Keys.POLLING_INTERVAL_MS]
-                ?: base.pollingIntervalMillis,
-            minFontSizeSp = this[Keys.MIN_FONT_SIZE_SP]
-                ?: base.minFontSizeSp,
-            maxFontSizeSp = this[Keys.MAX_FONT_SIZE_SP]
-                ?: base.maxFontSizeSp,
-            timeToMaxMinutes = this[Keys.TIME_TO_MAX_MINUTES]
-                ?: base.timeToMaxMinutes,
-            overlayEnabled = this[Keys.OVERLAY_ENABLED]
-                ?: base.overlayEnabled,
-            autoStartOnBoot = this[Keys.AUTO_START_ON_BOOT]
-                ?: base.autoStartOnBoot,
-            positionX = this[Keys.POSITION_X]
-                ?: base.positionX,
-            positionY = this[Keys.POSITION_Y]
-                ?: base.positionY,
+            gracePeriodMillis =
+                this[Keys.GRACE_PERIOD_MS]
+                    ?: base.gracePeriodMillis,
+            pollingIntervalMillis =
+                this[Keys.POLLING_INTERVAL_MS]
+                    ?: base.pollingIntervalMillis,
+            minFontSizeSp =
+                this[Keys.MIN_FONT_SIZE_SP]
+                    ?: base.minFontSizeSp,
+            maxFontSizeSp =
+                this[Keys.MAX_FONT_SIZE_SP]
+                    ?: base.maxFontSizeSp,
+            timeToMaxSeconds = timeToMaxSeconds,
+            overlayEnabled =
+                this[Keys.OVERLAY_ENABLED]
+                    ?: base.overlayEnabled,
+            autoStartOnBoot =
+                this[Keys.AUTO_START_ON_BOOT]
+                    ?: base.autoStartOnBoot,
+            positionX =
+                this[Keys.POSITION_X]
+                    ?: base.positionX,
+            positionY =
+                this[Keys.POSITION_Y]
+                    ?: base.positionY,
             touchMode = touchMode,
-            growthMode = this[Keys.GROWTH_MODE]
-                ?.let { TimerGrowthMode.values().getOrNull(it) }
-                ?: base.growthMode,
-            colorMode = this[Keys.COLOR_MODE]
-                ?.let { TimerColorMode.values().getOrNull(it) }
-                ?: base.colorMode,
+            timerTimeMode = timerTimeMode,
+            timerVisualTimeBasis = timerVisualTimeBasis,
+            growthMode = growthMode,
+            colorMode = colorMode,
             fixedColorArgb = this[Keys.FIXED_COLOR_ARGB] ?: base.fixedColorArgb,
-            gradientStartColorArgb = this[Keys.GRADIENT_START_COLOR_ARGB]
-                ?: base.gradientStartColorArgb,
-            gradientMiddleColorArgb = this[Keys.GRADIENT_MIDDLE_COLOR_ARGB]
-                ?: base.gradientMiddleColorArgb,
-            gradientEndColorArgb = this[Keys.GRADIENT_END_COLOR_ARGB] ?: base.gradientEndColorArgb,
-            suggestionEnabled = this[Keys.SUGGESTION_ENABLED]
-                ?: base.suggestionEnabled,
-            suggestionTriggerSeconds = this[Keys.SUGGESTION_TRIGGER_SECONDS]
-                ?: base.suggestionTriggerSeconds,
-            suggestionTimeoutSeconds = this[Keys.SUGGESTION_TIMEOUT_SECONDS]
-                ?: base.suggestionTimeoutSeconds,
-            suggestionCooldownSeconds = this[Keys.SUGGESTION_COOLDOWN_SECONDS]
-                ?: base.suggestionCooldownSeconds,
+            gradientStartColorArgb =
+                this[Keys.GRADIENT_START_COLOR_ARGB]
+                    ?: base.gradientStartColorArgb,
+            gradientMiddleColorArgb =
+                this[Keys.GRADIENT_MIDDLE_COLOR_ARGB]
+                    ?: base.gradientMiddleColorArgb,
+            gradientEndColorArgb =
+                this[Keys.GRADIENT_END_COLOR_ARGB]
+                    ?: base.gradientEndColorArgb,
+            suggestionEnabled =
+                this[Keys.SUGGESTION_ENABLED]
+                    ?: base.suggestionEnabled,
+            suggestionTriggerSeconds =
+                this[Keys.SUGGESTION_TRIGGER_SECONDS]
+                    ?: base.suggestionTriggerSeconds,
+            suggestionTimeoutSeconds =
+                this[Keys.SUGGESTION_TIMEOUT_SECONDS]
+                    ?: base.suggestionTimeoutSeconds,
+            suggestionCooldownSeconds =
+                this[Keys.SUGGESTION_COOLDOWN_SECONDS]
+                    ?: base.suggestionCooldownSeconds,
             suggestionForegroundStableSeconds =
                 this[Keys.SUGGESTION_FOREGROUND_STABLE_SECONDS]
                     ?: base.suggestionForegroundStableSeconds,
-            restSuggestionEnabled = this[Keys.REST_SUGGESTION_ENABLED]
-                ?: base.restSuggestionEnabled,
+            restSuggestionEnabled =
+                this[Keys.REST_SUGGESTION_ENABLED]
+                    ?: base.restSuggestionEnabled,
             suggestionInteractionLockoutMillis =
                 this[Keys.SUGGESTION_INTERACTION_LOCKOUT_MS]
                     ?: base.suggestionInteractionLockoutMillis,
         )
+    }
+
+    private fun <T> decodeEnum(
+        name: String?,
+        ordinal: Int?,
+        entries: List<T>,
+        default: T,
+        valueOf: (String) -> T,
+    ): T {
+        if (!name.isNullOrBlank()) {
+            runCatching { return valueOf(name) }
+        }
+
+        val idx = ordinal ?: return default
+        return entries.getOrNull(idx) ?: default
     }
 }

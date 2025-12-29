@@ -10,7 +10,6 @@ import com.example.refocus.core.model.SessionEventType
  * Repository / DefaultStatsUseCase / Overlay などから共通で利用する。
  */
 object SessionDurationCalculator {
-
     data class ActiveSegment(
         val startMillis: Long,
         val endMillis: Long,
@@ -71,7 +70,8 @@ object SessionDurationCalculator {
                 SessionEventType.SuggestionShown,
                 SessionEventType.SuggestionSnoozed,
                 SessionEventType.SuggestionDismissed,
-                SessionEventType.SuggestionDisabledForSession -> Unit
+                SessionEventType.SuggestionDisabledForSession,
+                -> Unit
             }
         }
 
@@ -93,9 +93,8 @@ object SessionDurationCalculator {
     fun calculateDurationMillis(
         events: List<SessionEvent>,
         nowMillis: Long,
-    ): Long {
-        return buildActiveSegments(events, nowMillis)
+    ): Long =
+        buildActiveSegments(events, nowMillis)
             .sumOf { (it.endMillis - it.startMillis).coerceAtLeast(0L) }
             .coerceAtLeast(0L)
-    }
 }

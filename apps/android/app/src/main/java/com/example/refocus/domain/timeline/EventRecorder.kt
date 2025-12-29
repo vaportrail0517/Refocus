@@ -6,6 +6,9 @@ import com.example.refocus.core.model.PermissionKind
 import com.example.refocus.core.model.PermissionState
 import com.example.refocus.core.model.ScreenEvent
 import com.example.refocus.core.model.ScreenState
+import com.example.refocus.core.model.ServiceConfigEvent
+import com.example.refocus.core.model.ServiceConfigKind
+import com.example.refocus.core.model.ServiceConfigState
 import com.example.refocus.core.model.ServiceLifecycleEvent
 import com.example.refocus.core.model.ServiceState
 import com.example.refocus.core.model.SettingsChangedEvent
@@ -14,7 +17,7 @@ import com.example.refocus.core.model.SuggestionDecisionEvent
 import com.example.refocus.core.model.SuggestionShownEvent
 import com.example.refocus.core.model.TargetAppsChangedEvent
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.data.repository.TimelineRepository
+import com.example.refocus.domain.repository.TimelineRepository
 
 /**
  * System 層からのイベントを一元的に記録するためのユーティリティ。
@@ -26,7 +29,6 @@ class EventRecorder(
     private val timeSource: TimeSource,
     private val timelineRepository: TimelineRepository,
 ) {
-
     private fun now(): Long = timeSource.nowMillis()
 
     suspend fun onServiceStarted() {
@@ -34,7 +36,7 @@ class EventRecorder(
             ServiceLifecycleEvent(
                 timestampMillis = now(),
                 state = ServiceState.Started,
-            )
+            ),
         )
     }
 
@@ -43,7 +45,22 @@ class EventRecorder(
             ServiceLifecycleEvent(
                 timestampMillis = now(),
                 state = ServiceState.Stopped,
-            )
+            ),
+        )
+    }
+
+    suspend fun onServiceConfigChanged(
+        config: ServiceConfigKind,
+        state: ServiceConfigState,
+        meta: String? = null,
+    ) {
+        timelineRepository.append(
+            ServiceConfigEvent(
+                timestampMillis = now(),
+                config = config,
+                state = state,
+                meta = meta,
+            ),
         )
     }
 
@@ -56,7 +73,7 @@ class EventRecorder(
                 timestampMillis = now(),
                 permission = permission,
                 state = state,
-            )
+            ),
         )
     }
 
@@ -65,7 +82,7 @@ class EventRecorder(
             ScreenEvent(
                 timestampMillis = now(),
                 state = ScreenState.On,
-            )
+            ),
         )
     }
 
@@ -74,7 +91,7 @@ class EventRecorder(
             ScreenEvent(
                 timestampMillis = now(),
                 state = ScreenState.Off,
-            )
+            ),
         )
     }
 
@@ -83,7 +100,7 @@ class EventRecorder(
             ForegroundAppEvent(
                 timestampMillis = now(),
                 packageName = packageName,
-            )
+            ),
         )
     }
 
@@ -92,7 +109,7 @@ class EventRecorder(
             TargetAppsChangedEvent(
                 timestampMillis = now(),
                 targetPackages = targetPackages,
-            )
+            ),
         )
     }
 
@@ -105,7 +122,7 @@ class EventRecorder(
                 timestampMillis = now(),
                 packageName = packageName,
                 suggestionId = suggestionId,
-            )
+            ),
         )
     }
 
@@ -120,7 +137,7 @@ class EventRecorder(
                 packageName = packageName,
                 suggestionId = suggestionId,
                 decision = decision,
-            )
+            ),
         )
     }
 
@@ -133,7 +150,7 @@ class EventRecorder(
                 timestampMillis = now(),
                 key = key,
                 newValueDescription = newValueDescription,
-            )
+            ),
         )
     }
 }

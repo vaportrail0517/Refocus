@@ -23,7 +23,27 @@ enum class ServiceState {
     Stopped,
 }
 
-/** 必須権限の状態変化 (UsageStats / Overlay など) */
+/** サービス設定（有効/無効・再起動時自動起動など） */
+data class ServiceConfigEvent(
+    override val id: Long? = null,
+    override val timestampMillis: Long,
+    val config: ServiceConfigKind,
+    val state: ServiceConfigState,
+    /** source/reason などのメタ情報（解析用）。必要なければ null */
+    val meta: String? = null,
+) : TimelineEvent
+
+enum class ServiceConfigKind {
+    OverlayEnabled,
+    AutoStartOnBoot,
+}
+
+enum class ServiceConfigState {
+    Enabled,
+    Disabled,
+}
+
+/** 権限の状態変化 (UsageStats / Overlay / Notification など) */
 data class PermissionEvent(
     override val id: Long? = null,
     override val timestampMillis: Long,
@@ -34,6 +54,7 @@ data class PermissionEvent(
 enum class PermissionKind {
     UsageStats,
     Overlay,
+    Notification,
 }
 
 enum class PermissionState {

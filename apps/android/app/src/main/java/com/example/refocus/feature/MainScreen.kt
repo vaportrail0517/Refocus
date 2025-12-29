@@ -29,7 +29,7 @@ enum class MainTab {
     Home,
     Suggestions,
     Stats,
-    Customize
+    Customize,
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -43,10 +43,11 @@ fun MainScreen(
 ) {
     val tabs = MainTab.entries
     val initialPage = tabs.indexOf(MainTab.Home).coerceAtLeast(0)
-    val pagerState = rememberPagerState(
-        initialPage = initialPage,
-        pageCount = { tabs.size }
-    )
+    val pagerState =
+        rememberPagerState(
+            initialPage = initialPage,
+            pageCount = { tabs.size },
+        )
     val scope = rememberCoroutineScope()
     val currentTab = tabs[pagerState.currentPage]
     Scaffold(
@@ -58,24 +59,26 @@ fun MainScreen(
                     scope.launch {
                         pagerState.animateScrollToPage(index)
                     }
-                }
+                },
             )
-        }
+        },
     ) { innerPadding ->
         HorizontalPager(
             state = pagerState,
             userScrollEnabled = false,
-            modifier = Modifier.Companion
-                .fillMaxSize()
-                .padding(innerPadding)
+            modifier =
+                Modifier.Companion
+                    .fillMaxSize()
+                    .padding(innerPadding),
         ) { page ->
             when (tabs[page]) {
-                MainTab.Home -> HomeRoute(
-                    onOpenStatsDetail = onOpenStatsDetail,
-                    onOpenPermissionFixFlow = onOpenPermissionFixFlow,
-                    onOpenAppSelect = onOpenAppSelect,
-                    onOpenSettings = onOpenSettings,
-                )
+                MainTab.Home ->
+                    HomeRoute(
+                        onOpenStatsDetail = onOpenStatsDetail,
+                        onOpenPermissionFixFlow = onOpenPermissionFixFlow,
+                        onOpenAppSelect = onOpenAppSelect,
+                        onOpenSettings = onOpenSettings,
+                    )
 
                 MainTab.Suggestions -> SuggestionsRoute()
                 MainTab.Stats -> StatsRoute(onOpenHistory = onOpenHistory)
@@ -85,36 +88,35 @@ fun MainScreen(
     }
 }
 
-
 @Composable
 private fun HomeBottomBar(
     selectedTab: MainTab,
-    onTabSelected: (MainTab) -> Unit
+    onTabSelected: (MainTab) -> Unit,
 ) {
     NavigationBar {
         NavigationBarItem(
             selected = selectedTab == MainTab.Home,
             onClick = { onTabSelected(MainTab.Home) },
             icon = { Icon(Icons.Filled.Home, contentDescription = "ホーム") },
-            label = { Text("ホーム") }
+            label = { Text("ホーム") },
         )
         NavigationBarItem(
             selected = selectedTab == MainTab.Suggestions,
             onClick = { onTabSelected(MainTab.Suggestions) },
             icon = { Icon(Icons.Filled.Lightbulb, contentDescription = "提案") },
-            label = { Text("提案") }
+            label = { Text("提案") },
         )
         NavigationBarItem(
             selected = selectedTab == MainTab.Stats,
             onClick = { onTabSelected(MainTab.Stats) },
             icon = { Icon(Icons.Filled.DataUsage, contentDescription = "統計") },
-            label = { Text("統計") }
+            label = { Text("統計") },
         )
         NavigationBarItem(
             selected = selectedTab == MainTab.Customize,
             onClick = { onTabSelected(MainTab.Customize) },
             icon = { Icon(Icons.Filled.Tune, contentDescription = "カスタマイズ") },
-            label = { Text("カスタマイズ") }
+            label = { Text("カスタマイズ") },
         )
     }
 }

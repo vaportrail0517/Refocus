@@ -8,13 +8,17 @@ import java.time.Instant
 import java.time.ZoneId
 
 /**
- * Session + Event 列から SessionPart を生成するユーティリティ。
+ * Session + Event 列から SessionPart を生成するユーティリティ．
  *
  * - 日付境界（ローカルタイムの 0:00）でセッションを分割する
- * - 未終了セッション（FINISHED ではないもの）は統計対象外とする
+ * - 未終了セッション（RUNNING / GRACE など）も，nowMillis を仮の終端として切片を生成する
+ *
+ *   統計・日次累計・オーバーレイなど，「いま現在までの使用時間」を扱うために，
+ *   FINISHED だけに限定せず切片を作れるようにしている．
+ *   将来的に「完了セッションのみ」などの目的別フィルタが必要になったら，
+ *   呼び出し側で status を見て制御する．
  */
 object SessionPartGenerator {
-
     fun generateParts(
         sessions: List<Session>,
         eventsBySessionId: Map<Long, List<SessionEvent>>,
@@ -24,12 +28,13 @@ object SessionPartGenerator {
         if (sessions.isEmpty()) return emptyList()
 
         // stats は主に packageName / status の補助情報として取得
-        val statsList = SessionStatsCalculator.buildSessionStats(
-            sessions = sessions,
-            eventsMap = eventsBySessionId,
-            foregroundPackage = null,
-            nowMillis = nowMillis,
-        )
+        val statsList =
+            SessionStatsCalculator.buildSessionStats(
+                sessions = sessions,
+                eventsMap = eventsBySessionId,
+                foregroundPackage = null,
+                nowMillis = nowMillis,
+            )
         val statsById = statsList.associateBy { it.id }
 
         val parts = mutableListOf<SessionPart>()
@@ -73,18 +78,21 @@ object SessionPartGenerator {
                         val endMinutes =
                             segEnd.toLocalTime().hour * 60 + segEnd.toLocalTime().minute
                         val durationMillis =
-                            java.time.Duration.between(segStart, segEnd).toMillis()
+                            java.time.Duration
+                                .between(segStart, segEnd)
+                                .toMillis()
 
-                        parts += SessionPart(
-                            sessionId = id,
-                            packageName = session.packageName,
-                            date = date,
-                            startDateTime = segStart.toInstant(),
-                            endDateTime = segEnd.toInstant(),
-                            startMinutesOfDay = startMinutes,
-                            endMinutesOfDay = endMinutes,
-                            durationMillis = durationMillis,
-                        )
+                        parts +=
+                            SessionPart(
+                                sessionId = id,
+                                packageName = session.packageName,
+                                date = date,
+                                startDateTime = segStart.toInstant(),
+                                endDateTime = segEnd.toInstant(),
+                                startMinutesOfDay = startMinutes,
+                                endMinutesOfDay = endMinutes,
+                                durationMillis = durationMillis,
+                            )
                     }
 
                     // 次の日へ

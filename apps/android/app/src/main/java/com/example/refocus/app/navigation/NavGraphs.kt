@@ -1,16 +1,16 @@
 package com.example.refocus.app.navigation
 
 import android.app.Activity
-import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.feature.MainScreen
 import com.example.refocus.feature.appselect.AppSelectScreen
 import com.example.refocus.feature.entry.EntryScreen
-import com.example.refocus.feature.history.SessionHistoryScreen
+import com.example.refocus.feature.history.HistoryRoute
 import com.example.refocus.feature.onboarding.OnboardingFinishScreen
 import com.example.refocus.feature.onboarding.OnboardingIntroScreen
 import com.example.refocus.feature.onboarding.OnboardingReadyScreen
@@ -35,13 +35,12 @@ object Destinations {
 }
 
 @Composable
-fun RefocusNavHost(
-) {
+fun RefocusNavHost() {
     val navController = rememberNavController()
 
     NavHost(
         navController = navController,
-        startDestination = Destinations.ENTRY
+        startDestination = Destinations.ENTRY,
     ) {
         composable(Destinations.ENTRY) {
             val context = LocalContext.current
@@ -55,7 +54,7 @@ fun RefocusNavHost(
                     navController.navigate(Destinations.HOME) {
                         popUpTo(Destinations.ENTRY) { inclusive = true }
                     }
-                }
+                },
             )
         }
 
@@ -63,7 +62,7 @@ fun RefocusNavHost(
             OnboardingIntroScreen(
                 onStartSetup = {
                     navController.navigate(Destinations.PERMISSION_FLOW)
-                }
+                },
             )
         }
 
@@ -73,7 +72,7 @@ fun RefocusNavHost(
                     navController.navigate(Destinations.ONBOARDING_READY) {
                         popUpTo(Destinations.ONBOARDING_INTRO) { inclusive = true }
                     }
-                }
+                },
             )
         }
 
@@ -83,7 +82,7 @@ fun RefocusNavHost(
                     navController.navigate(Destinations.HOME) {
                         popUpTo(Destinations.ENTRY) { inclusive = true }
                     }
-                }
+                },
             )
         }
 
@@ -91,7 +90,7 @@ fun RefocusNavHost(
             OnboardingReadyScreen(
                 onSelectApps = {
                     navController.navigate(Destinations.APP_SELECT)
-                }
+                },
             )
         }
 
@@ -106,7 +105,7 @@ fun RefocusNavHost(
                     navController.navigate(Destinations.ONBOARDING_FINISH) {
                         popUpTo(Destinations.ONBOARDING_READY) { inclusive = false }
                     }
-                }
+                },
             )
         }
 
@@ -117,7 +116,7 @@ fun RefocusNavHost(
                 },
                 onFinishedWithoutPermission = {
                     navController.popBackStack()
-                }
+                },
             )
         }
 
@@ -127,7 +126,7 @@ fun RefocusNavHost(
                     navController.navigate(Destinations.ONBOARDING_FINISH) {
                         popUpTo(Destinations.APP_SELECT) { inclusive = true }
                     }
-                }
+                },
             )
         }
 
@@ -139,20 +138,20 @@ fun RefocusNavHost(
                     activity?.finishAffinity()
                 },
                 onOpenApp = {
-                    Log.d("NavGraphs", "ONBOARDING_FINISH onOpenApp → startOverlayService")
+                    RefocusLog.d("NavGraphs") { "ONBOARDING_FINISH onOpenApp → startOverlayService" }
                     context.startOverlayService()
                     navController.navigate(Destinations.HOME) {
                         popUpTo(Destinations.APP_SELECT) { inclusive = true }
                     }
-                }
+                },
             )
         }
 
         composable(Destinations.HISTORY) {
-            SessionHistoryScreen(
+            HistoryRoute(
                 onNavigateBack = {
                     navController.popBackStack()
-                }
+                },
             )
         }
 
@@ -166,7 +165,7 @@ fun RefocusNavHost(
                 },
                 onNavigateBack = {
                     navController.popBackStack()
-                }
+                },
             )
         }
 
@@ -187,9 +186,8 @@ fun RefocusNavHost(
                 },
                 onOpenSettings = {
                     navController.navigate(Destinations.SETTINGS)
-                }
+                },
             )
         }
     }
 }
-

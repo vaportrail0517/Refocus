@@ -1,0 +1,27 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+ij_kotlin_code_style_defaults = KOTLIN_OFFICIAL
+# Kotlin official は明確な上限がないが，レビューと可読性のため暫定で 120 に揃える
+max_line_length = 120
+
+# Compose UI では PascalCase 関数名を許容する
+[app/src/main/java/**/feature/**/*.kt]
+ktlint_standard_function-naming = disabled
+
+[app/src/main/java/**/ui/**/*.kt]
+ktlint_standard_function-naming = disabled
+
+[app/src/main/java/**/system/overlay/ui/**/*.kt]
+ktlint_standard_function-naming = disabled
+
+[app/src/main/java/**/app/navigation/**/*.kt]
+ktlint_standard_function-naming = disabled

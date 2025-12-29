@@ -42,21 +42,22 @@ fun SectionCard(
 
         // 背景色付きのカード本体
         Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(
-                    if (onClick != null) {
-                        Modifier.clickable(onClick = onClick)
-                    } else {
-                        Modifier
-                    }
-                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (onClick != null) {
+                            Modifier.clickable(onClick = onClick)
+                        } else {
+                            Modifier
+                        },
+                    ),
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
         ) {
             Column(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                content = content
+                content = content,
             )
         }
     }

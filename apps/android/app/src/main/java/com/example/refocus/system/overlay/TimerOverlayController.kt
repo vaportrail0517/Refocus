@@ -2,7 +2,6 @@ package com.example.refocus.system.overlay
 
 import android.content.Context
 import android.graphics.PixelFormat
-import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -14,12 +13,15 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.util.TimeSource
-import com.example.refocus.ui.overlay.TimerOverlay
+import com.example.refocus.core.util.formatDurationForTimerBubble
+import com.example.refocus.system.overlay.ui.TimerOverlay
 import com.example.refocus.ui.theme.RefocusTheme
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -39,11 +41,20 @@ class TimerOverlayController(
     // ドラッグで位置を変えたときに呼び出すコールバックを保持しておく
     private var onPositionChangedCallback: ((Int, Int) -> Unit)? = null
 
+    /**
+     * show/hide が非同期に呼ばれて順序が並び替わった場合に，古い hide を無視するためのトークン．
+     * 通常は packageName を使う．
+     */
+    private var currentToken: String? = null
+
     // Compose が監視するステート本体
     private var overlayCustomizeState by mutableStateOf(Customize())
 
-    // Compose が監視する経過時間（TimerOverlay にそのまま渡す）
-    private var elapsedMillis by mutableStateOf(0L)
+    // Compose が監視する表示用時間（TimerOverlay の文字列に使う）
+    private var displayMillis by mutableStateOf(0L)
+
+    // Compose が監視する演出用時間（サイズ・色などに使う）
+    private var visualMillis by mutableStateOf(0L)
 
     // 経過時間を更新するためのジョブ
     private var timerJob: Job? = null
@@ -57,26 +68,30 @@ class TimerOverlayController(
             onSettingsChanged(old, value)
         }
 
-    private fun onSettingsChanged(old: Customize, new: Customize) {
+    private fun onSettingsChanged(
+        old: Customize,
+        new: Customize,
+    ) {
         val view = overlayView ?: return
         val lp = layoutParams ?: return
         // タッチモードが変わった場合のみ、flag とリスナーを差し替える
         if (old.touchMode != new.touchMode) {
             val baseFlags =
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-            lp.flags = when (new.touchMode) {
-                TimerTouchMode.Drag ->
-                    baseFlags
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+            lp.flags =
+                when (new.touchMode) {
+                    TimerTouchMode.Drag ->
+                        baseFlags
 
-                TimerTouchMode.PassThrough ->
-                    baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            }
+                    TimerTouchMode.PassThrough ->
+                        baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                }
             windowManager.updateViewLayout(view, lp)
             applyTouchListener(
                 view = view,
                 lp = lp,
-                touchMode = new.touchMode
+                touchMode = new.touchMode,
             )
         }
     }
@@ -84,42 +99,48 @@ class TimerOverlayController(
     private fun applyTouchListener(
         view: View,
         lp: WindowManager.LayoutParams,
-        touchMode: TimerTouchMode
+        touchMode: TimerTouchMode,
     ) {
         if (touchMode == TimerTouchMode.Drag) {
-            view.setOnTouchListener(object : View.OnTouchListener {
-                private var initialX = 0
-                private var initialY = 0
-                private var initialTouchX = 0f
-                private var initialTouchY = 0f
-                override fun onTouch(v: View, event: MotionEvent): Boolean {
-                    when (event.action) {
-                        MotionEvent.ACTION_DOWN -> {
-                            initialX = lp.x
-                            initialY = lp.y
-                            initialTouchX = event.rawX
-                            initialTouchY = event.rawY
-                            return true
-                        }
+            view.setOnTouchListener(
+                object : View.OnTouchListener {
+                    private var initialX = 0
+                    private var initialY = 0
+                    private var initialTouchX = 0f
+                    private var initialTouchY = 0f
 
-                        MotionEvent.ACTION_MOVE -> {
-                            lp.x = initialX + (event.rawX - initialTouchX).toInt()
-                            lp.y = initialY + (event.rawY - initialTouchY).toInt()
-                            windowManager.updateViewLayout(v, lp)
-                            // 状態としても保持しておく
-                            this@TimerOverlayController.layoutParams = lp
-                            return true
-                        }
+                    override fun onTouch(
+                        v: View,
+                        event: MotionEvent,
+                    ): Boolean {
+                        when (event.action) {
+                            MotionEvent.ACTION_DOWN -> {
+                                initialX = lp.x
+                                initialY = lp.y
+                                initialTouchX = event.rawX
+                                initialTouchY = event.rawY
+                                return true
+                            }
 
-                        MotionEvent.ACTION_UP -> {
-                            // 位置の永続化コールバック
-                            onPositionChangedCallback?.invoke(lp.x, lp.y)
-                            return true
+                            MotionEvent.ACTION_MOVE -> {
+                                lp.x = initialX + (event.rawX - initialTouchX).toInt()
+                                lp.y = initialY + (event.rawY - initialTouchY).toInt()
+                                windowManager.updateViewLayout(v, lp)
+                                // 状態としても保持しておく
+                                this@TimerOverlayController.layoutParams = lp
+                                return true
+                            }
+
+                            MotionEvent.ACTION_UP -> {
+                                // 位置の永続化コールバック
+                                onPositionChangedCallback?.invoke(lp.x, lp.y)
+                                return true
+                            }
                         }
+                        return false
                     }
-                    return false
-                }
-            })
+                },
+            )
         } else {
             // 透過モード：タッチを受けず、そのまま背後に流す
             view.setOnTouchListener(null)
@@ -127,89 +148,123 @@ class TimerOverlayController(
     }
 
     fun showTimer(
-        // SessionManager から経過時間をもらうための provider
-        elapsedMillisProvider: (Long) -> Long,
-        onPositionChanged: ((Int, Int) -> Unit)? = null
+        token: String? = null,
+        // 文字列として表示する時間
+        displayMillisProvider: (Long) -> Long,
+        // 色やサイズなどの演出に使う時間
+        visualMillisProvider: (Long) -> Long,
+        onPositionChanged: ((Int, Int) -> Unit)? = null,
     ) {
-        if (overlayView != null) {
-            Log.d("TimerOverlayController", "showTimer: already showing")
-            return
-        }
+        if (token != null) currentToken = token
 
         val settings = overlayCustomize
         onPositionChangedCallback = onPositionChanged
 
-        // 表示開始時に経過時間をリセット
-        elapsedMillis = 0L
+        // 初回表示時から値が 0 に見えてしまうのを避けるため，provider から即時に 1 回だけ取得して表示する
+        val nowElapsedForInit = timeSource.elapsedRealtime()
+        displayMillis = displayMillisProvider(nowElapsedForInit).coerceAtLeast(0L)
+        visualMillis = visualMillisProvider(nowElapsedForInit).coerceAtLeast(0L)
 
         // 既存のジョブがあれば止める
         timerJob?.cancel()
 
-        // コルーチンで 200ms ごとに elapsedMillis を更新
-        timerJob = scope.launch {
-            while (isActive) {
-                val nowElapsed = timeSource.elapsedRealtime()
-                elapsedMillis = elapsedMillisProvider(nowElapsed)
-                delay(200L)
+        // コルーチンで 200ms ごとに displayMillis / visualMillis を更新
+        // Compose の state 更新は Main のみで行う（Snapshot 競合・不定クラッシュ回避）
+        timerJob =
+            scope.launch(Dispatchers.Main.immediate) {
+                while (isActive) {
+                    val nowElapsed = timeSource.elapsedRealtime()
+                    displayMillis = displayMillisProvider(nowElapsed).coerceAtLeast(0L)
+                    visualMillis = visualMillisProvider(nowElapsed).coerceAtLeast(0L)
+                    delay(200L)
+                }
             }
+
+        // すでに表示中の場合でも provider / コールバック / ジョブは更新したい．
+        // 例: 対象アプリ切り替え時に hide/show の順序が並び替わると，前の provider のまま更新されない問題が起きうる．
+        if (overlayView != null) {
+            RefocusLog.d("TimerOverlay") { "showTimer: already showing (updated providers)" }
+            return
         }
 
         val baseFlags =
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-        val flags = when (settings.touchMode) {
-            TimerTouchMode.Drag ->
-                baseFlags
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+        val flags =
+            when (settings.touchMode) {
+                TimerTouchMode.Drag ->
+                    baseFlags
 
-            TimerTouchMode.PassThrough ->
-                baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        }
+                TimerTouchMode.PassThrough ->
+                    baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            }
 
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            flags,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = settings.positionX
-            y = settings.positionY
-        }
+        val params =
+            WindowManager
+                .LayoutParams(
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                    flags,
+                    PixelFormat.TRANSLUCENT,
+                ).apply {
+                    gravity = Gravity.TOP or Gravity.START
+                    x = settings.positionX
+                    y = settings.positionY
+                }
 
-        val composeView = ComposeView(context).apply {
-            setViewTreeLifecycleOwner(lifecycleOwner)
-            val savedStateOwner = OverlaySavedStateOwner()
-            setViewTreeSavedStateRegistryOwner(savedStateOwner)
-            setContent {
-                RefocusTheme {
-                    TimerOverlay(
-                        customize = overlayCustomizeState,
-                        elapsedMillis = elapsedMillis,
-                    )
+        val composeView =
+            ComposeView(context).apply {
+                setViewTreeLifecycleOwner(lifecycleOwner)
+                val savedStateOwner = OverlaySavedStateOwner()
+                setViewTreeSavedStateRegistryOwner(savedStateOwner)
+                setContent {
+                    RefocusTheme {
+                        TimerOverlay(
+                            customize = overlayCustomizeState,
+                            visualMillis = visualMillis,
+                            text = formatDurationForTimerBubble(displayMillis),
+                        )
+                    }
                 }
             }
-        }
 
         overlayView = composeView
         layoutParams = params
         applyTouchListener(
             view = composeView,
             lp = params,
-            touchMode = settings.touchMode
+            touchMode = settings.touchMode,
         )
         try {
             windowManager.addView(composeView, params)
         } catch (e: Exception) {
-            Log.e("TimerOverlayController", "showTimer: addView failed", e)
+            RefocusLog.e("TimerOverlay", e) { "showTimer: addView failed" }
+            // addView が失敗した場合は内部状態を巻き戻して，次回 showTimer が正常に動くようにする
+            overlayView = null
+            layoutParams = null
+            onPositionChangedCallback = null
+            currentToken = null
+            timerJob?.cancel()
+            timerJob = null
+            displayMillis = 0L
+            visualMillis = 0L
         }
     }
 
-    fun hideTimer() {
+    fun hideTimer(token: String? = null) {
+        // token が指定されている場合は，現在表示中の token と一致するときのみ hide を実行する
+        // （古い hide が新しい show を消してしまうのを防ぐ）
+        if (token != null && token != currentToken) {
+            RefocusLog.d("TimerOverlay") { "hideTimer: ignored (token mismatch)" }
+            return
+        }
+
         // 経過時間更新ジョブを停止
         timerJob?.cancel()
         timerJob = null
-        elapsedMillis = 0L
+        displayMillis = 0L
+        visualMillis = 0L
 
         val view = overlayView ?: return
         try {
@@ -217,13 +272,14 @@ class TimerOverlayController(
                 view.setContent { } // 空のコンテンツを set → 既存 Composition が dispose される
             }
             windowManager.removeView(view)
-            Log.d("TimerOverlayController", "hideTimer: removeView success")
+            RefocusLog.d("TimerOverlay") { "hideTimer: removeView success" }
         } catch (e: Exception) {
-            Log.e("TimerOverlayController", "hideTimer: removeView failed", e)
+            RefocusLog.e("TimerOverlay", e) { "hideTimer: removeView failed" }
         } finally {
             overlayView = null
             layoutParams = null
+            onPositionChangedCallback = null
+            currentToken = null
         }
     }
-
 }

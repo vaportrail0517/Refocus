@@ -3,9 +3,9 @@ package com.example.refocus.system.boot
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.util.Log
-import com.example.refocus.data.repository.OnboardingRepository
-import com.example.refocus.data.repository.SettingsRepository
+import com.example.refocus.core.logging.RefocusLog
+import com.example.refocus.domain.repository.OnboardingRepository
+import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
 import dagger.hilt.android.AndroidEntryPoint
@@ -23,7 +23,10 @@ class BootCompletedReceiver : BroadcastReceiver() {
     @Inject
     lateinit var settingsRepository: SettingsRepository
 
-    override fun onReceive(context: Context, intent: Intent?) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent?,
+    ) {
         if (intent?.action != Intent.ACTION_BOOT_COMPLETED) return
 
         val pendingResult = goAsync()
@@ -32,33 +35,35 @@ class BootCompletedReceiver : BroadcastReceiver() {
             try {
                 val completed = onboardingRepository.completedFlow.first()
                 if (!completed) {
-                    Log.d("BootCompletedReceiver", "onboarding not completed → skip")
+                    RefocusLog.d("Boot") { "onboarding not completed → skip" }
                     return@launch
                 }
 
                 val settings = settingsRepository.observeOverlaySettings().first()
+
                 if (!settings.autoStartOnBoot) {
-                    Log.d("BootCompletedReceiver", "autoStartOnBoot=false → skip")
+                    RefocusLog.d("Boot") { "autoStartOnBoot=false → skip" }
+                    return@launch
+                }
+
+                // ユーザが OFF にしている場合は，端末再起動で勝手に起動しない
+                if (!settings.overlayEnabled) {
+                    RefocusLog.d("Boot") { "overlayEnabled=false → skip auto start" }
                     return@launch
                 }
 
                 // コア権限が揃っていない場合は自動起動しない
                 val hasCorePermissions = PermissionHelper.hasAllCorePermissions(context)
                 if (!hasCorePermissions) {
-                    Log.d(
-                        "BootCompletedReceiver",
-                        "missing core permissions (usage/overlay) → skip auto start"
-                    )
-                    // overlayEnabled を無理に true にしない
+                    RefocusLog.d("Boot") { "missing core permissions (usage/overlay) → skip auto start" }
                     return@launch
                 }
 
-                // 再起動時自動起動が ON かつ 権限も揃っている場合のみ起動
-                settingsRepository.setOverlayEnabled(true)
-                Log.d("BootCompletedReceiver", "BOOT_COMPLETED → start OverlayService")
+                // 再起動時自動起動が ON かつ overlayEnabled=true かつ 権限も揃っている場合のみ起動
+                RefocusLog.d("Boot") { "BOOT_COMPLETED → start OverlayService" }
                 context.startOverlayService()
             } catch (e: Exception) {
-                Log.e("BootCompletedReceiver", "error in BOOT_COMPLETED handling", e)
+                RefocusLog.e("Boot", e) { "error in BOOT_COMPLETED handling" }
             } finally {
                 pendingResult.finish()
             }

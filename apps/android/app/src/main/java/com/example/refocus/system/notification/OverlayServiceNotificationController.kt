@@ -10,12 +10,12 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Process
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.refocus.R
-import com.example.refocus.app.MainActivity
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.TimerTouchMode
+import com.example.refocus.system.AppLaunchIntents
 import com.example.refocus.system.overlay.OverlayService
 
 data class OverlayNotificationUiState(
@@ -29,7 +29,6 @@ data class OverlayNotificationUiState(
 class OverlayServiceNotificationController(
     private val context: Context,
 ) {
-
     companion object {
         const val CHANNEL_ID: String = "overlay_service_channel"
         private const val TAG: String = "OverlayServiceNotif"
@@ -42,17 +41,21 @@ class OverlayServiceNotificationController(
 
     fun ensureChannel() {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            context.getString(R.string.notification_channel_name),
-            NotificationManager.IMPORTANCE_MIN,
-        ).apply {
-            description = context.getString(R.string.notification_channel_description)
-        }
+        val channel =
+            NotificationChannel(
+                CHANNEL_ID,
+                context.getString(R.string.notification_channel_name),
+                NotificationManager.IMPORTANCE_MIN,
+            ).apply {
+                description = context.getString(R.string.notification_channel_description)
+            }
         nm.createNotificationChannel(channel)
     }
 
-    fun notify(notificationId: Int, state: OverlayNotificationUiState) {
+    fun notify(
+        notificationId: Int,
+        state: OverlayNotificationUiState,
+    ) {
         ensureChannel()
         if (!canPostNotifications()) return
         try {
@@ -60,7 +63,12 @@ class OverlayServiceNotificationController(
         } catch (e: SecurityException) {
             // POST_NOTIFICATIONS が拒否されている場合などは notify が失敗しうる．
             // Refocus は通知なしでも動作させる方針なので，例外は握りつぶす．
-            Log.w(TAG, "Failed to post notification (permission missing?)", e)
+            RefocusLog.wRateLimited(
+                "Notification",
+                "post_failed",
+                60_000L,
+                e,
+            ) { "Failed to post notification (permission missing?)" }
         }
     }
 
@@ -69,38 +77,47 @@ class OverlayServiceNotificationController(
         try {
             NotificationManagerCompat.from(context).cancel(notificationId)
         } catch (e: SecurityException) {
-            Log.w(TAG, "Failed to cancel notification (permission missing?)", e)
+            RefocusLog.wRateLimited(
+                "Notification",
+                "cancel_failed",
+                60_000L,
+                e,
+            ) { "Failed to cancel notification (permission missing?)" }
         }
     }
 
     private fun canPostNotifications(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
         // Lint 対応: dangerous permission なので，呼び出し前に明示的にチェックする．
-        val result = context.checkPermission(
-            Manifest.permission.POST_NOTIFICATIONS,
-            Process.myPid(),
-            Process.myUid(),
-        )
+        val result =
+            context.checkPermission(
+                Manifest.permission.POST_NOTIFICATIONS,
+                Process.myPid(),
+                Process.myUid(),
+            )
         return result == PackageManager.PERMISSION_GRANTED
     }
 
     fun build(state: OverlayNotificationUiState): Notification {
-        val contentIntent = PendingIntent.getActivity(
-            context,
-            REQUEST_CONTENT,
-            Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        val contentIntent =
+            PendingIntent.getActivity(
+                context,
+                REQUEST_CONTENT,
+                AppLaunchIntents.mainActivity(context).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
-        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setShowWhen(false)
-            .setContentIntent(contentIntent)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+        val builder =
+            NotificationCompat
+                .Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setShowWhen(false)
+                .setContentIntent(contentIntent)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
 
         if (!state.isTracking) {
             builder
@@ -119,10 +136,14 @@ class OverlayServiceNotificationController(
 
             if (state.isTimerVisible) {
                 lines += context.getString(R.string.notification_line_overlay_visible)
-                val touchLine = when (state.touchMode) {
-                    TimerTouchMode.Drag -> context.getString(R.string.notification_line_touch_mode_drag)
-                    TimerTouchMode.PassThrough -> context.getString(R.string.notification_line_touch_mode_passthrough)
-                }
+                val touchLine =
+                    when (state.touchMode) {
+                        TimerTouchMode.Drag -> context.getString(R.string.notification_line_touch_mode_drag)
+                        TimerTouchMode.PassThrough ->
+                            context.getString(
+                                R.string.notification_line_touch_mode_passthrough,
+                            )
+                    }
                 lines += touchLine
             } else {
                 lines += context.getString(R.string.notification_line_overlay_hidden)
@@ -139,27 +160,34 @@ class OverlayServiceNotificationController(
             builder.addAction(
                 0,
                 context.getString(R.string.notification_action_stop),
-                servicePendingIntent(OverlayService.ACTION_STOP, REQUEST_STOP)
+                servicePendingIntent(OverlayService.ACTION_STOP, REQUEST_STOP),
             )
         }
 
         if (state.isTracking) {
-            val toggleTimerLabel = if (state.isTimerVisible) {
-                context.getString(R.string.notification_action_hide_timer)
-            } else {
-                context.getString(R.string.notification_action_show_timer)
-            }
+            val toggleTimerLabel =
+                if (state.isTimerVisible) {
+                    context.getString(R.string.notification_action_hide_timer)
+                } else {
+                    context.getString(R.string.notification_action_show_timer)
+                }
             builder.addAction(
                 0,
                 toggleTimerLabel,
-                servicePendingIntent(OverlayService.ACTION_TOGGLE_TIMER_VISIBILITY, REQUEST_TOGGLE_TIMER)
+                servicePendingIntent(
+                    OverlayService.ACTION_TOGGLE_TIMER_VISIBILITY,
+                    REQUEST_TOGGLE_TIMER,
+                ),
             )
 
             if (state.isTimerVisible) {
                 builder.addAction(
                     0,
                     context.getString(R.string.notification_action_toggle_touch_mode),
-                    servicePendingIntent(OverlayService.ACTION_TOGGLE_TOUCH_MODE, REQUEST_TOGGLE_TOUCH_MODE)
+                    servicePendingIntent(
+                        OverlayService.ACTION_TOGGLE_TOUCH_MODE,
+                        REQUEST_TOGGLE_TOUCH_MODE,
+                    ),
                 )
             }
         }
@@ -167,15 +195,19 @@ class OverlayServiceNotificationController(
         return builder.build()
     }
 
-    private fun servicePendingIntent(action: String, requestCode: Int): PendingIntent {
-        val intent = Intent(context, OverlayService::class.java).apply {
-            this.action = action
-        }
+    private fun servicePendingIntent(
+        action: String,
+        requestCode: Int,
+    ): PendingIntent {
+        val intent =
+            Intent(context, OverlayService::class.java).apply {
+                this.action = action
+            }
         return PendingIntent.getService(
             context,
             requestCode,
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
     }
 }

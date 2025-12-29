@@ -2,13 +2,16 @@ package com.example.refocus.system.tile
 
 import android.annotation.SuppressLint
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import android.util.Log
-import com.example.refocus.app.MainActivity
-import com.example.refocus.data.repository.SettingsRepository
+import com.example.refocus.core.logging.RefocusLog
+import com.example.refocus.domain.settings.SettingsCommand
+import com.example.refocus.system.AppLaunchIntents
 import com.example.refocus.system.overlay.OverlayService
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.overlay.stopOverlayService
@@ -23,19 +26,64 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class RefocusTileService : TileService() {
-
     companion object {
         private const val TAG = "RefocusTileService"
     }
 
     @Inject
-    lateinit var settingsRepository: SettingsRepository
+    lateinit var settingsCommand: SettingsCommand
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    private var isTileReceiverRegistered: Boolean = false
+
+    private val tileStateReceiver: BroadcastReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                if (intent?.action != QsTileStateBroadcaster.ACTION_TILE_STATE_CHANGED) return
+                val expectedRunning =
+                    intent.getBooleanExtra(
+                        QsTileStateBroadcaster.EXTRA_EXPECTED_RUNNING,
+                        OverlayService.isRunning,
+                    )
+                updateTile(runningOverride = expectedRunning)
+            }
+        }
+
+    private fun registerTileStateReceiverIfNeeded() {
+        if (isTileReceiverRegistered) return
+        val filter = IntentFilter(QsTileStateBroadcaster.ACTION_TILE_STATE_CHANGED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(tileStateReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(tileStateReceiver, filter)
+        }
+        isTileReceiverRegistered = true
+    }
+
+    private fun unregisterTileStateReceiverIfNeeded() {
+        if (!isTileReceiverRegistered) return
+        try {
+            unregisterReceiver(tileStateReceiver)
+        } catch (_: IllegalArgumentException) {
+        } finally {
+            isTileReceiverRegistered = false
+        }
+    }
+
     override fun onStartListening() {
         super.onStartListening()
+        registerTileStateReceiverIfNeeded()
         updateTile()
+    }
+
+    override fun onStopListening() {
+        super.onStopListening()
+        unregisterTileStateReceiverIfNeeded()
     }
 
     override fun onClick() {
@@ -43,7 +91,7 @@ class RefocusTileService : TileService() {
 
         val context = applicationContext
         if (!PermissionHelper.hasAllCorePermissions(context)) {
-            Log.d(TAG, "Core permissions missing. Open app.")
+            RefocusLog.d(TAG) { "Core permissions missing. Open app." }
             openApp()
             return
         }
@@ -52,9 +100,16 @@ class RefocusTileService : TileService() {
         if (currentlyRunning) {
             scope.launch {
                 try {
-                    settingsRepository.setOverlayEnabled(false)
+                    settingsCommand.setOverlayEnabled(
+                        enabled = false,
+                        source = "tile",
+                        reason = "toggle_off",
+                    )
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to set overlayEnabled=false", e)
+                    RefocusLog.e(
+                        TAG,
+                        e,
+                    ) { "Failed to set overlayEnabled=false via SettingsCommand" }
                 }
                 context.stopOverlayService()
                 // サービスの onDestroy より先に UI を更新できるように，期待値で反映する．
@@ -63,9 +118,13 @@ class RefocusTileService : TileService() {
         } else {
             scope.launch {
                 try {
-                    settingsRepository.setOverlayEnabled(true)
+                    settingsCommand.setOverlayEnabled(
+                        enabled = true,
+                        source = "tile",
+                        reason = "toggle_on",
+                    )
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to set overlayEnabled=true", e)
+                    RefocusLog.e(TAG, e) { "Failed to set overlayEnabled=true via SettingsCommand" }
                 }
                 context.startOverlayService()
                 // startForegroundService 直後は isRunning の更新が遅れる可能性があるため，期待値で反映する．
@@ -75,23 +134,26 @@ class RefocusTileService : TileService() {
     }
 
     override fun onDestroy() {
+        unregisterTileStateReceiverIfNeeded()
         super.onDestroy()
         scope.cancel()
     }
 
     @SuppressLint("StartActivityAndCollapseDeprecated")
     private fun openApp() {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
+        val intent =
+            AppLaunchIntents.mainActivity(this).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
         // startActivityAndCollapse(Intent) は deprecated なので，新APIが使える場合は PendingIntent 版を使う．
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            val pendingIntent = PendingIntent.getActivity(
-                this,
-                0,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
+            val pendingIntent =
+                PendingIntent.getActivity(
+                    this,
+                    0,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
             startActivityAndCollapse(pendingIntent)
         } else {
             @Suppress("DEPRECATION")
@@ -105,11 +167,12 @@ class RefocusTileService : TileService() {
         val enabled = PermissionHelper.hasAllCorePermissions(applicationContext)
         val running = runningOverride ?: OverlayService.isRunning
 
-        tile.state = when {
-            !enabled -> Tile.STATE_UNAVAILABLE
-            running -> Tile.STATE_ACTIVE
-            else -> Tile.STATE_INACTIVE
-        }
+        tile.state =
+            when {
+                !enabled -> Tile.STATE_UNAVAILABLE
+                running -> Tile.STATE_ACTIVE
+                else -> Tile.STATE_INACTIVE
+            }
         tile.updateTile()
     }
 }

@@ -2,7 +2,6 @@ package com.example.refocus.system.overlay
 
 import android.content.Context
 import android.graphics.PixelFormat
-import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -10,8 +9,9 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.SuggestionMode
-import com.example.refocus.ui.overlay.SuggestionOverlay
+import com.example.refocus.system.overlay.ui.SuggestionOverlay
 import com.example.refocus.ui.theme.RefocusTheme
 
 class SuggestionOverlayController(
@@ -32,55 +32,58 @@ class SuggestionOverlayController(
         onDismissOnly: () -> Unit,
     ): Boolean {
         if (suggestionView != null) {
-            Log.d("SuggestionOverlayController", "showSuggestionOverlay: already showing")
+            RefocusLog.d("SuggestionOverlay") { "showSuggestionOverlay: already showing" }
             return true
         }
 
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-        }
+        val params =
+            WindowManager
+                .LayoutParams(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                    PixelFormat.TRANSLUCENT,
+                ).apply {
+                    gravity = Gravity.TOP or Gravity.START
+                }
 
-        val composeView = ComposeView(context).apply {
-            setViewTreeLifecycleOwner(lifecycleOwner)
-            val savedStateOwner = OverlaySavedStateOwner()
-            setViewTreeSavedStateRegistryOwner(savedStateOwner)
-            setContent {
-                RefocusTheme {
-                    SuggestionOverlay(
-                        title = title,
-                        mode = mode,
-                        autoDismissMillis = autoDismissMillis,
-                        interactionLockoutMillis = interactionLockoutMillis,
-                        onSnoozeLater = {
-                            hideSuggestionOverlay()
-                            onSnoozeLater()
-                        },
-                        onDisableThisSession = {
-                            hideSuggestionOverlay()
-                            onDisableThisSession()
-                        },
-                        onDismissOnly = {
-                            hideSuggestionOverlay()
-                            onDismissOnly()
-                        }
-                    )
+        val composeView =
+            ComposeView(context).apply {
+                setViewTreeLifecycleOwner(lifecycleOwner)
+                val savedStateOwner = OverlaySavedStateOwner()
+                setViewTreeSavedStateRegistryOwner(savedStateOwner)
+                setContent {
+                    RefocusTheme {
+                        SuggestionOverlay(
+                            title = title,
+                            mode = mode,
+                            autoDismissMillis = autoDismissMillis,
+                            interactionLockoutMillis = interactionLockoutMillis,
+                            onSnoozeLater = {
+                                hideSuggestionOverlay()
+                                onSnoozeLater()
+                            },
+                            onDisableThisSession = {
+                                hideSuggestionOverlay()
+                                onDisableThisSession()
+                            },
+                            onDismissOnly = {
+                                hideSuggestionOverlay()
+                                onDismissOnly()
+                            },
+                        )
+                    }
                 }
             }
-        }
 
         try {
             windowManager.addView(composeView, params)
             suggestionView = composeView
             return true
         } catch (e: Exception) {
-            Log.e("SuggestionOverlayController", "showSuggestionOverlay: addView failed", e)
+            RefocusLog.e("SuggestionOverlay", e) { "showSuggestionOverlay: addView failed" }
             suggestionView = null
             return false
         }
@@ -91,7 +94,7 @@ class SuggestionOverlayController(
         try {
             windowManager.removeView(view)
         } catch (e: Exception) {
-            Log.e("SuggestionOverlayController", "hideSuggestionOverlay: removeView failed", e)
+            RefocusLog.e("SuggestionOverlay", e) { "hideSuggestionOverlay: removeView failed" }
         } finally {
             suggestionView = null
         }

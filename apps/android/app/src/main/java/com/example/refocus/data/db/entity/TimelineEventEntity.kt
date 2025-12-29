@@ -16,27 +16,28 @@ import androidx.room.PrimaryKey
         Index(value = ["timestampMillis"]),
         Index(value = ["kind", "timestampMillis"]),
         Index(value = ["packageName", "timestampMillis"]),
-    ]
+    ],
 )
 data class TimelineEventEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0L,
     val timestampMillis: Long,
     val kind: String,
-
     // 共通でよく使う属性
     val packageName: String? = null,
-
     // Suggestion 関連
     val suggestionId: Long? = null,
     val suggestionDecision: String? = null,
-
     // Service / Permission / Screen 状態
     val serviceState: String? = null,
     val permissionKind: String? = null,
     val permissionState: String? = null,
     val screenState: String? = null,
-
-    // その他の情報（設定変更内容など）は文字列でざっくり保持
+    // 任意の追加情報（例: 対象アプリ一覧をカンマ区切りで保存する等）
     val extra: String? = null,
+    // key/value 形式の追加情報（例: 設定変更）
+    // 以前は extra に "key=value" のように埋め込んでいたが，
+    // 将来の拡張や解析を容易にするために正規化して保存する．
+    val extraKey: String? = null,
+    val extraValue: String? = null,
 )

@@ -9,7 +9,6 @@ import com.example.refocus.core.model.Customize
  * 必要な情報だけを引数で受け取る。
  */
 class SuggestionEngine {
-
     data class Input(
         val elapsedMillis: Long,
         val sinceForegroundMillis: Long,

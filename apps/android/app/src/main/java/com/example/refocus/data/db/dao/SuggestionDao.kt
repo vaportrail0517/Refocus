@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SuggestionDao {
-
     @Query("SELECT * FROM suggestions ORDER BY createdAtMillis ASC")
     fun observeAll(): Flow<List<SuggestionEntity>>
 
@@ -21,14 +20,22 @@ interface SuggestionDao {
     suspend fun insert(entity: SuggestionEntity): Long
 
     @Query("UPDATE suggestions SET title = :title WHERE id = :id")
-    suspend fun updateTitle(id: Long, title: String)
+    suspend fun updateTitle(
+        id: Long,
+        title: String,
+    )
 
     @Query(
         "UPDATE suggestions " +
-                "SET timeSlots = :timeSlots, durationTag = :durationTag, priority = :priority " +
-                "WHERE id = :id"
+            "SET timeSlots = :timeSlots, durationTag = :durationTag, priority = :priority " +
+            "WHERE id = :id",
     )
-    suspend fun updateTags(id: Long, timeSlots: String, durationTag: String, priority: String)
+    suspend fun updateTags(
+        id: Long,
+        timeSlots: String,
+        durationTag: String,
+        priority: String,
+    )
 
     @Query("DELETE FROM suggestions WHERE id = :id")
     suspend fun deleteById(id: Long)

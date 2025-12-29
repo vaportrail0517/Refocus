@@ -28,9 +28,7 @@ import com.example.refocus.ui.components.OnboardingPage
  * 選択内容は [OnboardingStartModeViewModel.applyStartMode] 経由で `Customize` に反映される。
  */
 @Composable
-fun OnboardingStartModeScreen(
-    onDecide: () -> Unit
-) {
+fun OnboardingStartModeScreen(onDecide: () -> Unit) {
     val viewModel: OnboardingStartModeViewModel = hiltViewModel()
     var selected by remember { mutableStateOf<StartMode?>(StartMode.AutoAndNow) }
     OnboardingPage(
@@ -47,28 +45,28 @@ fun OnboardingStartModeScreen(
     ) {
         Spacer(Modifier.Companion.height(128.dp))
         Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             StartModeOptionCard(
                 title = "自動で起動 + 今すぐ始める",
                 badge = "デフォルト",
                 description = "今すぐ計測を開始し、端末を再起動しても自動で Refocus が立ち上がるようになります。",
                 selected = selected == StartMode.AutoAndNow,
-                onClick = { selected = StartMode.AutoAndNow }
+                onClick = { selected = StartMode.AutoAndNow },
             )
             StartModeOptionCard(
                 title = "今だけ起動する",
                 badge = null,
                 description = "今すぐ計測を始めますが、端末を再起動しても自動では起動しません。",
                 selected = selected == StartMode.NowOnly,
-                onClick = { selected = StartMode.NowOnly }
+                onClick = { selected = StartMode.NowOnly },
             )
             StartModeOptionCard(
                 title = "今は起動しない",
                 badge = null,
                 description = "今は何もしません。あとから設定画面の「起動」セクションからいつでも起動できます。",
                 selected = selected == StartMode.Off,
-                onClick = { selected = StartMode.Off }
+                onClick = { selected = StartMode.Off },
             )
         }
     }
@@ -80,50 +78,54 @@ private fun StartModeOptionCard(
     badge: String?,
     description: String,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
-    val colors = if (selected) {
-        CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-        )
-    } else {
-        CardDefaults.cardColors()
-    }
+    val colors =
+        if (selected) {
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        } else {
+            CardDefaults.cardColors()
+        }
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .selectable(
-                selected = selected,
-                onClick = onClick,
-                role = Role.RadioButton
-            ),
-        colors = colors
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .selectable(
+                    selected = selected,
+                    onClick = onClick,
+                    role = Role.RadioButton,
+                ),
+        colors = colors,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             if (badge != null) {
                 Text(
                     text = badge,
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (selected) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    }
+                    color =
+                        if (selected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
                 )
             }
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge
+                style = MaterialTheme.typography.bodyLarge,
             )
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall,
             )
         }
     }

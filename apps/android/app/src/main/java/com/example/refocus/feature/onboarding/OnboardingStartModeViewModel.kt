@@ -1,11 +1,9 @@
 package com.example.refocus.feature.onboarding
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.refocus.data.repository.SettingsRepository
-import com.example.refocus.system.overlay.startOverlayService
-import com.example.refocus.system.permissions.PermissionHelper
+import com.example.refocus.domain.overlay.port.OverlayServiceController
+import com.example.refocus.domain.settings.SettingsCommand
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -13,42 +11,36 @@ import javax.inject.Inject
 enum class StartMode {
     AutoAndNow,
     NowOnly,
-    Off
+    Off,
 }
 
 @HiltViewModel
-class OnboardingStartModeViewModel @Inject constructor(
-    application: Application,
-    private val settingsRepository: SettingsRepository
-) : AndroidViewModel(application) {
-
-    private val appContext: Application
-        get() = getApplication()
-
-    fun applyStartMode(mode: StartMode) {
-        viewModelScope.launch {
-            when (mode) {
-                StartMode.AutoAndNow -> {
-                    settingsRepository.setOverlayEnabled(true)
-                    settingsRepository.setAutoStartOnBoot(true)
-                    if (PermissionHelper.hasAllCorePermissions(appContext)) {
-                        appContext.startOverlayService()
+class OnboardingStartModeViewModel
+    @Inject
+    constructor(
+        private val settingsCommand: SettingsCommand,
+        private val overlayServiceController: OverlayServiceController,
+    ) : ViewModel() {
+        fun applyStartMode(mode: StartMode) {
+            viewModelScope.launch {
+                when (mode) {
+                    StartMode.AutoAndNow -> {
+                        settingsCommand.setOverlayEnabled(enabled = true, source = "onboarding")
+                        settingsCommand.setAutoStartOnBoot(enabled = true, source = "onboarding")
+                        overlayServiceController.startIfReady(source = "onboarding_auto_and_now")
                     }
-                }
 
-                StartMode.NowOnly -> {
-                    settingsRepository.setOverlayEnabled(true)
-                    settingsRepository.setAutoStartOnBoot(false)
-                    if (PermissionHelper.hasAllCorePermissions(appContext)) {
-                        appContext.startOverlayService()
+                    StartMode.NowOnly -> {
+                        settingsCommand.setOverlayEnabled(enabled = true, source = "onboarding")
+                        settingsCommand.setAutoStartOnBoot(enabled = false, source = "onboarding")
+                        overlayServiceController.startIfReady(source = "onboarding_now_only")
                     }
-                }
 
-                StartMode.Off -> {
-                    settingsRepository.setOverlayEnabled(false)
-                    settingsRepository.setAutoStartOnBoot(false)
+                    StartMode.Off -> {
+                        settingsCommand.setOverlayEnabled(enabled = false, source = "onboarding")
+                        settingsCommand.setAutoStartOnBoot(enabled = false, source = "onboarding")
+                    }
                 }
             }
         }
     }
-}

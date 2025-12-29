@@ -3,7 +3,6 @@ package com.example.refocus.core.model
 import java.time.Instant
 import java.time.LocalDate
 
-
 data class Session(
     val id: Long? = null,
     val packageName: String,

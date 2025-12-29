@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.example.refocus.ui.components.OnboardingPage
 
-
 /**
  * オンボーディング最終ページ。
  *
@@ -16,7 +15,7 @@ import com.example.refocus.ui.components.OnboardingPage
 @Composable
 fun OnboardingFinishScreen(
     onCloseApp: () -> Unit,
-    onOpenApp: () -> Unit
+    onOpenApp: () -> Unit,
 ) {
     val viewModel: OnboardingFinishViewModel = hiltViewModel()
     OnboardingPage(
@@ -25,6 +24,6 @@ fun OnboardingFinishScreen(
         primaryButtonText = "Refocus を開く",
         onPrimaryClick = onOpenApp,
         secondaryButtonText = "アプリを閉じる",
-        onSecondaryClick = onCloseApp
+        onSecondaryClick = onCloseApp,
     )
 }
