@@ -15,7 +15,7 @@ object CustomizeDefaults {
     const val MIN_FONT_SIZE_SP: Float = 24f
     const val MAX_FONT_SIZE_SP: Float = 64f
 
-    const val TIME_TO_MAX_SECONDS: Int = 15 * 60
+    const val TIME_TO_MAX_SECONDS: Int = 20 * 60
 
     @Deprecated(
         message = "Use TIME_TO_MAX_SECONDS",

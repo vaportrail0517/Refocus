@@ -174,9 +174,11 @@ fun AdvancedCustomizeContent(
 
         SettingRow(
             title = "提案を出すために必要な対象アプリが連続して前面にいる時間",
-            subtitle = "現在: ${formatDurationSeconds(
-                settings.suggestionForegroundStableSeconds.toLong(),
-            )}以上経過してから提案します。",
+            subtitle = "現在: ${
+                formatDurationSeconds(
+                    settings.suggestionForegroundStableSeconds.toLong(),
+                )
+            }以上経過してから提案します。",
             onClick = onOpenSuggestionForegroundStableDialog,
         )
         SettingRow(
@@ -227,20 +229,6 @@ fun AdvancedCustomizeContent(
             }
         },
     )
-
-    // 将来的に「ユーザが保存したプリセット」を扱う場合は，このセクションを本実装に置き換える想定です．
-    SectionCard(title = "マイプリセット（準備中）") {
-        SettingRow(
-            title = "現在の設定を保存",
-            subtitle = "今後追加予定です。",
-            onClick = {},
-        )
-        SettingRow(
-            title = "保存したプリセットを管理",
-            subtitle = "今後追加予定です。",
-            onClick = {},
-        )
-    }
 }
 
 private fun colorSubtitle(

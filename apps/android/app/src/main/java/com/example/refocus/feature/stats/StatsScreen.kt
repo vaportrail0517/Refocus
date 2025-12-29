@@ -78,7 +78,7 @@ fun StatsScreen(
                         Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
-                            .padding(16.dp),
+                            .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text("まだ統計データがありません．")
@@ -97,7 +97,7 @@ fun StatsScreen(
                     modifier =
                         Modifier
                             .padding(innerPadding)
-                            .padding(16.dp),
+                            .padding(horizontal = 16.dp),
                     onOpenHistory = onOpenHistory,
                     onOpenSection = onOpenDetail,
                 )
