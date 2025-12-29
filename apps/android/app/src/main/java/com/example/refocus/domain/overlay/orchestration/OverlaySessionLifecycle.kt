@@ -55,6 +55,13 @@ internal class OverlaySessionLifecycle(
             runtimeState.update { it.copy(timerVisible = false) }
             false
         } else {
+            // 非表示状態の終了を『前面復帰』として扱い，前面安定時間をここから計測し直す
+            sessionTracker.onForegroundReconfirmed(
+                packageName = pkg,
+                nowElapsedRealtime = timeSource.elapsedRealtime(),
+            )
+            // もしレースで提案が残っていた場合も，ここで確実に閉じる
+            suggestionOrchestrator.invalidatePendingSuggestionAndHide()
             showTimerForPackage(pkg)
             true
         }
@@ -132,8 +139,8 @@ internal class OverlaySessionLifecycle(
             }
             // show/hide が非同期に Main へ投げられるため，並び替わりが起きても古い hide が新しい show を消さないようにする
             uiController.hideTimer(token = packageName)
-            uiController.hideSuggestion()
-            suggestionOrchestrator.clearOverlayState()
+            // 遅れて show されるレースもあり得るため，提案は epoch で無効化しつつ閉じる
+            suggestionOrchestrator.invalidatePendingSuggestionAndHide()
         }
 
         // ランタイムのセッション情報を更新

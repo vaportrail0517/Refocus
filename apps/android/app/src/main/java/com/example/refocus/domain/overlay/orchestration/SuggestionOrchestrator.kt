@@ -15,6 +15,8 @@ import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -49,11 +51,18 @@ class SuggestionOrchestrator(
     @Volatile
     private var currentSuggestionId: Long? = null
 
+    @Volatile
+    private var suggestionEpoch: Long = 0L
+
+    private fun bumpSuggestionEpoch(): Long =
+        synchronized(this) {
+            suggestionEpoch += 1L
+            suggestionEpoch
+        }
+
     fun onDisabled() {
-        // UI は Coordinator 側でも片付けるが，状態だけはここでも確実に初期化する
-        showSuggestionJob?.cancel()
-        showSuggestionJob = null
-        clearOverlayState()
+        // UI は Coordinator 側でも片付けるが，遅れて show されるレースもあるため，epoch で確実に無効化する
+        invalidatePendingSuggestionAndHide()
         resetGate()
     }
 
@@ -87,6 +96,20 @@ class SuggestionOrchestrator(
     }
 
     /**
+     * 進行中の show を無効化し，表示中の提案オーバーレイを確実に閉じる．
+     *
+     * showSuggestion は token を持たないため，epoch をインクリメントして
+     * 進行中コルーチンの "遅れて show" を無効化する．
+     */
+    fun invalidatePendingSuggestionAndHide() {
+        bumpSuggestionEpoch()
+        showSuggestionJob?.cancel()
+        showSuggestionJob = null
+        uiController.hideSuggestion()
+        clearOverlayState()
+    }
+
+    /**
      * タイマーが『このセッションでは非表示』になったときに呼ぶ．
      *
      * - 進行中の show 処理をキャンセル
@@ -94,10 +117,7 @@ class SuggestionOrchestrator(
      * - 内部の overlay 状態をクリア
      */
     fun stopForTimerHidden() {
-        showSuggestionJob?.cancel()
-        showSuggestionJob = null
-        uiController.hideSuggestion()
-        clearOverlayState()
+        invalidatePendingSuggestionAndHide()
     }
 
     fun maybeShowSuggestionIfNeeded(
@@ -122,6 +142,7 @@ class SuggestionOrchestrator(
 
         if (!suggestionEngine.shouldShow(input)) return
 
+        val epochAtLaunch = suggestionEpoch
         showSuggestionJob =
             scope.launch {
                 try {
@@ -154,6 +175,11 @@ class SuggestionOrchestrator(
                             )
                         }
 
+                    if (epochAtLaunch != suggestionEpoch || !currentCoroutineContext().isActive) {
+                        RefocusLog.d(TAG) { "Suggestion show aborted (epoch changed or cancelled)" }
+                        return@launch
+                    }
+
                     val pkg = overlayPackageProvider() ?: packageName
                     val shown =
                         uiController.showSuggestion(
@@ -170,6 +196,14 @@ class SuggestionOrchestrator(
 
                     if (!shown) {
                         RefocusLog.w(TAG) { "Suggestion overlay was NOT shown (addView failed etc). Will retry." }
+                        return@launch
+                    }
+
+                    if (epochAtLaunch != suggestionEpoch || !currentCoroutineContext().isActive) {
+                        // タイマー非表示やセッション離脱などで無効化された後に show され得るため，ここで必ず閉じる
+                        uiController.hideSuggestion()
+                        clearOverlayState()
+                        RefocusLog.d(TAG) { "Suggestion overlay shown after invalidation -> force hide" }
                         return@launch
                     }
 
