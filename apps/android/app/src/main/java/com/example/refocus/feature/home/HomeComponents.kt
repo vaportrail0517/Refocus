@@ -14,6 +14,7 @@ import com.example.refocus.core.model.DailyStats
 import com.example.refocus.feature.home.components.FocusSection
 import com.example.refocus.feature.home.components.NotificationWarningCard
 import com.example.refocus.feature.home.components.PermissionWarningCard
+import com.example.refocus.feature.home.components.ServiceStatusSection
 import com.example.refocus.feature.home.components.TargetAppsSection
 import com.example.refocus.feature.stats.StatsDetailSection
 
@@ -22,6 +23,8 @@ internal fun HomeContent(
     stats: DailyStats?,
     appLabelByPackage: Map<String, String>,
     targetApps: List<HomeViewModel.TargetAppUiModel>,
+    isRunning: Boolean,
+    onToggleRunning: (Boolean) -> Unit,
     hasCorePermissions: Boolean,
     showNotificationWarning: Boolean,
     innerPadding: PaddingValues,
@@ -56,6 +59,14 @@ internal fun HomeContent(
                     }
                 }
             }
+        }
+
+        item {
+            ServiceStatusSection(
+                isRunning = isRunning,
+                hasCorePermissions = hasCorePermissions,
+                onToggleRunning = onToggleRunning,
+            )
         }
 
         item {

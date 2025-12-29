@@ -2,8 +2,6 @@ package com.example.refocus.feature.home
 
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PauseCircle
-import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -35,9 +33,6 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             HomeTopBar(
-                isRunning = isRunning,
-                hasCorePermissions = hasCorePermissions,
-                onToggleRunning = onToggleRunning,
                 onOpenSettings = onOpenSettings,
             )
         },
@@ -47,6 +42,8 @@ fun HomeScreen(
             stats = stats,
             appLabelByPackage = appLabelByPackage,
             targetApps = targetApps,
+            isRunning = isRunning,
+            onToggleRunning = onToggleRunning,
             hasCorePermissions = hasCorePermissions,
             showNotificationWarning = showNotificationWarning,
             innerPadding = innerPadding,
@@ -60,31 +57,10 @@ fun HomeScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun HomeTopBar(
-    isRunning: Boolean,
-    hasCorePermissions: Boolean,
-    onToggleRunning: (Boolean) -> Unit,
-    onOpenSettings: () -> Unit,
-) {
+internal fun HomeTopBar(onOpenSettings: () -> Unit) {
     TopAppBar(
         title = { Text("ホーム") },
         actions = {
-            IconButton(
-                onClick = { onToggleRunning(!isRunning) },
-                enabled = hasCorePermissions,
-            ) {
-                if (isRunning && hasCorePermissions) {
-                    Icon(
-                        imageVector = Icons.Filled.PauseCircle,
-                        contentDescription = "Refocus を停止",
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Filled.PlayCircle,
-                        contentDescription = "Refocus を開始",
-                    )
-                }
-            }
             IconButton(onClick = onOpenSettings) {
                 Icon(
                     imageVector = Icons.Filled.Settings,

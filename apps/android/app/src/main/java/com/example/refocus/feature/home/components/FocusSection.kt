@@ -47,31 +47,42 @@ internal fun FocusSection(
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        HorizontalPager(
-            state = pagerState,
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            pageSpacing = 12.dp,
-        ) { page ->
-            val item = focusItems[page]
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
-                FocusCard(
-                    title = item.title,
-                    value = item.value,
-                    subtitle = item.subtitle,
-                    onClick = { onOpenSection(item.section) },
-                )
-            }
-        }
-
-        PagerIndicator(
-            pageCount = focusItems.size,
-            currentPage = pagerState.currentPage,
+        Text(
+            text = "サマリー",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 16.dp),
         )
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                pageSpacing = 12.dp,
+            ) { page ->
+                val item = focusItems[page]
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    FocusCard(
+                        title = item.title,
+                        value = item.value,
+                        subtitle = item.subtitle,
+                        onClick = { onOpenSection(item.section) },
+                    )
+                }
+            }
+
+            PagerIndicator(
+                pageCount = focusItems.size,
+                currentPage = pagerState.currentPage,
+            )
+        }
     }
 }
 
