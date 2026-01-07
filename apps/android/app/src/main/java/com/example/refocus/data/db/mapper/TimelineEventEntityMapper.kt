@@ -18,6 +18,9 @@ import com.example.refocus.core.model.SuggestionDecisionEvent
 import com.example.refocus.core.model.SuggestionShownEvent
 import com.example.refocus.core.model.TargetAppsChangedEvent
 import com.example.refocus.core.model.TimelineEvent
+import com.example.refocus.core.model.UiInterruptionEvent
+import com.example.refocus.core.model.UiInterruptionSource
+import com.example.refocus.core.model.UiInterruptionState
 import com.example.refocus.data.db.entity.TimelineEventEntity
 
 internal class TimelineEventEntityMapper {
@@ -93,6 +96,16 @@ internal class TimelineEventEntityMapper {
                     packageName = event.packageName,
                     suggestionId = event.suggestionId,
                     suggestionDecision = event.decision.name,
+                )
+
+            is UiInterruptionEvent ->
+                TimelineEventEntity(
+                    id = event.id ?: 0L,
+                    timestampMillis = baseTimestamp,
+                    kind = KIND_UI_INTERRUPTION,
+                    packageName = event.packageName,
+                    extraKey = event.source.name,
+                    extraValue = event.state.name,
                 )
 
             is SettingsChangedEvent ->
@@ -248,6 +261,32 @@ internal class TimelineEventEntityMapper {
                 )
             }
 
+            KIND_UI_INTERRUPTION -> {
+                val pkg = entity.packageName ?: return null
+                val source =
+                    safeEnumValueOf<UiInterruptionSource>(
+                        value = entity.extraKey,
+                        kind = entity.kind,
+                        id = entity.id,
+                        field = "UiInterruptionSource",
+                    ) ?: return null
+                val state =
+                    safeEnumValueOf<UiInterruptionState>(
+                        value = entity.extraValue,
+                        kind = entity.kind,
+                        id = entity.id,
+                        field = "UiInterruptionState",
+                    ) ?: return null
+
+                UiInterruptionEvent(
+                    id = entity.id,
+                    timestampMillis = entity.timestampMillis,
+                    packageName = pkg,
+                    source = source,
+                    state = state,
+                )
+            }
+
             else -> null
         }
     }
@@ -280,5 +319,6 @@ internal class TimelineEventEntityMapper {
         const val KIND_SUGGESTION_SHOWN = "SuggestionShown"
         const val KIND_SUGGESTION_DECISION = "SuggestionDecision"
         const val KIND_SETTINGS_CHANGED = "SettingsChanged"
+        const val KIND_UI_INTERRUPTION = "UiInterruption"
     }
 }

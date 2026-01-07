@@ -85,6 +85,7 @@ internal class OverlaySideEffectHandler(
                 }
                 uiController.hideTimer()
                 uiController.hideSuggestion()
+                uiController.hideMiniGame()
                 suggestionOrchestrator.onDisabled()
 
                 sessionTracker.clear()

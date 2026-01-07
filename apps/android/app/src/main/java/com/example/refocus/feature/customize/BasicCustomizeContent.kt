@@ -2,6 +2,8 @@ package com.example.refocus.feature.customize
 
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
+import com.example.refocus.core.model.MiniGameKind
+import com.example.refocus.core.model.MiniGameOrder
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
@@ -15,6 +17,8 @@ fun BasicCustomizeContent(
     onOpenTimerTimeModeDialog: () -> Unit,
     onOpenTimerVisualTimeBasisDialog: () -> Unit,
     onOpenPresetManager: () -> Unit,
+    onOpenMiniGameOrderDialog: () -> Unit,
+    onOpenMiniGameKindDialog: () -> Unit,
 ) {
     val settings = uiState.customize
 
@@ -122,6 +126,62 @@ fun BasicCustomizeContent(
         )
     }
 
+
+
+    // --- ミニゲーム ---
+    SectionCard(title = "ミニゲーム") {
+        val suggestionEnabled = settings.suggestionEnabled
+        val miniGameEnabled = settings.miniGameEnabled
+
+        SettingRow(
+            title = "ミニゲーム（提案とセット）",
+            subtitle =
+                when {
+                    !suggestionEnabled ->
+                        "提案がオフのため，現在は利用できません．"
+
+                    miniGameEnabled ->
+                        "オン：提案の前後にミニゲームを挟みます．"
+
+                    else ->
+                        "オフ：ミニゲームを表示しません．"
+                },
+            trailing = {
+                Switch(
+                    checked = miniGameEnabled,
+                    enabled = suggestionEnabled,
+                    onCheckedChange = { isOn ->
+                        if (!suggestionEnabled) return@Switch
+                        viewModel.updateMiniGameEnabled(isOn)
+                    },
+                )
+            },
+            onClick = {
+                if (!suggestionEnabled) return@SettingRow
+                viewModel.updateMiniGameEnabled(!miniGameEnabled)
+            },
+        )
+
+        val orderEnabled = suggestionEnabled && miniGameEnabled
+        SettingRow(
+            title = "提案とミニゲームの順番",
+            subtitle =
+                when (settings.miniGameOrder) {
+                    MiniGameOrder.BeforeSuggestion -> "現在：ミニゲーム → 提案"
+                    MiniGameOrder.AfterSuggestion -> "現在：提案 → ミニゲーム"
+                } + if (!orderEnabled) "（ミニゲームがオフです）" else "",
+            onClick = if (orderEnabled) onOpenMiniGameOrderDialog else null,
+        )
+
+        SettingRow(
+            title = "ミニゲームの種類",
+            subtitle =
+                when (settings.miniGameKind) {
+                    MiniGameKind.FlashAnzan -> "現在：フラッシュ暗算"
+                } + if (!orderEnabled) "（ミニゲームがオフです）" else "",
+            onClick = if (orderEnabled) onOpenMiniGameKindDialog else null,
+        )
+    }
     // --- プリセット（入口のみ） ---
 //    SectionCard(title = "プリセット") {
 //        val presetName = when (uiState.preset) {

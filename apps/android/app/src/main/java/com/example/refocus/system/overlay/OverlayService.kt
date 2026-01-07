@@ -106,6 +106,7 @@ class OverlayService : LifecycleService() {
 
     private lateinit var timerOverlayController: TimerOverlayController
     private lateinit var suggestionOverlayController: SuggestionOverlayController
+    private lateinit var miniGameOverlayController: MiniGameOverlayController
     private lateinit var overlayUiController: WindowOverlayUiController
     private lateinit var overlayCoordinator: OverlayCoordinator
 
@@ -152,6 +153,7 @@ class OverlayService : LifecycleService() {
 
         timerOverlayController = components.timerOverlayController
         suggestionOverlayController = components.suggestionOverlayController
+        miniGameOverlayController = components.miniGameOverlayController
         overlayUiController = components.overlayUiController
         overlayCoordinator = components.overlayCoordinator
         notificationController = components.notificationController

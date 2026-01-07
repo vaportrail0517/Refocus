@@ -37,14 +37,18 @@ object SessionDurationCalculator {
                     lastStart = e.timestampMillis
                 }
 
-                SessionEventType.Resume -> {
+                SessionEventType.Resume,
+                SessionEventType.UiResume,
+                -> {
                     // 一時停止からの再開 → 新しいアクティブ区間の開始
                     if (lastStart == null) {
                         lastStart = e.timestampMillis
                     }
                 }
 
-                SessionEventType.Pause -> {
+                SessionEventType.Pause,
+                SessionEventType.UiPause,
+                -> {
                     // 一時停止 → アクティブ区間を閉じる
                     if (lastStart != null) {
                         val end = e.timestampMillis

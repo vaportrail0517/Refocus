@@ -2,17 +2,21 @@ package com.example.refocus.domain.overlay.orchestration
 
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
+import com.example.refocus.core.model.MiniGameOrder
 import com.example.refocus.core.model.SuggestionDecision
 import com.example.refocus.core.model.SuggestionMode
+import com.example.refocus.core.model.UiInterruptionSource
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.overlay.model.SessionBootstrapFromTimeline
 import com.example.refocus.domain.overlay.model.SessionSuggestionGate
+import com.example.refocus.domain.overlay.port.MiniGameOverlayUiModel
 import com.example.refocus.domain.overlay.port.OverlayUiPort
 import com.example.refocus.domain.overlay.port.SuggestionOverlayUiModel
 import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -22,11 +26,16 @@ import kotlinx.coroutines.launch
 /**
  * 提案（Suggestion）オーバーレイの表示と，
  * セッション内ゲート（クールダウン，このセッションではもう出さない等）を管理する．
+ *
+ * ミニゲームが有効な場合は，設定に応じて「提案の前」または「提案の後」にミニゲームを挟む．
+ * ミニゲームと提案の表示中は，overlay セッションの計測を一時停止する（= タイマーが伸びない）．
  */
 class SuggestionOrchestrator(
     private val scope: CoroutineScope,
     private val timeSource: TimeSource,
     private val sessionElapsedProvider: (packageName: String, nowElapsedRealtime: Long) -> Long?,
+    private val onUiPause: (packageName: String, nowElapsedRealtime: Long) -> Unit,
+    private val onUiResume: (packageName: String, nowElapsedRealtime: Long) -> Unit,
     private val suggestionEngine: SuggestionEngine,
     private val suggestionSelector: SuggestionSelector,
     private val suggestionsRepository: SuggestionsRepository,
@@ -43,10 +52,16 @@ class SuggestionOrchestrator(
     private var showSuggestionJob: Job? = null
 
     @Volatile
+    private var showMiniGameJob: Job? = null
+
+    @Volatile
     private var sessionGate: SessionSuggestionGate = SessionSuggestionGate()
 
     @Volatile
     private var isSuggestionOverlayShown: Boolean = false
+
+    @Volatile
+    private var isMiniGameOverlayShown: Boolean = false
 
     @Volatile
     private var currentSuggestionId: Long? = null
@@ -54,15 +69,29 @@ class SuggestionOrchestrator(
     @Volatile
     private var suggestionEpoch: Long = 0L
 
+    @Volatile
+    private var miniGameEpoch: Long = 0L
+
+    @Volatile
+    private var suggestionUiInterruptionPackageName: String? = null
+
+    @Volatile
+    private var miniGameUiInterruptionPackageName: String? = null
+
     private fun bumpSuggestionEpoch(): Long =
         synchronized(this) {
             suggestionEpoch += 1L
             suggestionEpoch
         }
 
+    private fun bumpMiniGameEpoch(): Long =
+        synchronized(this) {
+            miniGameEpoch += 1L
+            miniGameEpoch
+        }
+
     fun onDisabled() {
-        // UI は Coordinator 側でも片付けるが，遅れて show されるレースもあるため，epoch で確実に無効化する
-        invalidatePendingSuggestionAndHide()
+        invalidatePendingAllAndHide()
         resetGate()
     }
 
@@ -95,6 +124,18 @@ class SuggestionOrchestrator(
         // クールダウン / disabledForThisSession は sessionGate 側に保持する
     }
 
+    private fun clearMiniGameOverlayState() {
+        isMiniGameOverlayShown = false
+    }
+
+    /**
+     * 進行中の show を無効化し，表示中の提案 / ミニゲームを確実に閉じる．
+     */
+    private fun invalidatePendingAllAndHide() {
+        invalidatePendingSuggestionAndHide()
+        invalidatePendingMiniGameAndHide()
+    }
+
     /**
      * 進行中の show を無効化し，表示中の提案オーバーレイを確実に閉じる．
      *
@@ -105,19 +146,32 @@ class SuggestionOrchestrator(
         bumpSuggestionEpoch()
         showSuggestionJob?.cancel()
         showSuggestionJob = null
+        endSuggestionUiInterruptionIfActive()
         uiController.hideSuggestion()
         clearOverlayState()
+    }
+
+    /**
+     * 進行中のミニゲーム表示を無効化し，表示中なら確実に閉じる．
+     */
+    fun invalidatePendingMiniGameAndHide() {
+        bumpMiniGameEpoch()
+        showMiniGameJob?.cancel()
+        showMiniGameJob = null
+        endMiniGameUiInterruptionIfActive()
+        uiController.hideMiniGame()
+        clearMiniGameOverlayState()
     }
 
     /**
      * タイマーが『このセッションでは非表示』になったときに呼ぶ．
      *
      * - 進行中の show 処理をキャンセル
-     * - 表示中の提案オーバーレイを閉じる
+     * - 表示中の提案 / ミニゲームを閉じる
      * - 内部の overlay 状態をクリア
      */
     fun stopForTimerHidden() {
-        invalidatePendingSuggestionAndHide()
+        invalidatePendingAllAndHide()
     }
 
     fun maybeShowSuggestionIfNeeded(
@@ -127,6 +181,7 @@ class SuggestionOrchestrator(
         sinceForegroundMillis: Long,
     ) {
         if (showSuggestionJob?.isActive == true) return
+        if (showMiniGameJob?.isActive == true) return
 
         val customize = customizeProvider()
 
@@ -136,7 +191,7 @@ class SuggestionOrchestrator(
                 sinceForegroundMillis = sinceForegroundMillis,
                 customize = customize,
                 lastDecisionElapsedMillis = sessionGate.lastDecisionElapsedMillis,
-                isOverlayShown = isSuggestionOverlayShown,
+                isOverlayShown = isSuggestionOverlayShown || isMiniGameOverlayShown,
                 disabledForThisSession = sessionGate.disabledForThisSession,
             )
 
@@ -181,6 +236,23 @@ class SuggestionOrchestrator(
                     }
 
                     val pkg = overlayPackageProvider() ?: packageName
+
+                    // ミニゲームが「提案の前」の場合は，ここで実行してから提案を表示する
+                    if (customize.miniGameEnabled &&
+                        customize.miniGameOrder == MiniGameOrder.BeforeSuggestion
+                    ) {
+                        runMiniGameBlocking(
+                            packageName = pkg,
+                            customize = customize,
+                            seed = nowMillis,
+                            epochAtLaunch = miniGameEpoch,
+                        )
+                        if (epochAtLaunch != suggestionEpoch || !currentCoroutineContext().isActive) {
+                            RefocusLog.d(TAG) { "Suggestion show aborted after minigame (epoch changed or cancelled)" }
+                            return@launch
+                        }
+                    }
+
                     val shown =
                         uiController.showSuggestion(
                             SuggestionOverlayUiModel(
@@ -209,6 +281,7 @@ class SuggestionOrchestrator(
 
                     isSuggestionOverlayShown = true
                     currentSuggestionId = suggestionId
+                    beginSuggestionUiInterruptionIfNeeded(pkg)
                     try {
                         eventRecorder.onSuggestionShown(
                             packageName = pkg,
@@ -235,10 +308,11 @@ class SuggestionOrchestrator(
     private fun suggestionInteractionLockoutMillis(customize: Customize): Long =
         customize.suggestionInteractionLockoutMillis.coerceAtLeast(0L)
 
-    private fun handleSuggestionSnooze() {
+    private fun handleSuggestionSnoozeAndUpdateGate(packageName: String?) {
+        endSuggestionUiInterruptionIfActive()
         clearOverlayState()
 
-        val pkg = overlayPackageProvider()
+        val pkg = packageName
         if (pkg == null) {
             RefocusLog.w(TAG) { "handleSuggestionSnooze: overlayPackage=null; gate not updated" }
             return
@@ -251,6 +325,71 @@ class SuggestionOrchestrator(
             RefocusLog.d(TAG) { "Suggestion decision recorded at sessionElapsed=$elapsed ms" }
         } else {
             RefocusLog.w(TAG) { "handleSuggestionSnooze: no session elapsed for $pkg" }
+        }
+    }
+
+    private fun maybeStartMiniGameAfterSuggestionIfNeeded(packageName: String) {
+        val customize = customizeProvider()
+        if (!customize.miniGameEnabled) return
+        if (customize.miniGameOrder != MiniGameOrder.AfterSuggestion) return
+        if (showMiniGameJob?.isActive == true) return
+
+        val epochAtLaunch = miniGameEpoch
+        showMiniGameJob =
+            scope.launch {
+                try {
+                    runMiniGameBlocking(
+                        packageName = packageName,
+                        customize = customize,
+                        seed = timeSource.nowMillis(),
+                        epochAtLaunch = epochAtLaunch,
+                    )
+                } finally {
+                    showMiniGameJob = null
+                }
+            }
+    }
+
+    private suspend fun runMiniGameBlocking(
+        packageName: String,
+        customize: Customize,
+        seed: Long,
+        epochAtLaunch: Long,
+    ) {
+        if (epochAtLaunch != miniGameEpoch || !currentCoroutineContext().isActive) return
+
+        val finished = CompletableDeferred<Unit>()
+
+        val shown =
+            uiController.showMiniGame(
+                MiniGameOverlayUiModel(
+                    kind = customize.miniGameKind,
+                    seed = seed,
+                    onFinished = {
+                        if (!finished.isCompleted) finished.complete(Unit)
+                    },
+                ),
+            )
+
+        if (!shown) {
+            RefocusLog.w(TAG) { "MiniGame overlay was NOT shown (addView failed etc). skip." }
+            return
+        }
+
+        if (epochAtLaunch != miniGameEpoch || !currentCoroutineContext().isActive) {
+            uiController.hideMiniGame()
+            clearMiniGameOverlayState()
+            RefocusLog.d(TAG) { "MiniGame overlay shown after invalidation -> force hide" }
+            return
+        }
+
+        isMiniGameOverlayShown = true
+        beginMiniGameUiInterruptionIfNeeded(packageName)
+        try {
+            finished.await()
+        } finally {
+            endMiniGameUiInterruptionIfActive()
+            clearMiniGameOverlayState()
         }
     }
 
@@ -271,7 +410,9 @@ class SuggestionOrchestrator(
                 }
             }
         }
-        handleSuggestionSnooze()
+
+        handleSuggestionSnoozeAndUpdateGate(pkg)
+        if (pkg != null) maybeStartMiniGameAfterSuggestionIfNeeded(pkg)
     }
 
     private fun handleSuggestionDismissOnly() {
@@ -291,7 +432,9 @@ class SuggestionOrchestrator(
                 }
             }
         }
-        handleSuggestionSnooze()
+
+        handleSuggestionSnoozeAndUpdateGate(pkg)
+        if (pkg != null) maybeStartMiniGameAfterSuggestionIfNeeded(pkg)
     }
 
     private fun handleSuggestionDisableThisSession() {
@@ -300,6 +443,7 @@ class SuggestionOrchestrator(
 
         // clearOverlayState() によって currentSuggestionId が null に戻るため，
         // 先に suggestionId を保持してから状態をクリアする．
+        endSuggestionUiInterruptionIfActive()
         clearOverlayState()
 
         scope.launch {
@@ -318,5 +462,98 @@ class SuggestionOrchestrator(
         }
 
         sessionGate = sessionGate.copy(disabledForThisSession = true)
+        maybeStartMiniGameAfterSuggestionIfNeeded(packageName)
+    }
+
+    private fun beginSuggestionUiInterruptionIfNeeded(packageName: String) {
+        if (suggestionUiInterruptionPackageName != null) return
+        suggestionUiInterruptionPackageName = packageName
+
+        val nowElapsed = timeSource.elapsedRealtime()
+        try {
+            onUiPause(packageName, nowElapsed)
+        } catch (e: Exception) {
+            RefocusLog.e(TAG, e) { "Failed to pause overlay session tracker for $packageName" }
+        }
+
+        scope.launch {
+            try {
+                eventRecorder.onUiInterruptionStart(
+                    packageName = packageName,
+                    source = UiInterruptionSource.Suggestion,
+                )
+            } catch (e: Exception) {
+                RefocusLog.e(TAG, e) { "Failed to record UiInterruptionStart(Suggestion) for $packageName" }
+            }
+        }
+    }
+
+    private fun endSuggestionUiInterruptionIfActive() {
+        val pkg = suggestionUiInterruptionPackageName ?: return
+        suggestionUiInterruptionPackageName = null
+
+        val nowElapsed = timeSource.elapsedRealtime()
+        try {
+            onUiResume(pkg, nowElapsed)
+        } catch (e: Exception) {
+            RefocusLog.e(TAG, e) { "Failed to resume overlay session tracker for $pkg" }
+        }
+
+        scope.launch {
+            try {
+                eventRecorder.onUiInterruptionEnd(
+                    packageName = pkg,
+                    source = UiInterruptionSource.Suggestion,
+                )
+            } catch (e: Exception) {
+                RefocusLog.e(TAG, e) { "Failed to record UiInterruptionEnd(Suggestion) for $pkg" }
+            }
+        }
+    }
+
+    private fun beginMiniGameUiInterruptionIfNeeded(packageName: String) {
+        if (miniGameUiInterruptionPackageName != null) return
+        miniGameUiInterruptionPackageName = packageName
+
+        val nowElapsed = timeSource.elapsedRealtime()
+        try {
+            onUiPause(packageName, nowElapsed)
+        } catch (e: Exception) {
+            RefocusLog.e(TAG, e) { "Failed to pause overlay session tracker for $packageName" }
+        }
+
+        scope.launch {
+            try {
+                eventRecorder.onUiInterruptionStart(
+                    packageName = packageName,
+                    source = UiInterruptionSource.MiniGame,
+                )
+            } catch (e: Exception) {
+                RefocusLog.e(TAG, e) { "Failed to record UiInterruptionStart(MiniGame) for $packageName" }
+            }
+        }
+    }
+
+    private fun endMiniGameUiInterruptionIfActive() {
+        val pkg = miniGameUiInterruptionPackageName ?: return
+        miniGameUiInterruptionPackageName = null
+
+        val nowElapsed = timeSource.elapsedRealtime()
+        try {
+            onUiResume(pkg, nowElapsed)
+        } catch (e: Exception) {
+            RefocusLog.e(TAG, e) { "Failed to resume overlay session tracker for $pkg" }
+        }
+
+        scope.launch {
+            try {
+                eventRecorder.onUiInterruptionEnd(
+                    packageName = pkg,
+                    source = UiInterruptionSource.MiniGame,
+                )
+            } catch (e: Exception) {
+                RefocusLog.e(TAG, e) { "Failed to record UiInterruptionEnd(MiniGame) for $pkg" }
+            }
+        }
     }
 }

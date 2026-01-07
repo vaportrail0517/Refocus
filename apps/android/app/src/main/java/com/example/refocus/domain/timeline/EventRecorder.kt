@@ -16,6 +16,9 @@ import com.example.refocus.core.model.SuggestionDecision
 import com.example.refocus.core.model.SuggestionDecisionEvent
 import com.example.refocus.core.model.SuggestionShownEvent
 import com.example.refocus.core.model.TargetAppsChangedEvent
+import com.example.refocus.core.model.UiInterruptionEvent
+import com.example.refocus.core.model.UiInterruptionSource
+import com.example.refocus.core.model.UiInterruptionState
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.repository.TimelineRepository
 
@@ -150,6 +153,34 @@ class EventRecorder(
                 timestampMillis = now(),
                 key = key,
                 newValueDescription = newValueDescription,
+            ),
+        )
+    }
+
+    suspend fun onUiInterruptionStart(
+        packageName: String,
+        source: UiInterruptionSource,
+    ) {
+        timelineRepository.append(
+            UiInterruptionEvent(
+                timestampMillis = now(),
+                packageName = packageName,
+                source = source,
+                state = UiInterruptionState.Start,
+            ),
+        )
+    }
+
+    suspend fun onUiInterruptionEnd(
+        packageName: String,
+        source: UiInterruptionSource,
+    ) {
+        timelineRepository.append(
+            UiInterruptionEvent(
+                timestampMillis = now(),
+                packageName = packageName,
+                source = source,
+                state = UiInterruptionState.End,
             ),
         )
     }

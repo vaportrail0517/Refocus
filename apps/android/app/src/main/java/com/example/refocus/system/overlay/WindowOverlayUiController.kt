@@ -1,6 +1,7 @@
 package com.example.refocus.system.overlay
 
 import com.example.refocus.core.model.Customize
+import com.example.refocus.domain.overlay.port.MiniGameOverlayUiModel
 import com.example.refocus.domain.overlay.port.OverlayUiPort
 import com.example.refocus.domain.overlay.port.SuggestionOverlayUiModel
 import kotlinx.coroutines.CoroutineScope
@@ -16,6 +17,7 @@ class WindowOverlayUiController(
     private val scope: CoroutineScope,
     private val timerOverlayController: TimerOverlayController,
     private val suggestionOverlayController: SuggestionOverlayController,
+    private val miniGameOverlayController: MiniGameOverlayController,
 ) : OverlayUiPort {
     override fun applySettings(customize: Customize) {
         scope.launch(Dispatchers.Main) {
@@ -52,21 +54,26 @@ class WindowOverlayUiController(
                 mode = model.mode,
                 autoDismissMillis = model.autoDismissMillis,
                 interactionLockoutMillis = model.interactionLockoutMillis,
-                onSnoozeLater = {
-                    model.onSnoozeLater()
-                },
-                onDisableThisSession = {
-                    model.onDisableThisSession()
-                },
-                onDismissOnly = {
-                    model.onDismissOnly()
-                },
+                onSnoozeLater = { model.onSnoozeLater() },
+                onDisableThisSession = { model.onDisableThisSession() },
+                onDismissOnly = { model.onDismissOnly() },
             )
         }
 
     override fun hideSuggestion() {
         scope.launch(Dispatchers.Main) {
             suggestionOverlayController.hideSuggestionOverlay()
+        }
+    }
+
+    override suspend fun showMiniGame(model: MiniGameOverlayUiModel): Boolean =
+        withContext(Dispatchers.Main) {
+            miniGameOverlayController.showMiniGameOverlay(model)
+        }
+
+    override fun hideMiniGame() {
+        scope.launch(Dispatchers.Main) {
+            miniGameOverlayController.hideMiniGameOverlay()
         }
     }
 }

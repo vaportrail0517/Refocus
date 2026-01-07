@@ -63,4 +63,17 @@ interface OverlayUiPort {
      * 提案オーバーレイ非表示。
      */
     fun hideSuggestion()
+
+    /**
+     * ミニゲームオーバーレイ表示。
+     *
+     * - 結果（正誤など）はドメインでは扱わず，ユーザが閉じたことだけを受け取る。
+     * - 表示に成功した場合 true。
+     */
+    suspend fun showMiniGame(model: MiniGameOverlayUiModel): Boolean
+
+    /**
+     * ミニゲームオーバーレイ非表示。
+     */
+    fun hideMiniGame()
 }
