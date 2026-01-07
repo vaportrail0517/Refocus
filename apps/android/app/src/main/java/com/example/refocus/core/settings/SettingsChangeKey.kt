@@ -55,7 +55,6 @@ object SettingsChangeKeys {
     val MINI_GAME_ENABLED = SettingsChangeKey("miniGameEnabled")
     val MINI_GAME_ORDER = SettingsChangeKey("miniGameOrder")
     val MINI_GAME_KIND = SettingsChangeKey("miniGameKind")
-
     // --- その他 ---
     val RESET_TO_DEFAULTS = SettingsChangeKey("resetToDefaults")
     val OVERLAY_POSITION = SettingsChangeKey("overlayPosition")

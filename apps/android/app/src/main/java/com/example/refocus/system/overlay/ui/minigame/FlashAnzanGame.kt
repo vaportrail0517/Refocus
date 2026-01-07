@@ -2,7 +2,6 @@ package com.example.refocus.system.overlay.ui.minigame
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,14 +43,17 @@ fun FlashAnzanGame(
 ) {
     val rng = remember(seed) { Random(seed) }
 
-    // パラメータは将来 Customize へ出しても良いが，まずは固定値で。
-    val count = 6
-    val min = 10
+    // 仕様固定（設定には出さない）
+    // - 1桁または2桁（1..99）を 5 個
+    // - 少し遅めの表示速度
+    val count = 5
+    val min = 1
     val max = 99
-    val showMillis = 650L
-    val blankMillis = 220L
+    val showMillis = 1000L
+    val blankMillis = 500L
 
-    val numbers = remember(seed) { List(count) { rng.nextInt(min, max + 1) } }
+    val numbers =
+        remember(seed, count, min, max) { List(count) { rng.nextInt(min, max + 1) } }
     val answer = remember(numbers) { numbers.sum() }
 
     var phase by remember { mutableStateOf(Phase.Ready) }
@@ -187,6 +189,7 @@ fun FlashAnzanGame(
         }
     }
 }
+
 
 private enum class Phase {
     Ready,

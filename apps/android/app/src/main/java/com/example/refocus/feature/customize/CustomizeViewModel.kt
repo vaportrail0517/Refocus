@@ -313,6 +313,7 @@ class CustomizeViewModel
                 newValueDescription = kind.name,
             ) { copy(miniGameKind = kind) }
 
+
         // --- プリセット ---
 
         fun applyPreset(preset: CustomizePreset) {

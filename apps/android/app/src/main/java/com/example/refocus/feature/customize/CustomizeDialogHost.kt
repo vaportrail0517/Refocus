@@ -179,6 +179,7 @@ internal fun CustomizeDialogHost(
                 onDismiss = onDismiss,
             )
         }
+
         CustomizeDialogType.GrowthMode -> {
             GrowthModeDialog(
                 current = uiState.customize.growthMode,

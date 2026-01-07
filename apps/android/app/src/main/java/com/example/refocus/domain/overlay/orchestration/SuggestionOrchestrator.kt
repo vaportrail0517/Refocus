@@ -91,7 +91,7 @@ class SuggestionOrchestrator(
         }
 
     fun onDisabled() {
-        invalidatePendingAllAndHide()
+        invalidatePendingOverlaysAndHide()
         resetGate()
     }
 
@@ -131,7 +131,7 @@ class SuggestionOrchestrator(
     /**
      * 進行中の show を無効化し，表示中の提案 / ミニゲームを確実に閉じる．
      */
-    private fun invalidatePendingAllAndHide() {
+    fun invalidatePendingOverlaysAndHide() {
         invalidatePendingSuggestionAndHide()
         invalidatePendingMiniGameAndHide()
     }
@@ -171,7 +171,7 @@ class SuggestionOrchestrator(
      * - 内部の overlay 状態をクリア
      */
     fun stopForTimerHidden() {
-        invalidatePendingAllAndHide()
+        invalidatePendingOverlaysAndHide()
     }
 
     fun maybeShowSuggestionIfNeeded(
