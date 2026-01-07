@@ -2,7 +2,7 @@
 //  iOSApp.swift
 //  iOS
 //
-//  Created by ReijiOhzawa on 2025/12/05.
+//  Created by Takechiyo Sakazaki on 2025/12/19.
 //
 
 import SwiftUI
