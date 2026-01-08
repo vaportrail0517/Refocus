@@ -2,6 +2,7 @@ package com.example.refocus.domain.overlay.orchestration
 
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
+import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.core.model.MiniGameOrder
 import com.example.refocus.core.model.SuggestionDecision
 import com.example.refocus.core.model.SuggestionMode
@@ -364,7 +365,7 @@ class SuggestionOrchestrator(
         val shown =
             uiController.showMiniGame(
                 MiniGameOverlayUiModel(
-                    kind = customize.miniGameKind,
+                    kind = pickRandomMiniGameKind(seed),
                     seed = seed,
                     onFinished = {
                         if (!finished.isCompleted) finished.complete(Unit)
@@ -392,6 +393,16 @@ class SuggestionOrchestrator(
             endMiniGameUiInterruptionIfActive()
             clearMiniGameOverlayState()
         }
+    }
+
+    private fun pickRandomMiniGameKind(seed: Long): MiniGameKind {
+        val kinds = MiniGameKind.entries
+        if (kinds.isEmpty()) return MiniGameKind.FlashAnzan
+
+        // seed から軽く混ぜた値でインデックスを作る（Random 依存を増やさずに済ませる）
+        val mixed = seed xor (seed ushr 33) xor (seed shl 11)
+        val index = ((mixed and Long.MAX_VALUE) % kinds.size).toInt()
+        return kinds[index]
     }
 
     private fun handleSuggestionSnoozeLater() {
@@ -437,7 +448,6 @@ class SuggestionOrchestrator(
         handleSuggestionSnoozeAndUpdateGate(pkg)
         if (pkg != null) maybeStartMiniGameAfterSuggestionIfNeeded(pkg)
     }
-
 
     private fun handleSuggestionCloseTargetApp() {
         val packageName = overlayPackageProvider() ?: return

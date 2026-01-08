@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.CustomizePreset
-import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.core.model.MiniGameOrder
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
@@ -306,13 +305,6 @@ class CustomizeViewModel
                 key = SettingsCommand.Keys.MINI_GAME_ORDER,
                 newValueDescription = order.name,
             ) { copy(miniGameOrder = order) }
-
-        fun updateMiniGameKind(kind: MiniGameKind) =
-            updateSettingsWithoutPresetChange(
-                key = SettingsCommand.Keys.MINI_GAME_KIND,
-                newValueDescription = kind.name,
-            ) { copy(miniGameKind = kind) }
-
 
         // --- プリセット ---
 

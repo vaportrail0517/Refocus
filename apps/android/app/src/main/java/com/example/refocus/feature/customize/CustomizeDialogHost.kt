@@ -9,6 +9,7 @@ import com.example.refocus.feature.customize.dialogs.GradientEndColorDialog
 import com.example.refocus.feature.customize.dialogs.GradientMiddleColorDialog
 import com.example.refocus.feature.customize.dialogs.GradientStartColorDialog
 import com.example.refocus.feature.customize.dialogs.GrowthModeDialog
+import com.example.refocus.feature.customize.dialogs.MiniGameOrderDialog
 import com.example.refocus.feature.customize.dialogs.PollingIntervalDialog
 import com.example.refocus.feature.customize.dialogs.SuggestionCooldownDialog
 import com.example.refocus.feature.customize.dialogs.SuggestionForegroundStableDialog
@@ -18,8 +19,6 @@ import com.example.refocus.feature.customize.dialogs.SuggestionTriggerTimeDialog
 import com.example.refocus.feature.customize.dialogs.TimeToMaxDialog
 import com.example.refocus.feature.customize.dialogs.TimerTimeModeDialog
 import com.example.refocus.feature.customize.dialogs.TimerVisualTimeBasisDialog
-import com.example.refocus.feature.customize.dialogs.MiniGameKindDialog
-import com.example.refocus.feature.customize.dialogs.MiniGameOrderDialog
 
 @Composable
 internal fun CustomizeDialogHost(
@@ -156,24 +155,11 @@ internal fun CustomizeDialogHost(
             )
         }
 
-
-
         CustomizeDialogType.MiniGameOrder -> {
             MiniGameOrderDialog(
                 current = uiState.customize.miniGameOrder,
                 onConfirm = { order ->
                     viewModel.updateMiniGameOrder(order)
-                    onDismiss()
-                },
-                onDismiss = onDismiss,
-            )
-        }
-
-        CustomizeDialogType.MiniGameKind -> {
-            MiniGameKindDialog(
-                current = uiState.customize.miniGameKind,
-                onConfirm = { kind ->
-                    viewModel.updateMiniGameKind(kind)
                     onDismiss()
                 },
                 onDismiss = onDismiss,

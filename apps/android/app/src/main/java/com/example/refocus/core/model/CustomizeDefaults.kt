@@ -54,5 +54,4 @@ object CustomizeDefaults {
     // --- ミニゲーム（提案フローに挟むチャレンジ） ---
     const val MINI_GAME_ENABLED: Boolean = false
     val MINI_GAME_ORDER: MiniGameOrder = MiniGameOrder.BeforeSuggestion
-    val MINI_GAME_KIND: MiniGameKind = MiniGameKind.FlashAnzan
 }

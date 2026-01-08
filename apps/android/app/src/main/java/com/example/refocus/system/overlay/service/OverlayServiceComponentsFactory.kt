@@ -26,8 +26,8 @@ import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
 import com.example.refocus.domain.timeline.TimelineProjectionService
 import com.example.refocus.system.notification.OverlayServiceNotificationController
-import com.example.refocus.system.overlay.SuggestionOverlayController
 import com.example.refocus.system.overlay.MiniGameOverlayController
+import com.example.refocus.system.overlay.SuggestionOverlayController
 import com.example.refocus.system.overlay.TimerOverlayController
 import com.example.refocus.system.overlay.WindowOverlayUiController
 import kotlinx.coroutines.CoroutineScope

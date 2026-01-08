@@ -2,7 +2,6 @@ package com.example.refocus.feature.customize.dialogs
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.core.model.MiniGameOrder
 import com.example.refocus.ui.components.SingleChoiceDialog
 
@@ -44,43 +43,6 @@ fun MiniGameOrderDialog(
         optionLabel = { it.label },
         optionDescription = { it.description },
         onConfirm = { onConfirm(it.order) },
-        onDismiss = onDismiss,
-    )
-}
-
-@Composable
-fun MiniGameKindDialog(
-    current: MiniGameKind,
-    onConfirm: (MiniGameKind) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    data class Option(
-        val kind: MiniGameKind,
-        val label: String,
-        val description: String,
-    )
-
-    val options =
-        remember {
-            listOf(
-                Option(
-                    MiniGameKind.FlashAnzan,
-                    "フラッシュ暗算",
-                    "短い時間で数を見て合計を入力するミニゲームです．",
-                ),
-            )
-        }
-
-    val initial = options.firstOrNull { it.kind == current } ?: options.first()
-
-    SingleChoiceDialog(
-        title = "ミニゲームの種類",
-        description = "使用するミニゲームを選びます．",
-        options = options,
-        initialSelection = initial,
-        optionLabel = { it.label },
-        optionDescription = { it.description },
-        onConfirm = { onConfirm(it.kind) },
         onDismiss = onDismiss,
     )
 }

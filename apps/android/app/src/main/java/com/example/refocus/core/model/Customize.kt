@@ -33,7 +33,6 @@ data class Customize(
     // --- ミニゲーム（提案フローに挟むチャレンジ） ---
     val miniGameEnabled: Boolean = CustomizeDefaults.MINI_GAME_ENABLED,
     val miniGameOrder: MiniGameOrder = CustomizeDefaults.MINI_GAME_ORDER,
-    val miniGameKind: MiniGameKind = CustomizeDefaults.MINI_GAME_KIND,
 )
 
 /**

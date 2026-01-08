@@ -2,7 +2,6 @@ package com.example.refocus.feature.customize
 
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
-import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.core.model.MiniGameOrder
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimerTouchMode
@@ -18,7 +17,6 @@ fun BasicCustomizeContent(
     onOpenTimerVisualTimeBasisDialog: () -> Unit,
     onOpenPresetManager: () -> Unit,
     onOpenMiniGameOrderDialog: () -> Unit,
-    onOpenMiniGameKindDialog: () -> Unit,
 ) {
     val settings = uiState.customize
 
@@ -126,8 +124,6 @@ fun BasicCustomizeContent(
         )
     }
 
-
-
     // --- ミニゲーム ---
     SectionCard(title = "ミニゲーム") {
         val suggestionEnabled = settings.suggestionEnabled
@@ -172,32 +168,5 @@ fun BasicCustomizeContent(
                 } + if (!orderEnabled) "（ミニゲームがオフです）" else "",
             onClick = if (orderEnabled) onOpenMiniGameOrderDialog else null,
         )
-
-        SettingRow(
-            title = "ミニゲームの種類",
-            subtitle =
-                when (settings.miniGameKind) {
-                    MiniGameKind.FlashAnzan -> "現在：フラッシュ暗算"
-                } + if (!orderEnabled) "（ミニゲームがオフです）" else "",
-            onClick = if (orderEnabled) onOpenMiniGameKindDialog else null,
-        )
     }
-    // --- プリセット（入口のみ） ---
-//    SectionCard(title = "プリセット") {
-//        val presetName = when (uiState.preset) {
-//            CustomizePreset.Default -> "Default"
-//            CustomizePreset.Debug -> "Debug"
-//            CustomizePreset.Custom -> "Custom"
-//        }
-//        val presetDescription = when (uiState.preset) {
-//            CustomizePreset.Default -> "標準的なバランスの設定です。"
-//            CustomizePreset.Debug -> "動作確認やデバッグに便利な設定です。"
-//            CustomizePreset.Custom -> "一部の値がプリセットから変更されています。"
-//        }
-//        SettingRow(
-//            title = "プリセットを管理",
-//            subtitle = "現在: $presetName。$presetDescription",
-//            onClick = onOpenPresetManager,
-//        )
-//    }
 }
