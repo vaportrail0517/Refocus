@@ -5,14 +5,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import com.example.refocus.core.model.MiniGameKind
 
 /**
@@ -42,20 +39,14 @@ fun MiniGameHostOverlay(
                 ) {},
         contentAlignment = Alignment.Center,
     ) {
-        Card(
-            modifier = Modifier.padding(16.dp),
-        ) {
-            Box(
-                modifier = Modifier.padding(16.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                when (kind) {
-                    MiniGameKind.FlashAnzan -> {
-                        FlashAnzanGame(
-                            seed = seed,
-                            onFinished = onFinished,
-                        )
-                    }
+        MiniGameFrame {
+            when (kind) {
+                MiniGameKind.FlashAnzan -> {
+                    FlashAnzanGame(
+                        seed = seed,
+                        onFinished = onFinished,
+                        modifier = it,
+                    )
                 }
             }
         }
