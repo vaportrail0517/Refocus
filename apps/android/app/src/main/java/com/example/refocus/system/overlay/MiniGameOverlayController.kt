@@ -13,6 +13,7 @@ import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.domain.overlay.port.MiniGameOverlayUiModel
 import com.example.refocus.system.overlay.ui.minigame.MiniGameHostOverlay
 import com.example.refocus.ui.theme.RefocusTheme
+import java.util.concurrent.atomic.AtomicBoolean
 
 class MiniGameOverlayController(
     private val context: Context,
@@ -22,11 +23,37 @@ class MiniGameOverlayController(
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
     private var miniGameView: View? = null
+    private var miniGameToken: Long? = null
 
-    fun showMiniGameOverlay(model: MiniGameOverlayUiModel): Boolean {
-        if (miniGameView != null) {
-            RefocusLog.d("MiniGameOverlay") { "showMiniGameOverlay: already showing" }
-            return true
+    fun showMiniGameOverlay(
+        model: MiniGameOverlayUiModel,
+        token: Long? = null,
+    ): Boolean {
+        // すでに表示中のものがある場合でも，「別トークンで再表示」なら入れ替える。
+        val existing = miniGameView
+        if (existing != null) {
+            if (token != null && miniGameToken == token) {
+                RefocusLog.d("MiniGameOverlay") { "showMiniGameOverlay: already showing (same token)" }
+                return true
+            }
+
+            // 以前の view が残っている状態で再表示されたケース（hide がまだ Main に積まれている等）
+            // -> いったん安全に remove して入れ替える。
+            try {
+                windowManager.removeView(existing)
+            } catch (e: Exception) {
+                RefocusLog.e("MiniGameOverlay", e) { "showMiniGameOverlay: removeView(existing) failed" }
+            } finally {
+                miniGameView = null
+                miniGameToken = null
+            }
+        }
+
+        val callbackFired = AtomicBoolean(false)
+        fun runOnce(block: () -> Unit) {
+            if (callbackFired.compareAndSet(false, true)) {
+                block()
+            }
         }
 
         val params =
@@ -53,8 +80,10 @@ class MiniGameOverlayController(
                             kind = model.kind,
                             seed = model.seed,
                             onFinished = {
-                                hideMiniGameOverlay()
-                                model.onFinished()
+                                runOnce {
+                                    hideMiniGameOverlay(token = token)
+                                    model.onFinished()
+                                }
                             },
                         )
                     }
@@ -64,22 +93,29 @@ class MiniGameOverlayController(
         return try {
             windowManager.addView(composeView, params)
             miniGameView = composeView
+            miniGameToken = token
             true
         } catch (e: Exception) {
             RefocusLog.e("MiniGameOverlay", e) { "showMiniGameOverlay: addView failed" }
             miniGameView = null
+            miniGameToken = null
             false
         }
     }
 
-    fun hideMiniGameOverlay() {
+    fun hideMiniGameOverlay(token: Long? = null) {
         val view = miniGameView ?: return
+        if (token != null && miniGameToken != token) {
+            RefocusLog.d("MiniGameOverlay") { "hideMiniGameOverlay: token mismatch (ignore)" }
+            return
+        }
         try {
             windowManager.removeView(view)
         } catch (e: Exception) {
             RefocusLog.e("MiniGameOverlay", e) { "hideMiniGameOverlay: removeView failed" }
         } finally {
             miniGameView = null
+            miniGameToken = null
         }
     }
 }

@@ -16,6 +16,7 @@ import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.SuggestionMode
 import com.example.refocus.system.overlay.ui.SuggestionOverlay
 import com.example.refocus.ui.theme.RefocusTheme
+import java.util.concurrent.atomic.AtomicBoolean
 
 class SuggestionOverlayController(
     private val context: Context,
@@ -60,6 +61,13 @@ class SuggestionOverlayController(
             return true
         }
 
+        val callbackFired = AtomicBoolean(false)
+        fun runOnce(block: () -> Unit) {
+            if (callbackFired.compareAndSet(false, true)) {
+                block()
+            }
+        }
+
         val params =
             WindowManager
                 .LayoutParams(
@@ -87,17 +95,23 @@ class SuggestionOverlayController(
                             autoDismissMillis = autoDismissMillis,
                             interactionLockoutMillis = interactionLockoutMillis,
                             onSnoozeLater = {
-                                hideSuggestionOverlay()
-                                onSnoozeLater()
+                                runOnce {
+                                    hideSuggestionOverlay()
+                                    onSnoozeLater()
+                                }
                             },
                             onCloseTargetApp = {
-                                hideSuggestionOverlay()
-                                onCloseTargetApp()
-                                navigateToHome()
+                                runOnce {
+                                    hideSuggestionOverlay()
+                                    onCloseTargetApp()
+                                    navigateToHome()
+                                }
                             },
                             onDismissOnly = {
-                                hideSuggestionOverlay()
-                                onDismissOnly()
+                                runOnce {
+                                    hideSuggestionOverlay()
+                                    onDismissOnly()
+                                }
                             },
                         )
                     }

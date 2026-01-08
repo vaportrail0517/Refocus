@@ -19,10 +19,12 @@ import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * 提案（Suggestion）オーバーレイの表示と，
@@ -47,6 +49,99 @@ class SuggestionOrchestrator(
 ) {
     companion object {
         private const val TAG = "SuggestionOrchestrator"
+
+        // ミニゲーム復帰の show が一時的に失敗するケース（overlay remove/add のレース等）を吸収するためのリトライ設定
+        private const val MINI_GAME_RESUME_RETRY_INTERVAL_MILLIS = 400L
+        private const val MINI_GAME_MAX_SHOW_ATTEMPTS_PER_CYCLE = 6
+    }
+
+
+    private enum class MiniGameCycleState {
+        NotStarted,
+        InProgress,
+        Completed,
+    }
+
+    @Volatile
+    private var nextCycleId: Long = 0L
+
+    @Volatile
+    private var activeCycleId: Long? = null
+
+    @Volatile
+    private var activeCyclePackageName: String? = null
+
+    /**
+     * サイクル開始時点の設定をスナップショットして固定する．
+     * 表示中に設定が変わっても，そのサイクル内の挙動が崩れないようにするため．
+     */
+    @Volatile
+    private var cycleMiniGameOrder: MiniGameOrder? = null
+
+    @Volatile
+    private var miniGameCycleState: MiniGameCycleState = MiniGameCycleState.NotStarted
+
+    private fun beginNewSuggestionCycle(
+        packageName: String,
+        customize: Customize,
+    ): Long {
+        // 新しいサイクル開始時は，前サイクル由来の pending を必ず破棄する
+        // （古い pending が残ると，復帰ロジックで即時再表示が起き得る）
+        clearPendingMiniGameGate()
+
+        val id =
+            synchronized(this) {
+                nextCycleId += 1L
+                nextCycleId
+            }
+
+        activeCycleId = id
+        activeCyclePackageName = packageName
+        cycleMiniGameOrder = if (customize.miniGameEnabled) customize.miniGameOrder else null
+        miniGameCycleState = MiniGameCycleState.NotStarted
+
+        return id
+    }
+
+
+    private fun ensureSuggestionCycle(
+        packageName: String,
+        customize: Customize,
+    ): Long {
+        val id = activeCycleId
+        if (id != null && activeCyclePackageName == packageName) return id
+        return beginNewSuggestionCycle(
+            packageName = packageName,
+            customize = customize,
+        )
+    }
+
+    private fun endSuggestionCycleIfActive() {
+        activeCycleId = null
+        activeCyclePackageName = null
+        cycleMiniGameOrder = null
+        miniGameCycleState = MiniGameCycleState.NotStarted
+        clearPendingMiniGameGate()
+    }
+
+    private fun isActiveCycleFor(packageName: String, cycleId: Long): Boolean =
+        activeCycleId == cycleId && activeCyclePackageName == packageName
+
+    private fun completeMiniGameForActiveCycle(
+        packageName: String,
+        cycleId: Long,
+    ) {
+        if (!isActiveCycleFor(packageName, cycleId)) return
+
+        // ここで確定させることで，runMiniGameBlocking のコルーチンがキャンセルされても
+        // pending が残って復帰→即再表示，というループを避ける
+        clearPendingMiniGameGate()
+        miniGameCycleState = MiniGameCycleState.Completed
+
+        // 「提案の後にミニゲーム」の場合のみ，ミニゲーム完了でサイクル終了
+        if (cycleMiniGameOrder == MiniGameOrder.AfterSuggestion) {
+            endSuggestionCycleIfActive()
+        }
     }
 
     @Volatile
@@ -73,6 +168,41 @@ class SuggestionOrchestrator(
     @Volatile
     private var miniGameEpoch: Long = 0L
 
+    /**
+     * ミニゲーム Overlay の「表示インスタンス」単位のトークン。
+     *
+     * - Home 一時離脱などで hide と show が短時間に並ぶと，Main スレッド上での実行順が前後し得る。
+     * - そのとき，古い hide が新しい show を消してしまうと「表示されないのに待ち続ける」状態になる。
+     *
+     * これを避けるため，show ごとに新しい token を発行し，hide 側は token が一致するときだけ実行する。
+     */
+    @Volatile
+    private var miniGameOverlayToken: Long? = null
+
+    @Volatile
+    private var miniGameOverlayTokenSeq: Long = 0L
+
+    private fun nextMiniGameOverlayToken(): Long =
+        synchronized(this) {
+            miniGameOverlayTokenSeq += 1L
+            miniGameOverlayTokenSeq
+        }
+
+    private data class PendingMiniGameGate(
+        val cycleId: Long,
+        val packageName: String,
+        val kind: MiniGameKind,
+        val seed: Long,
+        val triggeredAtElapsedMillis: Long,
+        // showMiniGame の試行回数（復帰時の一時的失敗に備えて上限を設ける）
+        val attemptCount: Int,
+        // 最後に showMiniGame を試行した時刻（elapsedRealtime）
+        val lastAttemptElapsedRealtime: Long,
+    )
+
+    @Volatile
+    private var pendingMiniGameGate: PendingMiniGameGate? = null
+
     @Volatile
     private var suggestionUiInterruptionPackageName: String? = null
 
@@ -91,7 +221,30 @@ class SuggestionOrchestrator(
             miniGameEpoch
         }
 
+    /**
+     * 対象アプリが前面に戻ったタイミングで呼ぶ．
+     *
+     * ミニゲーム表示中に Home などへ一時離脱した場合，OverlaySessionLifecycle で UI を閉じる．
+     * その後に同一論理セッションとして対象アプリへ戻ったら，pending を見てミニゲームを復帰表示する．
+     *
+     * Foreground 監視ループ（maybeShowSuggestionIfNeeded）に依存すると，
+     * - タイマー非表示中
+     * - Enter/Leave のイベント直後
+     * などで復帰が遅延・欠落し得るため，Enter 側で明示的に呼べる API を用意する．
+     */
+    fun onEnterTargetAppMaybeResumeMiniGame(
+        packageName: String,
+        nowElapsedRealtime: Long,
+    ) {
+        val elapsed = sessionElapsedProvider(packageName, nowElapsedRealtime) ?: return
+        maybeResumePendingMiniGameIfNeeded(
+            packageName = packageName,
+            elapsedMillis = elapsed,
+        )
+    }
+
     fun onDisabled() {
+        endSuggestionCycleIfActive()
         invalidatePendingOverlaysAndHide()
         resetGate()
     }
@@ -105,6 +258,10 @@ class SuggestionOrchestrator(
      * Timeline 投影で「継続セッション」だと判定された場合は，ゲート状態も復元する。
      */
     fun onNewSession(bootstrap: SessionBootstrapFromTimeline?) {
+        // 新規セッション開始時は，提案サイクル状態を必ずリセットする
+        // （同一論理セッション継続の場合は gate を復元するが，UI サイクルは復元しない）
+        endSuggestionCycleIfActive()
+
         sessionGate =
             if (bootstrap?.isOngoingSession == true) bootstrap.gate else SessionSuggestionGate()
     }
@@ -125,8 +282,25 @@ class SuggestionOrchestrator(
         // クールダウン / disabledForThisSession は sessionGate 側に保持する
     }
 
-    private fun clearMiniGameOverlayState() {
+    private fun clearMiniGameOverlayState(expectedToken: Long? = null) {
+        // 古いコルーチンの finally が，新しい overlay 状態を消してしまうのを防ぐ。
+        if (expectedToken != null && miniGameOverlayToken != expectedToken) return
         isMiniGameOverlayShown = false
+        miniGameOverlayToken = null
+    }
+
+    private fun markMiniGameOverlayShown(token: Long?) {
+        miniGameOverlayToken = token
+        isMiniGameOverlayShown = true
+    }
+
+    private fun clearPendingMiniGameGate() {
+        pendingMiniGameGate = null
+    }
+
+    private fun cancelPendingMiniGameAndHide() {
+        clearPendingMiniGameGate()
+        invalidatePendingMiniGameAndHide()
     }
 
     /**
@@ -160,8 +334,9 @@ class SuggestionOrchestrator(
         showMiniGameJob?.cancel()
         showMiniGameJob = null
         endMiniGameUiInterruptionIfActive()
-        uiController.hideMiniGame()
-        clearMiniGameOverlayState()
+        val token = miniGameOverlayToken
+        uiController.hideMiniGame(token = token)
+        clearMiniGameOverlayState(expectedToken = token)
     }
 
     /**
@@ -172,6 +347,7 @@ class SuggestionOrchestrator(
      * - 内部の overlay 状態をクリア
      */
     fun stopForTimerHidden() {
+        endSuggestionCycleIfActive()
         invalidatePendingOverlaysAndHide()
     }
 
@@ -183,6 +359,45 @@ class SuggestionOrchestrator(
     ) {
         if (showSuggestionJob?.isActive == true) return
         if (showMiniGameJob?.isActive == true) return
+
+        val pendingForThis =
+            pendingMiniGameGate?.takeIf {
+                val cycleId = activeCycleId
+                cycleId != null &&
+                    it.cycleId == cycleId &&
+                    it.packageName == packageName &&
+                    activeCyclePackageName == packageName &&
+                    miniGameCycleState == MiniGameCycleState.InProgress
+            }
+        if (pendingForThis != null) {
+            val nowElapsed = timeSource.elapsedRealtime()
+            if (
+                pendingForThis.lastAttemptElapsedRealtime > 0L &&
+                nowElapsed - pendingForThis.lastAttemptElapsedRealtime < MINI_GAME_RESUME_RETRY_INTERVAL_MILLIS
+            ) {
+                return
+            }
+        }
+
+        // ミニゲーム表示中に Home 等で離脱した場合でも，同じ論理セッションに戻れば再表示する
+        maybeResumePendingMiniGameIfNeeded(
+            packageName = packageName,
+            elapsedMillis = elapsedMillis,
+        )
+        if (showMiniGameJob?.isActive == true) return
+
+        // まだ pending が残っている（表示に失敗した等）場合は，提案を出さずに次回のリトライへ回す
+        pendingMiniGameGate?.let { p ->
+            val cycleId = activeCycleId
+            if (cycleId != null &&
+                p.cycleId == cycleId &&
+                p.packageName == packageName &&
+                activeCyclePackageName == packageName &&
+                miniGameCycleState == MiniGameCycleState.InProgress
+            ) {
+                return
+            }
+        }
 
         val customize = customizeProvider()
 
@@ -237,19 +452,28 @@ class SuggestionOrchestrator(
                     }
 
                     val pkg = overlayPackageProvider() ?: packageName
-
-                    // ミニゲームが「提案の前」の場合は，ここで実行してから提案を表示する
-                    if (customize.miniGameEnabled &&
-                        customize.miniGameOrder == MiniGameOrder.BeforeSuggestion
-                    ) {
-                        runMiniGameBlocking(
+                    val cycleId =
+                        ensureSuggestionCycle(
                             packageName = pkg,
                             customize = customize,
+                        )
+
+                    // ミニゲームが「提案の前」の場合は，ここで実行してから提案を表示する
+                    if (cycleMiniGameOrder == MiniGameOrder.BeforeSuggestion &&
+                        miniGameCycleState != MiniGameCycleState.Completed
+                    ) {
+                        miniGameCycleState = MiniGameCycleState.InProgress
+                        runMiniGameBlocking(
+                            packageName = pkg,
                             seed = nowMillis,
                             epochAtLaunch = miniGameEpoch,
+                            cycleId = cycleId,
                         )
                         if (epochAtLaunch != suggestionEpoch || !currentCoroutineContext().isActive) {
-                            RefocusLog.d(TAG) { "Suggestion show aborted after minigame (epoch changed or cancelled)" }
+                            RefocusLog.d(TAG) {
+                                "Suggestion show aborted after minigame (epoch changed or cancelled)"
+                            }
+                            // Home などへの一時離脱でキャンセルされても，サイクルは維持して復帰できるようにする
                             return@launch
                         }
                     }
@@ -270,6 +494,7 @@ class SuggestionOrchestrator(
 
                     if (!shown) {
                         RefocusLog.w(TAG) { "Suggestion overlay was NOT shown (addView failed etc). Will retry." }
+                        endSuggestionCycleIfActive()
                         return@launch
                     }
 
@@ -278,6 +503,7 @@ class SuggestionOrchestrator(
                         uiController.hideSuggestion()
                         clearOverlayState()
                         RefocusLog.d(TAG) { "Suggestion overlay shown after invalidation -> force hide" }
+                        // Home などへの一時離脱であれば，サイクルは維持して復帰できるようにする
                         return@launch
                     }
 
@@ -292,10 +518,15 @@ class SuggestionOrchestrator(
                     } catch (e: Exception) {
                         RefocusLog.e(TAG, e) { "Failed to record SuggestionShown for $pkg" }
                     }
+                } catch (e: CancellationException) {
+                    // Home 一時離脱などで cancel されるのは正常系。
+                    RefocusLog.d(TAG) { "Suggestion show cancelled for $packageName" }
+                    throw e
                 } catch (e: Exception) {
                     RefocusLog.e(TAG, e) { "Failed to show suggestion overlay for $packageName" }
                     isSuggestionOverlayShown = false
                     currentSuggestionId = null
+                    endSuggestionCycleIfActive()
                 } finally {
                     showSuggestionJob = null
                 }
@@ -314,6 +545,11 @@ class SuggestionOrchestrator(
         endSuggestionUiInterruptionIfActive()
         clearOverlayState()
 
+        // 「提案の後にミニゲーム」の場合は，ミニゲーム完了までサイクルを維持する
+        if (cycleMiniGameOrder != MiniGameOrder.AfterSuggestion) {
+            endSuggestionCycleIfActive()
+        }
+
         val pkg = packageName
         if (pkg == null) {
             RefocusLog.w(TAG) { "handleSuggestionSnooze: overlayPackage=null; gate not updated" }
@@ -331,10 +567,13 @@ class SuggestionOrchestrator(
     }
 
     private fun maybeStartMiniGameAfterSuggestionIfNeeded(packageName: String) {
-        val customize = customizeProvider()
-        if (!customize.miniGameEnabled) return
-        if (customize.miniGameOrder != MiniGameOrder.AfterSuggestion) return
+        val cycleId = activeCycleId ?: return
+        if (activeCyclePackageName != packageName) return
+        if (cycleMiniGameOrder != MiniGameOrder.AfterSuggestion) return
+        if (miniGameCycleState != MiniGameCycleState.NotStarted) return
         if (showMiniGameJob?.isActive == true) return
+
+        miniGameCycleState = MiniGameCycleState.InProgress
 
         val epochAtLaunch = miniGameEpoch
         showMiniGameJob =
@@ -342,9 +581,64 @@ class SuggestionOrchestrator(
                 try {
                     runMiniGameBlocking(
                         packageName = packageName,
-                        customize = customize,
                         seed = timeSource.nowMillis(),
                         epochAtLaunch = epochAtLaunch,
+                        cycleId = cycleId,
+                    )
+                } finally {
+                    showMiniGameJob = null
+                }
+            }
+    }
+
+    private fun maybeResumePendingMiniGameIfNeeded(
+        packageName: String,
+        elapsedMillis: Long,
+    ) {
+        val pending = pendingMiniGameGate ?: return
+
+        val cycleId = activeCycleId
+        if (cycleId == null) {
+            clearPendingMiniGameGate()
+            return
+        }
+        if (pending.cycleId != cycleId) {
+            clearPendingMiniGameGate()
+            return
+        }
+        if (activeCyclePackageName != packageName) return
+        if (pending.packageName != packageName) return
+        if (cycleMiniGameOrder == null) {
+            clearPendingMiniGameGate()
+            return
+        }
+        if (miniGameCycleState != MiniGameCycleState.InProgress) {
+            clearPendingMiniGameGate()
+            return
+        }
+        if (isMiniGameOverlayShown || isSuggestionOverlayShown) return
+        if (showMiniGameJob?.isActive == true) return
+
+        // 以前の pending が残っていても，セッションが切れていれば破棄する
+        if (pending.triggeredAtElapsedMillis > 0L &&
+            elapsedMillis + 1_000L < pending.triggeredAtElapsedMillis
+        ) {
+            RefocusLog.d(TAG) {
+                "Pending minigame cleared (session restarted?): elapsed=$elapsedMillis, triggered=${pending.triggeredAtElapsedMillis}"
+            }
+            endSuggestionCycleIfActive()
+            return
+        }
+
+        val epochAtLaunch = miniGameEpoch
+        showMiniGameJob =
+            scope.launch {
+                try {
+                    runMiniGameBlocking(
+                        packageName = packageName,
+                        seed = pending.seed,
+                        epochAtLaunch = epochAtLaunch,
+                        cycleId = cycleId,
                     )
                 } finally {
                     showMiniGameJob = null
@@ -354,44 +648,112 @@ class SuggestionOrchestrator(
 
     private suspend fun runMiniGameBlocking(
         packageName: String,
-        customize: Customize,
         seed: Long,
         epochAtLaunch: Long,
+        cycleId: Long,
     ) {
+        if (!isActiveCycleFor(packageName, cycleId)) return
+        if (cycleMiniGameOrder == null) return
         if (epochAtLaunch != miniGameEpoch || !currentCoroutineContext().isActive) return
+        if (miniGameCycleState == MiniGameCycleState.Completed) return
+
+        // ここに来た時点で，少なくとも「このサイクルではミニゲームを 1 回起動する」ことを確定させる
+        if (miniGameCycleState == MiniGameCycleState.NotStarted) {
+            miniGameCycleState = MiniGameCycleState.InProgress
+        }
 
         val finished = CompletableDeferred<Unit>()
+        val finishedOnce = AtomicBoolean(false)
 
-        val shown =
-            uiController.showMiniGame(
-                MiniGameOverlayUiModel(
-                    kind = pickRandomMiniGameKind(seed),
-                    seed = seed,
-                    onFinished = {
-                        if (!finished.isCompleted) finished.complete(Unit)
-                    },
-                ),
+        val existingPending =
+            pendingMiniGameGate?.takeIf { it.packageName == packageName && it.cycleId == cycleId }
+
+        // 以前のサイクル由来の pending が残っていた場合は破棄する
+        pendingMiniGameGate?.let { pending ->
+            if (pending.cycleId != cycleId || pending.packageName != packageName) {
+                clearPendingMiniGameGate()
+            }
+        }
+
+        val kindToShow = existingPending?.kind ?: pickRandomMiniGameKind(seed)
+        val seedToUse = existingPending?.seed ?: seed
+
+        // 初回表示前から pending を作っておく。
+        // - show の一時的失敗（remove/add レース等）でも，同じミニゲームで復帰できる
+        // - サイクル中にゲーム内容が変わらないよう seed/kind を固定する
+        val nowElapsed = timeSource.elapsedRealtime()
+        val atElapsed =
+            existingPending?.triggeredAtElapsedMillis
+                ?: (sessionElapsedProvider(packageName, nowElapsed) ?: 0L)
+
+        val attemptCount = (existingPending?.attemptCount ?: 0) + 1
+        pendingMiniGameGate =
+            PendingMiniGameGate(
+                cycleId = cycleId,
+                packageName = packageName,
+                kind = kindToShow,
+                seed = seedToUse,
+                triggeredAtElapsedMillis = atElapsed,
+                attemptCount = attemptCount,
+                lastAttemptElapsedRealtime = nowElapsed,
             )
 
-        if (!shown) {
-            RefocusLog.w(TAG) { "MiniGame overlay was NOT shown (addView failed etc). skip." }
+        if (attemptCount > MINI_GAME_MAX_SHOW_ATTEMPTS_PER_CYCLE) {
+            RefocusLog.w(TAG) { "MiniGame show retry exceeded. abort cycle. attempts=$attemptCount" }
+            completeMiniGameForActiveCycle(
+                packageName = packageName,
+                cycleId = cycleId,
+            )
             return
         }
 
+        // この run で表示する Overlay インスタンス用の token を発行する。
+        // hide が遅れて実行されても，新しい show を消さないようにする。
+        val overlayToken = nextMiniGameOverlayToken()
+
+        val shown =
+            uiController.showMiniGame(
+                model =
+                    MiniGameOverlayUiModel(
+                        kind = kindToShow,
+                        seed = seedToUse,
+                        onFinished = {
+                            if (finishedOnce.compareAndSet(false, true)) {
+                                completeMiniGameForActiveCycle(
+                                    packageName = packageName,
+                                    cycleId = cycleId,
+                                )
+                                if (!finished.isCompleted) finished.complete(Unit)
+                            }
+                        },
+                    ),
+                token = overlayToken,
+            )
+
+        if (!shown) {
+            // pending は保持したまま return する（次の前面更新で復帰を試行できる）
+            RefocusLog.w(TAG) { "MiniGame overlay was NOT shown (addView failed etc). will retry." }
+            return
+        }
+
+        // 現在表示中のミニゲーム Overlay の token / shown 状態を更新
+        markMiniGameOverlayShown(overlayToken)
+
         if (epochAtLaunch != miniGameEpoch || !currentCoroutineContext().isActive) {
-            uiController.hideMiniGame()
-            clearMiniGameOverlayState()
+            // ここでは pending を消さずに残す（Home 離脱等で復帰できるようにする）
+            uiController.hideMiniGame(token = overlayToken)
+            clearMiniGameOverlayState(expectedToken = overlayToken)
             RefocusLog.d(TAG) { "MiniGame overlay shown after invalidation -> force hide" }
             return
         }
 
-        isMiniGameOverlayShown = true
+        // markMiniGameOverlayShown 済み
         beginMiniGameUiInterruptionIfNeeded(packageName)
         try {
             finished.await()
         } finally {
             endMiniGameUiInterruptionIfActive()
-            clearMiniGameOverlayState()
+            clearMiniGameOverlayState(expectedToken = overlayToken)
         }
     }
 
@@ -417,6 +779,9 @@ class SuggestionOrchestrator(
                         suggestionId = suggestionId,
                         decision = SuggestionDecision.Snoozed,
                     )
+                } catch (e: CancellationException) {
+                    RefocusLog.d(TAG) { "Suggestion decision recording cancelled for $pkg" }
+                    return@launch
                 } catch (e: Exception) {
                     RefocusLog.e(TAG, e) { "Failed to record SuggestionSnoozed for $pkg" }
                 }
@@ -439,6 +804,9 @@ class SuggestionOrchestrator(
                         suggestionId = suggestionId,
                         decision = SuggestionDecision.Dismissed,
                     )
+                } catch (e: CancellationException) {
+                    RefocusLog.d(TAG) { "Suggestion decision recording cancelled for $pkg" }
+                    return@launch
                 } catch (e: Exception) {
                     RefocusLog.e(TAG, e) { "Failed to record SuggestionDismissed for $pkg" }
                 }
@@ -456,10 +824,11 @@ class SuggestionOrchestrator(
         // 表示中の提案を閉じ，計測中断を解除する
         endSuggestionUiInterruptionIfActive()
         clearOverlayState()
+        endSuggestionCycleIfActive()
 
         // 「提案の後にミニゲーム」を選んでいても，ここでは起動しない
         // かつ，すでに何らかの理由でミニゲーム表示が進行していれば確実に止める
-        invalidatePendingMiniGameAndHide()
+        cancelPendingMiniGameAndHide()
 
         // 決定イベントは通常の Dismiss と同等扱いとして記録する（結果や強制終了は記録しない方針）
         scope.launch {
@@ -492,6 +861,8 @@ class SuggestionOrchestrator(
         // 先に suggestionId を保持してから状態をクリアする．
         endSuggestionUiInterruptionIfActive()
         clearOverlayState()
+        // disable はここでサイクルを終える（AfterSuggestion の場合もミニゲームを起動しないため）
+        endSuggestionCycleIfActive()
 
         scope.launch {
             try {

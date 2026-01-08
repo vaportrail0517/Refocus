@@ -121,6 +121,12 @@ internal class OverlaySessionLifecycle(
         } else {
             showTimerForPackage(packageName)
         }
+
+        // ミニゲーム表示中に Home などへ一時離脱した場合でも，同一論理セッションとして復帰したら再表示する
+        suggestionOrchestrator.onEnterTargetAppMaybeResumeMiniGame(
+            packageName = packageName,
+            nowElapsedRealtime = nowElapsed,
+        )
     }
 
     fun onLeaveForeground(

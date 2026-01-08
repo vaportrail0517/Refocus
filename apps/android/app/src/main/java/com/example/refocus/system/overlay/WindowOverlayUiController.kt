@@ -67,14 +67,17 @@ class WindowOverlayUiController(
         }
     }
 
-    override suspend fun showMiniGame(model: MiniGameOverlayUiModel): Boolean =
+    override suspend fun showMiniGame(
+        model: MiniGameOverlayUiModel,
+        token: Long?,
+    ): Boolean =
         withContext(Dispatchers.Main) {
-            miniGameOverlayController.showMiniGameOverlay(model)
+            miniGameOverlayController.showMiniGameOverlay(model = model, token = token)
         }
 
-    override fun hideMiniGame() {
+    override fun hideMiniGame(token: Long?) {
         scope.launch(Dispatchers.Main) {
-            miniGameOverlayController.hideMiniGameOverlay()
+            miniGameOverlayController.hideMiniGameOverlay(token = token)
         }
     }
 }
