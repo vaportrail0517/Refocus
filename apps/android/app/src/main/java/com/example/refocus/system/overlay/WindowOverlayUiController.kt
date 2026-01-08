@@ -51,11 +51,12 @@ class WindowOverlayUiController(
         withContext(Dispatchers.Main) {
             suggestionOverlayController.showSuggestionOverlay(
                 title = model.title,
+                targetPackageName = model.targetPackageName,
                 mode = model.mode,
                 autoDismissMillis = model.autoDismissMillis,
                 interactionLockoutMillis = model.interactionLockoutMillis,
                 onSnoozeLater = { model.onSnoozeLater() },
-                onDisableThisSession = { model.onDisableThisSession() },
+                onCloseTargetApp = { model.onCloseTargetApp() },
                 onDismissOnly = { model.onDismissOnly() },
             )
         }

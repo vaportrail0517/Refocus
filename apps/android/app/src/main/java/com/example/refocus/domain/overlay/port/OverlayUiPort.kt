@@ -9,11 +9,12 @@ import com.example.refocus.core.model.SuggestionMode
  */
 data class SuggestionOverlayUiModel(
     val title: String,
+    val targetPackageName: String,
     val mode: SuggestionMode,
     val autoDismissMillis: Long,
     val interactionLockoutMillis: Long,
     val onSnoozeLater: () -> Unit,
-    val onDisableThisSession: () -> Unit,
+    val onCloseTargetApp: () -> Unit,
     val onDismissOnly: () -> Unit,
 )
 

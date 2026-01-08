@@ -12,7 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -44,34 +43,36 @@ fun FlashAnzanGame(
     val rng = remember(seed) { Random(seed) }
 
     // 仕様固定（設定には出さない）
-    // - 1桁または2桁（1..99）を 5 個
+    // - 1桁または2桁（1..60）を 5 個
     // - 少し遅めの表示速度
     val count = 5
     val min = 1
-    val max = 99
+    val max = 50
     val showMillis = 1000L
-    val blankMillis = 500L
+    val blankMillis = 1000L
 
     val numbers =
         remember(seed, count, min, max) { List(count) { rng.nextInt(min, max + 1) } }
     val answer = remember(numbers) { numbers.sum() }
 
     var phase by remember { mutableStateOf(Phase.Ready) }
-    var displayIndex by remember { mutableIntStateOf(-1) }
+    var displayValue by remember { mutableStateOf<Int?>(null) }
     var input by remember { mutableStateOf("") }
     var isCorrect by remember { mutableStateOf(false) }
 
     val closeInteraction = remember { MutableInteractionSource() }
 
-    LaunchedEffect(phase) {
+    // 表示フェーズでは，「数字を showMillis だけ表示」→「必ず消す」→（次があれば）空白 blankMillis
+    // を繰り返す．同じ数字が連続しても必ず一度消えるため，区切りが分かる．
+    LaunchedEffect(phase, numbers) {
         if (phase != Phase.Showing) return@LaunchedEffect
 
-        displayIndex = 0
-        while (displayIndex in numbers.indices) {
+        displayValue = null
+        for (i in numbers.indices) {
+            displayValue = numbers[i]
             delay(showMillis)
-            // ちらつき防止のための空白（UI には表示しないが間を作る）
-            displayIndex += 1
-            if (displayIndex <= numbers.lastIndex) {
+            displayValue = null
+            if (i != numbers.lastIndex) {
                 delay(blankMillis)
             }
         }
@@ -99,7 +100,7 @@ fun FlashAnzanGame(
                 Button(
                     onClick = {
                         input = ""
-                        displayIndex = -1
+                        displayValue = null
                         phase = Phase.Showing
                     },
                 ) {
@@ -108,8 +109,7 @@ fun FlashAnzanGame(
             }
 
             Phase.Showing -> {
-                val toShow =
-                    if (displayIndex in numbers.indices) numbers[displayIndex].toString() else ""
+                val toShow = displayValue?.toString() ?: " "
                 Text(
                     text = toShow,
                     fontSize = 42.sp,
@@ -141,7 +141,6 @@ fun FlashAnzanGame(
 
                 NumericKeypad(
                     onDigit = { d ->
-                        // 先頭ゼロも許容するが，表示だけなのでそのまま
                         if (input.length < 6) input += d.toString()
                     },
                     onBackspace = {
@@ -189,7 +188,6 @@ fun FlashAnzanGame(
         }
     }
 }
-
 
 private enum class Phase {
     Ready,

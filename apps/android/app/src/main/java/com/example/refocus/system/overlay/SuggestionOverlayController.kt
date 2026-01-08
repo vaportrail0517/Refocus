@@ -1,6 +1,9 @@
 package com.example.refocus.system.overlay
 
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.graphics.PixelFormat
 import android.view.Gravity
 import android.view.View
@@ -22,13 +25,34 @@ class SuggestionOverlayController(
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var suggestionView: View? = null
 
+    private fun resolveAppLabel(packageName: String): String {
+        if (packageName.isBlank()) return "このアプリ"
+        return try {
+            val appInfo =
+                if (Build.VERSION.SDK_INT >= 33) {
+                    context.packageManager.getApplicationInfo(
+                        packageName,
+                        PackageManager.ApplicationInfoFlags.of(0),
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.packageManager.getApplicationInfo(packageName, 0)
+                }
+            val label = context.packageManager.getApplicationLabel(appInfo).toString()
+            if (label.isBlank()) "このアプリ" else label
+        } catch (_: Exception) {
+            "このアプリ"
+        }
+    }
+
     fun showSuggestionOverlay(
         title: String,
+        targetPackageName: String,
         mode: SuggestionMode,
         autoDismissMillis: Long,
         interactionLockoutMillis: Long,
         onSnoozeLater: () -> Unit,
-        onDisableThisSession: () -> Unit,
+        onCloseTargetApp: () -> Unit,
         onDismissOnly: () -> Unit,
     ): Boolean {
         if (suggestionView != null) {
@@ -58,6 +82,7 @@ class SuggestionOverlayController(
                     RefocusTheme {
                         SuggestionOverlay(
                             title = title,
+                            targetAppLabel = resolveAppLabel(targetPackageName),
                             mode = mode,
                             autoDismissMillis = autoDismissMillis,
                             interactionLockoutMillis = interactionLockoutMillis,
@@ -65,9 +90,10 @@ class SuggestionOverlayController(
                                 hideSuggestionOverlay()
                                 onSnoozeLater()
                             },
-                            onDisableThisSession = {
+                            onCloseTargetApp = {
                                 hideSuggestionOverlay()
-                                onDisableThisSession()
+                                onCloseTargetApp()
+                                navigateToHome()
                             },
                             onDismissOnly = {
                                 hideSuggestionOverlay()
@@ -86,6 +112,19 @@ class SuggestionOverlayController(
             RefocusLog.e("SuggestionOverlay", e) { "showSuggestionOverlay: addView failed" }
             suggestionView = null
             return false
+        }
+    }
+
+    private fun navigateToHome() {
+        val intent =
+            Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        try {
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            RefocusLog.e("SuggestionOverlay", e) { "navigateToHome: startActivity failed" }
         }
     }
 
