@@ -106,6 +106,31 @@ data class SuggestionDecisionEvent(
 ) : TimelineEvent
 
 /**
+ * Refocus の UI（提案やミニゲーム）を表示している間の「計測中断」を表すイベント。
+ *
+ * - セッション自体は継続しているが，利用時間計測やオーバーレイの表示値を一時停止するために使う
+ * - 結果（成功/失敗など）は持たず，「開始/終了」と「何を表示していたか」だけを記録する
+ */
+data class UiInterruptionEvent(
+    override val id: Long? = null,
+    override val timestampMillis: Long,
+    /** 中断対象となっている前面アプリ（対象アプリ） */
+    val packageName: String,
+    val source: UiInterruptionSource,
+    val state: UiInterruptionState,
+) : TimelineEvent
+
+enum class UiInterruptionSource {
+    Suggestion,
+    MiniGame,
+}
+
+enum class UiInterruptionState {
+    Start,
+    End,
+}
+
+/**
  * 設定変更イベント。
  *
  * - 今回の設計では「過去を現在の設定で再解釈する」ので、

@@ -26,6 +26,7 @@ import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
 import com.example.refocus.domain.timeline.TimelineProjectionService
 import com.example.refocus.system.notification.OverlayServiceNotificationController
+import com.example.refocus.system.overlay.MiniGameOverlayController
 import com.example.refocus.system.overlay.SuggestionOverlayController
 import com.example.refocus.system.overlay.TimerOverlayController
 import com.example.refocus.system.overlay.WindowOverlayUiController
@@ -75,11 +76,18 @@ internal class OverlayServiceComponentsFactory {
                 lifecycleOwner = lifecycleOwner,
             )
 
+        val miniGameOverlayController =
+            MiniGameOverlayController(
+                context = context,
+                lifecycleOwner = lifecycleOwner,
+            )
+
         val overlayUiController =
             WindowOverlayUiController(
                 scope = scope,
                 timerOverlayController = timerOverlayController,
                 suggestionOverlayController = suggestionOverlayController,
+                miniGameOverlayController = miniGameOverlayController,
             )
 
         // ===== domain runtime wiring =====
@@ -119,6 +127,12 @@ internal class OverlayServiceComponentsFactory {
                 timeSource = timeSource,
                 sessionElapsedProvider = { pkg, nowElapsed ->
                     sessionTracker.computeElapsedFor(pkg, nowElapsed)
+                },
+                onUiPause = { pkg, nowElapsed ->
+                    sessionTracker.onUiPause(pkg, nowElapsed)
+                },
+                onUiResume = { pkg, nowElapsed ->
+                    sessionTracker.onUiResume(pkg, nowElapsed)
                 },
                 suggestionEngine = suggestionEngine,
                 suggestionSelector = suggestionSelector,
@@ -217,6 +231,7 @@ internal class OverlayServiceComponentsFactory {
         return OverlayServiceComponents(
             timerOverlayController = timerOverlayController,
             suggestionOverlayController = suggestionOverlayController,
+            miniGameOverlayController = miniGameOverlayController,
             overlayUiController = overlayUiController,
             overlayCoordinator = overlayCoordinator,
             notificationController = notificationController,
@@ -227,6 +242,7 @@ internal class OverlayServiceComponentsFactory {
 internal data class OverlayServiceComponents(
     val timerOverlayController: TimerOverlayController,
     val suggestionOverlayController: SuggestionOverlayController,
+    val miniGameOverlayController: MiniGameOverlayController,
     val overlayUiController: WindowOverlayUiController,
     val overlayCoordinator: OverlayCoordinator,
     val notificationController: OverlayServiceNotificationController,

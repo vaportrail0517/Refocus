@@ -205,6 +205,7 @@ internal class OverlayCoordinator(
 
         uiController.hideTimer()
         uiController.hideSuggestion()
+        uiController.hideMiniGame()
         suggestionOrchestrator.onDisabled()
 
         runtimeState.update {

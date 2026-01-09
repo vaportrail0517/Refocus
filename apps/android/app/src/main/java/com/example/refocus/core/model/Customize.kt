@@ -30,6 +30,9 @@ data class Customize(
     val suggestionCooldownSeconds: Int = CustomizeDefaults.SUGGESTION_COOLDOWN_SECONDS,
     val suggestionForegroundStableSeconds: Int = CustomizeDefaults.SUGGESTION_FOREGROUND_STABLE_SECONDS,
     val suggestionInteractionLockoutMillis: Long = CustomizeDefaults.SUGGESTION_INTERACTION_LOCKOUT_MS,
+    // --- ミニゲーム（提案フローに挟むチャレンジ） ---
+    val miniGameEnabled: Boolean = CustomizeDefaults.MINI_GAME_ENABLED,
+    val miniGameOrder: MiniGameOrder = CustomizeDefaults.MINI_GAME_ORDER,
 )
 
 /**

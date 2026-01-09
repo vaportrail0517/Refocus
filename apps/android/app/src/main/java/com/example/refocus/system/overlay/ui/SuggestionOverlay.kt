@@ -38,12 +38,13 @@ import kotlin.math.roundToInt
 @Composable
 fun SuggestionOverlay(
     title: String,
+    targetAppLabel: String,
     mode: SuggestionMode,
     modifier: Modifier = Modifier.Companion,
     autoDismissMillis: Long = 8_000L,
     interactionLockoutMillis: Long = 400L,
     onSnoozeLater: () -> Unit,
-    onDisableThisSession: () -> Unit,
+    onCloseTargetApp: () -> Unit,
     onDismissOnly: () -> Unit,
 ) {
     val headerText: String
@@ -173,18 +174,18 @@ fun SuggestionOverlay(
                         },
                         enabled = interactive,
                     ) {
-                        Text("また後で")
+                        Text("あとで")
                     }
                     Spacer(modifier = Modifier.Companion.width(8.dp))
                     TextButton(
                         onClick = {
                             if (interactive) {
-                                onDisableThisSession()
+                                onCloseTargetApp()
                             }
                         },
                         enabled = interactive,
                     ) {
-                        Text("このセッション中は再度提案しない")
+                        Text("${targetAppLabel}を閉じる")
                     }
                 }
             }

@@ -50,4 +50,8 @@ object CustomizeDefaults {
     const val SUGGESTION_COOLDOWN_SECONDS: Int = 10 * 60
     const val SUGGESTION_FOREGROUND_STABLE_SECONDS: Int = 5 * 60
     const val SUGGESTION_INTERACTION_LOCKOUT_MS: Long = 400L
+
+    // --- ミニゲーム（提案フローに挟むチャレンジ） ---
+    const val MINI_GAME_ENABLED: Boolean = false
+    val MINI_GAME_ORDER: MiniGameOrder = MiniGameOrder.BeforeSuggestion
 }

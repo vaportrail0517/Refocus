@@ -23,6 +23,8 @@ class OverlaySessionTracker(
         var activeStartElapsedRealtime: Long,
         // 「前面安定時間」の開始点（elapsedRealtime）
         var foregroundStableStartElapsedRealtime: Long,
+        // UI 表示中などで「計測だけ止めたい」区間の開始点（elapsedRealtime）
+        var uiPauseAtElapsedRealtime: Long?,
         // 猶予判定用（elapsedRealtime）
         var lastLeaveAtElapsedRealtime: Long?,
     )
@@ -58,6 +60,7 @@ class OverlaySessionTracker(
                     accumulatedElapsedMillis = initialElapsedIfNew.coerceAtLeast(0L),
                     activeStartElapsedRealtime = nowElapsed,
                     foregroundStableStartElapsedRealtime = nowElapsed,
+                    uiPauseAtElapsedRealtime = null,
                     lastLeaveAtElapsedRealtime = null,
                 )
             // 「ランタイムとしては新規セッション」なので true
@@ -79,6 +82,7 @@ class OverlaySessionTracker(
         existing.activeStartElapsedRealtime = nowElapsed
         // 方針B: 前面安定時間も「アプリを開いたら必ずここから」
         existing.foregroundStableStartElapsedRealtime = nowElapsed
+        existing.uiPauseAtElapsedRealtime = null
         existing.lastLeaveAtElapsedRealtime = null
 
         // continues == true なら「継続セッション」なので false を返す
@@ -89,13 +93,53 @@ class OverlaySessionTracker(
         val state = states[packageName] ?: return
         // すでに leave 済みなら二重加算しない
         if (state.lastLeaveAtElapsedRealtime != null) return
+
         val nowElapsed = timeSource.elapsedRealtime()
+
+        // UI 表示中などで計測を止めている場合は，離脱時点での追加加算は不要
+        if (state.uiPauseAtElapsedRealtime != null) {
+            state.lastLeaveAtElapsedRealtime = nowElapsed
+            return
+        }
+
         val delta =
             (nowElapsed - state.activeStartElapsedRealtime)
                 .coerceAtLeast(0L)
 
         state.accumulatedElapsedMillis += delta
         state.lastLeaveAtElapsedRealtime = nowElapsed
+    }
+
+    /**
+     * 提案やミニゲームなど，Refocus 側 UI を表示している間は「計測だけ止めたい」ため，
+     * 現在の累積に確定してから以降の加算を止める．
+     */
+    fun onUiPause(
+        packageName: String,
+        nowElapsedRealtime: Long = timeSource.elapsedRealtime(),
+    ) {
+        val state = states[packageName] ?: return
+        if (state.lastLeaveAtElapsedRealtime != null) return
+        if (state.uiPauseAtElapsedRealtime != null) return
+
+        val delta = (nowElapsedRealtime - state.activeStartElapsedRealtime).coerceAtLeast(0L)
+        state.accumulatedElapsedMillis += delta
+        state.uiPauseAtElapsedRealtime = nowElapsedRealtime
+    }
+
+    /**
+     * UI 表示が終わったら，その時点から再び加算を再開する．
+     */
+    fun onUiResume(
+        packageName: String,
+        nowElapsedRealtime: Long = timeSource.elapsedRealtime(),
+    ) {
+        val state = states[packageName] ?: return
+        if (state.lastLeaveAtElapsedRealtime != null) return
+        if (state.uiPauseAtElapsedRealtime == null) return
+
+        state.activeStartElapsedRealtime = nowElapsedRealtime
+        state.uiPauseAtElapsedRealtime = null
     }
 
     fun computeElapsedFor(
@@ -105,6 +149,9 @@ class OverlaySessionTracker(
         val state = states[packageName] ?: return null
         // すでに離脱しているなら「積み上げ済み」だけ返す（= 離脱後に伸びない）
         if (state.lastLeaveAtElapsedRealtime != null) return state.accumulatedElapsedMillis
+        // UI 表示中は「積み上げ済み」だけ返す（= 表示中に伸びない）
+        if (state.uiPauseAtElapsedRealtime != null) return state.accumulatedElapsedMillis
+
         val delta = (nowElapsedRealtime - state.activeStartElapsedRealtime).coerceAtLeast(0L)
         return state.accumulatedElapsedMillis + delta
     }
@@ -115,7 +162,11 @@ class OverlaySessionTracker(
     ): Long? {
         val state = states[packageName] ?: return null
         if (state.lastLeaveAtElapsedRealtime != null) return 0L
-        return (nowElapsedRealtime - state.foregroundStableStartElapsedRealtime).coerceAtLeast(0L)
+
+        val stableBase = state.foregroundStableStartElapsedRealtime
+        // UI 表示中は，表示開始時点で止める（= その間は伸びない）
+        val cap = state.uiPauseAtElapsedRealtime ?: nowElapsedRealtime
+        return (cap - stableBase).coerceAtLeast(0L)
     }
 
     /**

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.CustomizePreset
+import com.example.refocus.core.model.MiniGameOrder
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.model.TimerTimeMode
@@ -290,6 +291,20 @@ class CustomizeViewModel
                 key = SettingsCommand.Keys.SUGGESTION_INTERACTION_LOCKOUT_MILLIS,
                 newValueDescription = ms.toString(),
             ) { copy(suggestionInteractionLockoutMillis = ms) }
+
+        // --- ミニゲーム ---
+
+        fun updateMiniGameEnabled(enabled: Boolean) =
+            updateSettingsWithoutPresetChange(
+                key = SettingsCommand.Keys.MINI_GAME_ENABLED,
+                newValueDescription = enabled.toString(),
+            ) { copy(miniGameEnabled = enabled) }
+
+        fun updateMiniGameOrder(order: MiniGameOrder) =
+            updateSettingsWithoutPresetChange(
+                key = SettingsCommand.Keys.MINI_GAME_ORDER,
+                newValueDescription = order.name,
+            ) { copy(miniGameOrder = order) }
 
         // --- プリセット ---
 

@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.CustomizePreset
+import com.example.refocus.core.model.MiniGameOrder
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.model.TimerTimeMode
@@ -77,6 +78,10 @@ class SettingsDataStore(
         val REST_SUGGESTION_ENABLED = booleanPreferencesKey("rest_suggestion_enabled")
         val SUGGESTION_INTERACTION_LOCKOUT_MS =
             longPreferencesKey("suggestion_interaction_lockout_ms")
+
+        // --- ミニゲーム（提案フローに挟むチャレンジ） ---
+        val MINI_GAME_ENABLED = booleanPreferencesKey("mini_game_enabled")
+        val MINI_GAME_ORDER_NAME = stringPreferencesKey("mini_game_order_name")
     }
 
     val customizeFlow: Flow<Customize> =
@@ -160,6 +165,9 @@ class SettingsDataStore(
             prefs[Keys.REST_SUGGESTION_ENABLED] = updated.restSuggestionEnabled
             prefs[Keys.SUGGESTION_INTERACTION_LOCKOUT_MS] =
                 updated.suggestionInteractionLockoutMillis
+
+            prefs[Keys.MINI_GAME_ENABLED] = updated.miniGameEnabled
+            prefs[Keys.MINI_GAME_ORDER_NAME] = updated.miniGameOrder.name
         }
     }
 
@@ -226,6 +234,14 @@ class SettingsDataStore(
                 valueOf = { TimerColorMode.valueOf(it) },
             )
 
+        val miniGameOrder =
+            decodeEnum(
+                name = this[Keys.MINI_GAME_ORDER_NAME],
+                ordinal = null,
+                entries = MiniGameOrder.entries,
+                default = base.miniGameOrder,
+                valueOf = { MiniGameOrder.valueOf(it) },
+            )
         val timeToMaxSeconds =
             this[Keys.TIME_TO_MAX_SECONDS]
                 ?: this[Keys.TIME_TO_MAX_MINUTES]?.let { it * 60 }
@@ -293,6 +309,8 @@ class SettingsDataStore(
             suggestionInteractionLockoutMillis =
                 this[Keys.SUGGESTION_INTERACTION_LOCKOUT_MS]
                     ?: base.suggestionInteractionLockoutMillis,
+            miniGameEnabled = this[Keys.MINI_GAME_ENABLED] ?: base.miniGameEnabled,
+            miniGameOrder = miniGameOrder,
         )
     }
 

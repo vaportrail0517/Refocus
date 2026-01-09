@@ -51,6 +51,10 @@ object SettingsChangeKeys {
     val SUGGESTION_TIMEOUT_SECONDS = SettingsChangeKey("suggestionTimeoutSeconds")
     val SUGGESTION_INTERACTION_LOCKOUT_MILLIS = SettingsChangeKey("suggestionInteractionLockoutMillis")
 
+    // --- ミニゲーム ---
+    val MINI_GAME_ENABLED = SettingsChangeKey("miniGameEnabled")
+    val MINI_GAME_ORDER = SettingsChangeKey("miniGameOrder")
+
     // --- その他 ---
     val RESET_TO_DEFAULTS = SettingsChangeKey("resetToDefaults")
     val OVERLAY_POSITION = SettingsChangeKey("overlayPosition")

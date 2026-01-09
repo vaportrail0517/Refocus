@@ -19,6 +19,16 @@ enum class SessionEventType {
     Start,
     Pause,
     Resume,
+
+    /**
+     * 提案・ミニゲームなど「Refocus 側 UI を表示している間」はセッション境界を変えずに
+     * 経過時間の計測だけを一時停止したい。
+     *
+     * - Pause/Resume: 画面 OFF やフォアグラウンド離脱など「ユーザが対象アプリを使っていない」状態
+     * - UiPause/UiResume: Refocus のオーバーレイ表示など「対象アプリは前面だが計測だけ止めたい」状態
+     */
+    UiPause,
+    UiResume,
     End,
     SuggestionShown,
     SuggestionSnoozed,

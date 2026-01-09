@@ -148,6 +148,9 @@ fun CustomizeScreen(modifier: Modifier = Modifier) {
                                     onOpenTimerVisualTimeBasisDialog = {
                                         activeDialog = CustomizeDialogType.TimerVisualTimeBasis
                                     },
+                                    onOpenMiniGameOrderDialog = {
+                                        activeDialog = CustomizeDialogType.MiniGameOrder
+                                    },
                                     onOpenPresetManager = {
                                         scope.launch {
                                             val target = tabs.indexOf(CustomizeTab.Advanced).coerceAtLeast(0)

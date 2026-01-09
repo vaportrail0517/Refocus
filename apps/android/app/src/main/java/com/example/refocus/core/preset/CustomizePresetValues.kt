@@ -1,6 +1,7 @@
 package com.example.refocus.core.preset
 
 import com.example.refocus.core.model.Customize
+import com.example.refocus.core.model.MiniGameOrder
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.preset.CustomizePresetValues.debug
@@ -33,5 +34,7 @@ object CustomizePresetValues {
             suggestionCooldownSeconds = 20,
             suggestionForegroundStableSeconds = 10,
             suggestionInteractionLockoutMillis = 400L,
+            miniGameEnabled = true,
+            miniGameOrder = MiniGameOrder.BeforeSuggestion,
         )
 }

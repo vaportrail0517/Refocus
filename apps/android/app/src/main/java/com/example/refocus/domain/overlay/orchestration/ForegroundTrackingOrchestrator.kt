@@ -262,6 +262,7 @@ class ForegroundTrackingOrchestrator(
                         withContext(Dispatchers.Main) {
                             uiController.hideTimer()
                             uiController.hideSuggestion()
+                            uiController.hideMiniGame()
                         }
                         runtimeState.update {
                             it.copy(

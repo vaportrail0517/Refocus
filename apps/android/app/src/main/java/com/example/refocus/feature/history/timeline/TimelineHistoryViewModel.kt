@@ -13,11 +13,15 @@ import com.example.refocus.core.model.SuggestionDecisionEvent
 import com.example.refocus.core.model.SuggestionShownEvent
 import com.example.refocus.core.model.TargetAppsChangedEvent
 import com.example.refocus.core.model.TimelineEvent
+import com.example.refocus.core.model.UiInterruptionEvent
+import com.example.refocus.core.model.UiInterruptionSource
+import com.example.refocus.core.model.UiInterruptionState
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.appinfo.port.AppLabelProvider
 import com.example.refocus.domain.repository.AppCatalogRepository
 import com.example.refocus.domain.repository.TimelineRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,6 +54,7 @@ enum class TimelineCategory(
 }
 
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class TimelineHistoryViewModel
     @Inject
     constructor(
@@ -222,8 +227,8 @@ class TimelineHistoryViewModel
                 is ServiceConfigEvent -> TimelineCategory.ServiceConfig
                 is TargetAppsChangedEvent -> TimelineCategory.TargetApps
                 is SuggestionShownEvent, is SuggestionDecisionEvent -> TimelineCategory.Suggestion
+                is UiInterruptionEvent -> TimelineCategory.Other
                 is SettingsChangedEvent -> TimelineCategory.Settings
-                else -> TimelineCategory.Other
             }
 
         private suspend fun describeEvent(event: TimelineEvent): Pair<String, String?> =
@@ -309,11 +314,19 @@ class TimelineHistoryViewModel
                         ).joinToString("，").ifBlank { null }
                 }
 
-                else -> {
-                    RefocusLog.w(
-                        "TimelineHistoryViewModel",
-                    ) { "Unknown timeline event type: ${event::class.simpleName}" }
-                    "イベント" to event::class.simpleName
+                is UiInterruptionEvent -> {
+                    val label = resolveLabel(event.packageName)
+                    val sourceLabel =
+                        when (event.source) {
+                            UiInterruptionSource.Suggestion -> "提案"
+                            UiInterruptionSource.MiniGame -> "ミニゲーム"
+                        }
+                    val stateLabel =
+                        when (event.state) {
+                            UiInterruptionState.Start -> "開始"
+                            UiInterruptionState.End -> "終了"
+                        }
+                    "計測中断" to "$sourceLabel $stateLabel，$label（${event.packageName}）"
                 }
             }
 

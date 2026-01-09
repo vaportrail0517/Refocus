@@ -18,6 +18,8 @@ import com.example.refocus.core.model.SuggestionDecisionEvent
 import com.example.refocus.core.model.SuggestionShownEvent
 import com.example.refocus.core.model.TargetAppsChangedEvent
 import com.example.refocus.core.model.TimelineEvent
+import com.example.refocus.core.model.UiInterruptionEvent
+import com.example.refocus.core.model.UiInterruptionState
 
 /**
  * TimelineEvent の列から Session / SessionEvent を再構成する。
@@ -315,6 +317,17 @@ object SessionProjector {
 
                             SuggestionDecision.DisabledForSession ->
                                 SessionEventType.SuggestionDisabledForSession
+                        }
+                    appendEventIfActive(event.packageName, t, ts)
+                }
+
+                is UiInterruptionEvent -> {
+                    // セッション境界は変えず，「経過時間の計測だけ」を止める／再開する。
+                    // （提案・ミニゲーム表示中の時間をセッション継続時間から除外するため）
+                    val t =
+                        when (event.state) {
+                            UiInterruptionState.Start -> SessionEventType.UiPause
+                            UiInterruptionState.End -> SessionEventType.UiResume
                         }
                     appendEventIfActive(event.packageName, t, ts)
                 }

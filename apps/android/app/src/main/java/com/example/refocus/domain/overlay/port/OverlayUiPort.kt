@@ -9,11 +9,12 @@ import com.example.refocus.core.model.SuggestionMode
  */
 data class SuggestionOverlayUiModel(
     val title: String,
+    val targetPackageName: String,
     val mode: SuggestionMode,
     val autoDismissMillis: Long,
     val interactionLockoutMillis: Long,
     val onSnoozeLater: () -> Unit,
-    val onDisableThisSession: () -> Unit,
+    val onCloseTargetApp: () -> Unit,
     val onDismissOnly: () -> Unit,
 )
 
@@ -63,4 +64,30 @@ interface OverlayUiPort {
      * 提案オーバーレイ非表示。
      */
     fun hideSuggestion()
+
+    /**
+     * ミニゲームオーバーレイ表示。
+     *
+     * - 結果（正誤など）はドメインでは扱わず，ユーザが閉じたことだけを受け取る。
+     * - 表示に成功した場合 true。
+     */
+    suspend fun showMiniGame(
+        model: MiniGameOverlayUiModel,
+        /**
+         * show/hide が前後した場合でも古い hide が新しい表示を消さないようにするためのトークン。
+         * null の場合は「順序保護なし」として扱う。
+         */
+        token: Long? = null,
+    ): Boolean
+
+    /**
+     * ミニゲームオーバーレイ非表示。
+     */
+    fun hideMiniGame(
+        /**
+         * showMiniGame の token と同一の場合のみ hide を実行する。
+         * null の場合は常に hide を実行する。
+         */
+        token: Long? = null,
+    )
 }

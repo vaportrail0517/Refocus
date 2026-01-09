@@ -61,7 +61,7 @@ internal class OverlaySessionLifecycle(
                 nowElapsedRealtime = timeSource.elapsedRealtime(),
             )
             // もしレースで提案が残っていた場合も，ここで確実に閉じる
-            suggestionOrchestrator.invalidatePendingSuggestionAndHide()
+            suggestionOrchestrator.invalidatePendingOverlaysAndHide()
             showTimerForPackage(pkg)
             true
         }
@@ -121,6 +121,12 @@ internal class OverlaySessionLifecycle(
         } else {
             showTimerForPackage(packageName)
         }
+
+        // ミニゲーム表示中に Home などへ一時離脱した場合でも，同一論理セッションとして復帰したら再表示する
+        suggestionOrchestrator.onEnterTargetAppMaybeResumeMiniGame(
+            packageName = packageName,
+            nowElapsedRealtime = nowElapsed,
+        )
     }
 
     fun onLeaveForeground(
@@ -140,7 +146,7 @@ internal class OverlaySessionLifecycle(
             // show/hide が非同期に Main へ投げられるため，並び替わりが起きても古い hide が新しい show を消さないようにする
             uiController.hideTimer(token = packageName)
             // 遅れて show されるレースもあり得るため，提案は epoch で無効化しつつ閉じる
-            suggestionOrchestrator.invalidatePendingSuggestionAndHide()
+            suggestionOrchestrator.invalidatePendingOverlaysAndHide()
         }
 
         // ランタイムのセッション情報を更新
