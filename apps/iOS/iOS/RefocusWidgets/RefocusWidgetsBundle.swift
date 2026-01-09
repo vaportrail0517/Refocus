@@ -11,11 +11,8 @@ import SwiftUI
 @main
 struct RefocusWidgetsBundle: WidgetBundle {
     var body: some Widget {
-        // まずは Live Activity だけに絞る（確実にビルド通す）
-        RefocusWidgetsLiveActivity()
-
-        // いったんコメントアウト
-        // RefocusWidgets()
-        // RefocusWidgetsControl()
+        RefocusLiveActivityWidget()   // ← タイマー表示のほうを登録
+        // RefocusWidgetsLiveActivity() // ← テンプレは一旦外す（混乱の元）
     }
 }
+

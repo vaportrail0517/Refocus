@@ -17,8 +17,7 @@ struct RefocusLiveActivityWidget: Widget {
                 Text("Refocus")
                     .font(.headline)
 
-                Text(timerInterval: context.attributes.sessionStart...Date(), countsDown: false)
-                    .monospacedDigit()
+                Text(timerInterval: context.attributes.sessionStart...Date.distantFuture, countsDown: false).monospacedDigit()
             }
             .padding()
         } dynamicIsland: { context in
@@ -27,14 +26,12 @@ struct RefocusLiveActivityWidget: Widget {
                     Text("Refocus")
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text(timerInterval: context.attributes.sessionStart...Date(), countsDown: false)
-                        .monospacedDigit()
+                    Text(timerInterval: context.attributes.sessionStart...Date.distantFuture, countsDown: false).monospacedDigit()
                 }
             } compactLeading: {
                 Text("R")
             } compactTrailing: {
-                Text(timerInterval: context.attributes.sessionStart...Date(), countsDown: false)
-                    .monospacedDigit()
+                Text(timerInterval: context.attributes.sessionStart...Date.distantFuture, countsDown: false).monospacedDigit()
             } minimal: {
                 Text("R")
             }
