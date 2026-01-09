@@ -18,6 +18,14 @@ object SessionDurationCalculator {
     /**
      * Start / Pause / Resume / End のイベント列から、
      * 実際にアプリが前面で動いていた時間帯（アクティブ区間）のリストを返す。
+     *
+     * 注意点:
+     * - Pause/Resume は「対象アプリが前面ではない（画面 OFF を含む）」状態
+     * - UiPause/UiResume は「対象アプリは前面だが Refocus 側 UI により計測だけ止めたい」状態
+     *
+     * これらは独立に入れ子になり得るため、単一の lastStart だけで扱うと
+     * UiPause→Pause→UiResume のような列で「前面ではないのに計測再開」してしまい、
+     * 終了時刻より後（nowMillis まで）の区間が足されるバグが起きる。
      */
     fun buildActiveSegments(
         events: List<SessionEvent>,
@@ -27,47 +35,67 @@ object SessionDurationCalculator {
 
         val sorted = events.sortedBy { it.timestampMillis }
 
-        var lastStart: Long? = null
+        var foregroundActive = false
+        var uiPaused = false
+        var segmentStart: Long? = null
+
         val result = mutableListOf<ActiveSegment>()
+
+        fun closeSegment(endMillis: Long) {
+            val start = segmentStart ?: return
+            if (endMillis > start) {
+                result += ActiveSegment(start, endMillis)
+            }
+            segmentStart = null
+        }
+
+        fun recomputeSegment(ts: Long) {
+            val countable = foregroundActive && !uiPaused
+            if (countable) {
+                if (segmentStart == null) segmentStart = ts
+            } else {
+                closeSegment(ts)
+            }
+        }
 
         for (e in sorted) {
             when (e.type) {
                 SessionEventType.Start -> {
-                    // セッション開始 → 新しいアクティブ区間の開始
-                    lastStart = e.timestampMillis
+                    // セッション開始時点では「前面で計測可能」とみなす。
+                    foregroundActive = true
+                    // Start を跨いで UiPause が残る状態は想定外なので、安全側でリセットする。
+                    uiPaused = false
+                    recomputeSegment(e.timestampMillis)
                 }
 
-                SessionEventType.Resume,
-                SessionEventType.UiResume,
-                -> {
-                    // 一時停止からの再開 → 新しいアクティブ区間の開始
-                    if (lastStart == null) {
-                        lastStart = e.timestampMillis
-                    }
+                SessionEventType.Resume -> {
+                    foregroundActive = true
+                    recomputeSegment(e.timestampMillis)
                 }
 
-                SessionEventType.Pause,
-                SessionEventType.UiPause,
-                -> {
-                    // 一時停止 → アクティブ区間を閉じる
-                    if (lastStart != null) {
-                        val end = e.timestampMillis
-                        if (end > lastStart!!) {
-                            result += ActiveSegment(lastStart!!, end)
-                        }
-                        lastStart = null
-                    }
+                SessionEventType.Pause -> {
+                    foregroundActive = false
+                    recomputeSegment(e.timestampMillis)
+                }
+
+                SessionEventType.UiPause -> {
+                    uiPaused = true
+                    recomputeSegment(e.timestampMillis)
+                }
+
+                SessionEventType.UiResume -> {
+                    // 前面でない間に UiResume が来ることがある（提案 UI を閉じた等）。
+                    // その場合も UiPause 状態自体は解除しておき、
+                    // 「前面に戻ったとき」に正しく計測再開できるようにする。
+                    uiPaused = false
+                    recomputeSegment(e.timestampMillis)
                 }
 
                 SessionEventType.End -> {
-                    // セッション終了 → アクティブ区間を閉じる
-                    if (lastStart != null) {
-                        val end = e.timestampMillis
-                        if (end > lastStart!!) {
-                            result += ActiveSegment(lastStart!!, end)
-                        }
-                        lastStart = null
-                    }
+                    // セッション終了は hard stop。
+                    closeSegment(e.timestampMillis)
+                    segmentStart = null
+                    break
                 }
 
                 // サジェスト関連イベントは時間集計には影響しない
@@ -79,13 +107,9 @@ object SessionDurationCalculator {
             }
         }
 
-        // Start / Resume されたまま End が来ていない場合
-        // → RUNNING セッションとして「今まで」をアクティブ区間とみなす
-        if (lastStart != null) {
-            val end = nowMillis
-            if (end > lastStart!!) {
-                result += ActiveSegment(lastStart!!, end)
-            }
+        // End が来ていない場合のみ、RUNNING セッションとして「今まで」をアクティブ区間とみなす。
+        if (segmentStart != null) {
+            closeSegment(nowMillis)
         }
 
         return result
