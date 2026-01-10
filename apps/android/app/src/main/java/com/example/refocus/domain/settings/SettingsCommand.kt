@@ -9,6 +9,7 @@ import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
 import com.example.refocus.core.settings.SettingsChangeKey
 import com.example.refocus.core.settings.SettingsChangeKeys
+import com.example.refocus.domain.overlay.port.OverlayKeepAliveScheduler
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.timeline.EventRecorder
 import kotlinx.coroutines.flow.first
@@ -37,6 +38,7 @@ class SettingsCommand
     constructor(
         private val settingsRepository: SettingsRepository,
         private val eventRecorder: EventRecorder,
+        private val overlayKeepAliveScheduler: OverlayKeepAliveScheduler,
     ) {
         object Keys {
             // SettingsChangedEvent のキーは DB に永続化されるため，core.settings で一元管理する．
@@ -205,6 +207,12 @@ class SettingsCommand
                 ) { current ->
                     current.copy(overlayEnabled = enabled)
                 }
+
+            // keep-alive は「設定に追従」させる．
+            // (実際の起動判定は worker 側で権限と heartbeat に基づいて行う)
+            if (changed) {
+                overlayKeepAliveScheduler.onOverlayEnabledChanged(enabled)
+            }
 
             if (changed && recordEvent) {
                 eventRecorder.onServiceConfigChanged(

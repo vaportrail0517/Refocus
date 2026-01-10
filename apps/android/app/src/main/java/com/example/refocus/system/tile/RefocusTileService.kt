@@ -12,7 +12,7 @@ import android.service.quicksettings.TileService
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.domain.settings.SettingsCommand
 import com.example.refocus.system.AppLaunchIntents
-import com.example.refocus.system.overlay.OverlayService
+import com.example.refocus.domain.overlay.port.OverlayServiceStatusProvider
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.overlay.stopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
@@ -33,6 +33,9 @@ class RefocusTileService : TileService() {
     @Inject
     lateinit var settingsCommand: SettingsCommand
 
+    @Inject
+    lateinit var overlayServiceStatusProvider: OverlayServiceStatusProvider
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private var isTileReceiverRegistered: Boolean = false
@@ -47,7 +50,7 @@ class RefocusTileService : TileService() {
                 val expectedRunning =
                     intent.getBooleanExtra(
                         QsTileStateBroadcaster.EXTRA_EXPECTED_RUNNING,
-                        OverlayService.isRunning,
+                        overlayServiceStatusProvider.isRunning(),
                     )
                 updateTile(runningOverride = expectedRunning)
             }
@@ -96,7 +99,7 @@ class RefocusTileService : TileService() {
             return
         }
 
-        val currentlyRunning = OverlayService.isRunning
+        val currentlyRunning = overlayServiceStatusProvider.isRunning()
         if (currentlyRunning) {
             scope.launch {
                 try {
@@ -165,7 +168,7 @@ class RefocusTileService : TileService() {
         val tile = qsTile ?: return
 
         val enabled = PermissionHelper.hasAllCorePermissions(applicationContext)
-        val running = runningOverride ?: OverlayService.isRunning
+        val running = runningOverride ?: overlayServiceStatusProvider.isRunning()
 
         tile.state =
             when {

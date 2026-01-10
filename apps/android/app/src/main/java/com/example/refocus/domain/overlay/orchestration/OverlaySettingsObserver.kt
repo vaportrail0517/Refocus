@@ -3,6 +3,7 @@ package com.example.refocus.domain.overlay.orchestration
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.util.TimeSource
+import com.example.refocus.core.util.ResilientCoroutines
 import com.example.refocus.domain.overlay.engine.OverlayEvent
 import com.example.refocus.domain.overlay.engine.OverlayState
 import com.example.refocus.domain.overlay.model.OverlayRuntimeState
@@ -46,9 +47,12 @@ internal class OverlaySettingsObserver(
         if (job?.isActive == true) return job!!
 
         job =
-            scope.launch {
-                try {
-                    customizeFlow.collect { settings ->
+            ResilientCoroutines.launchResilient(
+                scope = scope,
+                tag = TAG,
+            ) {
+                customizeFlow.collect { settings ->
+                    try {
                         val oldSettings = runtimeState.value.customize
 
                         // 先に customize スナップショットを更新（Provider などが最新設定を読めるようにする）
@@ -111,9 +115,9 @@ internal class OverlaySettingsObserver(
                                 suggestionOrchestrator.resetGate()
                             }
                         }
+                    } catch (e: Exception) {
+                        RefocusLog.e(TAG, e) { "applyOverlaySettings failed. continue." }
                     }
-                } catch (e: Exception) {
-                    RefocusLog.e(TAG, e) { "observeOverlaySettings failed" }
                 }
             }
 

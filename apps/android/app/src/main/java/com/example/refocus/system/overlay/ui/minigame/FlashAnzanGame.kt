@@ -99,10 +99,10 @@ fun FlashAnzanGame(
             title = "フラッシュ暗算",
             subtitle =
                 when (phase) {
-                    Phase.Ready -> "開始を押すと 5 つの数字が表示されます．"
-                    Phase.Showing -> "表示された数字を覚えてください．"
+                    Phase.Ready -> "表示される 5 つの数字の合計を計算してください．"
+                    Phase.Showing -> ""
                     Phase.Input -> "合計を入力してください．"
-                    Phase.Result -> "結果を確認してください．"
+                    Phase.Result -> ""
                 },
         )
 
@@ -200,7 +200,9 @@ fun FlashAnzanGame(
                         shownCount = 0
                         phase = Phase.Showing
                     },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
                 ) {
                     Text("開始")
                 }
@@ -246,7 +248,9 @@ fun FlashAnzanGame(
             Phase.Result -> {
                 Button(
                     onClick = onFinished,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
                 ) {
                     Text("閉じる")
                 }
@@ -294,7 +298,9 @@ private fun ProgressDots(
     ) {
         repeat(total) { i ->
             val isFilled = i < filled
-            val base = Modifier.size(dotSize).clip(CircleShape)
+            val base = Modifier
+                .size(dotSize)
+                .clip(CircleShape)
             Box(
                 modifier =
                     if (isFilled) {

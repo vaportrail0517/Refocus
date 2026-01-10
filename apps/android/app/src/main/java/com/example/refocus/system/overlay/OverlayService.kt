@@ -16,6 +16,7 @@ import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.monitor.port.ForegroundAppObserver
 import com.example.refocus.domain.overlay.runtime.OverlayCoordinator
+import com.example.refocus.domain.overlay.port.OverlayHealthStore
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.repository.TargetsRepository
@@ -38,11 +39,16 @@ import com.example.refocus.system.permissions.PermissionStateWatcher
 import com.example.refocus.system.tile.QsTileStateBroadcaster
 import com.example.refocus.system.tile.RefocusTileService
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -54,22 +60,38 @@ class OverlayService : LifecycleService() {
         private const val TAG = "OverlayService"
         private const val NOTIFICATION_ID = 1
 
+        private const val HEARTBEAT_INTERVAL_MS = 10_000L
+
         const val ACTION_STOP = "com.example.refocus.action.OVERLAY_STOP"
         const val ACTION_TOGGLE_TIMER_VISIBILITY =
             "com.example.refocus.action.OVERLAY_TOGGLE_TIMER_VISIBILITY"
         const val ACTION_TOGGLE_TOUCH_MODE = "com.example.refocus.action.OVERLAY_TOGGLE_TOUCH_MODE"
+
+        const val ACTION_SELF_HEAL = "com.example.refocus.action.OVERLAY_SELF_HEAL"
 
         @Volatile
         var isRunning: Boolean = false
             private set
     }
 
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val serviceScope =
+        CoroutineScope(
+            SupervisorJob() +
+                Dispatchers.Default +
+                CoroutineExceptionHandler { _, throwable ->
+                    // ここで握りつぶさないと，例外がプロセス全体のクラッシュへ波及する可能性がある．
+                    if (throwable is CancellationException) return@CoroutineExceptionHandler
+                    RefocusLog.e(TAG, throwable) { "Uncaught coroutine exception in serviceScope" }
+                },
+        )
 
     private val componentsFactory = OverlayServiceComponentsFactory()
 
     @Inject
     lateinit var timeSource: TimeSource
+
+    @Inject
+    lateinit var overlayHealthStore: OverlayHealthStore
 
     @Inject
     lateinit var targetsRepository: TargetsRepository
@@ -118,6 +140,8 @@ class OverlayService : LifecycleService() {
     private var intentHandler: OverlayServiceIntentHandler? = null
     private var runSupervisor: OverlayServiceRunSupervisor? = null
 
+    private var heartbeatJob: Job? = null
+
     @Volatile
     private var isStopping: Boolean = false
 
@@ -125,6 +149,8 @@ class OverlayService : LifecycleService() {
         super.onCreate()
         isRunning = true
         RefocusLog.d(TAG) { "onCreate" }
+
+        startHeartbeatUpdater()
 
         lifecycleScope.launch {
             try {
@@ -140,6 +166,7 @@ class OverlayService : LifecycleService() {
                 lifecycleOwner = this,
                 scope = serviceScope,
                 timeSource = timeSource,
+                overlayHealthStore = overlayHealthStore,
                 targetsRepository = targetsRepository,
                 settingsRepository = settingsRepository,
                 settingsCommand = settingsCommand,
@@ -239,6 +266,7 @@ class OverlayService : LifecycleService() {
                 actionStop = ACTION_STOP,
                 actionToggleTimerVisibility = ACTION_TOGGLE_TIMER_VISIBILITY,
                 actionToggleTouchMode = ACTION_TOGGLE_TOUCH_MODE,
+                actionSelfHeal = ACTION_SELF_HEAL,
                 onStopRequested = ::stopFromUserAction,
             )
 
@@ -251,11 +279,15 @@ class OverlayService : LifecycleService() {
         startId: Int,
     ): Int {
         val handled = intentHandler?.handle(intent) == true
-        if (handled) {
-            // STOP は sticky で復帰させない
-            if (intent?.action == ACTION_STOP) return START_NOT_STICKY
-        }
-        return super.onStartCommand(intent, flags, startId)
+
+        // LifecycleService の内部処理（lifecycle dispatch）を維持する
+        super.onStartCommand(intent, flags, startId)
+
+        // STOP は sticky で復帰させない
+        if (handled && intent?.action == ACTION_STOP) return START_NOT_STICKY
+
+        // 監視サービスは常駐を前提にするため，sticky を明示する
+        return START_STICKY
     }
 
     override fun onDestroy() {
@@ -272,6 +304,9 @@ class OverlayService : LifecycleService() {
         isRunning = false
         isStopping = true
 
+        heartbeatJob?.cancel()
+        heartbeatJob = null
+
         // 念のため，Foreground 通知を確実に消す
         notificationDriver?.stop()
         removeForegroundNotification()
@@ -287,6 +322,33 @@ class OverlayService : LifecycleService() {
         QsTileStateBroadcaster.notifyExpectedRunning(this, expectedRunning = false)
         serviceScope.cancel()
         super.onDestroy()
+    }
+
+    private fun startHeartbeatUpdater() {
+        if (heartbeatJob?.isActive == true) return
+
+        heartbeatJob =
+            serviceScope.launch(Dispatchers.IO) {
+                while (isActive && !isStopping) {
+                    try {
+                        val nowElapsed = timeSource.elapsedRealtime()
+                        val nowWall = timeSource.nowMillis()
+
+                        overlayHealthStore.update { current ->
+                            current.copy(
+                                lastHeartbeatElapsedRealtimeMillis = nowElapsed,
+                                lastHeartbeatWallClockMillis = nowWall,
+                            )
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        RefocusLog.e(TAG, e) { "Failed to write overlay heartbeat" }
+                    }
+
+                    delay(HEARTBEAT_INTERVAL_MS)
+                }
+            }
     }
 
     override fun onBind(intent: Intent): IBinder? {
@@ -408,4 +470,12 @@ fun Context.startOverlayService() {
 fun Context.stopOverlayService() {
     val intent = Intent(this, OverlayService::class.java)
     stopService(intent)
+}
+
+fun Context.requestOverlaySelfHeal() {
+    val intent = Intent(this, OverlayService::class.java).apply {
+        action = OverlayService.ACTION_SELF_HEAL
+    }
+    // サービスがすでに動いている前提で，foreground start ではなく startService を使う
+    startService(intent)
 }

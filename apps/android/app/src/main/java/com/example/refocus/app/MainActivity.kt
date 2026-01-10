@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import com.example.refocus.app.navigation.RefocusNavHost
 import com.example.refocus.core.logging.RefocusLog
+import com.example.refocus.system.overlay.service.OverlayRunReconciler
 import com.example.refocus.system.permissions.PermissionStateWatcher
 import com.example.refocus.ui.theme.RefocusTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -21,6 +22,9 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
     @Inject
     lateinit var permissionStateWatcher: PermissionStateWatcher
+
+    @Inject
+    lateinit var overlayRunReconciler: OverlayRunReconciler
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,6 +47,8 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             try {
                 permissionStateWatcher.checkAndRecord()
+                // 期待状態（overlayEnabled + 権限）と実稼働状態がズレていれば自動修復する
+                overlayRunReconciler.ensureConsistent(source = "activity_onResume")
             } catch (e: Exception) {
                 RefocusLog.e(
                     "MainActivity",

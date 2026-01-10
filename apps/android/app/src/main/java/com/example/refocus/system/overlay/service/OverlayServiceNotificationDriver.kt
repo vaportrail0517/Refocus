@@ -2,6 +2,7 @@ package com.example.refocus.system.overlay.service
 
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.util.formatDurationForTimerBubble
+import com.example.refocus.core.util.ResilientCoroutines
 import com.example.refocus.domain.overlay.model.OverlayPresentationState
 import com.example.refocus.domain.overlay.runtime.OverlayCoordinator
 import com.example.refocus.system.appinfo.AppLabelResolver
@@ -18,13 +19,20 @@ internal class OverlayServiceNotificationDriver(
     private val notificationController: OverlayServiceNotificationController,
     private val notificationId: Int,
 ) {
+    companion object {
+        private const val TAG = "OverlayServiceNotificationDriver"
+    }
+
     private var job: Job? = null
 
     fun start() {
         if (job?.isActive == true) return
 
         job =
-            scope.launch {
+            ResilientCoroutines.launchResilient(
+                scope = scope,
+                tag = TAG,
+            ) {
                 overlayCoordinator.presentationStateFlow.collect { state ->
                     publishNotification(state)
                 }
