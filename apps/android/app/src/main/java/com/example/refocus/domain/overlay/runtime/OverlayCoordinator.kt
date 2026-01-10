@@ -1,8 +1,8 @@
 package com.example.refocus.domain.overlay.runtime
 
 import com.example.refocus.core.logging.RefocusLog
-import com.example.refocus.core.util.TimeSource
 import com.example.refocus.core.util.ResilientCoroutines
+import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.overlay.engine.OverlayEvent
 import com.example.refocus.domain.overlay.engine.OverlayState
 import com.example.refocus.domain.overlay.model.OverlayPresentationState
@@ -13,8 +13,8 @@ import com.example.refocus.domain.overlay.orchestration.OverlaySessionTracker
 import com.example.refocus.domain.overlay.orchestration.OverlaySettingsObserver
 import com.example.refocus.domain.overlay.orchestration.SuggestionOrchestrator
 import com.example.refocus.domain.overlay.policy.OverlayTimerDisplayCalculator
-import com.example.refocus.domain.overlay.port.OverlayUiPort
 import com.example.refocus.domain.overlay.port.OverlayHealthStore
+import com.example.refocus.domain.overlay.port.OverlayUiPort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -206,7 +206,6 @@ internal class OverlayCoordinator(
                     }
             }
     }
-
 
     fun requestForegroundTrackingRestart(reason: String) {
         // 実際に overlay が有効なときだけ復旧を試みる

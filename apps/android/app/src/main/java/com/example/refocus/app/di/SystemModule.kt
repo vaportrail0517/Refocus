@@ -24,9 +24,9 @@ import com.example.refocus.system.appinfo.AppLabelProviderImpl
 import com.example.refocus.system.appinfo.AppLabelResolver
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import com.example.refocus.system.monitor.ForegroundAppObserverImpl
+import com.example.refocus.system.overlay.keepalive.OverlayKeepAliveSchedulerImpl
 import com.example.refocus.system.overlay.service.OverlayServiceControllerImpl
 import com.example.refocus.system.overlay.service.OverlayServiceStatusProviderImpl
-import com.example.refocus.system.overlay.keepalive.OverlayKeepAliveSchedulerImpl
 import com.example.refocus.system.permissions.AndroidPermissionNavigator
 import com.example.refocus.system.permissions.AndroidPermissionStatusProvider
 import com.example.refocus.system.time.SystemTimeSource
@@ -114,13 +114,9 @@ object SystemModule {
 
     @Provides
     @Singleton
-    fun provideOverlayServiceStatusProvider(
-        impl: OverlayServiceStatusProviderImpl,
-    ): OverlayServiceStatusProvider = impl
+    fun provideOverlayServiceStatusProvider(impl: OverlayServiceStatusProviderImpl): OverlayServiceStatusProvider = impl
 
     @Provides
     @Singleton
-    fun provideOverlayKeepAliveScheduler(
-        impl: OverlayKeepAliveSchedulerImpl,
-    ): OverlayKeepAliveScheduler = impl
+    fun provideOverlayKeepAliveScheduler(impl: OverlayKeepAliveSchedulerImpl): OverlayKeepAliveScheduler = impl
 }

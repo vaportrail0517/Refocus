@@ -15,8 +15,8 @@ import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.monitor.port.ForegroundAppObserver
-import com.example.refocus.domain.overlay.runtime.OverlayCoordinator
 import com.example.refocus.domain.overlay.port.OverlayHealthStore
+import com.example.refocus.domain.overlay.runtime.OverlayCoordinator
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.repository.TargetsRepository
@@ -25,6 +25,7 @@ import com.example.refocus.domain.settings.SettingsCommand
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
+import com.example.refocus.gateway.di.getOverlayHealthStoreOrNull
 import com.example.refocus.system.appinfo.AppLabelResolver
 import com.example.refocus.system.notification.OverlayNotificationUiState
 import com.example.refocus.system.notification.OverlayServiceNotificationController
@@ -369,7 +370,6 @@ class OverlayService : LifecycleService() {
         super.onDestroy()
     }
 
-
     private fun recordServiceStoppedBestEffort(reason: String) {
         if (!stopEventRecorded.compareAndSet(false, true)) return
 
@@ -514,7 +514,6 @@ class OverlayService : LifecycleService() {
         return hasCore
     }
 
-
     private fun summarizeError(e: Throwable): String {
         val name = e::class.java.simpleName
         val msg = e.message
@@ -539,15 +538,129 @@ fun Context.startOverlayService() {
     this.startForegroundService(intent)
 }
 
+private const val OVERLAY_SERVICE_EXT_TAG = "OverlayServiceExt"
+
+/**
+ * startForegroundService が禁止される状況（Android 12+ の background start 制限など）でも，
+ * 呼び出し元をクラッシュさせないための安全ラッパ．
+ *
+ * keep-alive など「失敗理由に応じてリトライ戦略を変えたい」呼び出し元では，
+ * startOverlayService を使って例外を上に返し，その場で分類すること．
+ */
+fun Context.tryStartOverlayService(source: String? = null): Boolean {
+    recordOverlayStartAttemptBestEffort(source)
+
+    val intent = Intent(this, OverlayService::class.java)
+    return try {
+        startForegroundService(intent)
+        recordOverlayStartSuccessBestEffort(source)
+        true
+    } catch (e: Exception) {
+        recordOverlayStartFailureBestEffort(source, e)
+
+        val suffix = if (source.isNullOrBlank()) "" else ", source=$source"
+        RefocusLog.e(OVERLAY_SERVICE_EXT_TAG, e) { "Failed to start OverlayService$suffix" }
+        false
+    }
+}
+
+private const val START_ERROR_SUMMARY_MAX = 180
+
+private fun Context.recordOverlayStartAttemptBestEffort(source: String?) {
+    val store = getOverlayHealthStoreOrNull() ?: return
+    val now = System.currentTimeMillis()
+
+    CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+        try {
+            store.update { current ->
+                current.copy(
+                    lastStartAttemptWallClockMillis = now,
+                    lastStartAttemptSource = source,
+                )
+            }
+        } catch (e: Exception) {
+            val suffix = if (source.isNullOrBlank()) "" else ", source=$source"
+            RefocusLog.w(OVERLAY_SERVICE_EXT_TAG, e) { "Failed to record start attempt$suffix" }
+        }
+    }
+}
+
+private fun Context.recordOverlayStartSuccessBestEffort(source: String?) {
+    val store = getOverlayHealthStoreOrNull() ?: return
+
+    CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+        try {
+            // 成功した場合は，直近の start failure をクリアする
+            store.update { current ->
+                current.copy(
+                    lastStartFailureWallClockMillis = null,
+                    lastStartFailureSource = null,
+                    lastStartFailureSummary = null,
+                )
+            }
+        } catch (e: Exception) {
+            val suffix = if (source.isNullOrBlank()) "" else ", source=$source"
+            RefocusLog.w(OVERLAY_SERVICE_EXT_TAG, e) { "Failed to clear start failure$suffix" }
+        }
+    }
+}
+
+private fun Context.recordOverlayStartFailureBestEffort(
+    source: String?,
+    error: Throwable,
+) {
+    val store = getOverlayHealthStoreOrNull() ?: return
+    val now = System.currentTimeMillis()
+    val summary = summarizeStartError(error)
+
+    CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+        try {
+            store.update { current ->
+                current.copy(
+                    lastStartFailureWallClockMillis = now,
+                    lastStartFailureSource = source,
+                    lastStartFailureSummary = summary,
+                )
+            }
+        } catch (e: Exception) {
+            val suffix = if (source.isNullOrBlank()) "" else ", source=$source"
+            RefocusLog.w(OVERLAY_SERVICE_EXT_TAG, e) { "Failed to record start failure$suffix" }
+        }
+    }
+}
+
+private fun summarizeStartError(e: Throwable): String {
+    val name = e::class.java.simpleName
+    val msg = e.message
+    val raw = if (msg.isNullOrBlank()) name else "$name: $msg"
+    return if (raw.length <= START_ERROR_SUMMARY_MAX) raw else raw.take(START_ERROR_SUMMARY_MAX)
+}
+
 fun Context.stopOverlayService() {
     val intent = Intent(this, OverlayService::class.java)
     stopService(intent)
 }
 
-fun Context.requestOverlaySelfHeal() {
-    val intent = Intent(this, OverlayService::class.java).apply {
-        action = OverlayService.ACTION_SELF_HEAL
+/**
+ * stopService は通常例外になりにくいが，呼び出し元（Tile/Receiver 等）を安全にするためのラッパ．
+ */
+fun Context.tryStopOverlayService(source: String? = null): Boolean {
+    val intent = Intent(this, OverlayService::class.java)
+    return try {
+        stopService(intent)
+        true
+    } catch (e: Exception) {
+        val suffix = if (source.isNullOrBlank()) "" else ", source=$source"
+        RefocusLog.w(OVERLAY_SERVICE_EXT_TAG, e) { "Failed to stop OverlayService$suffix" }
+        false
     }
+}
+
+fun Context.requestOverlaySelfHeal() {
+    val intent =
+        Intent(this, OverlayService::class.java).apply {
+            action = OverlayService.ACTION_SELF_HEAL
+        }
     // サービスがすでに動いている前提で，foreground start ではなく startService を使う
     startService(intent)
 }

@@ -5,7 +5,6 @@ import androidx.lifecycle.LifecycleOwner
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.monitor.port.ForegroundAppObserver
 import com.example.refocus.domain.overlay.model.OverlayRuntimeState
-import com.example.refocus.domain.overlay.port.OverlayHealthStore
 import com.example.refocus.domain.overlay.orchestration.ForegroundTrackingOrchestrator
 import com.example.refocus.domain.overlay.orchestration.OverlaySessionLifecycle
 import com.example.refocus.domain.overlay.orchestration.OverlaySessionTracker
@@ -13,6 +12,7 @@ import com.example.refocus.domain.overlay.orchestration.OverlaySettingsObserver
 import com.example.refocus.domain.overlay.orchestration.SessionBootstrapper
 import com.example.refocus.domain.overlay.orchestration.SuggestionOrchestrator
 import com.example.refocus.domain.overlay.policy.OverlayTimerDisplayCalculator
+import com.example.refocus.domain.overlay.port.OverlayHealthStore
 import com.example.refocus.domain.overlay.runtime.OverlayCoordinator
 import com.example.refocus.domain.overlay.runtime.OverlayEventDispatcher
 import com.example.refocus.domain.overlay.runtime.OverlaySideEffectHandler

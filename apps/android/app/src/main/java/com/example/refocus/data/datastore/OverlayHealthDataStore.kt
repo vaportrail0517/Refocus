@@ -29,6 +29,12 @@ class OverlayHealthDataStore(
         val MONITOR_RESTART_COUNT = intPreferencesKey("monitor_restart_count")
         val LAST_ERROR_SUMMARY = stringPreferencesKey("last_error_summary")
 
+        val LAST_START_ATTEMPT_WALL = longPreferencesKey("last_start_attempt_wall")
+        val LAST_START_ATTEMPT_SOURCE = stringPreferencesKey("last_start_attempt_source")
+        val LAST_START_FAILURE_WALL = longPreferencesKey("last_start_failure_wall")
+        val LAST_START_FAILURE_SOURCE = stringPreferencesKey("last_start_failure_source")
+        val LAST_START_FAILURE_SUMMARY = stringPreferencesKey("last_start_failure_summary")
+
         val KEEPALIVE_RUN_COUNT = intPreferencesKey("keepalive_run_count")
         val KEEPALIVE_START_ATTEMPT_COUNT = intPreferencesKey("keepalive_start_attempt_count")
         val KEEPALIVE_START_SUCCESS_COUNT = intPreferencesKey("keepalive_start_success_count")
@@ -71,25 +77,27 @@ class OverlayHealthDataStore(
         context.overlayHealthDataStore.edit { it.clear() }
     }
 
-    private fun snapshotFrom(prefs: Preferences): OverlayHealthSnapshot {
-        return OverlayHealthSnapshot(
+    private fun snapshotFrom(prefs: Preferences): OverlayHealthSnapshot =
+        OverlayHealthSnapshot(
             lastHeartbeatElapsedRealtimeMillis = prefs[Keys.LAST_HEARTBEAT_ELAPSED],
             lastHeartbeatWallClockMillis = prefs[Keys.LAST_HEARTBEAT_WALL],
             lastForegroundSampleElapsedRealtimeMillis = prefs[Keys.LAST_FOREGROUND_SAMPLE_ELAPSED],
             monitorRestartCount = prefs[Keys.MONITOR_RESTART_COUNT] ?: 0,
             lastErrorSummary = prefs[Keys.LAST_ERROR_SUMMARY],
-
+            lastStartAttemptWallClockMillis = prefs[Keys.LAST_START_ATTEMPT_WALL],
+            lastStartAttemptSource = prefs[Keys.LAST_START_ATTEMPT_SOURCE],
+            lastStartFailureWallClockMillis = prefs[Keys.LAST_START_FAILURE_WALL],
+            lastStartFailureSource = prefs[Keys.LAST_START_FAILURE_SOURCE],
+            lastStartFailureSummary = prefs[Keys.LAST_START_FAILURE_SUMMARY],
             keepAliveRunCount = prefs[Keys.KEEPALIVE_RUN_COUNT] ?: 0,
             keepAliveStartAttemptCount = prefs[Keys.KEEPALIVE_START_ATTEMPT_COUNT] ?: 0,
             keepAliveStartSuccessCount = prefs[Keys.KEEPALIVE_START_SUCCESS_COUNT] ?: 0,
             keepAliveStartFailureCount = prefs[Keys.KEEPALIVE_START_FAILURE_COUNT] ?: 0,
-
             lastKeepAliveRunElapsedRealtimeMillis = prefs[Keys.LAST_KEEPALIVE_RUN_ELAPSED],
             lastKeepAliveRunWallClockMillis = prefs[Keys.LAST_KEEPALIVE_RUN_WALL],
             lastKeepAliveDecision = prefs[Keys.LAST_KEEPALIVE_DECISION],
             lastKeepAliveErrorSummary = prefs[Keys.LAST_KEEPALIVE_ERROR_SUMMARY],
         )
-    }
 
     private fun writeTo(
         prefs: androidx.datastore.preferences.core.MutablePreferences,
@@ -100,6 +108,12 @@ class OverlayHealthDataStore(
         putOrRemove(prefs, Keys.LAST_FOREGROUND_SAMPLE_ELAPSED, snapshot.lastForegroundSampleElapsedRealtimeMillis)
         prefs[Keys.MONITOR_RESTART_COUNT] = snapshot.monitorRestartCount
         putOrRemove(prefs, Keys.LAST_ERROR_SUMMARY, snapshot.lastErrorSummary)
+
+        putOrRemove(prefs, Keys.LAST_START_ATTEMPT_WALL, snapshot.lastStartAttemptWallClockMillis)
+        putOrRemove(prefs, Keys.LAST_START_ATTEMPT_SOURCE, snapshot.lastStartAttemptSource)
+        putOrRemove(prefs, Keys.LAST_START_FAILURE_WALL, snapshot.lastStartFailureWallClockMillis)
+        putOrRemove(prefs, Keys.LAST_START_FAILURE_SOURCE, snapshot.lastStartFailureSource)
+        putOrRemove(prefs, Keys.LAST_START_FAILURE_SUMMARY, snapshot.lastStartFailureSummary)
 
         prefs[Keys.KEEPALIVE_RUN_COUNT] = snapshot.keepAliveRunCount
         prefs[Keys.KEEPALIVE_START_ATTEMPT_COUNT] = snapshot.keepAliveStartAttemptCount

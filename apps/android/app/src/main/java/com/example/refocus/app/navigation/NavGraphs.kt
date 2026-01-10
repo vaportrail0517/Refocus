@@ -17,7 +17,7 @@ import com.example.refocus.feature.onboarding.OnboardingReadyScreen
 import com.example.refocus.feature.onboarding.OnboardingStartModeScreen
 import com.example.refocus.feature.permission.PermissionFlowScreen
 import com.example.refocus.feature.settings.SettingsScreen
-import com.example.refocus.system.overlay.startOverlayService
+import com.example.refocus.system.overlay.tryStartOverlayService
 
 object Destinations {
     const val ENTRY = "entry"
@@ -139,7 +139,10 @@ fun RefocusNavHost() {
                 },
                 onOpenApp = {
                     RefocusLog.d("NavGraphs") { "ONBOARDING_FINISH onOpenApp → startOverlayService" }
-                    context.startOverlayService()
+                    val started = context.tryStartOverlayService(source = "onboarding_finish")
+                    if (!started) {
+                        RefocusLog.w("NavGraphs") { "Failed to start OverlayService from onboarding_finish" }
+                    }
                     navController.navigate(Destinations.HOME) {
                         popUpTo(Destinations.APP_SELECT) { inclusive = true }
                     }

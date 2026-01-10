@@ -7,8 +7,8 @@ import com.example.refocus.domain.monitor.port.ForegroundAppObserver
 import com.example.refocus.domain.overlay.engine.OverlayEvent
 import com.example.refocus.domain.overlay.engine.OverlayState
 import com.example.refocus.domain.overlay.model.OverlayRuntimeState
-import com.example.refocus.domain.overlay.port.OverlayUiPort
 import com.example.refocus.domain.overlay.port.OverlayHealthStore
+import com.example.refocus.domain.overlay.port.OverlayUiPort
 import com.example.refocus.domain.overlay.usecase.DailyUsageUseCase
 import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.domain.timeline.EventRecorder
@@ -17,6 +17,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -32,10 +34,8 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
 /**
  * 前面アプリ監視のオーケストレーション。
@@ -91,7 +91,12 @@ class ForegroundTrackingOrchestrator(
     @Volatile
     private var controlJob: Job? = null
 
-    private val sideEffects = ForegroundTrackingSideEffects(scope = scope, eventRecorder = eventRecorder, overlayHealthStore = overlayHealthStore)
+    private val sideEffects =
+        ForegroundTrackingSideEffects(
+            scope = scope,
+            eventRecorder = eventRecorder,
+            overlayHealthStore = overlayHealthStore,
+        )
 
     /**
      * 起動・停止の世代番号。
@@ -463,8 +468,6 @@ class ForegroundTrackingOrchestrator(
             }
         }
     }
-
-
 
     /**
      * 監視ホットループから IO を隔離するための副作用キュー．

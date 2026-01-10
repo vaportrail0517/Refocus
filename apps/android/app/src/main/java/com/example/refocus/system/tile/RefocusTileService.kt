@@ -10,11 +10,11 @@ import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import com.example.refocus.core.logging.RefocusLog
+import com.example.refocus.domain.overlay.port.OverlayServiceStatusProvider
 import com.example.refocus.domain.settings.SettingsCommand
 import com.example.refocus.system.AppLaunchIntents
-import com.example.refocus.domain.overlay.port.OverlayServiceStatusProvider
-import com.example.refocus.system.overlay.startOverlayService
-import com.example.refocus.system.overlay.stopOverlayService
+import com.example.refocus.system.overlay.tryStartOverlayService
+import com.example.refocus.system.overlay.tryStopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -114,7 +114,12 @@ class RefocusTileService : TileService() {
                         e,
                     ) { "Failed to set overlayEnabled=false via SettingsCommand" }
                 }
-                context.stopOverlayService()
+
+                val stopped = context.tryStopOverlayService(source = "tile")
+                if (!stopped) {
+                    RefocusLog.w(TAG) { "Failed to stop OverlayService from tile" }
+                }
+
                 // サービスの onDestroy より先に UI を更新できるように，期待値で反映する．
                 updateTile(runningOverride = false)
             }
@@ -129,9 +134,24 @@ class RefocusTileService : TileService() {
                 } catch (e: Exception) {
                     RefocusLog.e(TAG, e) { "Failed to set overlayEnabled=true via SettingsCommand" }
                 }
-                context.startOverlayService()
-                // startForegroundService 直後は isRunning の更新が遅れる可能性があるため，期待値で反映する．
-                updateTile(runningOverride = true)
+
+                val started = context.tryStartOverlayService(source = "tile")
+                if (started) {
+                    // startForegroundService 直後は isRunning の更新が遅れる可能性があるため，期待値で反映する．
+                    updateTile(runningOverride = true)
+                } else {
+                    // 起動に失敗した場合は，設定だけ ON になってしまうのを避けるために best-effort で戻す
+                    try {
+                        settingsCommand.setOverlayEnabled(
+                            enabled = false,
+                            source = "tile",
+                            reason = "start_failed",
+                        )
+                    } catch (e: Exception) {
+                        RefocusLog.e(TAG, e) { "Failed to rollback overlayEnabled=false after start failure" }
+                    }
+                    updateTile(runningOverride = false)
+                }
             }
         }
     }

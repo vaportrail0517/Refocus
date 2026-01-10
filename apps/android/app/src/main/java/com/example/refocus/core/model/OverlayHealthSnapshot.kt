@@ -14,7 +14,16 @@ data class OverlayHealthSnapshot(
     val monitorRestartCount: Int = 0,
     /** 直近の致命的エラー要約（あれば）． */
     val lastErrorSummary: String? = null,
-
+    /** 最後にサービス起動を試行した時点の wall-clock（epoch millis）． */
+    val lastStartAttemptWallClockMillis: Long? = null,
+    /** 最後にサービス起動を試行した呼び出し元（あれば）． */
+    val lastStartAttemptSource: String? = null,
+    /** 最後にサービス起動が失敗した時点の wall-clock（epoch millis）． */
+    val lastStartFailureWallClockMillis: Long? = null,
+    /** 最後にサービス起動が失敗した呼び出し元（あれば）． */
+    val lastStartFailureSource: String? = null,
+    /** 最後にサービス起動が失敗した理由の要約（あれば）． */
+    val lastStartFailureSummary: String? = null,
     /** keep-alive worker が走った回数． */
     val keepAliveRunCount: Int = 0,
     /** keep-alive からサービス起動を試行した回数． */
@@ -23,7 +32,6 @@ data class OverlayHealthSnapshot(
     val keepAliveStartSuccessCount: Int = 0,
     /** keep-alive からサービス起動を試行し，失敗した回数． */
     val keepAliveStartFailureCount: Int = 0,
-
     /** keep-alive worker が最後に走った時点の elapsedRealtime（ミリ秒）． */
     val lastKeepAliveRunElapsedRealtimeMillis: Long? = null,
     /** keep-alive worker が最後に走った時点の wall-clock（epoch millis）． */

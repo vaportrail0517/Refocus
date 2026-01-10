@@ -8,8 +8,8 @@ import com.example.refocus.core.model.OverlayHealthSnapshot
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.overlay.port.OverlayHealthStore
 import com.example.refocus.domain.repository.SettingsRepository
-import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.overlay.requestOverlaySelfHeal
+import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -117,7 +117,12 @@ class OverlayKeepAliveWorker(
                 store.update { it.copy(lastKeepAliveDecision = "self_heal_sent") }
                 Result.success()
             } catch (e: Exception) {
-                store.update { it.copy(lastKeepAliveDecision = "self_heal_failed", lastKeepAliveErrorSummary = summarizeError(e)) }
+                store.update {
+                    it.copy(
+                        lastKeepAliveDecision = "self_heal_failed",
+                        lastKeepAliveErrorSummary = summarizeError(e),
+                    )
+                }
                 Result.success()
             }
         }
@@ -184,8 +189,10 @@ class OverlayKeepAliveWorker(
         return false
     }
 
-
-    private fun isMonitorFresh(snapshot: OverlayHealthSnapshot, nowElapsed: Long): Boolean {
+    private fun isMonitorFresh(
+        snapshot: OverlayHealthSnapshot,
+        nowElapsed: Long,
+    ): Boolean {
         val last = snapshot.lastForegroundSampleElapsedRealtimeMillis ?: return false
         val delta = nowElapsed - last
         return delta in 0..MONITOR_FRESH_THRESHOLD_MS

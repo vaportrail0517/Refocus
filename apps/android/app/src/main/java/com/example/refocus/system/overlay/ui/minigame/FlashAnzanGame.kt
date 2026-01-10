@@ -200,9 +200,10 @@ fun FlashAnzanGame(
                         shownCount = 0
                         phase = Phase.Showing
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
                 ) {
                     Text("開始")
                 }
@@ -248,9 +249,10 @@ fun FlashAnzanGame(
             Phase.Result -> {
                 Button(
                     onClick = onFinished,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
                 ) {
                     Text("閉じる")
                 }
@@ -298,9 +300,10 @@ private fun ProgressDots(
     ) {
         repeat(total) { i ->
             val isFilled = i < filled
-            val base = Modifier
-                .size(dotSize)
-                .clip(CircleShape)
+            val base =
+                Modifier
+                    .size(dotSize)
+                    .clip(CircleShape)
             Box(
                 modifier =
                     if (isFilled) {

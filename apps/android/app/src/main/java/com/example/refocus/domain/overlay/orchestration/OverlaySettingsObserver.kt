@@ -2,8 +2,8 @@ package com.example.refocus.domain.overlay.orchestration
 
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
-import com.example.refocus.core.util.TimeSource
 import com.example.refocus.core.util.ResilientCoroutines
+import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.overlay.engine.OverlayEvent
 import com.example.refocus.domain.overlay.engine.OverlayState
 import com.example.refocus.domain.overlay.model.OverlayRuntimeState
@@ -14,7 +14,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 /**
  * Overlay の設定購読を OverlayCoordinator から分離し，責務を明確化するためのクラス．

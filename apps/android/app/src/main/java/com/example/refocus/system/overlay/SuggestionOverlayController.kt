@@ -62,6 +62,7 @@ class SuggestionOverlayController(
         }
 
         val callbackFired = AtomicBoolean(false)
+
         fun runOnce(block: () -> Unit) {
             if (callbackFired.compareAndSet(false, true)) {
                 block()
