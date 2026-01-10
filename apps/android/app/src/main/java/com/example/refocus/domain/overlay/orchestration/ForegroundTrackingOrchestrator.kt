@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
@@ -253,7 +254,7 @@ class ForegroundTrackingOrchestrator(
                 .map { it.customize.pollingIntervalMillis }
                 .distinctUntilChanged()
 
-        val foregroundSampleFlow =
+        val baseForegroundSampleFlow =
             pollingIntervalFlow
                 .flatMapLatest { interval ->
                     foregroundAppObserver.foregroundSampleFlow(
@@ -262,6 +263,23 @@ class ForegroundTrackingOrchestrator(
                     )
                 }
 
+        // 画面 OFF 中は UsageEvents のポーリングを止める（無駄な負荷を減らし，監視が殺されにくくする）．
+        // combine が動き続けるために，OFF へ遷移したタイミングでダミーサンプルを 1 回だけ流す．
+        val foregroundSampleFlow =
+            screenOnFlow
+                // StateFlow は元々 distinctUntilChanged 相当の挙動なので，ここでの distinctUntilChanged は不要（かつ deprecated）．
+                .flatMapLatest { isScreenOn ->
+                    if (isScreenOn) {
+                        baseForegroundSampleFlow
+                    } else {
+                        flowOf(
+                            ForegroundAppObserver.ForegroundSample(
+                                packageName = null,
+                                generation = 0L,
+                            ),
+                        )
+                    }
+                }
         // Customize も combine に含めて，ループ内で runtimeState.value.customize を参照しない
         val customizeSnapshotFlow =
             runtimeState

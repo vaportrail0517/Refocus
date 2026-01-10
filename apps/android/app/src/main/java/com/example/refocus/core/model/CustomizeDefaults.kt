@@ -9,7 +9,7 @@ package com.example.refocus.core.model
 object CustomizeDefaults {
     // --- セッション・監視 ---
     const val GRACE_PERIOD_MILLIS: Long = 300_000L
-    const val POLLING_INTERVAL_MILLIS: Long = 500L
+    const val POLLING_INTERVAL_MILLIS: Long = 1_000L
 
     // --- オーバーレイ見た目 ---
     const val MIN_FONT_SIZE_SP: Float = 24f

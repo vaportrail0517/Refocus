@@ -4,6 +4,12 @@
     <string name="notification_channel_name">Refocus</string>
     <string name="notification_channel_description">Refocus の計測状態を表示します</string>
 
+    <string name="recovery_notification_channel_name">Refocus 復旧</string>
+    <string name="recovery_notification_channel_description">Refocus を自動で再開できない場合に，再開手順を通知します</string>
+    <string name="recovery_notification_title">Refocus の計測が停止しています</string>
+    <string name="recovery_notification_text">OS の制限により自動で再開できません．タップして Refocus を開くと計測を再開します</string>
+    <string name="recovery_notification_text_with_reason">OS の制限により自動で再開できません．タップして Refocus を開くと計測を再開します（理由: %1$s）</string>
+
     <string name="notification_title_running">Refocusが動作中</string>
     <string name="notification_text_waiting">対象アプリを監視中</string>
     <string name="notification_title_tracking">%1$sを計測中</string>

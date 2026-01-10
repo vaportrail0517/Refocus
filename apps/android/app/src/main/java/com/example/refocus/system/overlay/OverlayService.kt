@@ -533,9 +533,22 @@ class OverlayService : LifecycleService() {
     }
 }
 
-fun Context.startOverlayService() {
+fun Context.startOverlayService(source: String? = null) {
+    // keep-alive / boot receiver など background から呼ばれる経路でも，
+    // 起動失敗理由を Home 画面へ表示できるよう best-effort で記録する
+    recordOverlayStartAttemptBestEffort(source)
+
     val intent = Intent(this, OverlayService::class.java)
-    this.startForegroundService(intent)
+    try {
+        startForegroundService(intent)
+        recordOverlayStartSuccessBestEffort(source)
+    } catch (e: Exception) {
+        recordOverlayStartFailureBestEffort(source, e)
+
+        val suffix = if (source.isNullOrBlank()) "" else ", source=$source"
+        RefocusLog.e(OVERLAY_SERVICE_EXT_TAG, e) { "Failed to start OverlayService$suffix" }
+        throw e
+    }
 }
 
 private const val OVERLAY_SERVICE_EXT_TAG = "OverlayServiceExt"

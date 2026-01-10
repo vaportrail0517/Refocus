@@ -8,6 +8,8 @@ import com.example.refocus.core.model.OverlayHealthSnapshot
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.overlay.port.OverlayHealthStore
 import com.example.refocus.domain.repository.SettingsRepository
+import com.example.refocus.system.notification.OverlayRecoveryNotificationController
+import com.example.refocus.system.overlay.isForegroundServiceStartNotAllowedError
 import com.example.refocus.system.overlay.requestOverlaySelfHeal
 import com.example.refocus.system.overlay.startOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
@@ -55,6 +57,7 @@ class OverlayKeepAliveWorker(
 
     override suspend fun doWork(): Result {
         val appContext = applicationContext
+        val recoveryNotifier = OverlayRecoveryNotificationController(appContext)
 
         val entryPoint =
             EntryPointAccessors.fromApplication(
@@ -84,6 +87,7 @@ class OverlayKeepAliveWorker(
         if (!settings.overlayEnabled) {
             store.update { it.copy(lastKeepAliveDecision = "skip_disabled") }
             RefocusLog.d(TAG) { "overlayEnabled=false -> skip" }
+            recoveryNotifier.cancel()
             return Result.success()
         }
 
@@ -91,6 +95,7 @@ class OverlayKeepAliveWorker(
         if (!PermissionHelper.hasAllCorePermissions(appContext)) {
             store.update { it.copy(lastKeepAliveDecision = "skip_permissions") }
             RefocusLog.d(TAG) { "core permissions missing -> skip" }
+            recoveryNotifier.cancel()
             return Result.success()
         }
 
@@ -101,12 +106,14 @@ class OverlayKeepAliveWorker(
             val lastSample = snapshot.lastForegroundSampleElapsedRealtimeMillis
             if (lastSample == null) {
                 store.update { it.copy(lastKeepAliveDecision = "ok_no_sample_yet") }
+                recoveryNotifier.cancel()
                 return Result.success()
             }
 
             val monitorFresh = isMonitorFresh(snapshot, nowElapsed)
             if (monitorFresh) {
                 store.update { it.copy(lastKeepAliveDecision = "ok_fresh") }
+                recoveryNotifier.cancel()
                 return Result.success()
             }
 
@@ -115,6 +122,7 @@ class OverlayKeepAliveWorker(
             return try {
                 appContext.requestOverlaySelfHeal()
                 store.update { it.copy(lastKeepAliveDecision = "self_heal_sent") }
+                recoveryNotifier.cancel()
                 Result.success()
             } catch (e: Exception) {
                 store.update {
@@ -139,7 +147,8 @@ class OverlayKeepAliveWorker(
             RefocusLog.w(TAG) {
                 "heartbeat stale -> try startOverlayService, lastElapsed=${snapshot.lastHeartbeatElapsedRealtimeMillis}, lastWall=${snapshot.lastHeartbeatWallClockMillis}"
             }
-            appContext.startOverlayService()
+            appContext.startOverlayService(source = "keep_alive")
+            recoveryNotifier.cancel()
 
             store.update { current ->
                 current.copy(
@@ -151,7 +160,7 @@ class OverlayKeepAliveWorker(
             Result.success()
         } catch (e: Exception) {
             val summary = summarizeError(e)
-            val notAllowed = isStartNotAllowedError(e)
+            val notAllowed = isForegroundServiceStartNotAllowedError(e)
 
             store.update { current ->
                 current.copy(
@@ -163,6 +172,7 @@ class OverlayKeepAliveWorker(
 
             if (notAllowed) {
                 RefocusLog.w(TAG, e) { "Start overlay service not allowed right now. skip retry" }
+                recoveryNotifier.notifyStartBlocked(source = "keep_alive", errorSummary = summary)
                 Result.success()
             } else {
                 RefocusLog.e(TAG, e) { "Failed to start overlay service from keep-alive" }
@@ -196,18 +206,6 @@ class OverlayKeepAliveWorker(
         val last = snapshot.lastForegroundSampleElapsedRealtimeMillis ?: return false
         val delta = nowElapsed - last
         return delta in 0..MONITOR_FRESH_THRESHOLD_MS
-    }
-
-    private fun isStartNotAllowedError(e: Throwable): Boolean {
-        // minSdk=26 のため，API 31 以降の例外クラスは直接参照せず，クラス名で判定する
-        // 代表例:
-        // - android.app.ForegroundServiceStartNotAllowedException (Android 12+)
-        // - IllegalStateException: Background start not allowed
-        val name = e::class.java.name
-        if (name == "android.app.ForegroundServiceStartNotAllowedException") return true
-        if (e is IllegalStateException) return true
-        if (e is SecurityException) return true
-        return false
     }
 
     private fun summarizeError(e: Throwable): String {
