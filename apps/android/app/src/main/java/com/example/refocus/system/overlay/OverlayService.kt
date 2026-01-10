@@ -44,14 +44,12 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -61,6 +59,8 @@ class OverlayService : LifecycleService() {
         private const val NOTIFICATION_ID = 1
 
         private const val HEARTBEAT_INTERVAL_MS = 10_000L
+
+        private const val ERROR_SUMMARY_MAX = 160
 
         const val ACTION_STOP = "com.example.refocus.action.OVERLAY_STOP"
         const val ACTION_TOGGLE_TIMER_VISIBILITY =
@@ -145,6 +145,8 @@ class OverlayService : LifecycleService() {
     @Volatile
     private var isStopping: Boolean = false
 
+    private val stopEventRecorded = AtomicBoolean(false)
+
     override fun onCreate() {
         super.onCreate()
         isRunning = true
@@ -160,117 +162,166 @@ class OverlayService : LifecycleService() {
             }
         }
 
-        val components =
-            componentsFactory.create(
-                context = this,
-                lifecycleOwner = this,
-                scope = serviceScope,
-                timeSource = timeSource,
-                overlayHealthStore = overlayHealthStore,
-                targetsRepository = targetsRepository,
-                settingsRepository = settingsRepository,
-                settingsCommand = settingsCommand,
-                suggestionsRepository = suggestionsRepository,
-                foregroundAppObserver = foregroundAppObserver,
-                suggestionEngine = suggestionEngine,
-                suggestionSelector = suggestionSelector,
-                eventRecorder = eventRecorder,
-                timelineRepository = timelineRepository,
-            )
+        try {
+            val components =
+                componentsFactory.create(
+                    context = this,
+                    lifecycleOwner = this,
+                    scope = serviceScope,
+                    timeSource = timeSource,
+                    overlayHealthStore = overlayHealthStore,
+                    targetsRepository = targetsRepository,
+                    settingsRepository = settingsRepository,
+                    settingsCommand = settingsCommand,
+                    suggestionsRepository = suggestionsRepository,
+                    foregroundAppObserver = foregroundAppObserver,
+                    suggestionEngine = suggestionEngine,
+                    suggestionSelector = suggestionSelector,
+                    eventRecorder = eventRecorder,
+                    timelineRepository = timelineRepository,
+                )
 
-        timerOverlayController = components.timerOverlayController
-        suggestionOverlayController = components.suggestionOverlayController
-        miniGameOverlayController = components.miniGameOverlayController
-        overlayUiController = components.overlayUiController
-        overlayCoordinator = components.overlayCoordinator
-        notificationController = components.notificationController
-        startForegroundWithNotification()
+            timerOverlayController = components.timerOverlayController
+            suggestionOverlayController = components.suggestionOverlayController
+            miniGameOverlayController = components.miniGameOverlayController
+            overlayUiController = components.overlayUiController
+            overlayCoordinator = components.overlayCoordinator
+            notificationController = components.notificationController
+            startForegroundWithNotification()
 
-        // 通知更新ドライバ
-        notificationDriver =
-            OverlayServiceNotificationDriver(
-                scope = serviceScope,
-                overlayCoordinator = overlayCoordinator,
-                appLabelResolver = appLabelResolver,
-                notificationController = notificationController,
-                notificationId = NOTIFICATION_ID,
-            ).also { it.start() }
+            // 通知更新ドライバ
+            notificationDriver =
+                OverlayServiceNotificationDriver(
+                    scope = serviceScope,
+                    overlayCoordinator = overlayCoordinator,
+                    appLabelResolver = appLabelResolver,
+                    notificationController = notificationController,
+                    notificationId = NOTIFICATION_ID,
+                ).also { it.start() }
 
-        // overlayEnabled=false になったらサービス自体を止めて，監視を完全に停止する
-        runSupervisor =
-            OverlayServiceRunSupervisor(
-                scope = serviceScope,
-                settingsRepository = settingsRepository,
-                onOverlayDisabled = ::stopFromSettingsDisabled,
-            ).also { it.start() }
+            // overlayEnabled=false になったらサービス自体を止めて，監視を完全に停止する
+            runSupervisor =
+                OverlayServiceRunSupervisor(
+                    scope = serviceScope,
+                    settingsRepository = settingsRepository,
+                    onOverlayDisabled = ::stopFromSettingsDisabled,
+                ).also { it.start() }
 
-        requestTileStateRefresh()
-        QsTileStateBroadcaster.notifyExpectedRunning(this, expectedRunning = true)
+            requestTileStateRefresh()
+            QsTileStateBroadcaster.notifyExpectedRunning(this, expectedRunning = true)
 
-        if (!canRunOverlay()) {
-            RefocusLog.w(TAG) { "canRunOverlay = false. stopSelf()" }
-            lifecycleScope.launch {
-                try {
-                    // サービスが起動できない状況でも，権限状態の変化はタイムラインに残す
+            if (!canRunOverlay()) {
+                RefocusLog.w(TAG) { "canRunOverlay = false. stopSelf()" }
+                lifecycleScope.launch {
                     try {
-                        permissionStateWatcher.checkAndRecord()
+                        // サービスが起動できない状況でも，権限状態の変化はタイムラインに残す
+                        try {
+                            permissionStateWatcher.checkAndRecord()
+                        } catch (e: Exception) {
+                            RefocusLog.e(TAG, e) {
+                                "Failed to check/record permission state before stopping"
+                            }
+                        }
+                        settingsCommand.setOverlayEnabled(
+                            enabled = false,
+                            source = "service",
+                            reason = "core_permission_missing",
+                            recordEvent = false,
+                        )
                     } catch (e: Exception) {
-                        RefocusLog.e(
-                            TAG,
-                            e,
-                        ) { "Failed to check/record permission state before stopping" }
+                        RefocusLog.e(TAG, e) { "Failed to disable overlay before stopping" }
                     }
-                    settingsCommand.setOverlayEnabled(
-                        enabled = false,
-                        source = "service",
-                        reason = "core_permission_missing",
-                        recordEvent = false,
-                    )
-                } catch (e: Exception) {
-                    RefocusLog.e(TAG, e) { "Failed to disable overlay before stopping" }
+                    stopSelf()
                 }
-                stopSelf()
+                return
             }
+
+            // 権限状態の変化を継続的に検知し，失効時はフェイルセーフに停止する
+            permissionSupervisor =
+                OverlayCorePermissionSupervisor(
+                    scope = serviceScope,
+                    permissionStateWatcher = permissionStateWatcher,
+                    settingsCommand = settingsCommand,
+                    onCorePermissionMissing = { stopSelf() },
+                ).also { it.start() }
+
+            // 画面 ON/OFF 監視
+            screenStateReceiver =
+                OverlayScreenStateReceiver(
+                    context = this,
+                    scope = serviceScope,
+                    overlayCoordinator = overlayCoordinator,
+                    eventRecorder = eventRecorder,
+                    onScreenOn = { permissionSupervisor?.requestImmediateCheck(reason = "screen_on") },
+                ).also {
+                    it.register()
+                    it.syncInitialScreenState()
+                }
+
+            // 通知アクションのハンドラ
+            intentHandler =
+                OverlayServiceIntentHandler(
+                    scope = serviceScope,
+                    overlayCoordinator = overlayCoordinator,
+                    settingsRepository = settingsRepository,
+                    settingsCommand = settingsCommand,
+                    actionStop = ACTION_STOP,
+                    actionToggleTimerVisibility = ACTION_TOGGLE_TIMER_VISIBILITY,
+                    actionToggleTouchMode = ACTION_TOGGLE_TOUCH_MODE,
+                    actionSelfHeal = ACTION_SELF_HEAL,
+                    onStopRequested = ::stopFromUserAction,
+                )
+
+            overlayCoordinator.start()
+
+            // 起動に成功した場合は直近エラー要約をクリアする
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    overlayHealthStore.update { it.copy(lastErrorSummary = null) }
+                } catch (e: Exception) {
+                    RefocusLog.w(TAG, e) { "Failed to clear lastErrorSummary" }
+                }
+            }
+        } catch (e: Exception) {
+            RefocusLog.e(TAG, e) { "onCreate initialization failed" }
+
+            // 健全性ストアに致命的エラーを記録する（best-effort）
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    overlayHealthStore.update { it.copy(lastErrorSummary = summarizeError(e)) }
+                } catch (storeError: Exception) {
+                    RefocusLog.w(TAG, storeError) { "Failed to write lastErrorSummary" }
+                }
+            }
+
+            // 可能な範囲で後始末して停止する
+            isRunning = false
+            isStopping = true
+
+            heartbeatJob?.cancel()
+            heartbeatJob = null
+
+            try {
+                if (this::overlayCoordinator.isInitialized) {
+                    overlayCoordinator.stop()
+                }
+            } catch (_: Exception) {
+                // no-op
+            }
+            try {
+                notificationDriver?.stop()
+            } catch (_: Exception) {
+                // no-op
+            }
+            try {
+                removeForegroundNotification()
+            } catch (_: Exception) {
+                // no-op
+            }
+
+            lifecycleScope.launch { stopSelf() }
             return
         }
-
-        // 権限状態の変化を継続的に検知し，失効時はフェイルセーフに停止する
-        permissionSupervisor =
-            OverlayCorePermissionSupervisor(
-                scope = serviceScope,
-                permissionStateWatcher = permissionStateWatcher,
-                settingsCommand = settingsCommand,
-                onCorePermissionMissing = { stopSelf() },
-            ).also { it.start() }
-
-        // 画面 ON/OFF 監視
-        screenStateReceiver =
-            OverlayScreenStateReceiver(
-                context = this,
-                scope = serviceScope,
-                overlayCoordinator = overlayCoordinator,
-                eventRecorder = eventRecorder,
-                onScreenOn = { permissionSupervisor?.requestImmediateCheck(reason = "screen_on") },
-            ).also {
-                it.register()
-                it.syncInitialScreenState()
-            }
-
-        // 通知アクションのハンドラ
-        intentHandler =
-            OverlayServiceIntentHandler(
-                scope = serviceScope,
-                overlayCoordinator = overlayCoordinator,
-                settingsRepository = settingsRepository,
-                settingsCommand = settingsCommand,
-                actionStop = ACTION_STOP,
-                actionToggleTimerVisibility = ACTION_TOGGLE_TIMER_VISIBILITY,
-                actionToggleTouchMode = ACTION_TOGGLE_TOUCH_MODE,
-                actionSelfHeal = ACTION_SELF_HEAL,
-                onStopRequested = ::stopFromUserAction,
-            )
-
-        overlayCoordinator.start()
     }
 
     override fun onStartCommand(
@@ -291,15 +342,7 @@ class OverlayService : LifecycleService() {
     }
 
     override fun onDestroy() {
-        runBlocking {
-            withContext(NonCancellable + Dispatchers.IO) {
-                try {
-                    eventRecorder.onServiceStopped()
-                } catch (e: Exception) {
-                    RefocusLog.e(TAG, e) { "Failed to record service stop event" }
-                }
-            }
-        }
+        recordServiceStoppedBestEffort(reason = "onDestroy")
 
         isRunning = false
         isStopping = true
@@ -311,7 +354,9 @@ class OverlayService : LifecycleService() {
         notificationDriver?.stop()
         removeForegroundNotification()
 
-        overlayCoordinator.stop()
+        if (this::overlayCoordinator.isInitialized) {
+            overlayCoordinator.stop()
+        }
 
         screenStateReceiver?.unregister()
         permissionSupervisor?.stop()
@@ -322,6 +367,21 @@ class OverlayService : LifecycleService() {
         QsTileStateBroadcaster.notifyExpectedRunning(this, expectedRunning = false)
         serviceScope.cancel()
         super.onDestroy()
+    }
+
+
+    private fun recordServiceStoppedBestEffort(reason: String) {
+        if (!stopEventRecorded.compareAndSet(false, true)) return
+
+        // onDestroy をブロックしないために，独立 scope で best-effort 記録する．
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                eventRecorder.onServiceStopped()
+                RefocusLog.d(TAG) { "Recorded service stop event (reason=$reason)" }
+            } catch (e: Exception) {
+                RefocusLog.e(TAG, e) { "Failed to record service stop event (reason=$reason)" }
+            }
+        }
     }
 
     private fun startHeartbeatUpdater() {
@@ -419,6 +479,8 @@ class OverlayService : LifecycleService() {
         if (isStopping) return false
         isStopping = true
 
+        recordServiceStoppedBestEffort(reason = "beginStopping")
+
         QsTileStateBroadcaster.notifyExpectedRunning(this, expectedRunning = false)
 
         // 先に通知更新を止めてから foreground を外す．
@@ -437,10 +499,12 @@ class OverlayService : LifecycleService() {
             RefocusLog.w(TAG, e) { "Failed to stopForeground" }
         }
 
-        try {
-            notificationController.cancel(NOTIFICATION_ID)
-        } catch (e: Exception) {
-            RefocusLog.w(TAG, e) { "Failed to cancel foreground notification" }
+        if (this::notificationController.isInitialized) {
+            try {
+                notificationController.cancel(NOTIFICATION_ID)
+            } catch (e: Exception) {
+                RefocusLog.w(TAG, e) { "Failed to cancel foreground notification" }
+            }
         }
     }
 
@@ -448,6 +512,14 @@ class OverlayService : LifecycleService() {
         val hasCore = PermissionHelper.hasAllCorePermissions(this)
         RefocusLog.d(TAG) { "canRunOverlay: hasCore=$hasCore" }
         return hasCore
+    }
+
+
+    private fun summarizeError(e: Throwable): String {
+        val name = e::class.java.simpleName
+        val msg = e.message
+        val raw = if (msg.isNullOrBlank()) name else "$name: $msg"
+        return if (raw.length <= ERROR_SUMMARY_MAX) raw else raw.take(ERROR_SUMMARY_MAX)
     }
 
     private fun requestTileStateRefresh() {

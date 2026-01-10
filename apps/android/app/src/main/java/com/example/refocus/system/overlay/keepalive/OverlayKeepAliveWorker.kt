@@ -146,17 +146,23 @@ class OverlayKeepAliveWorker(
             Result.success()
         } catch (e: Exception) {
             val summary = summarizeError(e)
+            val notAllowed = isStartNotAllowedError(e)
 
             store.update { current ->
                 current.copy(
                     keepAliveStartFailureCount = current.keepAliveStartFailureCount + 1,
-                    lastKeepAliveDecision = "start_failed",
+                    lastKeepAliveDecision = if (notAllowed) "start_not_allowed" else "start_failed",
                     lastKeepAliveErrorSummary = summary,
                 )
             }
 
-            RefocusLog.e(TAG, e) { "Failed to start overlay service from keep-alive" }
-            Result.retry()
+            if (notAllowed) {
+                RefocusLog.w(TAG, e) { "Start overlay service not allowed right now. skip retry" }
+                Result.success()
+            } else {
+                RefocusLog.e(TAG, e) { "Failed to start overlay service from keep-alive" }
+                Result.retry()
+            }
         }
     }
 
@@ -183,6 +189,18 @@ class OverlayKeepAliveWorker(
         val last = snapshot.lastForegroundSampleElapsedRealtimeMillis ?: return false
         val delta = nowElapsed - last
         return delta in 0..MONITOR_FRESH_THRESHOLD_MS
+    }
+
+    private fun isStartNotAllowedError(e: Throwable): Boolean {
+        // minSdk=26 のため，API 31 以降の例外クラスは直接参照せず，クラス名で判定する
+        // 代表例:
+        // - android.app.ForegroundServiceStartNotAllowedException (Android 12+)
+        // - IllegalStateException: Background start not allowed
+        val name = e::class.java.name
+        if (name == "android.app.ForegroundServiceStartNotAllowedException") return true
+        if (e is IllegalStateException) return true
+        if (e is SecurityException) return true
+        return false
     }
 
     private fun summarizeError(e: Throwable): String {
