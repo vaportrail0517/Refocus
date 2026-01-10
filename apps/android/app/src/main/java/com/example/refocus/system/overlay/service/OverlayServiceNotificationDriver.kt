@@ -52,8 +52,7 @@ internal class OverlayServiceNotificationDriver(
                             timerTimeMode = state.timerTimeMode,
                             elapsedMinuteBucket = (state.timerDisplayMillis ?: 0L) / 60_000L,
                         )
-                    }
-                    .collect { state ->
+                    }.collect { state ->
                         publishNotification(state)
                     }
             }
