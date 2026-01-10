@@ -2,7 +2,7 @@ package com.example.refocus.system.overlay.service
 
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.util.ResilientCoroutines
-import com.example.refocus.core.util.formatDurationForTimerBubble
+import com.example.refocus.core.util.formatDurationForNotificationMinutes
 import com.example.refocus.domain.overlay.model.OverlayPresentationState
 import com.example.refocus.domain.overlay.runtime.OverlayCoordinator
 import com.example.refocus.system.appinfo.AppLabelResolver
@@ -10,10 +10,7 @@ import com.example.refocus.system.notification.OverlayNotificationUiState
 import com.example.refocus.system.notification.OverlayServiceNotificationController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
-import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.flow.sample
 
 internal class OverlayServiceNotificationDriver(
     private val scope: CoroutineScope,
@@ -24,10 +21,6 @@ internal class OverlayServiceNotificationDriver(
 ) {
     companion object {
         private const val TAG = "OverlayServiceNotificationDriver"
-
-        // timerDisplayMillis は毎秒更新され得るため，通知更新をそのまま追従させると負荷が高い端末がある．
-        // 秒単位での正確さはオーバーレイに任せ，通知はサンプル更新に落とす．
-        private const val NOTIFICATION_TIME_SAMPLE_MS: Long = 5_000L
     }
 
     private data class NotificationStableKey(
@@ -35,6 +28,7 @@ internal class OverlayServiceNotificationDriver(
         val isTimerVisible: Boolean,
         val touchMode: Any,
         val timerTimeMode: Any,
+        val elapsedMinuteBucket: Long,
     )
 
     private var job: Job? = null
@@ -47,23 +41,18 @@ internal class OverlayServiceNotificationDriver(
                 scope = scope,
                 tag = TAG,
             ) {
-                val immediateFlow =
-                    overlayCoordinator.presentationStateFlow
-                        .distinctUntilChangedBy { state ->
-                            NotificationStableKey(
-                                trackingPackage = state.trackingPackage,
-                                isTimerVisible = state.isTimerVisible,
-                                touchMode = state.touchMode,
-                                timerTimeMode = state.timerTimeMode,
-                            )
-                        }
-
-                val sampledFlow =
-                    overlayCoordinator.presentationStateFlow
-                        .sample(NOTIFICATION_TIME_SAMPLE_MS)
-
-                merge(immediateFlow, sampledFlow)
-                    .distinctUntilChanged()
+                // 通知は分単位での表示にするため，経過時間の更新は「分が変わった」タイミングだけで十分．
+                // これにより毎秒の通知更新を避け，端末負荷を大きく下げる．
+                overlayCoordinator.presentationStateFlow
+                    .distinctUntilChangedBy { state ->
+                        NotificationStableKey(
+                            trackingPackage = state.trackingPackage,
+                            isTimerVisible = state.isTimerVisible,
+                            touchMode = state.touchMode,
+                            timerTimeMode = state.timerTimeMode,
+                            elapsedMinuteBucket = (state.timerDisplayMillis ?: 0L) / 60_000L,
+                        )
+                    }
                     .collect { state ->
                         publishNotification(state)
                     }
@@ -94,7 +83,8 @@ internal class OverlayServiceNotificationDriver(
                 OverlayNotificationUiState(
                     isTracking = true,
                     trackingAppLabel = label,
-                    elapsedLabel = formatDurationForTimerBubble(elapsedMillis),
+                    elapsedLabel = formatDurationForNotificationMinutes(elapsedMillis),
+                    elapsedMillis = elapsedMillis,
                     isTimerVisible = presentation.isTimerVisible,
                     touchMode = presentation.touchMode,
                 )
