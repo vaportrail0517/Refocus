@@ -2,6 +2,7 @@ package com.example.refocus.domain.overlay.orchestration
 
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
+import com.example.refocus.core.util.ResilientCoroutines
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.overlay.engine.OverlayEvent
 import com.example.refocus.domain.overlay.engine.OverlayState
@@ -13,7 +14,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 /**
  * Overlay の設定購読を OverlayCoordinator から分離し，責務を明確化するためのクラス．
@@ -46,9 +46,12 @@ internal class OverlaySettingsObserver(
         if (job?.isActive == true) return job!!
 
         job =
-            scope.launch {
-                try {
-                    customizeFlow.collect { settings ->
+            ResilientCoroutines.launchResilient(
+                scope = scope,
+                tag = TAG,
+            ) {
+                customizeFlow.collect { settings ->
+                    try {
                         val oldSettings = runtimeState.value.customize
 
                         // 先に customize スナップショットを更新（Provider などが最新設定を読めるようにする）
@@ -111,9 +114,9 @@ internal class OverlaySettingsObserver(
                                 suggestionOrchestrator.resetGate()
                             }
                         }
+                    } catch (e: Exception) {
+                        RefocusLog.e(TAG, e) { "applyOverlaySettings failed. continue." }
                     }
-                } catch (e: Exception) {
-                    RefocusLog.e(TAG, e) { "observeOverlaySettings failed" }
                 }
             }
 

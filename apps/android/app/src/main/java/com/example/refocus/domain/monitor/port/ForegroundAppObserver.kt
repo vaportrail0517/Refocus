@@ -14,5 +14,10 @@ interface ForegroundAppObserver {
         val generation: Long,
     )
 
-    fun foregroundSampleFlow(pollingIntervalMs: Long = 1_000L): Flow<ForegroundSample>
+    fun foregroundSampleFlow(
+        pollingIntervalMs: Long = 1_000L,
+        // 監視開始直後，「すでに前面にいるアプリ」を拾うためのイベント巻き戻し幅．
+        // 監視開始時の lastCheckedTime を now から開始すると，直前の MOVE_TO_FOREGROUND を取り逃がしやすい．
+        initialLookbackMs: Long = 10_000L,
+    ): Flow<ForegroundSample>
 }

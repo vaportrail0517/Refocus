@@ -2,9 +2,11 @@ package com.example.refocus.app.di
 
 import android.content.Context
 import com.example.refocus.data.datastore.OnboardingDataStore
+import com.example.refocus.data.datastore.OverlayHealthDataStore
 import com.example.refocus.data.datastore.PermissionStateDataStore
 import com.example.refocus.data.datastore.SettingsDataStore
 import com.example.refocus.data.datastore.TargetsDataStore
+import com.example.refocus.domain.overlay.port.OverlayHealthStore
 import com.example.refocus.domain.permissions.port.PermissionSnapshotStore
 import dagger.Module
 import dagger.Provides
@@ -33,6 +35,12 @@ object DataStoreModule {
     fun provideTargetsDataStore(
         @ApplicationContext context: Context,
     ): TargetsDataStore = TargetsDataStore(context)
+
+    @Provides
+    @Singleton
+    fun provideOverlayHealthStore(
+        @ApplicationContext context: Context,
+    ): OverlayHealthStore = OverlayHealthDataStore(context)
 
     @Provides
     @Singleton

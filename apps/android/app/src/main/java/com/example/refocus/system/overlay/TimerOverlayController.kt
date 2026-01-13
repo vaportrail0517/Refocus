@@ -87,12 +87,36 @@ class TimerOverlayController(
                     TimerTouchMode.PassThrough ->
                         baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
                 }
-            windowManager.updateViewLayout(view, lp)
+            safeUpdateViewLayout(view, lp, reason = "settings_touch_mode")
             applyTouchListener(
                 view = view,
                 lp = lp,
                 touchMode = new.touchMode,
             )
+        }
+    }
+
+    private fun safeUpdateViewLayout(
+        view: View,
+        lp: WindowManager.LayoutParams,
+        reason: String,
+    ): Boolean {
+        // removeView と競合した場合など，View が未アタッチの瞬間があり得る．
+        // その場合 updateViewLayout は例外を投げるため，必ずガードする．
+        if (!view.isAttachedToWindow) {
+            RefocusLog.w("TimerOverlay") { "updateViewLayout skipped: not attached (reason=$reason)" }
+            return false
+        }
+
+        return try {
+            windowManager.updateViewLayout(view, lp)
+            true
+        } catch (e: IllegalArgumentException) {
+            RefocusLog.w("TimerOverlay", e) { "updateViewLayout failed (IllegalArgumentException, reason=$reason)" }
+            false
+        } catch (e: Exception) {
+            RefocusLog.w("TimerOverlay", e) { "updateViewLayout failed (reason=$reason)" }
+            false
         }
     }
 
@@ -125,7 +149,12 @@ class TimerOverlayController(
                             MotionEvent.ACTION_MOVE -> {
                                 lp.x = initialX + (event.rawX - initialTouchX).toInt()
                                 lp.y = initialY + (event.rawY - initialTouchY).toInt()
-                                windowManager.updateViewLayout(v, lp)
+                                val ok = safeUpdateViewLayout(v, lp, reason = "drag_move")
+                                if (!ok) {
+                                    // WM 操作に失敗した場合は，これ以上ドラッグを継続しない（例外ループを防ぐ）
+                                    v.setOnTouchListener(null)
+                                    return true
+                                }
                                 // 状態としても保持しておく
                                 this@TimerOverlayController.layoutParams = lp
                                 return true

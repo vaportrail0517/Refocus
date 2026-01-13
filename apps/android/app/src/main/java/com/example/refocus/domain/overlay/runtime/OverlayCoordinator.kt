@@ -1,6 +1,7 @@
 package com.example.refocus.domain.overlay.runtime
 
 import com.example.refocus.core.logging.RefocusLog
+import com.example.refocus.core.util.ResilientCoroutines
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.overlay.engine.OverlayEvent
 import com.example.refocus.domain.overlay.engine.OverlayState
@@ -12,6 +13,7 @@ import com.example.refocus.domain.overlay.orchestration.OverlaySessionTracker
 import com.example.refocus.domain.overlay.orchestration.OverlaySettingsObserver
 import com.example.refocus.domain.overlay.orchestration.SuggestionOrchestrator
 import com.example.refocus.domain.overlay.policy.OverlayTimerDisplayCalculator
+import com.example.refocus.domain.overlay.port.OverlayHealthStore
 import com.example.refocus.domain.overlay.port.OverlayUiPort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -38,6 +40,7 @@ import kotlinx.coroutines.launch
 internal class OverlayCoordinator(
     private val scope: CoroutineScope,
     private val timeSource: TimeSource,
+    private val overlayHealthStore: OverlayHealthStore,
     private val uiController: OverlayUiPort,
     private val runtimeState: MutableStateFlow<OverlayRuntimeState>,
     private val sessionTracker: OverlaySessionTracker,
@@ -50,6 +53,10 @@ internal class OverlayCoordinator(
 ) {
     companion object {
         private const val TAG = "OverlayCoordinator"
+
+        private const val MONITOR_WATCHDOG_INTERVAL_MS: Long = 30_000L
+        private const val MONITOR_STALE_THRESHOLD_MS: Long = 45_000L
+        private const val MONITOR_RESTART_GRACE_DELAY_MS: Long = 200L
     }
 
     private val screenOnFlowInternal: StateFlow<Boolean> =
@@ -117,6 +124,9 @@ internal class OverlayCoordinator(
     @Volatile
     private var foregroundGateJob: Job? = null
 
+    @Volatile
+    private var monitorWatchdogJob: Job? = null
+
     /**
      * 外側から「画面ON/OFF」を伝えるためのメソッド．
      * BroadcastReceiver 側から呼ばれる．
@@ -167,25 +177,95 @@ internal class OverlayCoordinator(
         startPresentationTicker()
         settingsObserver.start()
         startForegroundTrackingGate()
+        startMonitorWatchdog()
     }
 
     private fun startForegroundTrackingGate() {
         // overlayEnabled の変化に合わせて前面監視ループを開始・停止する
         if (foregroundGateJob?.isActive == true) return
         foregroundGateJob =
-            scope.launch {
+            ResilientCoroutines.launchResilient(
+                scope = scope,
+                tag = TAG,
+            ) {
                 runtimeState
                     .map { it.customize.overlayEnabled }
                     .distinctUntilChanged()
                     .collect { enabled ->
-                        if (enabled) {
-                            foregroundTrackingOrchestrator.start(
-                                screenOnFlow = screenOnFlowInternal,
-                            )
-                        } else {
-                            foregroundTrackingOrchestrator.stop()
+                        try {
+                            if (enabled) {
+                                foregroundTrackingOrchestrator.start(
+                                    screenOnFlow = screenOnFlowInternal,
+                                )
+                            } else {
+                                foregroundTrackingOrchestrator.stop()
+                            }
+                        } catch (e: Exception) {
+                            RefocusLog.e(TAG, e) { "foreground tracking gate failed. continue." }
                         }
                     }
+            }
+    }
+
+    fun requestForegroundTrackingRestart(reason: String) {
+        // 実際に overlay が有効なときだけ復旧を試みる
+        if (!runtimeState.value.customize.overlayEnabled) return
+
+        scope.launch {
+            try {
+                overlayHealthStore.update { current ->
+                    current.copy(
+                        monitorRestartCount = current.monitorRestartCount + 1,
+                        lastErrorSummary = "monitor_restart_requested: $reason",
+                    )
+                }
+            } catch (e: Exception) {
+                RefocusLog.w(TAG, e) { "Failed to record monitor restart request" }
+            }
+
+            try {
+                foregroundTrackingOrchestrator.stop()
+                delay(MONITOR_RESTART_GRACE_DELAY_MS)
+                foregroundTrackingOrchestrator.start(screenOnFlow = screenOnFlowInternal)
+            } catch (e: Exception) {
+                RefocusLog.e(TAG, e) { "Failed to restart foreground tracking: $reason" }
+            }
+        }
+    }
+
+    private fun startMonitorWatchdog() {
+        if (monitorWatchdogJob?.isActive == true) return
+        monitorWatchdogJob =
+            ResilientCoroutines.launchResilient(
+                scope = scope,
+                tag = TAG,
+                initialBackoffMs = 5_000L,
+                maxBackoffMs = 60_000L,
+            ) {
+                while (isActive) {
+                    delay(MONITOR_WATCHDOG_INTERVAL_MS)
+
+                    val enabled = runtimeState.value.customize.overlayEnabled
+                    if (!enabled) continue
+
+                    val nowElapsed = timeSource.elapsedRealtime()
+                    val lastElapsed =
+                        try {
+                            overlayHealthStore.read().lastForegroundSampleElapsedRealtimeMillis
+                        } catch (e: Exception) {
+                            RefocusLog.w(TAG, e) { "Failed to read overlay health for watchdog" }
+                            continue
+                        }
+
+                    if (lastElapsed == null) continue
+                    val delta = nowElapsed - lastElapsed
+                    if (delta > MONITOR_STALE_THRESHOLD_MS) {
+                        RefocusLog.w(TAG) {
+                            "foreground monitor liveness stale (delta=${delta}ms). restarting tracking."
+                        }
+                        requestForegroundTrackingRestart(reason = "watchdog_stale")
+                    }
+                }
             }
     }
 
@@ -200,6 +280,9 @@ internal class OverlayCoordinator(
 
         foregroundGateJob?.cancel()
         foregroundGateJob = null
+
+        monitorWatchdogJob?.cancel()
+        monitorWatchdogJob = null
 
         foregroundTrackingOrchestrator.stop()
 
@@ -228,7 +311,12 @@ internal class OverlayCoordinator(
     private fun startPresentationTicker() {
         if (presentationTickJob?.isActive == true) return
         presentationTickJob =
-            scope.launch {
+            ResilientCoroutines.launchResilient(
+                scope = scope,
+                tag = TAG,
+                initialBackoffMs = 1_000L,
+                maxBackoffMs = 10_000L,
+            ) {
                 while (isActive) {
                     delay(1_000)
                     // 計測中のみ 1 秒 tick を進める（通知用の表示値を更新するため）

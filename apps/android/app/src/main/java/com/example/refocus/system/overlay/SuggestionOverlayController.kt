@@ -62,6 +62,7 @@ class SuggestionOverlayController(
         }
 
         val callbackFired = AtomicBoolean(false)
+
         fun runOnce(block: () -> Unit) {
             if (callbackFired.compareAndSet(false, true)) {
                 block()
@@ -145,6 +146,9 @@ class SuggestionOverlayController(
     fun hideSuggestionOverlay() {
         val view = suggestionView ?: return
         try {
+            if (view is ComposeView) {
+                view.setContent { }
+            }
             windowManager.removeView(view)
         } catch (e: Exception) {
             RefocusLog.e("SuggestionOverlay", e) { "hideSuggestionOverlay: removeView failed" }

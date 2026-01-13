@@ -3,8 +3,8 @@ package com.example.refocus.system.overlay.service
 import android.content.Context
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.domain.overlay.port.OverlayServiceController
-import com.example.refocus.system.overlay.startOverlayService
-import com.example.refocus.system.overlay.stopOverlayService
+import com.example.refocus.system.overlay.tryStartOverlayService
+import com.example.refocus.system.overlay.tryStopOverlayService
 import com.example.refocus.system.permissions.PermissionHelper
 
 class OverlayServiceControllerImpl(
@@ -19,12 +19,11 @@ class OverlayServiceControllerImpl(
             return false
         }
         RefocusLog.d("OverlayServiceController") { "startOverlayService, source=$source" }
-        appContext.startOverlayService()
-        return true
+        return appContext.tryStartOverlayService(source = source)
     }
 
     override fun stop(source: String) {
         RefocusLog.d("OverlayServiceController") { "stopOverlayService, source=$source" }
-        appContext.stopOverlayService()
+        appContext.tryStopOverlayService(source = source)
     }
 }

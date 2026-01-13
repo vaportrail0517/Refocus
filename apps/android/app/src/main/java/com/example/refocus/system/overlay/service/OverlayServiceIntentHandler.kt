@@ -18,6 +18,7 @@ internal class OverlayServiceIntentHandler(
     private val actionStop: String,
     private val actionToggleTimerVisibility: String,
     private val actionToggleTouchMode: String,
+    private val actionSelfHeal: String,
     private val onStopRequested: () -> Unit,
 ) {
     fun handle(intent: Intent?): Boolean {
@@ -29,6 +30,11 @@ internal class OverlayServiceIntentHandler(
 
             actionToggleTimerVisibility -> {
                 overlayCoordinator.toggleTimerVisibilityForCurrentSession()
+                return true
+            }
+
+            actionSelfHeal -> {
+                overlayCoordinator.requestForegroundTrackingRestart(reason = "intent_self_heal")
                 return true
             }
 

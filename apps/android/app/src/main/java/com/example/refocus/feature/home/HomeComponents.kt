@@ -14,6 +14,7 @@ import com.example.refocus.core.model.DailyStats
 import com.example.refocus.feature.home.components.FocusSection
 import com.example.refocus.feature.home.components.NotificationWarningCard
 import com.example.refocus.feature.home.components.PermissionWarningCard
+import com.example.refocus.feature.home.components.ServiceStartFailureWarningCard
 import com.example.refocus.feature.home.components.ServiceStatusSection
 import com.example.refocus.feature.home.components.TargetAppsSection
 import com.example.refocus.feature.stats.StatsDetailSection
@@ -27,6 +28,9 @@ internal fun HomeContent(
     onToggleRunning: (Boolean) -> Unit,
     hasCorePermissions: Boolean,
     showNotificationWarning: Boolean,
+    serviceStartFailure: ServiceStartFailureUiModel?,
+    onDismissServiceStartFailure: () -> Unit,
+    onOpenSettings: () -> Unit,
     innerPadding: PaddingValues,
     onOpenStatsDetail: (StatsDetailSection) -> Unit,
     onOpenPermissionFixFlow: () -> Unit,
@@ -42,7 +46,7 @@ internal fun HomeContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            if (!hasCorePermissions || showNotificationWarning) {
+            if (!hasCorePermissions || showNotificationWarning || serviceStartFailure != null) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -55,6 +59,13 @@ internal fun HomeContent(
                     if (showNotificationWarning) {
                         NotificationWarningCard(
                             onClick = onOpenNotificationSettings,
+                        )
+                    }
+                    if (serviceStartFailure != null) {
+                        ServiceStartFailureWarningCard(
+                            failure = serviceStartFailure,
+                            onDismiss = onDismissServiceStartFailure,
+                            onOpenSettings = onOpenSettings,
                         )
                     }
                 }

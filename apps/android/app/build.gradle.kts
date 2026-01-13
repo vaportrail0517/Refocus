@@ -89,6 +89,7 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.compose.foundation.layout)
+    implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.javapoet)
     kapt(libs.androidx.room.compiler)
     implementation(libs.hilt.android)

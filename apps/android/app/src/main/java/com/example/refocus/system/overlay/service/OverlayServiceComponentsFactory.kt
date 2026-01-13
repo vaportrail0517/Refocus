@@ -12,6 +12,7 @@ import com.example.refocus.domain.overlay.orchestration.OverlaySettingsObserver
 import com.example.refocus.domain.overlay.orchestration.SessionBootstrapper
 import com.example.refocus.domain.overlay.orchestration.SuggestionOrchestrator
 import com.example.refocus.domain.overlay.policy.OverlayTimerDisplayCalculator
+import com.example.refocus.domain.overlay.port.OverlayHealthStore
 import com.example.refocus.domain.overlay.runtime.OverlayCoordinator
 import com.example.refocus.domain.overlay.runtime.OverlayEventDispatcher
 import com.example.refocus.domain.overlay.runtime.OverlaySideEffectHandler
@@ -52,6 +53,7 @@ internal class OverlayServiceComponentsFactory {
         lifecycleOwner: LifecycleOwner,
         scope: CoroutineScope,
         timeSource: TimeSource,
+        overlayHealthStore: OverlayHealthStore,
         targetsRepository: TargetsRepository,
         settingsRepository: SettingsRepository,
         settingsCommand: SettingsCommand,
@@ -200,6 +202,7 @@ internal class OverlayServiceComponentsFactory {
             ForegroundTrackingOrchestrator(
                 scope = scope,
                 timeSource = timeSource,
+                overlayHealthStore = overlayHealthStore,
                 targetsRepository = targetsRepository,
                 foregroundAppObserver = foregroundAppObserver,
                 runtimeState = runtimeState,
@@ -215,6 +218,7 @@ internal class OverlayServiceComponentsFactory {
             OverlayCoordinator(
                 scope = scope,
                 timeSource = timeSource,
+                overlayHealthStore = overlayHealthStore,
                 uiController = overlayUiController,
                 runtimeState = runtimeState,
                 sessionTracker = sessionTracker,

@@ -1,7 +1,8 @@
 package com.example.refocus.system.overlay.service
 
 import com.example.refocus.core.logging.RefocusLog
-import com.example.refocus.core.util.formatDurationForTimerBubble
+import com.example.refocus.core.util.ResilientCoroutines
+import com.example.refocus.core.util.formatDurationForNotificationMinutes
 import com.example.refocus.domain.overlay.model.OverlayPresentationState
 import com.example.refocus.domain.overlay.runtime.OverlayCoordinator
 import com.example.refocus.system.appinfo.AppLabelResolver
@@ -9,7 +10,7 @@ import com.example.refocus.system.notification.OverlayNotificationUiState
 import com.example.refocus.system.notification.OverlayServiceNotificationController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 
 internal class OverlayServiceNotificationDriver(
     private val scope: CoroutineScope,
@@ -18,16 +19,42 @@ internal class OverlayServiceNotificationDriver(
     private val notificationController: OverlayServiceNotificationController,
     private val notificationId: Int,
 ) {
+    companion object {
+        private const val TAG = "OverlayServiceNotificationDriver"
+    }
+
+    private data class NotificationStableKey(
+        val trackingPackage: String?,
+        val isTimerVisible: Boolean,
+        val touchMode: Any,
+        val timerTimeMode: Any,
+        val elapsedMinuteBucket: Long,
+    )
+
     private var job: Job? = null
 
     fun start() {
         if (job?.isActive == true) return
 
         job =
-            scope.launch {
-                overlayCoordinator.presentationStateFlow.collect { state ->
-                    publishNotification(state)
-                }
+            ResilientCoroutines.launchResilient(
+                scope = scope,
+                tag = TAG,
+            ) {
+                // 通知は分単位での表示にするため，経過時間の更新は「分が変わった」タイミングだけで十分．
+                // これにより毎秒の通知更新を避け，端末負荷を大きく下げる．
+                overlayCoordinator.presentationStateFlow
+                    .distinctUntilChangedBy { state ->
+                        NotificationStableKey(
+                            trackingPackage = state.trackingPackage,
+                            isTimerVisible = state.isTimerVisible,
+                            touchMode = state.touchMode,
+                            timerTimeMode = state.timerTimeMode,
+                            elapsedMinuteBucket = (state.timerDisplayMillis ?: 0L) / 60_000L,
+                        )
+                    }.collect { state ->
+                        publishNotification(state)
+                    }
             }
 
         publishNotification(overlayCoordinator.currentPresentationState())
@@ -55,7 +82,8 @@ internal class OverlayServiceNotificationDriver(
                 OverlayNotificationUiState(
                     isTracking = true,
                     trackingAppLabel = label,
-                    elapsedLabel = formatDurationForTimerBubble(elapsedMillis),
+                    elapsedLabel = formatDurationForNotificationMinutes(elapsedMillis),
+                    elapsedMillis = elapsedMillis,
                     isTimerVisible = presentation.isTimerVisible,
                     touchMode = presentation.touchMode,
                 )

@@ -159,3 +159,20 @@ fun formatDurationForTimerBubble(millis: Long): String {
         )
     return formatDurationCore(millis / 1000L, options)
 }
+
+/**
+ * 通知表示用に，分単位（秒を表示しない）で経過時間を整形する．
+ *
+ * - 60秒未満は空文字になってしまうため，明示的に「1分未満」を返す．
+ * - 60秒以上は「1時間2分」「12分」などの表記にする．
+ */
+fun formatDurationForNotificationMinutes(millis: Long): String {
+    if (millis < 60_000L) return "1分未満"
+    val options =
+        DurationFormatOptions(
+            style = DurationStyle.JapaneseUnit,
+            maxUnit = DisplayUnit.HOUR,
+            minUnit = DisplayUnit.MINUTE,
+        )
+    return formatDurationCore(millis / 1000L, options)
+}

@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.appinfo.port.AppLabelProvider
 import com.example.refocus.domain.monitor.port.ForegroundAppObserver
+import com.example.refocus.domain.overlay.port.OverlayKeepAliveScheduler
 import com.example.refocus.domain.overlay.port.OverlayServiceController
 import com.example.refocus.domain.overlay.port.OverlayServiceStatusProvider
 import com.example.refocus.domain.permissions.port.PermissionStatusProvider
@@ -23,6 +24,7 @@ import com.example.refocus.system.appinfo.AppLabelProviderImpl
 import com.example.refocus.system.appinfo.AppLabelResolver
 import com.example.refocus.system.monitor.ForegroundAppMonitor
 import com.example.refocus.system.monitor.ForegroundAppObserverImpl
+import com.example.refocus.system.overlay.keepalive.OverlayKeepAliveSchedulerImpl
 import com.example.refocus.system.overlay.service.OverlayServiceControllerImpl
 import com.example.refocus.system.overlay.service.OverlayServiceStatusProviderImpl
 import com.example.refocus.system.permissions.AndroidPermissionNavigator
@@ -112,5 +114,9 @@ object SystemModule {
 
     @Provides
     @Singleton
-    fun provideOverlayServiceStatusProvider(): OverlayServiceStatusProvider = OverlayServiceStatusProviderImpl()
+    fun provideOverlayServiceStatusProvider(impl: OverlayServiceStatusProviderImpl): OverlayServiceStatusProvider = impl
+
+    @Provides
+    @Singleton
+    fun provideOverlayKeepAliveScheduler(impl: OverlayKeepAliveSchedulerImpl): OverlayKeepAliveScheduler = impl
 }

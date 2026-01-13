@@ -10,6 +10,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Process
+import android.os.SystemClock
+import android.view.View
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.refocus.R
@@ -22,6 +25,7 @@ data class OverlayNotificationUiState(
     val isTracking: Boolean,
     val trackingAppLabel: String? = null,
     val elapsedLabel: String? = null,
+    val elapsedMillis: Long? = null,
     val isTimerVisible: Boolean = false,
     val touchMode: TimerTouchMode = TimerTouchMode.Drag,
 )
@@ -126,32 +130,44 @@ class OverlayServiceNotificationController(
         } else {
             val appLabel = state.trackingAppLabel ?: ""
             val elapsed = state.elapsedLabel ?: ""
+            val elapsedMillis = state.elapsedMillis ?: 0L
 
             builder
                 .setContentTitle(context.getString(R.string.notification_title_tracking, appLabel))
                 .setContentText(context.getString(R.string.notification_text_elapsed, elapsed))
 
-            val lines = mutableListOf<String>()
-            lines += context.getString(R.string.notification_text_elapsed, elapsed)
+            // 通知を「開いている間（展開中）」だけ秒単位にしたい場合，
+            // bigContentView に Chronometer を置くのが最も安定する．
+            // （通知シェードが開かれたかどうか自体はアプリ側から確実には検出できない）
+            val bigView =
+                RemoteViews(context.packageName, R.layout.notification_overlay_expanded).apply {
+                    // elapsedMillis をベースに，秒単位のカウントアップを OS に任せる
+                    setChronometer(
+                        R.id.notif_chronometer,
+                        SystemClock.elapsedRealtime() - elapsedMillis,
+                        context.getString(R.string.notification_text_elapsed, "%s"),
+                        true,
+                    )
 
-            if (state.isTimerVisible) {
-                lines += context.getString(R.string.notification_line_overlay_visible)
-                val touchLine =
-                    when (state.touchMode) {
-                        TimerTouchMode.Drag -> context.getString(R.string.notification_line_touch_mode_drag)
-                        TimerTouchMode.PassThrough ->
-                            context.getString(
-                                R.string.notification_line_touch_mode_passthrough,
-                            )
+                    if (state.isTimerVisible) {
+                        setTextViewText(R.id.notif_line1, context.getString(R.string.notification_line_overlay_visible))
+                        val touchLine =
+                            when (state.touchMode) {
+                                TimerTouchMode.Drag -> context.getString(R.string.notification_line_touch_mode_drag)
+                                TimerTouchMode.PassThrough ->
+                                    context.getString(R.string.notification_line_touch_mode_passthrough)
+                            }
+                        setViewVisibility(R.id.notif_line2, View.VISIBLE)
+                        setTextViewText(R.id.notif_line2, touchLine)
+                    } else {
+                        setTextViewText(R.id.notif_line1, context.getString(R.string.notification_line_overlay_hidden))
+                        setTextViewText(R.id.notif_line2, "")
                     }
-                lines += touchLine
-            } else {
-                lines += context.getString(R.string.notification_line_overlay_hidden)
-            }
+                }
 
-            val style = NotificationCompat.InboxStyle()
-            lines.forEach { style.addLine(it) }
-            builder.setStyle(style)
+            builder
+                .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+                .setCustomBigContentView(bigView)
         }
 
         // 対象アプリ計測中は「停止」を出さない．

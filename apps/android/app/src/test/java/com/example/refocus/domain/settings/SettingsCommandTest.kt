@@ -5,6 +5,7 @@ import com.example.refocus.core.model.ServiceConfigEvent
 import com.example.refocus.core.model.ServiceConfigKind
 import com.example.refocus.core.model.ServiceConfigState
 import com.example.refocus.core.model.SettingsChangedEvent
+import com.example.refocus.domain.overlay.port.OverlayKeepAliveScheduler
 import com.example.refocus.domain.timeline.EventRecorder
 import com.example.refocus.testutil.FakeSettingsRepository
 import com.example.refocus.testutil.FakeTimelineRepository
@@ -24,8 +25,14 @@ class SettingsCommandTest {
                 )
             val timelineRepository = FakeTimelineRepository()
             val timeSource = TestTimeSource(initialNowMillis = 1_000L, initialElapsedRealtime = 1_000L)
+            val overlayKeepAliveScheduler = FakeOverlayKeepAliveScheduler()
             val eventRecorder = EventRecorder(timeSource = timeSource, timelineRepository = timelineRepository)
-            val command = SettingsCommand(settingsRepository = settingsRepository, eventRecorder = eventRecorder)
+            val command =
+                SettingsCommand(
+                    settingsRepository = settingsRepository,
+                    eventRecorder = eventRecorder,
+                    overlayKeepAliveScheduler = overlayKeepAliveScheduler,
+                )
 
             val changed =
                 command.updateCustomize(
@@ -50,8 +57,14 @@ class SettingsCommandTest {
                 )
             val timelineRepository = FakeTimelineRepository()
             val timeSource = TestTimeSource(initialNowMillis = 1_000L, initialElapsedRealtime = 1_000L)
+            val overlayKeepAliveScheduler = FakeOverlayKeepAliveScheduler()
             val eventRecorder = EventRecorder(timeSource = timeSource, timelineRepository = timelineRepository)
-            val command = SettingsCommand(settingsRepository = settingsRepository, eventRecorder = eventRecorder)
+            val command =
+                SettingsCommand(
+                    settingsRepository = settingsRepository,
+                    eventRecorder = eventRecorder,
+                    overlayKeepAliveScheduler = overlayKeepAliveScheduler,
+                )
 
             command.setOverlayEnabled(enabled = true, source = "test")
 
@@ -74,8 +87,14 @@ class SettingsCommandTest {
                 )
             val timelineRepository = FakeTimelineRepository()
             val timeSource = TestTimeSource(initialNowMillis = 1_000L, initialElapsedRealtime = 1_000L)
+            val overlayKeepAliveScheduler = FakeOverlayKeepAliveScheduler()
             val eventRecorder = EventRecorder(timeSource = timeSource, timelineRepository = timelineRepository)
-            val command = SettingsCommand(settingsRepository = settingsRepository, eventRecorder = eventRecorder)
+            val command =
+                SettingsCommand(
+                    settingsRepository = settingsRepository,
+                    eventRecorder = eventRecorder,
+                    overlayKeepAliveScheduler = overlayKeepAliveScheduler,
+                )
 
             command.setOverlayEnabled(enabled = true, source = "test")
 
@@ -89,8 +108,14 @@ class SettingsCommandTest {
             val settingsRepository = FakeSettingsRepository()
             val timelineRepository = FakeTimelineRepository()
             val timeSource = TestTimeSource(initialNowMillis = 1_000L, initialElapsedRealtime = 1_000L)
+            val overlayKeepAliveScheduler = FakeOverlayKeepAliveScheduler()
             val eventRecorder = EventRecorder(timeSource = timeSource, timelineRepository = timelineRepository)
-            val command = SettingsCommand(settingsRepository = settingsRepository, eventRecorder = eventRecorder)
+            val command =
+                SettingsCommand(
+                    settingsRepository = settingsRepository,
+                    eventRecorder = eventRecorder,
+                    overlayKeepAliveScheduler = overlayKeepAliveScheduler,
+                )
 
             val changed =
                 command.setSettingsPresetIfNeeded(
@@ -105,4 +130,12 @@ class SettingsCommandTest {
             val e = events.single() as SettingsChangedEvent
             assertEquals(SettingsCommand.Keys.SETTINGS_PRESET.value, e.key)
         }
+}
+
+private class FakeOverlayKeepAliveScheduler : OverlayKeepAliveScheduler {
+    var lastEnabled: Boolean? = null
+
+    override fun onOverlayEnabledChanged(enabled: Boolean) {
+        lastEnabled = enabled
+    }
 }

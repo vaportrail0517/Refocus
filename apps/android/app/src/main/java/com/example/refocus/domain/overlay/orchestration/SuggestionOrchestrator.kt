@@ -17,9 +17,9 @@ import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
 import com.example.refocus.domain.timeline.EventRecorder
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
@@ -54,7 +54,6 @@ class SuggestionOrchestrator(
         private const val MINI_GAME_RESUME_RETRY_INTERVAL_MILLIS = 400L
         private const val MINI_GAME_MAX_SHOW_ATTEMPTS_PER_CYCLE = 6
     }
-
 
     private enum class MiniGameCycleState {
         NotStarted,
@@ -103,7 +102,6 @@ class SuggestionOrchestrator(
         return id
     }
 
-
     private fun ensureSuggestionCycle(
         packageName: String,
         customize: Customize,
@@ -124,8 +122,10 @@ class SuggestionOrchestrator(
         clearPendingMiniGameGate()
     }
 
-    private fun isActiveCycleFor(packageName: String, cycleId: Long): Boolean =
-        activeCycleId == cycleId && activeCyclePackageName == packageName
+    private fun isActiveCycleFor(
+        packageName: String,
+        cycleId: Long,
+    ): Boolean = activeCycleId == cycleId && activeCyclePackageName == packageName
 
     private fun completeMiniGameForActiveCycle(
         packageName: String,

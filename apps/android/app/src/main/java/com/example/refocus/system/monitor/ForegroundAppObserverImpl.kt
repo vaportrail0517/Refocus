@@ -10,10 +10,14 @@ import kotlinx.coroutines.flow.map
 class ForegroundAppObserverImpl(
     private val monitor: ForegroundAppMonitor,
 ) : ForegroundAppObserver {
-    override fun foregroundSampleFlow(pollingIntervalMs: Long): Flow<ForegroundAppObserver.ForegroundSample> =
+    override fun foregroundSampleFlow(
+        pollingIntervalMs: Long,
+        initialLookbackMs: Long,
+    ): Flow<ForegroundAppObserver.ForegroundSample> =
         monitor
             .foregroundSampleFlow(
                 pollingIntervalMs = pollingIntervalMs,
+                initialLookbackMs = initialLookbackMs,
             ).map { sample ->
                 ForegroundAppObserver.ForegroundSample(
                     packageName = sample.packageName,

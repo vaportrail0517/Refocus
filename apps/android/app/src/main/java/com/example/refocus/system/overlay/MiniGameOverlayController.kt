@@ -40,6 +40,9 @@ class MiniGameOverlayController(
             // 以前の view が残っている状態で再表示されたケース（hide がまだ Main に積まれている等）
             // -> いったん安全に remove して入れ替える。
             try {
+                if (existing is ComposeView) {
+                    existing.setContent { }
+                }
                 windowManager.removeView(existing)
             } catch (e: Exception) {
                 RefocusLog.e("MiniGameOverlay", e) { "showMiniGameOverlay: removeView(existing) failed" }
@@ -50,6 +53,7 @@ class MiniGameOverlayController(
         }
 
         val callbackFired = AtomicBoolean(false)
+
         fun runOnce(block: () -> Unit) {
             if (callbackFired.compareAndSet(false, true)) {
                 block()
@@ -110,6 +114,9 @@ class MiniGameOverlayController(
             return
         }
         try {
+            if (view is ComposeView) {
+                view.setContent { }
+            }
             windowManager.removeView(view)
         } catch (e: Exception) {
             RefocusLog.e("MiniGameOverlay", e) { "hideMiniGameOverlay: removeView failed" }

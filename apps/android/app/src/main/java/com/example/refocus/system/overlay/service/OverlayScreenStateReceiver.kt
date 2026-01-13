@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import android.os.PowerManager
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.domain.overlay.runtime.OverlayCoordinator
@@ -76,7 +77,12 @@ internal class OverlayScreenStateReceiver(
                 addAction(Intent.ACTION_USER_PRESENT)
                 addAction(Intent.ACTION_SCREEN_ON)
             }
-        context.registerReceiver(receiver, filter)
+        if (Build.VERSION.SDK_INT >= 33) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            context.registerReceiver(receiver, filter)
+        }
         registered = true
     }
 
