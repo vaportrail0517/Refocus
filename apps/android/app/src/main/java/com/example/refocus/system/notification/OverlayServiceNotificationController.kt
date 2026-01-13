@@ -116,7 +116,7 @@ class OverlayServiceNotificationController(
         val builder =
             NotificationCompat
                 .Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.ic_qs_refocus)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setShowWhen(false)
