@@ -48,6 +48,14 @@ fun MiniGameHostOverlay(
                         modifier = it,
                     )
                 }
+
+                MiniGameKind.TenPuzzle -> {
+                    TenPuzzleGame(
+                        seed = seed,
+                        onFinished = onFinished,
+                        modifier = it,
+                    )
+                }
             }
         }
     }
