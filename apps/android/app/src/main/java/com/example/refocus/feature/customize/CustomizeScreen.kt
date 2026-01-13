@@ -24,6 +24,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -234,12 +236,21 @@ fun CustomizeScreen(modifier: Modifier = Modifier) {
             )
 
             debugMiniGameKind?.let { kind ->
-                MiniGameHostOverlay(
-                    kind = kind,
-                    seed = debugMiniGameSeed,
-                    onFinished = { debugMiniGameKind = null },
-                    modifier = Modifier.fillMaxSize(),
-                )
+                Dialog(
+                    onDismissRequest = { debugMiniGameKind = null },
+                    properties = DialogProperties(usePlatformDefaultWidth = false),
+                ) {
+                    // Dialog 内では画面全体の制約が渡るため，カスタマイズ画面のレイアウト制約に影響されず
+                    // ミニゲームをフルスクリーンで表示できる．
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        MiniGameHostOverlay(
+                            kind = kind,
+                            seed = debugMiniGameSeed,
+                            onFinished = { debugMiniGameKind = null },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
             }
         }
     }

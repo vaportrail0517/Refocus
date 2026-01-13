@@ -2,6 +2,9 @@ package com.example.refocus.feature.customize
 
 import android.content.pm.ApplicationInfo
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
@@ -181,12 +184,33 @@ fun BasicCustomizeContent(
         )
 
         if (isDebuggable) {
-            MiniGameRegistry.descriptors.forEach { desc ->
-                SettingRow(
-                    title = "デバッグ：${desc.title} を起動",
-                    subtitle = desc.description,
-                    onClick = { onDebugPlayMiniGame(desc.kind) },
-                )
+            var showMiniGameTestDialog by remember { mutableStateOf(false) }
+
+            SettingRow(
+                title = "ミニゲームのテスト",
+                subtitle = "実装済みのミニゲームを選択して起動します．",
+                onClick = { showMiniGameTestDialog = true },
+            )
+
+            if (showMiniGameTestDialog) {
+                com.example.refocus.ui.components.SettingsBaseDialog(
+                    title = "ミニゲームを選択",
+                    confirmLabel = "閉じる",
+                    showDismissButton = false,
+                    onConfirm = { showMiniGameTestDialog = false },
+                    onDismiss = { showMiniGameTestDialog = false },
+                ) {
+                    MiniGameRegistry.descriptors.forEach { desc ->
+                        SettingRow(
+                            title = desc.title,
+                            subtitle = desc.description,
+                            onClick = {
+                                showMiniGameTestDialog = false
+                                onDebugPlayMiniGame(desc.kind)
+                            },
+                        )
+                    }
+                }
             }
         }
     }
