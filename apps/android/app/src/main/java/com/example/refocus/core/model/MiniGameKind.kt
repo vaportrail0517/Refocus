@@ -8,4 +8,5 @@ package com.example.refocus.core.model
  */
 enum class MiniGameKind {
     FlashAnzan,
+    MakeTen,
 }
