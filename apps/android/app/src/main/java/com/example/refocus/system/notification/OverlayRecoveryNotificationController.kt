@@ -59,7 +59,7 @@ class OverlayRecoveryNotificationController(
         val notification =
             NotificationCompat
                 .Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.ic_qs_refocus)
                 .setContentTitle(context.getString(R.string.recovery_notification_title))
                 .setContentText(text)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text))
