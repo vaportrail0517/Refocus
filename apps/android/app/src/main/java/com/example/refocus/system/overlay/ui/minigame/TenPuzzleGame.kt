@@ -2,22 +2,21 @@ package com.example.refocus.system.overlay.ui.minigame
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -37,17 +36,11 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.roundToInt
+import kotlin.math.abs
 import kotlin.random.Random
 import kotlinx.coroutines.delay
 
@@ -66,16 +59,19 @@ fun TenPuzzleGame(
             TenPuzzleProblems.get(context, index)
         }
 
-
-    val slots: List<SnapshotStateList<TenToken>> =
+    val digitKeys: List<TenPuzzleDigitKeyState> =
         remember(seed) {
-            List(5) { emptyList<TenToken>().toMutableStateList() }
+            numbers.mapIndexed { idx, v -> TenPuzzleDigitKeyState(id = idx, value = v) }
         }
+
+    val expr: SnapshotStateList<TenPuzzleInputToken> =
+        remember(seed) { emptyList<TenPuzzleInputToken>().toMutableStateList() }
+
+    var cursorIndex by remember(seed) { mutableIntStateOf(0) }
 
     var phase by remember(seed) { mutableStateOf(TenPuzzlePhase.Playing) }
     var remainingSeconds by remember(seed) { mutableIntStateOf(60) }
 
-    // タイマーはフェーズ遷移のみを行い，自動終了はしない
     LaunchedEffect(seed) {
         while (true) {
             if (phase != TenPuzzlePhase.Playing) break
@@ -89,139 +85,104 @@ fun TenPuzzleGame(
         }
     }
 
-    val expressionTokens by remember(numbers, slots) {
-        derivedStateOf { buildExpressionTokens(numbers, slots) }
+    val allDigitsUsed by remember(digitKeys) {
+        derivedStateOf { digitKeys.all { it.used } }
     }
 
-    val evalState by remember(expressionTokens) {
-        derivedStateOf { evaluateExpression(expressionTokens) }
+    val tokensForEval by remember(expr) {
+        derivedStateOf { expr.map { it.toEvalToken() } }
     }
 
-    // 正解（=10）になった瞬間に編集をロック（自動終了はしない）
-    LaunchedEffect(evalState, phase, remainingSeconds) {
+    val evalState by remember(tokensForEval) {
+        derivedStateOf { evaluateExpression(tokensForEval) }
+    }
+
+    LaunchedEffect(evalState, allDigitsUsed, phase, remainingSeconds) {
         if (phase != TenPuzzlePhase.Playing) return@LaunchedEffect
         if (remainingSeconds <= 0) return@LaunchedEffect
         val v = evalState
-        if (v is EvalState.Ok && v.value.isTen()) {
+        if (v is TenPuzzleEvalState.Ok && v.value.isTen() && allDigitsUsed) {
             phase = TenPuzzlePhase.Solved
         }
     }
 
     val editingEnabled = phase == TenPuzzlePhase.Playing && remainingSeconds > 0
 
-    var transientMessage by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(transientMessage) {
-        if (transientMessage == null) return@LaunchedEffect
-        delay(1_500)
-        transientMessage = null
+    fun setCursorSafe(index: Int) {
+        cursorIndex = index.coerceIn(0, expr.size)
     }
 
-    // ドラッグ状態（ルート座標系のローカル Offset を使う）
-    var rootCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
-    val slotRects = remember { Array<Rect?>(5) { null } }
-    var draggingToken by remember { mutableStateOf<TenToken?>(null) }
-    var dragPosInRoot by remember { mutableStateOf(Offset.Zero) }
-    var hoveredSlotIndex by remember { mutableStateOf<Int?>(null) }
-
-    fun updateHoveredSlot() {
-        val pos = dragPosInRoot
-        val idx =
-            slotRects.indexOfFirst { rect ->
-                rect?.contains(pos) == true
-            }.takeIf { it >= 0 }
-        hoveredSlotIndex = idx
-    }
-
-    Box(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .onGloballyPositioned { rootCoords = it },
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            TenPuzzleHeader(
-                phase = phase,
-                remainingSeconds = remainingSeconds.coerceAtLeast(0),
-            )
-
-            ExpressionArea(
-                numbers = numbers,
-                slots = slots,
-                slotRects = slotRects,
-                rootCoords = rootCoords,
-                editingEnabled = editingEnabled,
-                dragging = draggingToken != null,
-                hoveredSlotIndex = hoveredSlotIndex,
-                transientMessage = transientMessage,
-                onDeleteToken = { slotIndex, tokenIndex ->
-                    if (!editingEnabled) return@ExpressionArea
-                    val slot = slots.getOrNull(slotIndex) ?: return@ExpressionArea
-                    if (tokenIndex !in slot.indices) return@ExpressionArea
-                    slot.removeAt(tokenIndex)
-                },
-            )
-
-            EvaluationText(
-                phase = phase,
-                evalState = evalState,
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            if (phase == TenPuzzlePhase.Playing) {
-                ControlRow(
-                    editingEnabled = editingEnabled,
-                    onClear = { slots.forEach { it.clear() } },
-                )
-                Keyboard(
-                    enabled = editingEnabled,
-                    onStartDrag = { token, startPos ->
-                        draggingToken = token
-                        dragPosInRoot = startPos
-                        updateHoveredSlot()
-                    },
-                    onDragMove = { delta ->
-                        dragPosInRoot += delta
-                        updateHoveredSlot()
-                    },
-                    onDrop = {
-                        val token = draggingToken ?: return@Keyboard
-                        val idx = hoveredSlotIndex
-                        if (editingEnabled && idx != null) {
-                            val slot = slots[idx]
-                            if (slot.size < 3) {
-                                slot.add(token)
-                            } else {
-                                transientMessage = "そのスロットはこれ以上置けません"
-                            }
-                        }
-                        draggingToken = null
-                        hoveredSlotIndex = null
-                    },
-                    onCancelDrag = {
-                        draggingToken = null
-                        hoveredSlotIndex = null
-                    },
-                    rootCoordsProvider = { rootCoords },
-                )
-            } else {
-                ResultFooter(
-                    onFinished = onFinished,
-                )
-            }
+    fun removeAt(index: Int) {
+        if (!editingEnabled) return
+        if (index !in expr.indices) return
+        val removed = expr.removeAt(index)
+        if (removed is TenPuzzleInputToken.Number) {
+            digitKeys.getOrNull(removed.digitId)?.used = false
         }
+        if (cursorIndex > index) cursorIndex -= 1
+        setCursorSafe(cursorIndex)
+    }
 
-        // ドラッグ中のゴースト（視覚補助）
-        val ghost = draggingToken
-        if (ghost != null) {
-            TokenGhost(
-                token = ghost,
-                position = dragPosInRoot,
+    fun insertToken(token: TenPuzzleInputToken) {
+        if (!editingEnabled) return
+        if (token is TenPuzzleInputToken.Number) {
+            val key = digitKeys.getOrNull(token.digitId) ?: return
+            if (key.used) return
+            key.used = true
+        }
+        val idx = cursorIndex.coerceIn(0, expr.size)
+        expr.add(idx, token)
+        setCursorSafe(idx + 1)
+    }
+
+    fun backspace() {
+        if (!editingEnabled) return
+        if (cursorIndex <= 0) return
+        removeAt(cursorIndex - 1)
+    }
+
+    fun clearAll() {
+        if (!editingEnabled) return
+        expr.clear()
+        digitKeys.forEach { it.used = false }
+        setCursorSafe(0)
+    }
+
+    Column(
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        TenPuzzleHeader(
+            phase = phase,
+            remainingSeconds = remainingSeconds.coerceAtLeast(0),
+        )
+
+        ExpressionEditor(
+            tokens = expr,
+            cursorIndex = cursorIndex,
+            editingEnabled = editingEnabled,
+            onSetCursor = { setCursorSafe(it) },
+            onRemoveAt = { removeAt(it) },
+        )
+
+        EvaluationText(
+            phase = phase,
+            evalState = evalState,
+            allDigitsUsed = allDigitsUsed,
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        if (phase == TenPuzzlePhase.Playing) {
+            TenPuzzleKeyboard(
+                digitKeys = digitKeys,
+                enabled = editingEnabled,
+                onInsert = { insertToken(it) },
+                onBackspace = { backspace() },
+                onClear = { clearAll() },
             )
+        } else {
+            ResultFooter(onFinished = onFinished)
         }
     }
 }
@@ -247,7 +208,7 @@ private fun TenPuzzleHeader(
             )
             val subtitle =
                 when (phase) {
-                    TenPuzzlePhase.Playing -> "記号をドラッグして 10 を作る"
+                    TenPuzzlePhase.Playing -> "数字と記号で 10 を作る"
                     TenPuzzlePhase.Solved -> "正解"
                     TenPuzzlePhase.TimeUp -> "時間切れ"
                 }
@@ -265,113 +226,67 @@ private fun TenPuzzleHeader(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ExpressionArea(
-    numbers: IntArray,
-    slots: List<SnapshotStateList<TenToken>>,
-    slotRects: Array<Rect?>,
-    rootCoords: LayoutCoordinates?,
+private fun ExpressionEditor(
+    tokens: SnapshotStateList<TenPuzzleInputToken>,
+    cursorIndex: Int,
     editingEnabled: Boolean,
-    dragging: Boolean,
-    hoveredSlotIndex: Int?,
-    onDeleteToken: (slotIndex: Int, tokenIndex: Int) -> Unit,
-    transientMessage: String?,
-    modifier: Modifier = Modifier,
-) {
-    val scroll = rememberScrollState()
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(scroll),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            @Composable
-            fun Slot(index: Int) {
-                SlotView(
-                    tokens = slots[index],
-                    isHovered = dragging && hoveredSlotIndex == index,
-                    editingEnabled = editingEnabled,
-                    onDeleteToken = { tokenIndex -> onDeleteToken(index, tokenIndex) },
-                    onGloballyPositioned = { coords ->
-                        if (rootCoords == null) return@SlotView
-                        val topLeft = rootCoords.localPositionOf(coords, Offset.Zero)
-                        val size = coords.size
-                        slotRects[index] =
-                            Rect(
-                                topLeft,
-                                topLeft + Offset(size.width.toFloat(), size.height.toFloat()),
-                            )
-                    },
-                )
-            }
-
-            Slot(0)
-            NumberChip(numbers[0])
-            Slot(1)
-            NumberChip(numbers[1])
-            Slot(2)
-            NumberChip(numbers[2])
-            Slot(3)
-            NumberChip(numbers[3])
-            Slot(4)
-        }
-
-        if (transientMessage != null) {
-            Text(
-                text = transientMessage,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
-        Text(
-            text = "スロットに置けるトークンは最大 3 個です．トークンをタップすると削除できます．",
-            style = MaterialTheme.typography.bodySmall,
-        )
-    }
-}
-
-@Composable
-private fun NumberChip(
-    value: Int,
+    onSetCursor: (Int) -> Unit,
+    onRemoveAt: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
-        modifier =
-            modifier
-                .widthIn(min = 48.dp)
-                .requiredHeight(52.dp),
+        modifier = modifier.fillMaxWidth(),
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center,
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
-                text = value.toString(),
-                fontSize = 20.sp,
+                text = "式",
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
+            )
+
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                for (i in 0..tokens.size) {
+                    InsertCursor(
+                        selected = i == cursorIndex,
+                        enabled = editingEnabled,
+                        onClick = { onSetCursor(i) },
+                    )
+                    if (i < tokens.size) {
+                        TokenChip(
+                            token = tokens[i],
+                            enabled = editingEnabled,
+                            onClick = { onRemoveAt(i) },
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = "トークンをタップすると削除できます．カーソル位置にキーを挿入します．",
+                style = MaterialTheme.typography.bodySmall,
             )
         }
     }
 }
 
 @Composable
-private fun SlotView(
-    tokens: List<TenToken>,
-    isHovered: Boolean,
-    editingEnabled: Boolean,
-    onDeleteToken: (index: Int) -> Unit,
-    onGloballyPositioned: (LayoutCoordinates) -> Unit,
+private fun InsertCursor(
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val border =
-        if (isHovered) {
+        if (selected) {
             BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
         } else {
             BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
@@ -380,40 +295,27 @@ private fun SlotView(
     Surface(
         modifier =
             modifier
-                .sizeIn(minWidth = 86.dp, minHeight = 52.dp)
-                .onGloballyPositioned(onGloballyPositioned),
-        shape = MaterialTheme.shapes.small,
+                .size(width = 14.dp, height = 36.dp)
+                .clickable(enabled = enabled, onClick = onClick),
         color = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
         border = border,
+        shape = MaterialTheme.shapes.extraSmall,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            if (tokens.isEmpty()) {
-                Text(
-                    text = "…",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.outline,
-                )
-            } else {
-                tokens.forEachIndexed { index, token ->
-                    TokenChip(
-                        token = token,
-                        enabled = editingEnabled,
-                        onClick = { onDeleteToken(index) },
-                    )
-                }
-            }
+        Box(contentAlignment = Alignment.Center) {
+            Box(
+                modifier =
+                    Modifier
+                        .width(if (selected) 3.dp else 2.dp)
+                        .height(20.dp),
+            )
         }
     }
 }
 
 @Composable
 private fun TokenChip(
-    token: TenToken,
+    token: TenPuzzleInputToken,
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -421,19 +323,20 @@ private fun TokenChip(
     Surface(
         modifier =
             modifier
-                .sizeIn(minWidth = 24.dp, minHeight = 32.dp)
+                .sizeIn(minWidth = 32.dp, minHeight = 36.dp)
                 .clickable(enabled = enabled, onClick = onClick),
         shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
     ) {
         Box(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = token.label,
                 fontWeight = FontWeight.SemiBold,
+                fontSize = 18.sp,
             )
         }
     }
@@ -442,14 +345,22 @@ private fun TokenChip(
 @Composable
 private fun EvaluationText(
     phase: TenPuzzlePhase,
-    evalState: EvalState,
+    evalState: TenPuzzleEvalState,
+    allDigitsUsed: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val text =
         when (evalState) {
-            is EvalState.NotParsable -> "式を評価できません"
-            is EvalState.DivisionByZero -> "0 では割れません"
-            is EvalState.Ok -> "＝ ${evalState.value.toDisplayString()}"
+            is TenPuzzleEvalState.NotParsable -> "式を評価できません"
+            is TenPuzzleEvalState.DivisionByZero -> "0 では割れません"
+            is TenPuzzleEvalState.Ok -> {
+                val base = "＝ ${evalState.value.toDisplayString()}"
+                if (evalState.value.isTen() && !allDigitsUsed) {
+                    "$base（数字をすべて使ってください）"
+                } else {
+                    base
+                }
+            }
         }
 
     Text(
@@ -461,33 +372,12 @@ private fun EvaluationText(
 }
 
 @Composable
-private fun ControlRow(
-    editingEnabled: Boolean,
-    onClear: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End,
-    ) {
-        OutlinedButton(
-            onClick = onClear,
-            enabled = editingEnabled,
-            modifier = Modifier.height(52.dp),
-        ) {
-            Text(text = "クリア")
-        }
-    }
-}
-
-@Composable
-private fun Keyboard(
+private fun TenPuzzleKeyboard(
+    digitKeys: List<TenPuzzleDigitKeyState>,
     enabled: Boolean,
-    onStartDrag: (token: TenToken, startPosInRoot: Offset) -> Unit,
-    onDragMove: (delta: Offset) -> Unit,
-    onDrop: () -> Unit,
-    onCancelDrag: () -> Unit,
-    rootCoordsProvider: () -> LayoutCoordinates?,
+    onInsert: (TenPuzzleInputToken) -> Unit,
+    onBackspace: () -> Unit,
+    onClear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -498,35 +388,37 @@ private fun Keyboard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            DraggableKey(
-                token = TenToken.LParen,
+            digitKeys.forEach { key ->
+                TenPuzzleKeyButton(
+                    text = key.value.toString(),
+                    enabled = enabled && !key.used,
+                    modifier = Modifier.weight(1f),
+                    onClick = { onInsert(TenPuzzleInputToken.Number(digitId = key.id, value = key.value)) },
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            TenPuzzleKeyButton(
+                text = "(",
                 enabled = enabled,
-                onStartDrag = onStartDrag,
-                onDragMove = onDragMove,
-                onDrop = onDrop,
-                onCancelDrag = onCancelDrag,
-                rootCoordsProvider = rootCoordsProvider,
                 modifier = Modifier.weight(1f),
+                onClick = { onInsert(TenPuzzleInputToken.LParen) },
             )
-            DraggableKey(
-                token = TenToken.RParen,
+            TenPuzzleKeyButton(
+                text = ")",
                 enabled = enabled,
-                onStartDrag = onStartDrag,
-                onDragMove = onDragMove,
-                onDrop = onDrop,
-                onCancelDrag = onCancelDrag,
-                rootCoordsProvider = rootCoordsProvider,
                 modifier = Modifier.weight(1f),
+                onClick = { onInsert(TenPuzzleInputToken.RParen) },
             )
-            DraggableKey(
-                token = TenToken.Plus,
+            TenPuzzleKeyButton(
+                text = "+",
                 enabled = enabled,
-                onStartDrag = onStartDrag,
-                onDragMove = onDragMove,
-                onDrop = onDrop,
-                onCancelDrag = onCancelDrag,
-                rootCoordsProvider = rootCoordsProvider,
                 modifier = Modifier.weight(1f),
+                onClick = { onInsert(TenPuzzleInputToken.Plus) },
             )
         }
 
@@ -534,95 +426,67 @@ private fun Keyboard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            DraggableKey(
-                token = TenToken.Minus,
+            TenPuzzleKeyButton(
+                text = "-",
                 enabled = enabled,
-                onStartDrag = onStartDrag,
-                onDragMove = onDragMove,
-                onDrop = onDrop,
-                onCancelDrag = onCancelDrag,
-                rootCoordsProvider = rootCoordsProvider,
                 modifier = Modifier.weight(1f),
+                onClick = { onInsert(TenPuzzleInputToken.Minus) },
             )
-            DraggableKey(
-                token = TenToken.Times,
+            TenPuzzleKeyButton(
+                text = "×",
                 enabled = enabled,
-                onStartDrag = onStartDrag,
-                onDragMove = onDragMove,
-                onDrop = onDrop,
-                onCancelDrag = onCancelDrag,
-                rootCoordsProvider = rootCoordsProvider,
                 modifier = Modifier.weight(1f),
+                onClick = { onInsert(TenPuzzleInputToken.Times) },
             )
-            DraggableKey(
-                token = TenToken.Divide,
+            TenPuzzleKeyButton(
+                text = "÷",
                 enabled = enabled,
-                onStartDrag = onStartDrag,
-                onDragMove = onDragMove,
-                onDrop = onDrop,
-                onCancelDrag = onCancelDrag,
-                rootCoordsProvider = rootCoordsProvider,
                 modifier = Modifier.weight(1f),
+                onClick = { onInsert(TenPuzzleInputToken.Divide) },
             )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            OutlinedButton(
+                onClick = onClear,
+                enabled = enabled,
+                modifier = Modifier.weight(2f).height(52.dp),
+            ) {
+                Text(text = "クリア")
+            }
+            OutlinedButton(
+                onClick = onBackspace,
+                enabled = enabled,
+                modifier = Modifier.weight(1f).height(52.dp),
+            ) {
+                Text(text = "⌫")
+            }
         }
     }
 }
 
 @Composable
-private fun DraggableKey(
-    token: TenToken,
+private fun TenPuzzleKeyButton(
+    text: String,
     enabled: Boolean,
-    onStartDrag: (token: TenToken, startPosInRoot: Offset) -> Unit,
-    onDragMove: (delta: Offset) -> Unit,
-    onDrop: () -> Unit,
-    onCancelDrag: () -> Unit,
-    rootCoordsProvider: () -> LayoutCoordinates?,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
-
     Surface(
-        modifier =
-            modifier
-                .height(52.dp)
-                .onGloballyPositioned { coords = it }
-                .pointerInput(token, enabled) {
-                    if (!enabled) return@pointerInput
-                    detectDragGestures(
-                        onDragStart = { offsetInKey ->
-                            val root = rootCoordsProvider() ?: return@detectDragGestures
-                            val key = coords ?: return@detectDragGestures
-                            val start = root.localPositionOf(key, offsetInKey)
-                            onStartDrag(token, start)
-                        },
-                        onDragEnd = { onDrop() },
-                        onDragCancel = { onCancelDrag() },
-                        onDrag = { change, dragAmount ->
-
-                            onDragMove(dragAmount)
-                        },
-                    )
-                },
+        modifier = modifier.height(52.dp).clickable(enabled = enabled, onClick = onClick),
         shape = MaterialTheme.shapes.small,
-        color =
-            if (enabled) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            },
-        contentColor =
-            if (enabled) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+        color = if (enabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = if (enabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = token.label,
+                text = text,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 18.sp,
             )
@@ -643,33 +507,6 @@ private fun ResultFooter(
     }
 }
 
-@Composable
-private fun TokenGhost(
-    token: TenToken,
-    position: Offset,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier =
-            modifier
-                .offset {
-                    IntOffset(position.x.roundToInt(), position.y.roundToInt())
-                },
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.tertiaryContainer,
-        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-        tonalElevation = 2.dp,
-        shadowElevation = 6.dp,
-    ) {
-        Box(
-            modifier = Modifier.sizeIn(minWidth = 40.dp, minHeight = 40.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(text = token.label, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-        }
-    }
-}
-
 private fun formatSeconds(totalSeconds: Int): String {
     val m = totalSeconds / 60
     val s = totalSeconds % 60
@@ -682,35 +519,83 @@ private enum class TenPuzzlePhase {
     TimeUp,
 }
 
-internal enum class TenToken(val label: String) {
-    LParen("("),
-    RParen(")"),
-    Plus("+"),
-    Minus("-"),
-    Times("×"),
-    Divide("÷"),
+private class TenPuzzleDigitKeyState(
+    val id: Int,
+    val value: Int,
+) {
+    var used by mutableStateOf(false)
 }
 
-private sealed interface Expr {
-    data class Num(val value: Rational) : Expr
-    data class Bin(val op: Op, val left: Expr, val right: Expr) : Expr
+private sealed interface TenPuzzleInputToken {
+    val label: String
+
+    data class Number(
+        val digitId: Int,
+        val value: Int,
+    ) : TenPuzzleInputToken {
+        override val label: String = value.toString()
+    }
+
+    data object LParen : TenPuzzleInputToken {
+        override val label: String = "("
+    }
+
+    data object RParen : TenPuzzleInputToken {
+        override val label: String = ")"
+    }
+
+    data object Plus : TenPuzzleInputToken {
+        override val label: String = "+"
+    }
+
+    data object Minus : TenPuzzleInputToken {
+        override val label: String = "-"
+    }
+
+    data object Times : TenPuzzleInputToken {
+        override val label: String = "×"
+    }
+
+    data object Divide : TenPuzzleInputToken {
+        override val label: String = "÷"
+    }
 }
 
-private enum class Op(val precedence: Int) {
+private sealed interface TenPuzzleExpr {
+    data class Num(val value: TenPuzzleRational) : TenPuzzleExpr
+    data class Bin(
+        val op: TenPuzzleOp,
+        val left: TenPuzzleExpr,
+        val right: TenPuzzleExpr,
+    ) : TenPuzzleExpr
+}
+
+private enum class TenPuzzleOp(val precedence: Int) {
     Plus(1),
     Minus(1),
     Times(2),
     Divide(2),
 }
 
-private sealed interface Token {
-    data class Number(val value: Int) : Token
-    data class Operator(val op: Op) : Token
-    data class Paren(val isLeft: Boolean) : Token
+private sealed interface TenPuzzleAstToken {
+    data class Number(val value: Int) : TenPuzzleAstToken
+    data class Operator(val op: TenPuzzleOp) : TenPuzzleAstToken
+    data class Paren(val isLeft: Boolean) : TenPuzzleAstToken
 }
 
+private fun TenPuzzleInputToken.toEvalToken(): TenPuzzleAstToken =
+    when (this) {
+        is TenPuzzleInputToken.Number -> TenPuzzleAstToken.Number(value)
+        TenPuzzleInputToken.LParen -> TenPuzzleAstToken.Paren(isLeft = true)
+        TenPuzzleInputToken.RParen -> TenPuzzleAstToken.Paren(isLeft = false)
+        TenPuzzleInputToken.Plus -> TenPuzzleAstToken.Operator(TenPuzzleOp.Plus)
+        TenPuzzleInputToken.Minus -> TenPuzzleAstToken.Operator(TenPuzzleOp.Minus)
+        TenPuzzleInputToken.Times -> TenPuzzleAstToken.Operator(TenPuzzleOp.Times)
+        TenPuzzleInputToken.Divide -> TenPuzzleAstToken.Operator(TenPuzzleOp.Divide)
+    }
+
 @Stable
-private data class Rational(
+private data class TenPuzzleRational(
     val numerator: Long,
     val denominator: Long,
 ) {
@@ -730,37 +615,37 @@ private data class Rational(
         }
 
     companion object {
-        fun ofInt(v: Int): Rational = Rational(v.toLong(), 1L).reduce()
+        fun ofInt(v: Int): TenPuzzleRational = TenPuzzleRational(v.toLong(), 1L).reduce()
     }
 
-    fun reduce(): Rational {
-        if (numerator == 0L) return Rational(0L, 1L)
-        val g = gcd(kotlin.math.abs(numerator), kotlin.math.abs(denominator))
+    fun reduce(): TenPuzzleRational {
+        if (numerator == 0L) return TenPuzzleRational(0L, 1L)
+        val g = gcd(abs(numerator), abs(denominator))
         val sign = if (denominator < 0L) -1L else 1L
-        return Rational(sign * (numerator / g), sign * (denominator / g))
+        return TenPuzzleRational(sign * (numerator / g), sign * (denominator / g))
     }
 
-    operator fun plus(other: Rational): Rational =
-        Rational(
+    operator fun plus(other: TenPuzzleRational): TenPuzzleRational =
+        TenPuzzleRational(
             numerator * other.denominator + other.numerator * denominator,
             denominator * other.denominator,
         ).reduce()
 
-    operator fun minus(other: Rational): Rational =
-        Rational(
+    operator fun minus(other: TenPuzzleRational): TenPuzzleRational =
+        TenPuzzleRational(
             numerator * other.denominator - other.numerator * denominator,
             denominator * other.denominator,
         ).reduce()
 
-    operator fun times(other: Rational): Rational =
-        Rational(
+    operator fun times(other: TenPuzzleRational): TenPuzzleRational =
+        TenPuzzleRational(
             numerator * other.numerator,
             denominator * other.denominator,
         ).reduce()
 
-    fun div(other: Rational): Rational? {
+    fun div(other: TenPuzzleRational): TenPuzzleRational? {
         if (other.isZero()) return null
-        return Rational(
+        return TenPuzzleRational(
             numerator * other.denominator,
             denominator * other.numerator,
         ).reduce()
@@ -775,84 +660,49 @@ private fun gcd(a: Long, b: Long): Long {
         x = y
         y = t
     }
-    return if (x == 0L) 1L else kotlin.math.abs(x)
+    return if (x == 0L) 1L else abs(x)
 }
 
-private fun buildExpressionTokens(
-    numbers: IntArray,
-    slots: List<List<TenToken>>,
-): List<Token> {
-    val out = ArrayList<Token>(4 + 15)
-
-    fun addSlot(index: Int) {
-        for (t in slots[index]) {
-            out.add(t.toToken())
-        }
-    }
-
-    addSlot(0)
-    out.add(Token.Number(numbers[0]))
-    addSlot(1)
-    out.add(Token.Number(numbers[1]))
-    addSlot(2)
-    out.add(Token.Number(numbers[2]))
-    addSlot(3)
-    out.add(Token.Number(numbers[3]))
-    addSlot(4)
-
-    return out
+private sealed interface TenPuzzleEvalState {
+    data object NotParsable : TenPuzzleEvalState
+    data object DivisionByZero : TenPuzzleEvalState
+    data class Ok(val value: TenPuzzleRational) : TenPuzzleEvalState
 }
 
-private fun TenToken.toToken(): Token =
-    when (this) {
-        TenToken.LParen -> Token.Paren(isLeft = true)
-        TenToken.RParen -> Token.Paren(isLeft = false)
-        TenToken.Plus -> Token.Operator(Op.Plus)
-        TenToken.Minus -> Token.Operator(Op.Minus)
-        TenToken.Times -> Token.Operator(Op.Times)
-        TenToken.Divide -> Token.Operator(Op.Divide)
-    }
-
-private sealed interface EvalState {
-    data object NotParsable : EvalState
-    data object DivisionByZero : EvalState
-    data class Ok(val value: Rational) : EvalState
-}
-
-private fun evaluateExpression(tokens: List<Token>): EvalState {
-    val expr = parseToAst(tokens) ?: return EvalState.NotParsable
+private fun evaluateExpression(tokens: List<TenPuzzleAstToken>): TenPuzzleEvalState {
+    val expr = parseToAst(tokens) ?: return TenPuzzleEvalState.NotParsable
     return when (val v = eval(expr)) {
-        null -> EvalState.DivisionByZero
-        else -> EvalState.Ok(v)
+        null -> TenPuzzleEvalState.DivisionByZero
+        else -> TenPuzzleEvalState.Ok(v)
     }
 }
 
 /**
- * 単項演算子は許可しない。
+ * 単項演算子は許可しない．
  *
- * 実装は shunting-yard で AST を構築する。
+ * 実装は shunting-yard で AST を構築する．
  */
-private fun parseToAst(tokens: List<Token>): Expr? {
-    val exprStack = ArrayDeque<Expr>()
-    val opStack = ArrayDeque<Token>()
+private fun parseToAst(tokens: List<TenPuzzleAstToken>): TenPuzzleExpr? {
+    val exprStack = ArrayDeque<TenPuzzleExpr>()
+    val opStack = ArrayDeque<TenPuzzleAstToken>()
 
-    fun applyOp(opToken: Token.Operator): Boolean {
+    fun applyOp(opToken: TenPuzzleAstToken.Operator): Boolean {
         if (exprStack.size < 2) return false
         val right = exprStack.removeLast()
         val left = exprStack.removeLast()
-        exprStack.addLast(Expr.Bin(opToken.op, left, right))
+        exprStack.addLast(TenPuzzleExpr.Bin(opToken.op, left, right))
         return true
     }
 
-    var prev: Token? = null
+    var prev: TenPuzzleAstToken? = null
 
     for (t in tokens) {
         when (t) {
-            is Token.Number -> {
-                exprStack.addLast(Expr.Num(Rational.ofInt(t.value)))
+            is TenPuzzleAstToken.Number -> {
+                exprStack.addLast(TenPuzzleExpr.Num(TenPuzzleRational.ofInt(t.value)))
             }
 
-            is Token.Paren -> {
+            is TenPuzzleAstToken.Paren -> {
                 if (t.isLeft) {
                     opStack.addLast(t)
                 } else {
@@ -860,8 +710,9 @@ private fun parseToAst(tokens: List<Token>): Expr? {
                     while (opStack.isNotEmpty()) {
                         val top = opStack.removeLast()
                         when (top) {
-                            is Token.Operator -> if (!applyOp(top)) return null
-                            is Token.Paren -> {
+                            is TenPuzzleAstToken.Operator -> if (!applyOp(top)) return null
+                            is TenPuzzleAstToken.Number -> return null
+                            is TenPuzzleAstToken.Paren -> {
                                 if (top.isLeft) {
                                     found = true
                                     break
@@ -869,22 +720,21 @@ private fun parseToAst(tokens: List<Token>): Expr? {
                                     return null
                                 }
                             }
-                            else -> return null
                         }
                     }
                     if (!found) return null
                 }
             }
 
-            is Token.Operator -> {
+            is TenPuzzleAstToken.Operator -> {
                 // 単項演算子禁止：先頭，演算子の直後，'(' の直後は不可
-                if (prev == null || prev is Token.Operator || (prev is Token.Paren && prev.isLeft)) {
+                if (prev == null || prev is TenPuzzleAstToken.Operator || (prev is TenPuzzleAstToken.Paren && prev.isLeft)) {
                     return null
                 }
 
                 while (opStack.isNotEmpty()) {
                     val top = opStack.last()
-                    if (top is Token.Operator && top.op.precedence >= t.op.precedence) {
+                    if (top is TenPuzzleAstToken.Operator && top.op.precedence >= t.op.precedence) {
                         opStack.removeLast()
                         if (!applyOp(top)) return null
                     } else {
@@ -897,34 +747,32 @@ private fun parseToAst(tokens: List<Token>): Expr? {
         prev = t
     }
 
-    // 末尾が演算子は不可
-    if (prev is Token.Operator) return null
+    if (prev is TenPuzzleAstToken.Operator) return null
 
     while (opStack.isNotEmpty()) {
         val top = opStack.removeLast()
         when (top) {
-            is Token.Operator -> if (!applyOp(top)) return null
-            is Token.Paren -> return null
-            else -> return null
+            is TenPuzzleAstToken.Operator -> if (!applyOp(top)) return null
+            is TenPuzzleAstToken.Number -> return null
+            is TenPuzzleAstToken.Paren -> return null
         }
     }
 
     return exprStack.singleOrNull()
 }
 
-private fun eval(expr: Expr): Rational? {
+private fun eval(expr: TenPuzzleExpr): TenPuzzleRational? {
     return when (expr) {
-        is Expr.Num -> expr.value
-        is Expr.Bin -> {
+        is TenPuzzleExpr.Num -> expr.value
+        is TenPuzzleExpr.Bin -> {
             val l = eval(expr.left) ?: return null
             val r = eval(expr.right) ?: return null
             when (expr.op) {
-                Op.Plus -> l + r
-                Op.Minus -> l - r
-                Op.Times -> l * r
-                Op.Divide -> l.div(r) ?: return null
+                TenPuzzleOp.Plus -> l + r
+                TenPuzzleOp.Minus -> l - r
+                TenPuzzleOp.Times -> l * r
+                TenPuzzleOp.Divide -> l.div(r) ?: return null
             }
         }
     }
 }
-
