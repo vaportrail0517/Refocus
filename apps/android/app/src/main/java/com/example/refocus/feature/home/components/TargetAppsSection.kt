@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
@@ -71,23 +72,28 @@ internal fun TargetAppsGrid(
 ) {
     BoxWithConstraints(modifier = modifier) {
         val columns = 2
-        val horizontalSpacing = 8.dp
-        val itemWidth = (maxWidth - horizontalSpacing * (columns - 1)) / columns
+        val spacing = 8.dp
+        val density = LocalDensity.current
+
+        val spacingPx = with(density) { spacing.roundToPx() }
+        val itemWidthPx = (constraints.maxWidth - spacingPx * (columns - 1)) / columns
+        val itemWidthDp = with(density) { itemWidthPx.toDp() }
 
         FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(horizontalSpacing),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             apps.forEach { app ->
                 TargetAppCard(
                     app = app,
                     onClick = { onAppClick(app.packageName) },
-                    modifier = Modifier.width(itemWidth),
+                    modifier = Modifier.width(itemWidthDp),
                 )
             }
             AddTargetAppCard(
                 onClick = onAddClick,
-                modifier = Modifier.width(itemWidth),
+                modifier = Modifier.width(itemWidthDp),
             )
         }
     }
