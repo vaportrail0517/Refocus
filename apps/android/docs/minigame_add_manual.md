@@ -1,11 +1,12 @@
 # Refocus，ミニゲーム追加マニュアル
 
 このドキュメントは，Refocus（Android）に新しいミニゲームを追加するための手順書です．
-現状の実装は，ミニゲームの「起動タイミング」は domain が決め，ミニゲームの「中身（Composable）」は system 側に閉じる構成になっています．
+現状の実装は，ミニゲームの「起動タイミング」は domain が決め，ミニゲームの「中身（Composable）」は ui レイヤに閉じ，system は overlay 表示など Android 固有の責務だけを担う構成になっています．
 
 対象リポジトリ（本 zip 展開内容）
 - `apps/android/app/src/main/java/com/example/refocus/core/model/MiniGameKind.kt`
-- `apps/android/app/src/main/java/com/example/refocus/system/overlay/ui/minigame/` 以下
+- `apps/android/app/src/main/java/com/example/refocus/ui/minigame/` 以下
+- `apps/android/app/src/main/java/com/example/refocus/system/overlay/MiniGameOverlayController.kt`（overlay へ載せる側）
 
 ---
 
@@ -13,14 +14,15 @@
 
 ### 1-1．レイヤ境界
 
-ミニゲーム UI は `system` レイヤにあります．そのため，ミニゲーム実装は次を守ってください．
+ミニゲーム UI は `ui` レイヤにあります．そのため，ミニゲーム実装は次を守ってください．
 
-- 参照してよいのは，`system`，`domain`（port まで），`core`，Kotlin，Android API，Compose です．
-- `app`，`feature`，`data` への import は禁止です（`checkSystemBoundaries` で検出されます）．
+- 参照してよいのは，`ui`，`core`，Kotlin，Compose です．
+- `app`，`feature`，`system`，`data` への import は禁止です（`checkUiBoundaries` で検出されます）．
+- domain の型やユースケースへ直接依存すると，後から設計が崩れやすいので避けます．必要なメタデータは `core` 側へ置きます．
 
 関連
 - `apps/android/docs/layers.md`
-- `apps/android/app/build.gradle.kts` の `checkSystemBoundaries`
+- `apps/android/app/build.gradle.kts` の `checkUiBoundaries`
 
 ### 1-2．「結果は返さない」原則
 
@@ -70,7 +72,7 @@ domain はミニゲーム表示の失敗（WindowManager の一時的失敗な�
 
 ### 2-2．system 側のレジストリ（Kind -> 実装）
 
-- ファイル: `system/overlay/ui/minigame/catalog/MiniGameRegistry.kt`
+- ファイル: `ui/minigame/catalog/MiniGameRegistry.kt`
 - 役割: 実装済みゲームを `MiniGameEntry` として列挙し，kind から解決する
 
 新規ゲームを追加したら，ここへ `entry` を追加します．
@@ -79,10 +81,10 @@ domain はミニゲーム表示の失敗（WindowManager の一時的失敗な�
 
 既存の実装は以下にあります．
 
-- `system/overlay/ui/minigame/games/flashanzan/`
+- `ui/minigame/games/flashanzan/`
   - `Entry.kt`
   - `Game.kt`
-- `system/overlay/ui/minigame/games/maketen/`
+- `ui/minigame/games/maketen/`
   - `Entry.kt`
   - `Game.kt`
   - `Problems.kt`（問題データ読み込み）
@@ -121,7 +123,7 @@ enum class MiniGameKind {
 
 ### 手順2．ゲーム用パッケージを作る
 
-`apps/android/app/src/main/java/com/example/refocus/system/overlay/ui/minigame/games/<gameId>/` を作ります．
+`apps/android/app/src/main/java/com/example/refocus/ui/minigame/games/<gameId>/` を作ります．
 例: `games/numbermemory/`，`games/quicktap/` など
 
 最低限，次の2ファイルを用意します．
@@ -133,11 +135,11 @@ enum class MiniGameKind {
 テンプレート
 
 ```kotlin
-package com.example.refocus.system.overlay.ui.minigame.games.<gameId>
+package com.example.refocus.ui.minigame.games.<gameId>
 
 import com.example.refocus.core.model.MiniGameKind
-import com.example.refocus.system.overlay.ui.minigame.catalog.MiniGameDescriptor
-import com.example.refocus.system.overlay.ui.minigame.catalog.MiniGameEntry
+import com.example.refocus.ui.minigame.catalog.MiniGameDescriptor
+import com.example.refocus.ui.minigame.catalog.MiniGameEntry
 
 internal val <gameId>Entry: MiniGameEntry =
     MiniGameEntry(
@@ -166,7 +168,7 @@ internal val <gameId>Entry: MiniGameEntry =
 #### 4-1．最小構成テンプレート
 
 ```kotlin
-package com.example.refocus.system.overlay.ui.minigame.games.<gameId>
+package com.example.refocus.ui.minigame.games.<gameId>
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -232,12 +234,12 @@ private enum class Phase {
 
 #### 4-3．共通 UI の利用
 
-- 数字入力が必要なら `system/overlay/ui/minigame/components/NumericKeypad.kt` を使えます．
+- 数字入力が必要なら `ui/minigame/components/NumericKeypad.kt` を使えます．
 - 似た UI を複数ゲームで使う見込みがあるなら，ゲーム固有パッケージに閉じず `components/` に切り出してください．
 
 ### 手順5．`MiniGameRegistry` にエントリを追加する
 
-`apps/android/app/src/main/java/com/example/refocus/system/overlay/ui/minigame/catalog/MiniGameRegistry.kt` の `entries` に追加します．
+`apps/android/app/src/main/java/com/example/refocus/ui/minigame/catalog/MiniGameRegistry.kt` の `entries` に追加します．
 
 ```kotlin
 val entries: List<MiniGameEntry> =
@@ -271,6 +273,9 @@ val entries: List<MiniGameEntry> =
 
 Debug ビルドでは，カスタマイズ画面に「ミニゲームのテスト」が出ます．
 
+注意
+- ここは feature（設定画面）側の実装なので，ミニゲーム UI は `com.example.refocus.ui.minigame.MiniGameHostOverlay` を import します．`com.example.refocus.system.*` を参照すると境界違反になります．
+
 - 画面: 設定（カスタマイズ） -> ミニゲーム -> ミニゲームのテスト
 - 一覧は `MiniGameRegistry.descriptors` から生成されるため，レジストリに追加できていれば表示されます．
 
@@ -287,7 +292,8 @@ Debug ビルドでは，カスタマイズ画面に「ミニゲームのテス�
 cd apps/android
 ./gradlew :app:assembleDebug
 ./gradlew :app:testDebugUnitTest
-./gradlew checkSystemBoundaries
+./gradlew checkUiBoundaries
+./gradlew checkFeatureBoundaries
 ```
 
 ---
@@ -309,7 +315,7 @@ cd apps/android
 
 ### 4-3．依存と配置
 
-- `system` レイヤから `feature`，`data`，`app` への import がないことを確認する．
+- `ui` レイヤから `feature`，`data`，`app`，`system` への import がないことを確認する．
 - ゲーム固有のファイルは `games/<gameId>/` に寄せる．
 - 複数ゲームで使う UI は `components/` に切り出す．
 
@@ -333,9 +339,10 @@ cd apps/android
 - 背景はタップ吸収しますが，カード内は操作できるはずです．
 - もし全体が反応しない場合は，Composable の上にクリック吸収レイヤを置いていないかを確認します．
 
-### 5-3．ビルドで `checkSystemBoundaries` が落ちる
+### 5-3．ビルドで `checkUiBoundaries` が落ちる
 
-- `system` から `com.example.refocus.feature.` や `com.example.refocus.data.` を import していないか確認します．
+- `ui` から `com.example.refocus.feature.` や `com.example.refocus.system.`，`com.example.refocus.data.` を import していないか確認します．
+- 特に，feature からミニゲームを呼び出す場合は，`com.example.refocus.ui.minigame.*` を参照し，`com.example.refocus.system.*` を import しないでください（`checkFeatureBoundaries` で検出されます）．
 - 設定値が欲しい場合は，domain から注入される Port を増やすのが原則です（短絡的に DataStore を直接読むのは避ける）．
 
 ---
@@ -348,7 +355,7 @@ cd apps/android
 重み付けや「直近で出たものを避ける」などを入れたい場合は，ここを拡張します．
 
 注意
-- domain は system のレジストリを参照できません．そのため，重み情報を domain が知る必要がある場合は，`core` 側に「メタデータ」を置くなど，設計を一段階見直してください．
+- domain は ui のレジストリを参照できません．そのため，重み情報を domain が知る必要がある場合は，`core` 側に「メタデータ」を置くなど，設計を一段階見直してください．
 
 ### 6-2．ゲームごとの設定を追加したい
 

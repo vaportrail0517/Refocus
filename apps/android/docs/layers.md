@@ -51,6 +51,14 @@ Refocus は，後から機能を増やしても設計が崩れないように，
 - system 側の実装は `*Impl` か，役割が明確なら `*Controller`，`*Adapter` を使う．
 - `Gateway` という語は，feature が参照する Android 型込みの interface 群（`com.example.refocus.gateway`）に限定する．
 
+
+
+## 補足，ミニゲームの配置
+
+- ミニゲームの Composable とレジストリは `ui/minigame` に置く．
+- overlay の WindowManager 制御は `system/overlay` に置き，`ui` の Composable を呼び出す．
+- feature からミニゲームを表示したい場合も，参照先は `ui` にする（`system` への import は `checkFeatureBoundaries` で禁止）．
+
 ## 現状の自動チェック
 
 `apps/android/app/build.gradle.kts` に import ベースの軽量ガードを置いている．
