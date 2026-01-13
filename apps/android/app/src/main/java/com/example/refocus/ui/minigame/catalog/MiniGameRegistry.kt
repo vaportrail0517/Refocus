@@ -1,14 +1,14 @@
-package com.example.refocus.system.overlay.ui.minigame.catalog
+package com.example.refocus.ui.minigame.catalog
 
 import com.example.refocus.core.model.MiniGameKind
-import com.example.refocus.system.overlay.ui.minigame.games.flashanzan.flashAnzanEntry
-import com.example.refocus.system.overlay.ui.minigame.games.maketen.makeTenEntry
+import com.example.refocus.ui.minigame.games.flashanzan.flashAnzanEntry
+import com.example.refocus.ui.minigame.games.maketen.makeTenEntry
 
 /**
  * 実装済みのミニゲームを列挙するレジストリ。
  *
  * 注意
- * - system 側の UI 実装（Composable）を保持するため，domain からは参照しないこと。
+ * - ui 側の UI 実装（Composable）を保持するため，domain からは参照しないこと。
  * - 新しいミニゲームを追加したら，ここにエントリを追加する。
  */
 object MiniGameRegistry {

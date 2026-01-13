@@ -1,8 +1,8 @@
-package com.example.refocus.system.overlay.ui.minigame.games.maketen
+package com.example.refocus.ui.minigame.games.maketen
 
 import com.example.refocus.core.model.MiniGameKind
-import com.example.refocus.system.overlay.ui.minigame.catalog.MiniGameDescriptor
-import com.example.refocus.system.overlay.ui.minigame.catalog.MiniGameEntry
+import com.example.refocus.ui.minigame.catalog.MiniGameDescriptor
+import com.example.refocus.ui.minigame.catalog.MiniGameEntry
 
 internal val makeTenEntry: MiniGameEntry =
     MiniGameEntry(

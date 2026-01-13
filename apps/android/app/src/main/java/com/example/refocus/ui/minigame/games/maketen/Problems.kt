@@ -1,4 +1,4 @@
-package com.example.refocus.system.overlay.ui.minigame.games.maketen
+package com.example.refocus.ui.minigame.games.maketen
 
 import android.content.Context
 import com.example.refocus.R

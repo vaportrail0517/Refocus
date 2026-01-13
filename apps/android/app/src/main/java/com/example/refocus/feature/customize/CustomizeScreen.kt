@@ -33,7 +33,7 @@ import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.feature.common.overlay.rememberOverlayServiceController
 import com.example.refocus.feature.common.overlay.rememberOverlayServiceStatusProvider
 import com.example.refocus.feature.common.permissions.rememberPermissionUiState
-import com.example.refocus.system.overlay.ui.minigame.MiniGameHostOverlay
+import com.example.refocus.ui.minigame.MiniGameHostOverlay
 import kotlinx.coroutines.launch
 
 private enum class CustomizeTab(

@@ -1,4 +1,4 @@
-package com.example.refocus.system.overlay.ui.minigame.games.maketen
+package com.example.refocus.ui.minigame.games.maketen
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable

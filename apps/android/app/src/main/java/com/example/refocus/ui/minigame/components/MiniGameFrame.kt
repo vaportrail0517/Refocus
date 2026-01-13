@@ -1,4 +1,4 @@
-package com.example.refocus.system.overlay.ui.minigame.components
+package com.example.refocus.ui.minigame.components
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints

@@ -1,4 +1,4 @@
-package com.example.refocus.system.overlay.ui.minigame.games.flashanzan
+package com.example.refocus.ui.minigame.games.flashanzan
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,7 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.refocus.system.overlay.ui.minigame.components.NumericKeypad
+import com.example.refocus.ui.minigame.components.NumericKeypad
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 

@@ -11,7 +11,7 @@ import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.domain.overlay.port.MiniGameOverlayUiModel
-import com.example.refocus.system.overlay.ui.minigame.MiniGameHostOverlay
+import com.example.refocus.ui.minigame.MiniGameHostOverlay
 import com.example.refocus.ui.theme.RefocusTheme
 import java.util.concurrent.atomic.AtomicBoolean
 

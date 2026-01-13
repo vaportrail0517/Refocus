@@ -1,4 +1,4 @@
-package com.example.refocus.system.overlay.ui.minigame
+package com.example.refocus.ui.minigame
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,8 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.refocus.core.model.MiniGameKind
-import com.example.refocus.system.overlay.ui.minigame.catalog.MiniGameRegistry
-import com.example.refocus.system.overlay.ui.minigame.components.MiniGameFrame
+import com.example.refocus.ui.minigame.catalog.MiniGameRegistry
+import com.example.refocus.ui.minigame.components.MiniGameFrame
 
 /**
  * ミニゲーム用のフルスクリーンオーバーレイ。
