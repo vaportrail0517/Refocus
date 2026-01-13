@@ -3,8 +3,10 @@ package com.example.refocus.system.overlay.ui.minigame
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,7 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -33,10 +35,18 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
@@ -67,6 +77,10 @@ fun MakeTenGame(
         remember(seed) { emptyList<MakeTenInputToken>().toMutableStateList() }
 
     var cursorIndex by remember(seed) { mutableIntStateOf(0) }
+
+    val undoStack: SnapshotStateList<MakeTenEditorSnapshot> =
+        remember(seed) { emptyList<MakeTenEditorSnapshot>().toMutableStateList() }
+
 
     var phase by remember(seed) { mutableStateOf(MakeTenPhase.Playing) }
     var remainingSeconds by remember(seed) { mutableIntStateOf(60) }
@@ -107,45 +121,128 @@ fun MakeTenGame(
 
     val editingEnabled = phase == MakeTenPhase.Playing && remainingSeconds > 0
 
-    fun setCursorSafe(index: Int) {
-        cursorIndex = index.coerceIn(0, expr.size)
-    }
 
-    fun removeAt(index: Int) {
-        if (!editingEnabled) return
-        if (index !in expr.indices) return
-        val removed = expr.removeAt(index)
-        if (removed is MakeTenInputToken.Number) {
-            digitKeys.getOrNull(removed.digitId)?.used = false
+fun setCursorSafe(index: Int) {
+    cursorIndex = index.coerceIn(0, expr.size)
+}
+
+fun syncDigitUsedFromExpr() {
+    digitKeys.forEach { it.used = false }
+    expr.forEach { t ->
+        if (t is MakeTenInputToken.Number) {
+            digitKeys.getOrNull(t.digitId)?.used = true
         }
-        if (cursorIndex > index) cursorIndex -= 1
-        setCursorSafe(cursorIndex)
     }
+}
 
-    fun insertToken(token: MakeTenInputToken) {
-        if (!editingEnabled) return
-        if (token is MakeTenInputToken.Number) {
-            val key = digitKeys.getOrNull(token.digitId) ?: return
-            if (key.used) return
-            key.used = true
+fun pushUndoSnapshot() {
+    // 直前の状態を保存して Undo を可能にする
+    undoStack.add(MakeTenEditorSnapshot(tokens = expr.toList(), cursorIndex = cursorIndex))
+    if (undoStack.size > 50) {
+        undoStack.removeAt(0)
+    }
+}
+
+fun undo() {
+    if (!editingEnabled) return
+    if (undoStack.isEmpty()) return
+    val snap = undoStack.removeAt(undoStack.lastIndex)
+    expr.clear()
+    expr.addAll(snap.tokens)
+    cursorIndex = snap.cursorIndex.coerceIn(0, expr.size)
+    syncDigitUsedFromExpr()
+}
+
+fun parenBalanceBefore(index: Int): Int {
+    var balance = 0
+    for (i in 0 until index.coerceIn(0, expr.size)) {
+        when (expr[i]) {
+            MakeTenInputToken.LParen -> balance += 1
+            MakeTenInputToken.RParen -> balance -= 1
+            else -> {}
         }
-        val idx = cursorIndex.coerceIn(0, expr.size)
-        expr.add(idx, token)
-        setCursorSafe(idx + 1)
+    }
+    return balance
+}
+
+fun kindOf(token: MakeTenInputToken): MakeTenTokenKind =
+    when (token) {
+        is MakeTenInputToken.Number -> MakeTenTokenKind.Operand
+        MakeTenInputToken.LParen -> MakeTenTokenKind.LParen
+        MakeTenInputToken.RParen -> MakeTenTokenKind.RParen
+        MakeTenInputToken.Plus,
+        MakeTenInputToken.Minus,
+        MakeTenInputToken.Times,
+        MakeTenInputToken.Divide,
+        -> MakeTenTokenKind.Operator
     }
 
-    fun backspace() {
-        if (!editingEnabled) return
-        if (cursorIndex <= 0) return
-        removeAt(cursorIndex - 1)
+fun isAllowedPair(prev: MakeTenInputToken?, next: MakeTenInputToken?): Boolean {
+    val prevKind = prev?.let { kindOf(it) }
+    val nextKind = next?.let { kindOf(it) }
+
+    return when (prevKind) {
+        null -> nextKind == null || nextKind == MakeTenTokenKind.Operand || nextKind == MakeTenTokenKind.LParen
+        MakeTenTokenKind.Operand,
+        MakeTenTokenKind.RParen,
+        -> nextKind == null || nextKind == MakeTenTokenKind.Operator || nextKind == MakeTenTokenKind.RParen
+
+        MakeTenTokenKind.Operator,
+        MakeTenTokenKind.LParen,
+        -> nextKind == null || nextKind == MakeTenTokenKind.Operand || nextKind == MakeTenTokenKind.LParen
+    }
+}
+
+fun canInsertToken(token: MakeTenInputToken): Boolean {
+    // 入力制御は行わない（文法制約や括弧バランスでボタンを無効化しない）．
+    // ただし数字の重複使用だけは防止する（使用済み数字キーはグレーアウト）．
+    if (!editingEnabled) return false
+
+    if (token is MakeTenInputToken.Number) {
+        val key = digitKeys.getOrNull(token.digitId) ?: return false
+        if (key.used) return false
     }
 
-    fun clearAll() {
-        if (!editingEnabled) return
-        expr.clear()
-        digitKeys.forEach { it.used = false }
-        setCursorSafe(0)
+    return true
+}
+
+fun removeAt(index: Int) {
+    if (!editingEnabled) return
+    if (index !in expr.indices) return
+    pushUndoSnapshot()
+    val removed = expr.removeAt(index)
+    if (removed is MakeTenInputToken.Number) {
+        digitKeys.getOrNull(removed.digitId)?.used = false
     }
+    if (cursorIndex > index) cursorIndex -= 1
+    setCursorSafe(cursorIndex)
+}
+
+fun insertToken(token: MakeTenInputToken) {
+    if (!canInsertToken(token)) return
+    pushUndoSnapshot()
+    if (token is MakeTenInputToken.Number) {
+        digitKeys.getOrNull(token.digitId)?.used = true
+    }
+    val idx = cursorIndex.coerceIn(0, expr.size)
+    expr.add(idx, token)
+    setCursorSafe(idx + 1)
+}
+
+fun backspace() {
+    if (!editingEnabled) return
+    if (cursorIndex <= 0) return
+    removeAt(cursorIndex - 1)
+}
+
+fun clearAll() {
+    if (!editingEnabled) return
+    if (expr.isEmpty()) return
+    pushUndoSnapshot()
+    expr.clear()
+    digitKeys.forEach { it.used = false }
+    setCursorSafe(0)
+}
 
     Column(
         modifier = modifier.fillMaxSize(),
@@ -160,8 +257,9 @@ fun MakeTenGame(
             tokens = expr,
             cursorIndex = cursorIndex,
             editingEnabled = editingEnabled,
+            usedDigitsCount = digitKeys.count { it.used },
+            totalDigitsCount = digitKeys.size,
             onSetCursor = { setCursorSafe(it) },
-            onBackspace = { backspace() },
         )
 
         EvaluationText(
@@ -176,7 +274,12 @@ fun MakeTenGame(
             MakeTenKeyboard(
                 digitKeys = digitKeys,
                 enabled = editingEnabled,
+                canInsert = { canInsertToken(it) },
+                canUndo = undoStack.isNotEmpty(),
+                canBackspace = cursorIndex > 0,
+                canClear = expr.isNotEmpty(),
                 onInsert = { insertToken(it) },
+                onUndo = { undo() },
                 onBackspace = { backspace() },
                 onClear = { clearAll() },
             )
@@ -225,27 +328,79 @@ private fun MakeTenHeader(
     }
 }
 
+
 @Composable
 private fun ExpressionEditor(
     tokens: SnapshotStateList<MakeTenInputToken>,
     cursorIndex: Int,
     editingEnabled: Boolean,
+    usedDigitsCount: Int,
+    totalDigitsCount: Int,
     onSetCursor: (Int) -> Unit,
-    onBackspace: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val exprText by remember(tokens) {
         derivedStateOf { tokens.joinToString(separator = "") { it.label } }
     }
 
-    val caretColor = MaterialTheme.colorScheme.primary
+    val highlightParenPair by remember(tokens, cursorIndex) {
+        derivedStateOf { findMatchingParenPair(tokens, cursorIndex) }
+    }
 
-    // タップ位置 -> 文字オフセット変換に必要
-    var layoutResult by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
+    val highlightIndices by remember(highlightParenPair) {
+        derivedStateOf {
+            highlightParenPair?.let { setOf(it.first, it.second) } ?: emptySet()
+        }
+    }
+
+    // MaterialTheme の参照は @Composable コンテキストで行い，
+    // derivedStateOf の中では通常の値として扱う（@Composable 呼び出しエラー回避）
+    val parenHighlightBg = MaterialTheme.colorScheme.secondaryContainer
+    val parenHighlightFg = MaterialTheme.colorScheme.onSecondaryContainer
+
+    val displayText by remember(tokens, highlightIndices, parenHighlightBg, parenHighlightFg) {
+        derivedStateOf {
+            buildAnnotatedString {
+                tokens.forEachIndexed { idx, t ->
+                    if (idx in highlightIndices) {
+                        withStyle(
+                            SpanStyle(
+                                background = parenHighlightBg,
+                                color = parenHighlightFg,
+                            ),
+                        ) {
+                            append(t.label)
+                        }
+                    } else {
+                        append(t.label)
+                    }
+                }
+            }
+        }
+    }
+
+    var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    val scrollState = rememberScrollState()
+    val density = LocalDensity.current
 
     val contentPadding = 12.dp
-    val contentPaddingPx = with(androidx.compose.ui.platform.LocalDensity.current) { contentPadding.toPx() }
-    val caretHeightPx = with(androidx.compose.ui.platform.LocalDensity.current) { 22.sp.toPx() }
+    val contentPaddingPx = with(density) { contentPadding.toPx() }
+
+    var caretVisible by remember { mutableStateOf(false) }
+    val caretColor = MaterialTheme.colorScheme.primary
+
+    // カーソル移動・入力直後は一旦点灯してから点滅させる
+    LaunchedEffect(editingEnabled, cursorIndex, exprText) {
+        if (!editingEnabled) {
+            caretVisible = false
+            return@LaunchedEffect
+        }
+        caretVisible = true
+        while (true) {
+            delay(520)
+            caretVisible = !caretVisible
+        }
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -254,31 +409,64 @@ private fun ExpressionEditor(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                text = "式",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                // テキストエリア風の表示 + カーソル
-                Surface(
-                    modifier = Modifier.weight(1f),
-                    color = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    shape = MaterialTheme.shapes.small,
+                Text(
+                    text = "式",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "使用 $usedDigitsCount/$totalDigitsCount",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                shape = MaterialTheme.shapes.small,
+            ) {
+                // 1行固定 + 横スクロール + カーソル追従
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).clipToBounds(),
                 ) {
+                    val viewportWidthPx = with(density) { maxWidth.toPx() }
+                    val marginPx = with(density) { 18.dp.toPx() }
+
+                    // カーソルが見えるように自動スクロール
+                    LaunchedEffect(cursorIndex, exprText, layoutResult, viewportWidthPx) {
+                        if (!editingEnabled) return@LaunchedEffect
+                        val lr = layoutResult ?: return@LaunchedEffect
+                        val safeIndex = cursorIndex.coerceIn(0, exprText.length)
+                        val rect = lr.getCursorRect(safeIndex)
+                        val caretXInContent = contentPaddingPx + rect.left
+
+                        val visibleStart = scrollState.value.toFloat()
+                        val visibleEnd = visibleStart + viewportWidthPx
+
+                        val target =
+                            when {
+                                caretXInContent < visibleStart + marginPx -> (caretXInContent - marginPx).toInt()
+                                caretXInContent > visibleEnd - marginPx -> (caretXInContent - viewportWidthPx + marginPx).toInt()
+                                else -> return@LaunchedEffect
+                            }.coerceIn(0, scrollState.maxValue)
+
+                        scrollState.animateScrollTo(target)
+                    }
+
                     Box(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 56.dp)
-                                // 余白も含めてタップ可能にする
+                                .horizontalScroll(scrollState)
                                 .pointerInput(editingEnabled, exprText, tokens.size) {
                                     detectTapGestures { pos ->
                                         if (!editingEnabled) return@detectTapGestures
@@ -287,73 +475,79 @@ private fun ExpressionEditor(
                                             onSetCursor(tokens.size)
                                             return@detectTapGestures
                                         }
-                                        val local = androidx.compose.ui.geometry.Offset(
-                                            x = pos.x - contentPaddingPx,
-                                            y = pos.y - contentPaddingPx,
-                                        )
+                                        val local =
+                                            Offset(
+                                                x = pos.x + scrollState.value - contentPaddingPx,
+                                                y = pos.y - contentPaddingPx,
+                                            )
                                         val off = lr.getOffsetForPosition(local)
                                         onSetCursor(off.coerceIn(0, tokens.size))
                                     }
-                                }
-                                .padding(contentPadding)
-                                .drawWithContent {
-                                    drawContent()
-
-                                    if (!editingEnabled) return@drawWithContent
-
-                                    val safeIndex = cursorIndex.coerceIn(0, exprText.length)
-                                    val lr = layoutResult
-                                    val caret = lr?.getCursorRect(safeIndex)
-
-                                    if (caret != null) {
-                                        val x = caret.left
-                                        drawLine(
-                                            color = caretColor,
-                                            start = androidx.compose.ui.geometry.Offset(x, caret.top),
-                                            end = androidx.compose.ui.geometry.Offset(x, caret.bottom),
-                                            strokeWidth = 2.dp.toPx(),
-                                        )
-                                    } else {
-                                        // 空文字などでレイアウト情報が取れない場合のフォールバック
-                                        drawLine(
-                                            color = caretColor,
-                                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                                            end = androidx.compose.ui.geometry.Offset(0f, caretHeightPx),
-                                            strokeWidth = 2.dp.toPx(),
-                                        )
-                                    }
                                 },
                     ) {
-                        if (exprText.isEmpty()) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .padding(contentPadding)
+                                    .drawWithContent {
+                                        drawContent()
+                                        if (!editingEnabled) return@drawWithContent
+                                        if (!caretVisible) return@drawWithContent
+
+                                        val safeIndex = cursorIndex.coerceIn(0, exprText.length)
+                                        val lr = layoutResult
+                                        val caret = lr?.getCursorRect(safeIndex)
+
+                                        if (caret != null) {
+                                            drawLine(
+                                                color = caretColor,
+                                                start = Offset(caret.left, caret.top),
+                                                end = Offset(caret.left, caret.bottom),
+                                                strokeWidth = with(density) { 2.dp.toPx() },
+                                            )
+                                        } else {
+                                            // 空文字などでレイアウト情報が取れない場合のフォールバック
+                                            val h = with(density) { 22.sp.toPx() }
+                                            drawLine(
+                                                color = caretColor,
+                                                start = Offset(0f, 0f),
+                                                end = Offset(0f, h),
+                                                strokeWidth = with(density) { 2.dp.toPx() },
+                                            )
+                                        }
+                                    },
+                        ) {
+                            if (exprText.isEmpty()) {
+                                Text(
+                                    text = "ここに式を入力",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                )
+                            }
+
                             Text(
-                                text = "ここに式を入力",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                text = displayText,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false,
+                                onTextLayout = { layoutResult = it },
                             )
                         }
-
-                        Text(
-                            text = exprText,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            onTextLayout = { layoutResult = it },
-                        )
                     }
-                }
-
-                OutlinedButton(
-                    onClick = onBackspace,
-                    enabled = editingEnabled,
-                    modifier = Modifier.height(56.dp).widthIn(min = 76.dp),
-                ) {
-                    Text(text = "削除")
                 }
             }
 
             Text(
                 text = "式をタップしてカーソル位置を変更できます．",
                 style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -388,11 +582,17 @@ private fun EvaluationText(
     )
 }
 
+
 @Composable
 private fun MakeTenKeyboard(
     digitKeys: List<MakeTenDigitKeyState>,
     enabled: Boolean,
+    canInsert: (MakeTenInputToken) -> Boolean,
+    canUndo: Boolean,
+    canBackspace: Boolean,
+    canClear: Boolean,
     onInsert: (MakeTenInputToken) -> Unit,
+    onUndo: () -> Unit,
     onBackspace: () -> Unit,
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
@@ -406,11 +606,12 @@ private fun MakeTenKeyboard(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             digitKeys.forEach { key ->
+                val token = MakeTenInputToken.Number(digitId = key.id, value = key.value)
                 MakeTenKeyButton(
                     text = key.value.toString(),
-                    enabled = enabled && !key.used,
+                    enabled = enabled && canInsert(token),
                     modifier = Modifier.weight(1f),
-                    onClick = { onInsert(MakeTenInputToken.Number(digitId = key.id, value = key.value)) },
+                    onClick = { onInsert(token) },
                 )
             }
         }
@@ -421,19 +622,19 @@ private fun MakeTenKeyboard(
         ) {
             MakeTenKeyButton(
                 text = "(",
-                enabled = enabled,
+                enabled = enabled && canInsert(MakeTenInputToken.LParen),
                 modifier = Modifier.weight(1f),
                 onClick = { onInsert(MakeTenInputToken.LParen) },
             )
             MakeTenKeyButton(
                 text = ")",
-                enabled = enabled,
+                enabled = enabled && canInsert(MakeTenInputToken.RParen),
                 modifier = Modifier.weight(1f),
                 onClick = { onInsert(MakeTenInputToken.RParen) },
             )
             MakeTenKeyButton(
                 text = "+",
-                enabled = enabled,
+                enabled = enabled && canInsert(MakeTenInputToken.Plus),
                 modifier = Modifier.weight(1f),
                 onClick = { onInsert(MakeTenInputToken.Plus) },
             )
@@ -445,19 +646,19 @@ private fun MakeTenKeyboard(
         ) {
             MakeTenKeyButton(
                 text = "-",
-                enabled = enabled,
+                enabled = enabled && canInsert(MakeTenInputToken.Minus),
                 modifier = Modifier.weight(1f),
                 onClick = { onInsert(MakeTenInputToken.Minus) },
             )
             MakeTenKeyButton(
                 text = "×",
-                enabled = enabled,
+                enabled = enabled && canInsert(MakeTenInputToken.Times),
                 modifier = Modifier.weight(1f),
                 onClick = { onInsert(MakeTenInputToken.Times) },
             )
             MakeTenKeyButton(
                 text = "÷",
-                enabled = enabled,
+                enabled = enabled && canInsert(MakeTenInputToken.Divide),
                 modifier = Modifier.weight(1f),
                 onClick = { onInsert(MakeTenInputToken.Divide) },
             )
@@ -468,15 +669,22 @@ private fun MakeTenKeyboard(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             OutlinedButton(
+                onClick = onUndo,
+                enabled = enabled && canUndo,
+                modifier = Modifier.weight(1f).height(52.dp),
+            ) {
+                Text(text = "戻す")
+            }
+            OutlinedButton(
                 onClick = onClear,
-                enabled = enabled,
-                modifier = Modifier.weight(2f).height(52.dp),
+                enabled = enabled && canClear,
+                modifier = Modifier.weight(1f).height(52.dp),
             ) {
                 Text(text = "クリア")
             }
             OutlinedButton(
                 onClick = onBackspace,
-                enabled = enabled,
+                enabled = enabled && canBackspace,
                 modifier = Modifier.weight(1f).height(52.dp),
             ) {
                 Text(text = "削除")
@@ -577,6 +785,62 @@ private sealed interface MakeTenInputToken {
         override val label: String = "÷"
     }
 }
+
+private enum class MakeTenTokenKind {
+    Operand,
+    Operator,
+    LParen,
+    RParen,
+}
+
+@Stable
+private data class MakeTenEditorSnapshot(
+    val tokens: List<MakeTenInputToken>,
+    val cursorIndex: Int,
+)
+
+private fun findMatchingParenPair(
+    tokens: List<MakeTenInputToken>,
+    cursorIndex: Int,
+): Pair<Int, Int>? {
+    if (tokens.isEmpty()) return null
+
+    val candidates = listOf(cursorIndex - 1, cursorIndex)
+        .filter { it in tokens.indices }
+        .filter { tokens[it] == MakeTenInputToken.LParen || tokens[it] == MakeTenInputToken.RParen }
+
+    val idx = candidates.firstOrNull() ?: return null
+    val token = tokens[idx]
+
+    return if (token == MakeTenInputToken.LParen) {
+        var depth = 0
+        for (i in idx + 1 until tokens.size) {
+            when (tokens[i]) {
+                MakeTenInputToken.LParen -> depth += 1
+                MakeTenInputToken.RParen -> {
+                    if (depth == 0) return idx to i
+                    depth -= 1
+                }
+                else -> {}
+            }
+        }
+        null
+    } else {
+        var depth = 0
+        for (i in idx - 1 downTo 0) {
+            when (tokens[i]) {
+                MakeTenInputToken.RParen -> depth += 1
+                MakeTenInputToken.LParen -> {
+                    if (depth == 0) return i to idx
+                    depth -= 1
+                }
+                else -> {}
+            }
+        }
+        null
+    }
+}
+
 
 private sealed interface MakeTenExpr {
     data class Num(val value: MakeTenRational) : MakeTenExpr
