@@ -49,9 +49,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.random.Random
-import kotlinx.coroutines.delay
 
 @Composable
 fun Game(
@@ -80,7 +80,6 @@ fun Game(
 
     val undoStack: SnapshotStateList<MakeTenEditorSnapshot> =
         remember(seed) { emptyList<MakeTenEditorSnapshot>().toMutableStateList() }
-
 
     var phase by remember(seed) { mutableStateOf(MakeTenPhase.Playing) }
     var remainingSeconds by remember(seed) { mutableIntStateOf(60) }
@@ -121,128 +120,130 @@ fun Game(
 
     val editingEnabled = phase == MakeTenPhase.Playing && remainingSeconds > 0
 
+    fun setCursorSafe(index: Int) {
+        cursorIndex = index.coerceIn(0, expr.size)
+    }
 
-fun setCursorSafe(index: Int) {
-    cursorIndex = index.coerceIn(0, expr.size)
-}
-
-fun syncDigitUsedFromExpr() {
-    digitKeys.forEach { it.used = false }
-    expr.forEach { t ->
-        if (t is MakeTenInputToken.Number) {
-            digitKeys.getOrNull(t.digitId)?.used = true
+    fun syncDigitUsedFromExpr() {
+        digitKeys.forEach { it.used = false }
+        expr.forEach { t ->
+            if (t is MakeTenInputToken.Number) {
+                digitKeys.getOrNull(t.digitId)?.used = true
+            }
         }
     }
-}
 
-fun pushUndoSnapshot() {
-    // 直前の状態を保存して Undo を可能にする
-    undoStack.add(MakeTenEditorSnapshot(tokens = expr.toList(), cursorIndex = cursorIndex))
-    if (undoStack.size > 50) {
-        undoStack.removeAt(0)
-    }
-}
-
-fun undo() {
-    if (!editingEnabled) return
-    if (undoStack.isEmpty()) return
-    val snap = undoStack.removeAt(undoStack.lastIndex)
-    expr.clear()
-    expr.addAll(snap.tokens)
-    cursorIndex = snap.cursorIndex.coerceIn(0, expr.size)
-    syncDigitUsedFromExpr()
-}
-
-fun parenBalanceBefore(index: Int): Int {
-    var balance = 0
-    for (i in 0 until index.coerceIn(0, expr.size)) {
-        when (expr[i]) {
-            MakeTenInputToken.LParen -> balance += 1
-            MakeTenInputToken.RParen -> balance -= 1
-            else -> {}
+    fun pushUndoSnapshot() {
+        // 直前の状態を保存して Undo を可能にする
+        undoStack.add(MakeTenEditorSnapshot(tokens = expr.toList(), cursorIndex = cursorIndex))
+        if (undoStack.size > 50) {
+            undoStack.removeAt(0)
         }
     }
-    return balance
-}
 
-fun kindOf(token: MakeTenInputToken): MakeTenTokenKind =
-    when (token) {
-        is MakeTenInputToken.Number -> MakeTenTokenKind.Operand
-        MakeTenInputToken.LParen -> MakeTenTokenKind.LParen
-        MakeTenInputToken.RParen -> MakeTenTokenKind.RParen
-        MakeTenInputToken.Plus,
-        MakeTenInputToken.Minus,
-        MakeTenInputToken.Times,
-        MakeTenInputToken.Divide,
-        -> MakeTenTokenKind.Operator
+    fun undo() {
+        if (!editingEnabled) return
+        if (undoStack.isEmpty()) return
+        val snap = undoStack.removeAt(undoStack.lastIndex)
+        expr.clear()
+        expr.addAll(snap.tokens)
+        cursorIndex = snap.cursorIndex.coerceIn(0, expr.size)
+        syncDigitUsedFromExpr()
     }
 
-fun isAllowedPair(prev: MakeTenInputToken?, next: MakeTenInputToken?): Boolean {
-    val prevKind = prev?.let { kindOf(it) }
-    val nextKind = next?.let { kindOf(it) }
-
-    return when (prevKind) {
-        null -> nextKind == null || nextKind == MakeTenTokenKind.Operand || nextKind == MakeTenTokenKind.LParen
-        MakeTenTokenKind.Operand,
-        MakeTenTokenKind.RParen,
-        -> nextKind == null || nextKind == MakeTenTokenKind.Operator || nextKind == MakeTenTokenKind.RParen
-
-        MakeTenTokenKind.Operator,
-        MakeTenTokenKind.LParen,
-        -> nextKind == null || nextKind == MakeTenTokenKind.Operand || nextKind == MakeTenTokenKind.LParen
-    }
-}
-
-fun canInsertToken(token: MakeTenInputToken): Boolean {
-    // 入力制御は行わない（文法制約や括弧バランスでボタンを無効化しない）．
-    // ただし数字の重複使用だけは防止する（使用済み数字キーはグレーアウト）．
-    if (!editingEnabled) return false
-
-    if (token is MakeTenInputToken.Number) {
-        val key = digitKeys.getOrNull(token.digitId) ?: return false
-        if (key.used) return false
+    fun parenBalanceBefore(index: Int): Int {
+        var balance = 0
+        for (i in 0 until index.coerceIn(0, expr.size)) {
+            when (expr[i]) {
+                MakeTenInputToken.LParen -> balance += 1
+                MakeTenInputToken.RParen -> balance -= 1
+                else -> {}
+            }
+        }
+        return balance
     }
 
-    return true
-}
+    fun kindOf(token: MakeTenInputToken): MakeTenTokenKind =
+        when (token) {
+            is MakeTenInputToken.Number -> MakeTenTokenKind.Operand
+            MakeTenInputToken.LParen -> MakeTenTokenKind.LParen
+            MakeTenInputToken.RParen -> MakeTenTokenKind.RParen
+            MakeTenInputToken.Plus,
+            MakeTenInputToken.Minus,
+            MakeTenInputToken.Times,
+            MakeTenInputToken.Divide,
+            -> MakeTenTokenKind.Operator
+        }
 
-fun removeAt(index: Int) {
-    if (!editingEnabled) return
-    if (index !in expr.indices) return
-    pushUndoSnapshot()
-    val removed = expr.removeAt(index)
-    if (removed is MakeTenInputToken.Number) {
-        digitKeys.getOrNull(removed.digitId)?.used = false
+    fun isAllowedPair(
+        prev: MakeTenInputToken?,
+        next: MakeTenInputToken?,
+    ): Boolean {
+        val prevKind = prev?.let { kindOf(it) }
+        val nextKind = next?.let { kindOf(it) }
+
+        return when (prevKind) {
+            null -> nextKind == null || nextKind == MakeTenTokenKind.Operand || nextKind == MakeTenTokenKind.LParen
+            MakeTenTokenKind.Operand,
+            MakeTenTokenKind.RParen,
+            -> nextKind == null || nextKind == MakeTenTokenKind.Operator || nextKind == MakeTenTokenKind.RParen
+
+            MakeTenTokenKind.Operator,
+            MakeTenTokenKind.LParen,
+            -> nextKind == null || nextKind == MakeTenTokenKind.Operand || nextKind == MakeTenTokenKind.LParen
+        }
     }
-    if (cursorIndex > index) cursorIndex -= 1
-    setCursorSafe(cursorIndex)
-}
 
-fun insertToken(token: MakeTenInputToken) {
-    if (!canInsertToken(token)) return
-    pushUndoSnapshot()
-    if (token is MakeTenInputToken.Number) {
-        digitKeys.getOrNull(token.digitId)?.used = true
+    fun canInsertToken(token: MakeTenInputToken): Boolean {
+        // 入力制御は行わない（文法制約や括弧バランスでボタンを無効化しない）．
+        // ただし数字の重複使用だけは防止する（使用済み数字キーはグレーアウト）．
+        if (!editingEnabled) return false
+
+        if (token is MakeTenInputToken.Number) {
+            val key = digitKeys.getOrNull(token.digitId) ?: return false
+            if (key.used) return false
+        }
+
+        return true
     }
-    val idx = cursorIndex.coerceIn(0, expr.size)
-    expr.add(idx, token)
-    setCursorSafe(idx + 1)
-}
 
-fun backspace() {
-    if (!editingEnabled) return
-    if (cursorIndex <= 0) return
-    removeAt(cursorIndex - 1)
-}
+    fun removeAt(index: Int) {
+        if (!editingEnabled) return
+        if (index !in expr.indices) return
+        pushUndoSnapshot()
+        val removed = expr.removeAt(index)
+        if (removed is MakeTenInputToken.Number) {
+            digitKeys.getOrNull(removed.digitId)?.used = false
+        }
+        if (cursorIndex > index) cursorIndex -= 1
+        setCursorSafe(cursorIndex)
+    }
 
-fun clearAll() {
-    if (!editingEnabled) return
-    if (expr.isEmpty()) return
-    pushUndoSnapshot()
-    expr.clear()
-    digitKeys.forEach { it.used = false }
-    setCursorSafe(0)
-}
+    fun insertToken(token: MakeTenInputToken) {
+        if (!canInsertToken(token)) return
+        pushUndoSnapshot()
+        if (token is MakeTenInputToken.Number) {
+            digitKeys.getOrNull(token.digitId)?.used = true
+        }
+        val idx = cursorIndex.coerceIn(0, expr.size)
+        expr.add(idx, token)
+        setCursorSafe(idx + 1)
+    }
+
+    fun backspace() {
+        if (!editingEnabled) return
+        if (cursorIndex <= 0) return
+        removeAt(cursorIndex - 1)
+    }
+
+    fun clearAll() {
+        if (!editingEnabled) return
+        if (expr.isEmpty()) return
+        pushUndoSnapshot()
+        expr.clear()
+        digitKeys.forEach { it.used = false }
+        setCursorSafe(0)
+    }
 
     Column(
         modifier = modifier.fillMaxSize(),
@@ -328,7 +329,6 @@ private fun MakeTenHeader(
     }
 }
 
-
 @Composable
 private fun ExpressionEditor(
     tokens: SnapshotStateList<MakeTenInputToken>,
@@ -406,7 +406,10 @@ private fun ExpressionEditor(
         modifier = modifier.fillMaxWidth(),
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(
@@ -435,7 +438,11 @@ private fun ExpressionEditor(
             ) {
                 // 1行固定 + 横スクロール + カーソル追従
                 BoxWithConstraints(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).clipToBounds(),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 56.dp)
+                            .clipToBounds(),
                 ) {
                     val viewportWidthPx = with(density) { maxWidth.toPx() }
                     val marginPx = with(density) { 18.dp.toPx() }
@@ -454,7 +461,10 @@ private fun ExpressionEditor(
                         val target =
                             when {
                                 caretXInContent < visibleStart + marginPx -> (caretXInContent - marginPx).toInt()
-                                caretXInContent > visibleEnd - marginPx -> (caretXInContent - viewportWidthPx + marginPx).toInt()
+                                caretXInContent > visibleEnd - marginPx ->
+                                    (caretXInContent - viewportWidthPx + marginPx)
+                                        .toInt()
+
                                 else -> return@LaunchedEffect
                             }.coerceIn(0, scrollState.maxValue)
 
@@ -582,7 +592,6 @@ private fun EvaluationText(
     )
 }
 
-
 @Composable
 private fun MakeTenKeyboard(
     digitKeys: List<MakeTenDigitKeyState>,
@@ -671,21 +680,30 @@ private fun MakeTenKeyboard(
             OutlinedButton(
                 onClick = onUndo,
                 enabled = enabled && canUndo,
-                modifier = Modifier.weight(1f).height(52.dp),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .height(52.dp),
             ) {
                 Text(text = "戻す")
             }
             OutlinedButton(
                 onClick = onClear,
                 enabled = enabled && canClear,
-                modifier = Modifier.weight(1f).height(52.dp),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .height(52.dp),
             ) {
                 Text(text = "クリア")
             }
             OutlinedButton(
                 onClick = onBackspace,
                 enabled = enabled && canBackspace,
-                modifier = Modifier.weight(1f).height(52.dp),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .height(52.dp),
             ) {
                 Text(text = "削除")
             }
@@ -701,10 +719,14 @@ private fun MakeTenKeyButton(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier.height(52.dp).clickable(enabled = enabled, onClick = onClick),
+        modifier =
+            modifier
+                .height(52.dp)
+                .clickable(enabled = enabled, onClick = onClick),
         shape = MaterialTheme.shapes.small,
         color = if (enabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = if (enabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        contentColor =
+            if (enabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -726,7 +748,10 @@ private fun ResultFooter(
 ) {
     Button(
         onClick = onFinished,
-        modifier = modifier.fillMaxWidth().height(52.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(52.dp),
     ) {
         Text(text = "完了")
     }
@@ -805,9 +830,10 @@ private fun findMatchingParenPair(
 ): Pair<Int, Int>? {
     if (tokens.isEmpty()) return null
 
-    val candidates = listOf(cursorIndex - 1, cursorIndex)
-        .filter { it in tokens.indices }
-        .filter { tokens[it] == MakeTenInputToken.LParen || tokens[it] == MakeTenInputToken.RParen }
+    val candidates =
+        listOf(cursorIndex - 1, cursorIndex)
+            .filter { it in tokens.indices }
+            .filter { tokens[it] == MakeTenInputToken.LParen || tokens[it] == MakeTenInputToken.RParen }
 
     val idx = candidates.firstOrNull() ?: return null
     val token = tokens[idx]
@@ -821,6 +847,7 @@ private fun findMatchingParenPair(
                     if (depth == 0) return idx to i
                     depth -= 1
                 }
+
                 else -> {}
             }
         }
@@ -834,6 +861,7 @@ private fun findMatchingParenPair(
                     if (depth == 0) return i to idx
                     depth -= 1
                 }
+
                 else -> {}
             }
         }
@@ -841,9 +869,11 @@ private fun findMatchingParenPair(
     }
 }
 
-
 private sealed interface MakeTenExpr {
-    data class Num(val value: MakeTenRational) : MakeTenExpr
+    data class Num(
+        val value: MakeTenRational,
+    ) : MakeTenExpr
+
     data class Bin(
         val op: MakeTenOp,
         val left: MakeTenExpr,
@@ -851,7 +881,9 @@ private sealed interface MakeTenExpr {
     ) : MakeTenExpr
 }
 
-private enum class MakeTenOp(val precedence: Int) {
+private enum class MakeTenOp(
+    val precedence: Int,
+) {
     Plus(1),
     Minus(1),
     Times(2),
@@ -859,9 +891,17 @@ private enum class MakeTenOp(val precedence: Int) {
 }
 
 private sealed interface MakeTenAstToken {
-    data class Number(val value: Int) : MakeTenAstToken
-    data class Operator(val op: MakeTenOp) : MakeTenAstToken
-    data class Paren(val isLeft: Boolean) : MakeTenAstToken
+    data class Number(
+        val value: Int,
+    ) : MakeTenAstToken
+
+    data class Operator(
+        val op: MakeTenOp,
+    ) : MakeTenAstToken
+
+    data class Paren(
+        val isLeft: Boolean,
+    ) : MakeTenAstToken
 }
 
 private fun MakeTenInputToken.toEvalToken(): MakeTenAstToken =
@@ -933,7 +973,10 @@ private data class MakeTenRational(
     }
 }
 
-private fun gcd(a: Long, b: Long): Long {
+private fun gcd(
+    a: Long,
+    b: Long,
+): Long {
     var x = a
     var y = b
     while (y != 0L) {
@@ -946,8 +989,12 @@ private fun gcd(a: Long, b: Long): Long {
 
 private sealed interface MakeTenEvalState {
     data object NotParsable : MakeTenEvalState
+
     data object DivisionByZero : MakeTenEvalState
-    data class Ok(val value: MakeTenRational) : MakeTenEvalState
+
+    data class Ok(
+        val value: MakeTenRational,
+    ) : MakeTenEvalState
 }
 
 private fun evaluateExpression(tokens: List<MakeTenAstToken>): MakeTenEvalState {
@@ -1009,7 +1056,10 @@ private fun parseToAst(tokens: List<MakeTenAstToken>): MakeTenExpr? {
 
             is MakeTenAstToken.Operator -> {
                 // 単項演算子禁止：先頭，演算子の直後，'(' の直後は不可
-                if (prev == null || prev is MakeTenAstToken.Operator || (prev is MakeTenAstToken.Paren && prev.isLeft)) {
+                if (prev == null ||
+                    prev is MakeTenAstToken.Operator ||
+                    (prev is MakeTenAstToken.Paren && prev.isLeft)
+                ) {
                     return null
                 }
 

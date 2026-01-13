@@ -21,7 +21,10 @@ internal object Problems {
 
     private fun loadFlat(context: Context): IntArray {
         val text =
-            context.resources.openRawResource(R.raw.make_ten_problems).bufferedReader().use { it.readText() }
+            context.resources
+                .openRawResource(R.raw.make_ten_problems)
+                .bufferedReader()
+                .use { it.readText() }
         // 各行は4桁（1..9）を想定．空白や改行は無視して数字だけを集める．
         val digits = text.filter { it in '1'..'9' }
         require(digits.length % ARITY == 0) { "Invalid problems resource length: ${digits.length}" }
@@ -42,7 +45,10 @@ internal object Problems {
 
     fun size(context: Context): Int = flat(context).size / ARITY
 
-    fun get(context: Context, index: Int): IntArray {
+    fun get(
+        context: Context,
+        index: Int,
+    ): IntArray {
         val f = flat(context)
         val off = index * ARITY
         require(off + 3 < f.size) { "index out of range: $index" }

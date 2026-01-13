@@ -11,8 +11,7 @@ import com.example.refocus.core.model.MiniGameKind
  * - アプリ UI（デバッグ用）では descriptor のみを使って一覧表示できる
  */
 typealias MiniGameContent =
-    @Composable
-    (
+    @Composable (
         seed: Long,
         onFinished: () -> Unit,
         modifier: Modifier,

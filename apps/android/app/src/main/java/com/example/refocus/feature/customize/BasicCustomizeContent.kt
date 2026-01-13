@@ -1,13 +1,13 @@
 package com.example.refocus.feature.customize
 
 import android.content.pm.ApplicationInfo
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.core.model.MiniGameOrder
 import com.example.refocus.core.model.TimerTimeMode
@@ -30,9 +30,10 @@ fun BasicCustomizeContent(
     val settings = uiState.customize
 
     val context = LocalContext.current
-    val isDebuggable = remember {
-        (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
-    }
+    val isDebuggable =
+        remember {
+            (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        }
 
     // --- タイマー（プリセット） ---
     SectionCard(title = "タイマー") {
