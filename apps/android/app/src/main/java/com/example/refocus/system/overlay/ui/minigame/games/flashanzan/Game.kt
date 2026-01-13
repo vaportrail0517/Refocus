@@ -1,4 +1,4 @@
-package com.example.refocus.system.overlay.ui.minigame
+package com.example.refocus.system.overlay.ui.minigame.games.flashanzan
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.refocus.system.overlay.ui.minigame.components.NumericKeypad
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
@@ -47,7 +48,7 @@ import kotlin.random.Random
  * - 正誤などの結果は記録しない（ドメインには返さない）
  */
 @Composable
-fun FlashAnzanGame(
+fun Game(
     seed: Long,
     onFinished: () -> Unit,
     modifier: Modifier = Modifier,

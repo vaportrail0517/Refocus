@@ -24,12 +24,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.feature.common.overlay.rememberOverlayServiceController
 import com.example.refocus.feature.common.overlay.rememberOverlayServiceStatusProvider
 import com.example.refocus.feature.common.permissions.rememberPermissionUiState
+import com.example.refocus.system.overlay.ui.minigame.MiniGameHostOverlay
 import kotlinx.coroutines.launch
 
 private enum class CustomizeTab(
@@ -70,6 +74,9 @@ fun CustomizeScreen(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val basicScrollState = rememberScrollState()
     val advancedScrollState = rememberScrollState()
+
+    var debugMiniGameKind by remember { mutableStateOf<MiniGameKind?>(null) }
+    var debugMiniGameSeed by remember { mutableStateOf(0L) }
 
     // 画面復帰（ON_RESUME）で権限状態を再評価し，権限が欠けていれば安全側に倒す．
     rememberPermissionUiState(
@@ -158,6 +165,10 @@ fun CustomizeScreen(modifier: Modifier = Modifier) {
                                             advancedScrollState.animateScrollTo(0)
                                         }
                                     },
+                                    onDebugPlayMiniGame = { kind ->
+                                        debugMiniGameSeed = System.currentTimeMillis()
+                                        debugMiniGameKind = kind
+                                    },
                                 )
                             }
 
@@ -223,6 +234,24 @@ fun CustomizeScreen(modifier: Modifier = Modifier) {
                 fontRange = fontRange,
                 onDismiss = { activeDialog = null },
             )
+
+            debugMiniGameKind?.let { kind ->
+                Dialog(
+                    onDismissRequest = { debugMiniGameKind = null },
+                    properties = DialogProperties(usePlatformDefaultWidth = false),
+                ) {
+                    // Dialog 内では画面全体の制約が渡るため，カスタマイズ画面のレイアウト制約に影響されず
+                    // ミニゲームをフルスクリーンで表示できる．
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        MiniGameHostOverlay(
+                            kind = kind,
+                            seed = debugMiniGameSeed,
+                            onFinished = { debugMiniGameKind = null },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+            }
         }
     }
 }

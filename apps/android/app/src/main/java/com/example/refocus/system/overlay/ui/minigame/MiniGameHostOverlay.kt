@@ -11,12 +11,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.example.refocus.core.model.MiniGameKind
+import com.example.refocus.system.overlay.ui.minigame.catalog.MiniGameRegistry
+import com.example.refocus.system.overlay.ui.minigame.components.MiniGameFrame
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.dp
 
 /**
  * ミニゲーム用のフルスクリーンオーバーレイ。
  *
  * - 背景のタップは「裏のアプリに触れてしまう」事故を防ぐために吸収する（何もしない）
- * - 実際のゲーム内容は kind ごとに切り替える
+ * - 実際のゲーム内容は registry（kind -> implementation）で解決する
  */
 @Composable
 fun MiniGameHostOverlay(
@@ -26,6 +37,8 @@ fun MiniGameHostOverlay(
     modifier: Modifier = Modifier,
 ) {
     val interaction = remember { MutableInteractionSource() }
+
+    val entry = remember(kind) { MiniGameRegistry.resolve(kind) }
 
     Box(
         modifier =
@@ -40,23 +53,45 @@ fun MiniGameHostOverlay(
         contentAlignment = Alignment.Center,
     ) {
         MiniGameFrame {
-            when (kind) {
-                MiniGameKind.FlashAnzan -> {
-                    FlashAnzanGame(
-                        seed = seed,
-                        onFinished = onFinished,
-                        modifier = it,
-                    )
-                }
-
-                MiniGameKind.MakeTen -> {
-                    MakeTenGame(
-                        seed = seed,
-                        onFinished = onFinished,
-                        modifier = it,
-                    )
-                }
+            if (entry == null) {
+                UnknownMiniGame(
+                    kind = kind,
+                    onFinished = onFinished,
+                    modifier = it,
+                )
+            } else {
+                entry.content(seed, onFinished, it)
             }
+        }
+    }
+}
+
+@Composable
+private fun UnknownMiniGame(
+    kind: MiniGameKind,
+    onFinished: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "未対応のミニゲームです．",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            text = "kind=$kind",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = onFinished,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+        ) {
+            Text(text = "閉じる")
         }
     }
 }

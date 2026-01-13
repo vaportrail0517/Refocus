@@ -1,11 +1,19 @@
 package com.example.refocus.feature.customize
 
+import android.content.pm.ApplicationInfo
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
+import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.core.model.MiniGameOrder
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
+import com.example.refocus.system.overlay.ui.minigame.catalog.MiniGameRegistry
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
 
@@ -17,8 +25,14 @@ fun BasicCustomizeContent(
     onOpenTimerVisualTimeBasisDialog: () -> Unit,
     onOpenPresetManager: () -> Unit,
     onOpenMiniGameOrderDialog: () -> Unit,
+    onDebugPlayMiniGame: (MiniGameKind) -> Unit = {},
 ) {
     val settings = uiState.customize
+
+    val context = LocalContext.current
+    val isDebuggable = remember {
+        (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    }
 
     // --- タイマー（プリセット） ---
     SectionCard(title = "タイマー") {
@@ -168,5 +182,36 @@ fun BasicCustomizeContent(
                 } + if (!orderEnabled) "（ミニゲームがオフです）" else "",
             onClick = if (orderEnabled) onOpenMiniGameOrderDialog else null,
         )
+
+        if (isDebuggable) {
+            var showMiniGameTestDialog by remember { mutableStateOf(false) }
+
+            SettingRow(
+                title = "ミニゲームのテスト",
+                subtitle = "実装済みのミニゲームを選択して起動します．",
+                onClick = { showMiniGameTestDialog = true },
+            )
+
+            if (showMiniGameTestDialog) {
+                com.example.refocus.ui.components.SettingsBaseDialog(
+                    title = "ミニゲームを選択",
+                    confirmLabel = "閉じる",
+                    showDismissButton = false,
+                    onConfirm = { showMiniGameTestDialog = false },
+                    onDismiss = { showMiniGameTestDialog = false },
+                ) {
+                    MiniGameRegistry.descriptors.forEach { desc ->
+                        SettingRow(
+                            title = desc.title,
+                            subtitle = desc.description,
+                            onClick = {
+                                showMiniGameTestDialog = false
+                                onDebugPlayMiniGame(desc.kind)
+                            },
+                        )
+                    }
+                }
+            }
+        }
     }
 }

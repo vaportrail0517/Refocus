@@ -1,4 +1,4 @@
-package com.example.refocus.system.overlay.ui.minigame
+package com.example.refocus.system.overlay.ui.minigame.games.maketen
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -54,7 +54,7 @@ import kotlin.random.Random
 import kotlinx.coroutines.delay
 
 @Composable
-fun MakeTenGame(
+fun Game(
     seed: Long,
     onFinished: () -> Unit,
     modifier: Modifier = Modifier,
@@ -63,9 +63,9 @@ fun MakeTenGame(
 
     val numbers =
         remember(seed) {
-            val size = MakeTenProblems.size(context)
+            val size = Problems.size(context)
             val index = Random(seed).nextInt(size)
-            MakeTenProblems.get(context, index)
+            Problems.get(context, index)
         }
 
     val digitKeys: List<MakeTenDigitKeyState> =

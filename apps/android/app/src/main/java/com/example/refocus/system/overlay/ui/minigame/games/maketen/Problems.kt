@@ -1,4 +1,4 @@
-package com.example.refocus.system.overlay.ui.minigame
+package com.example.refocus.system.overlay.ui.minigame.games.maketen
 
 import android.content.Context
 import com.example.refocus.R
@@ -14,7 +14,7 @@ import com.example.refocus.R
  * - Kotlin コードに巨大配列を直書きすると `<clinit>` が肥大化して JVM のメソッドサイズ上限に達するため，
  *   res/raw へ移し，初回アクセス時に読み込んでキャッシュする．
  */
-internal object MakeTenProblems {
+internal object Problems {
     private const val ARITY = 4
 
     @Volatile private var cachedFlat: IntArray? = null
