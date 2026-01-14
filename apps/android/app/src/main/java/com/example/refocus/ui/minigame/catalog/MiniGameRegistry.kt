@@ -1,6 +1,7 @@
 package com.example.refocus.ui.minigame.catalog
 
 import com.example.refocus.core.model.MiniGameKind
+import com.example.refocus.ui.minigame.games.eightpuzzle.eightPuzzleEntry
 import com.example.refocus.ui.minigame.games.flashanzan.flashAnzanEntry
 import com.example.refocus.ui.minigame.games.maketen.makeTenEntry
 
@@ -16,6 +17,7 @@ object MiniGameRegistry {
         listOf(
             flashAnzanEntry,
             makeTenEntry,
+            eightPuzzleEntry,
         )
 
     private val byKind: Map<MiniGameKind, MiniGameEntry> =
