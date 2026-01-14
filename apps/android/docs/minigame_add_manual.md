@@ -55,6 +55,38 @@ domain はミニゲーム表示の失敗（WindowManager の一時的失敗な�
 - クリア，時間切れ，キャンセルのいずれでも，最終的に `onFinished()` に到達できる UI を用意してください．
 - 背景タップは閉じません（`MiniGameHostOverlay` が吸収します）．「閉じる」ボタンなどを必須にしてください．
 
+### 1-6．Activity 依存の Compose API に注意（overlay 表示では owner が存在しない）
+
+ミニゲームは `WindowManager.addView(ComposeView)` による `TYPE_APPLICATION_OVERLAY` として表示されます．
+この表示経路では Activity 配下の Compose と違い，Activity が提供する各種 owner（戻るボタンの dispatcher など）が `CompositionLocal` として自動提供されません．
+そのため，Activity 依存 API を無条件に呼ぶと，実行時に例外が投げられ，アプリがクラッシュすることがあります．
+
+特に注意が必要な例
+- `androidx.activity.compose.BackHandler`（`OnBackPressedDispatcherOwner` が必要）
+- `rememberLauncherForActivityResult`（`ActivityResultRegistryOwner` が必要）
+- `viewModel()` / `hiltViewModel()` など（`ViewModelStoreOwner` が必要）
+
+対応方針
+- 原則として，ミニゲームからは上記の Activity 依存 API を使わず，画面内 UI で完結させます．
+- どうしても必要な場合は，owner が存在する場合だけ機能を有効にします（存在しない場合は登録しない）．
+
+例（BackHandler を安全に使う）
+```kotlin
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+
+val owner = LocalOnBackPressedDispatcherOwner.current
+if (owner != null) {
+    BackHandler(enabled = true) {
+        // Back を消費したい場合の処理
+    }
+}
+```
+
+補足
+- overlay は `FLAG_NOT_FOCUSABLE` を含むため，端末や状況によっては Back キーイベント自体がミニゲームに届きません．
+- Back で閉じる設計に依存せず，必ず画面内ボタンで完結する導線を用意してください（1-5 と同様）．
+
 ---
 
 ## 2．現状の実装ポイント（どこを触るか）

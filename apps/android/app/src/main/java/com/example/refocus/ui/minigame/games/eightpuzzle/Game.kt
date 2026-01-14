@@ -1,6 +1,7 @@
 package com.example.refocus.ui.minigame.games.eightpuzzle
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -60,9 +61,15 @@ fun Game(
 
     var backHintVisible by remember(seed) { mutableStateOf(false) }
 
-    // クリアまたは時間切れまでは閉じられない要件により，プレイ中の Back を無効化する．
-    BackHandler(enabled = phase == EightPuzzlePhase.Playing) {
-        backHintVisible = true
+    // system overlay（WindowManager + ComposeView）では BackHandler の owner が存在しないことがある．
+    // その場合に BackHandler を呼ぶと例外でクラッシュするため，owner があるときだけ登録する．
+    // なお，Refocus のミニゲーム overlay は FLAG_NOT_FOCUSABLE のため，そもそも Back を受け取れない端末が多い．
+    val backDispatcherOwner = LocalOnBackPressedDispatcherOwner.current
+    if (backDispatcherOwner != null) {
+        // クリアまたは時間切れまでは閉じられない要件により，プレイ中の Back を無効化する．
+        BackHandler(enabled = phase == EightPuzzlePhase.Playing) {
+            backHintVisible = true
+        }
     }
 
     LaunchedEffect(backHintVisible) {
