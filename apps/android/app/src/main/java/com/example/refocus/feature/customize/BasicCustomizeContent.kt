@@ -13,9 +13,9 @@ import com.example.refocus.core.model.MiniGameOrder
 import com.example.refocus.core.model.TimerTimeMode
 import com.example.refocus.core.model.TimerTouchMode
 import com.example.refocus.core.model.TimerVisualTimeBasis
-import com.example.refocus.ui.minigame.catalog.MiniGameRegistry
 import com.example.refocus.ui.components.SectionCard
 import com.example.refocus.ui.components.SettingRow
+import com.example.refocus.ui.minigame.catalog.MiniGameRegistry
 
 @Composable
 fun BasicCustomizeContent(
