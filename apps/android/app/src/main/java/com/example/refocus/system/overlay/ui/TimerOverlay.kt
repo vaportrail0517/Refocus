@@ -27,11 +27,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerColorMode
@@ -478,23 +478,18 @@ private const val BASE_BACKGROUND_ALPHA: Float = 0.7f
 private const val ATTENTION_BLEND_MAX: Float = 0.65f
 private val ATTENTION_RED: Color = Color(0xFFFF3B30.toInt())
 
-private const val EFFECT_TOTAL_MS: Int = 2800
+private const val EFFECT_TOTAL_MS: Int = 2400
 private const val EFFECT_RAMP_IN_MS: Int = 300
 private const val EFFECT_RAMP_OUT_MS: Int = 420
 
-private const val BLINK_HALF_PERIOD_MS: Int = 280
+private const val BLINK_HALF_PERIOD_MS: Int = 3600
 private const val BLINK_CYCLES: Int = 5
 private const val BLINK_MIN_MUL: Float = 0.4f
 
-private const val ROTATE_SPIN_DURATION_MS: Int = 900
+private const val ROTATE_SPIN_DURATION_MS: Int = 1200
 
-private const val ROTATE_HALF_PERIOD_MS: Int = 250
-private const val ROTATE_SWINGS: Int = 4
-private const val ROTATE_SETTLE_MS: Int = 400
-private const val ROTATE_AMPLITUDE_DEG: Float = 10f
-
-private const val SHAKE_STEP_MS: Int = 215
-private const val SHAKE_AMPLITUDE_DP: Float = 6f
+private const val SHAKE_STEP_MS: Int = 1200
+private const val SHAKE_AMPLITUDE_DP: Float = 24f
 
 private const val PULSE_PERIOD_MS: Int = 3200
 private const val PULSE_AMPLITUDE: Float = 0.04f
