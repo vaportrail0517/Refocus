@@ -4,6 +4,7 @@ import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.ui.minigame.games.eightpuzzle.eightPuzzleEntry
 import com.example.refocus.ui.minigame.games.flashanzan.flashAnzanEntry
 import com.example.refocus.ui.minigame.games.maketen.makeTenEntry
+import com.example.refocus.ui.minigame.games.mirrortext.mirrorTextEntry
 
 /**
  * 実装済みのミニゲームを列挙するレジストリ。
@@ -18,6 +19,7 @@ object MiniGameRegistry {
             flashAnzanEntry,
             makeTenEntry,
             eightPuzzleEntry,
+            mirrorTextEntry,
         )
 
     private val byKind: Map<MiniGameKind, MiniGameEntry> =
