@@ -40,7 +40,7 @@ import com.example.refocus.core.util.formatDurationForTimerBubble
 import com.example.refocus.ui.util.interpolateColor
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.random.Random
@@ -295,20 +295,22 @@ fun TimerOverlay(
                     Modifier
                         .padding(guard)
                         .onSizeChanged { rotatingBoxSize = it }
+                        // drawWithContent を graphicsLayer より外側に置くことで，
+                        // 位置変化（translation）のたびに「前フレームの位置」を確実にクリアできるようにする．
+                        // （graphicsLayer が外側だと Clear も一緒に動いてしまい，残像が出やすい）
+                        .drawWithContent {
+                            drawRect(color = Color.Transparent, blendMode = BlendMode.Clear)
+                            drawContent()
+                        }
                         .graphicsLayer(
+                            compositingStrategy = CompositingStrategy.Offscreen,
                             scaleX = pulseScale,
                             scaleY = pulseScale,
                             rotationZ = rotationDeg.value,
                             translationX = shakeX.value,
                             translationY = shakeY.value,
                             transformOrigin = TransformOrigin(0.5f, 0.5f),
-                            compositingStrategy = CompositingStrategy.Offscreen,
-                        )
-                        .drawWithContent {
-                            // 透明レイヤでフレーム間の残像が残るのを防ぐ
-                            drawRect(color = Color.Transparent, blendMode = BlendMode.Clear)
-                            drawContent()
-                        },
+                        ),
             ) {
                 TimerBubble(
                     text = text,
@@ -364,93 +366,22 @@ private suspend fun runEffect(
     shakeX.snapTo(0f)
     shakeY.snapTo(0f)
 
+    val totalMs = effectTotalDurationMs(effect)
     coroutineScope {
-        val attentionJob = launch {
-            val hold = (EFFECT_TOTAL_MS - EFFECT_RAMP_IN_MS - EFFECT_RAMP_OUT_MS).coerceAtLeast(0)
-            attention.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(durationMillis = EFFECT_RAMP_IN_MS, easing = FastOutSlowInEasing),
-            )
-            delay(hold.toLong())
-            attention.animateTo(
-                targetValue = 0f,
-                animationSpec = tween(durationMillis = EFFECT_RAMP_OUT_MS, easing = FastOutSlowInEasing),
-            )
-        }
-
-        val effectJob = launch {
-            onRotateWindowPaddingActive(false)
-            when (effect) {
-                TimerEffectType.Blink -> {
-                    repeat(BLINK_CYCLES) {
-                        blinkAlphaMul.animateTo(
-                            targetValue = BLINK_MIN_MUL,
-                            animationSpec = tween(durationMillis = BLINK_HALF_PERIOD_MS, easing = FastOutSlowInEasing),
-                        )
-                        blinkAlphaMul.animateTo(
-                            targetValue = 1f,
-                            animationSpec = tween(durationMillis = BLINK_HALF_PERIOD_MS, easing = FastOutSlowInEasing),
-                        )
-                    }
-                    blinkAlphaMul.snapTo(1f)
-                }
-
-                TimerEffectType.Rotate -> {
-                    onRotateWindowPaddingActive(true)
-                    try {
-                        // その場で 360 度回転するスピン．画面外にはみ出してもよい前提．
-                        //
-                        // 端末側の「Animator duration scale」が 0（アニメーション無効）の場合，
-                        // tween/Animatable の animateTo が即時完了してしまい，見た目として回転が発生しない．
-                        // そこで withFrameNanos によるフレーム駆動で回転角を更新し，端末設定に依存せず回す．
-                        val spins = 1
-                        val totalMs = (ROTATE_SPIN_DURATION_MS * spins).coerceAtLeast(1)
-                        rotationDeg.snapTo(0f)
-
-                        val start = withFrameNanos { it }
-                        while (isActive) {
-                            val now = withFrameNanos { it }
-                            val elapsedMs = (now - start) / 1_000_000f
-                            val p = (elapsedMs / totalMs.toFloat()).coerceIn(0f, 1f)
-                            rotationDeg.snapTo(360f * spins * p)
-                            if (p >= 1f) break
-                        }
-
-                        // 360度は見た目上 0度と同じなので，状態を正規化して次回を安定させる
-                        rotationDeg.snapTo(0f)
-                    } finally {
-                        onRotateWindowPaddingActive(false)
-                    }
-                }
-
-                TimerEffectType.Shake -> {
-                    val a = shakeAmplitudePx
-                    val sequence = listOf(
-                        1.0f,
-                        -1.0f,
-                        0.85f,
-                        -0.85f,
-                        0.7f,
-                        -0.7f,
-                        0.55f,
-                        -0.55f,
-                        0.4f,
-                        -0.4f,
-                        0.25f,
-                        -0.25f,
-                        0f,
+        val attentionJob = launch { runAttentionEnvelope(attention = attention, totalMs = totalMs) }
+        val effectJob =
+            launch {
+                onRotateWindowPaddingActive(false)
+                when (effect) {
+                    TimerEffectType.Blink -> runBlink(blinkAlphaMul = blinkAlphaMul)
+                    TimerEffectType.Rotate -> runRotate(
+                        rotationDeg = rotationDeg,
+                        onRotateWindowPaddingActive = onRotateWindowPaddingActive
                     )
-                    for (m in sequence) {
-                        shakeX.animateTo(
-                            targetValue = a * m,
-                            animationSpec = tween(durationMillis = SHAKE_STEP_MS, easing = FastOutSlowInEasing),
-                        )
-                    }
-                    shakeY.snapTo(0f)
+
+                    TimerEffectType.Shake -> runShake(shakeX = shakeX, shakeY = shakeY, amplitudePx = shakeAmplitudePx)
                 }
             }
-        }
-
         attentionJob.join()
         effectJob.join()
     }
@@ -478,18 +409,139 @@ private const val BASE_BACKGROUND_ALPHA: Float = 0.7f
 private const val ATTENTION_BLEND_MAX: Float = 0.65f
 private val ATTENTION_RED: Color = Color(0xFFFF3B30.toInt())
 
-private const val EFFECT_TOTAL_MS: Int = 2400
-private const val EFFECT_RAMP_IN_MS: Int = 300
-private const val EFFECT_RAMP_OUT_MS: Int = 420
+private const val ATTENTION_RAMP_IN_MS: Int = 220
+private const val ATTENTION_RAMP_OUT_MS: Int = 260
 
-private const val BLINK_HALF_PERIOD_MS: Int = 3600
-private const val BLINK_CYCLES: Int = 5
-private const val BLINK_MIN_MUL: Float = 0.4f
+// 1 秒周期で 3 回点滅（計 3 秒）
+private const val BLINK_PERIOD_MS: Int = 500
+private const val BLINK_TIMES: Int = 6
+private const val BLINK_MIN_MUL: Float = 0.2f
 
 private const val ROTATE_SPIN_DURATION_MS: Int = 1200
 
-private const val SHAKE_STEP_MS: Int = 1200
+private const val SHAKE_TOTAL_MS: Int = 700
+private const val SHAKE_OSCILLATIONS: Int = 9
 private const val SHAKE_AMPLITUDE_DP: Float = 24f
+
+private fun effectTotalDurationMs(effect: TimerEffectType): Int =
+    when (effect) {
+        TimerEffectType.Blink -> BLINK_PERIOD_MS * BLINK_TIMES
+        TimerEffectType.Rotate -> ROTATE_SPIN_DURATION_MS
+        TimerEffectType.Shake -> SHAKE_TOTAL_MS
+    }
+
+private suspend fun runAttentionEnvelope(
+    attention: Animatable<Float, *>,
+    totalMs: Int,
+) {
+    val total = totalMs.coerceAtLeast(1)
+    val rampIn = ATTENTION_RAMP_IN_MS.coerceAtMost(total)
+    val rampOut = ATTENTION_RAMP_OUT_MS.coerceAtMost((total - rampIn).coerceAtLeast(0))
+    val hold = (total - rampIn - rampOut).coerceAtLeast(0)
+
+    val startNs = withFrameNanos { it }
+    while (currentCoroutineContext().isActive) {
+        val nowNs = withFrameNanos { it }
+        val elapsedMs = ((nowNs - startNs) / 1_000_000L).toInt()
+        val v =
+            when {
+                elapsedMs <= 0 -> 0f
+                elapsedMs < rampIn -> {
+                    val p = elapsedMs.toFloat() / rampIn.toFloat()
+                    FastOutSlowInEasing.transform(p)
+                }
+
+                elapsedMs < rampIn + hold -> 1f
+                elapsedMs < total -> {
+                    val p = (elapsedMs - rampIn - hold).toFloat() / rampOut.toFloat().coerceAtLeast(1f)
+                    1f - FastOutSlowInEasing.transform(p.coerceIn(0f, 1f))
+                }
+
+                else -> 0f
+            }
+        attention.snapTo(v.coerceIn(0f, 1f))
+        if (elapsedMs >= total) break
+    }
+    attention.snapTo(0f)
+}
+
+private suspend fun runBlink(
+    blinkAlphaMul: Animatable<Float, *>,
+) {
+    val totalMs = (BLINK_PERIOD_MS * BLINK_TIMES).coerceAtLeast(1)
+    val startNs = withFrameNanos { it }
+    while (currentCoroutineContext().isActive) {
+        val nowNs = withFrameNanos { it }
+        val elapsedMs = ((nowNs - startNs) / 1_000_000L).toInt()
+        val cycleMs = (elapsedMs % BLINK_PERIOD_MS).coerceAtLeast(0)
+        val phase = cycleMs.toFloat() / BLINK_PERIOD_MS.toFloat()
+
+        val v =
+            if (phase < 0.5f) {
+                val p = FastOutSlowInEasing.transform((phase / 0.5f).coerceIn(0f, 1f))
+                1f + (BLINK_MIN_MUL - 1f) * p
+            } else {
+                val p = FastOutSlowInEasing.transform(((phase - 0.5f) / 0.5f).coerceIn(0f, 1f))
+                BLINK_MIN_MUL + (1f - BLINK_MIN_MUL) * p
+            }
+
+        blinkAlphaMul.snapTo(v.coerceIn(BLINK_MIN_MUL, 1f))
+        if (elapsedMs >= totalMs) break
+    }
+    blinkAlphaMul.snapTo(1f)
+}
+
+private suspend fun runRotate(
+    rotationDeg: Animatable<Float, *>,
+    onRotateWindowPaddingActive: (Boolean) -> Unit,
+) {
+    onRotateWindowPaddingActive(true)
+    try {
+        val spins = 1
+        val totalMs = (ROTATE_SPIN_DURATION_MS * spins).coerceAtLeast(1)
+        rotationDeg.snapTo(0f)
+
+        val start = withFrameNanos { it }
+        while (currentCoroutineContext().isActive) {
+            val now = withFrameNanos { it }
+            val elapsedMs = (now - start) / 1_000_000f
+            val p = (elapsedMs / totalMs.toFloat()).coerceIn(0f, 1f)
+            rotationDeg.snapTo(360f * spins * p)
+            if (p >= 1f) break
+        }
+
+        // 360度は見た目上 0度と同じなので，状態を正規化して次回を安定させる
+        rotationDeg.snapTo(0f)
+    } finally {
+        onRotateWindowPaddingActive(false)
+    }
+}
+
+private suspend fun runShake(
+    shakeX: Animatable<Float, *>,
+    shakeY: Animatable<Float, *>,
+    amplitudePx: Float,
+) {
+    val totalMs = SHAKE_TOTAL_MS.coerceAtLeast(1)
+    val startNs = withFrameNanos { it }
+    while (currentCoroutineContext().isActive) {
+        val nowNs = withFrameNanos { it }
+        val elapsedMs = ((nowNs - startNs) / 1_000_000L).toInt()
+        val p = (elapsedMs.toFloat() / totalMs.toFloat()).coerceIn(0f, 1f)
+
+        // 減衰する正弦波で揺らす（急激なステップ変化を避け，残像っぽいちらつきを減らす）
+        val damping = 1f - p
+        val angle = 2.0 * Math.PI * SHAKE_OSCILLATIONS.toDouble() * p.toDouble()
+        val x = (amplitudePx * damping * kotlin.math.sin(angle)).toFloat()
+        shakeX.snapTo(x)
+        shakeY.snapTo(0f)
+
+        if (elapsedMs >= totalMs) break
+    }
+
+    shakeX.snapTo(0f)
+    shakeY.snapTo(0f)
+}
 
 private const val PULSE_PERIOD_MS: Int = 3200
 private const val PULSE_AMPLITUDE: Float = 0.04f
