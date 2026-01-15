@@ -3,12 +3,7 @@ package com.example.refocus.system.overlay.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -39,9 +34,8 @@ import com.example.refocus.ui.util.interpolateColor
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlin.math.PI
-import kotlin.math.cos
 import kotlin.random.Random
 
 @Deprecated(
@@ -168,6 +162,7 @@ fun TimerOverlay(
 
     var effectJob by remember { mutableStateOf<Job?>(null) }
     var lastEffectType by remember { mutableStateOf<TimerEffectType?>(null) }
+    var effectBag by remember { mutableStateOf<List<TimerEffectType>>(emptyList()) }
 
     val density = LocalDensity.current
     val shakeAmpPx = with(density) { SHAKE_AMPLITUDE_DP.dp.toPx() }
@@ -218,7 +213,15 @@ fun TimerOverlay(
         lastBucket = bucket
         // 実行中ならこの境界はスキップ（同時実行しない）
         if (effectJob?.isActive == true) return@LaunchedEffect
-        val next = chooseNextEffect(lastEffectType, random)
+        val next =
+            if (effectBag.isNotEmpty()) {
+                effectBag.first().also { effectBag = effectBag.drop(1) }
+            } else {
+                val bag = makeEffectBag(random = random, last = lastEffectType)
+                // 先頭を next として使い，残りを保持する
+                effectBag = bag.drop(1)
+                bag.first()
+            }
         lastEffectType = next
         effectJob =
             launch {
@@ -251,7 +254,7 @@ fun TimerOverlay(
                 Modifier.graphicsLayer(
                     scaleX = pulseScale,
                     scaleY = pulseScale,
-                    rotationZ = rotationDeg.value,
+                    rotationZ = rotationDeg.value * attention.value,
                     translationX = shakeX.value,
                     translationY = shakeY.value,
                     transformOrigin = TransformOrigin(0.5f, 0.5f),
@@ -266,12 +269,23 @@ private enum class TimerEffectType {
     Shake,
 }
 
-private fun chooseNextEffect(last: TimerEffectType?, random: Random): TimerEffectType {
-    val all = listOf(TimerEffectType.Blink, TimerEffectType.Rotate, TimerEffectType.Shake)
-    if (last == null) return all[random.nextInt(all.size)]
+private fun makeEffectBag(
+    random: Random,
+    last: TimerEffectType?,
+): List<TimerEffectType> {
+    val bag = TimerEffectType.entries.toMutableList()
+    bag.shuffle(random)
 
-    val candidates = all.filter { it != last }
-    return candidates[random.nextInt(candidates.size)]
+    // bag の先頭が直前と同じだと，バケット境界で「たまたま連続」に見えやすいので避ける
+    if (last != null && bag.size > 1 && bag.first() == last) {
+        val swapIndex = bag.indexOfFirst { it != last }
+        if (swapIndex >= 1) {
+            val tmp = bag[0]
+            bag[0] = bag[swapIndex]
+            bag[swapIndex] = tmp
+        }
+    }
+    return bag
 }
 
 private suspend fun runEffect(
@@ -321,10 +335,21 @@ private suspend fun runEffect(
                 }
 
                 TimerEffectType.Rotate -> {
-                    // その場で中心回転（1回転），回転速度は一定
+                    // 穏やかな「首振り回転」．360度スピンよりも視認性が高く，ナッジとして過度にうるさくない．
+                    val a = ROTATE_AMPLITUDE_DEG
+                    repeat(ROTATE_SWINGS) {
+                        rotationDeg.animateTo(
+                            targetValue = a,
+                            animationSpec = tween(durationMillis = ROTATE_HALF_PERIOD_MS, easing = FastOutSlowInEasing),
+                        )
+                        rotationDeg.animateTo(
+                            targetValue = -a,
+                            animationSpec = tween(durationMillis = ROTATE_HALF_PERIOD_MS, easing = FastOutSlowInEasing),
+                        )
+                    }
                     rotationDeg.animateTo(
-                        targetValue = 360f,
-                        animationSpec = tween(durationMillis = EFFECT_TOTAL_MS, easing = LinearEasing),
+                        targetValue = 0f,
+                        animationSpec = tween(durationMillis = ROTATE_SETTLE_MS, easing = FastOutSlowInEasing),
                     )
                 }
 
@@ -398,28 +423,35 @@ private const val ROTATE_AMPLITUDE_DEG: Float = 10f
 private const val SHAKE_STEP_MS: Int = 215
 private const val SHAKE_AMPLITUDE_DP: Float = 6f
 
-private const val PULSE_PERIOD_MS: Int = 2000
-private const val PULSE_AMPLITUDE: Float = 0.03f
+private const val PULSE_PERIOD_MS: Int = 3200
+private const val PULSE_AMPLITUDE: Float = 0.04f
 
 @Composable
 private fun rememberPulseScale(enabled: Boolean): Float {
-    if (!enabled) return 1f
-    val transition = rememberInfiniteTransition(label = "breathing")
-    val phase01 by
-    transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(durationMillis = PULSE_PERIOD_MS, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
-        label = "breathing_phase",
-    )
+    val pulse = remember { Animatable(1f) }
 
-    // 0..1 の山（縮小なし）: wave01 = 0.5 * (1 - cos(2πt))
-    val wave01 = ((1.0 - cos(phase01.toDouble() * 2.0 * PI)) * 0.5).toFloat()
-    return 1f + PULSE_AMPLITUDE * wave01
+    LaunchedEffect(enabled) {
+        if (!enabled) {
+            pulse.snapTo(1f)
+            return@LaunchedEffect
+        }
+
+        val up = 1f + PULSE_AMPLITUDE
+        val down = 1f - PULSE_AMPLITUDE
+
+        while (isActive) {
+            pulse.animateTo(
+                targetValue = up,
+                animationSpec = tween(durationMillis = PULSE_PERIOD_MS / 2, easing = FastOutSlowInEasing),
+            )
+            pulse.animateTo(
+                targetValue = down,
+                animationSpec = tween(durationMillis = PULSE_PERIOD_MS / 2, easing = FastOutSlowInEasing),
+            )
+        }
+    }
+
+    return pulse.value
 }
 
 @Composable
