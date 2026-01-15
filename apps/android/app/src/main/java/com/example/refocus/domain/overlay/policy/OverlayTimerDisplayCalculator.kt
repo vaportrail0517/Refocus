@@ -9,6 +9,12 @@ import com.example.refocus.domain.overlay.usecase.DailyUsageUseCase
 internal data class TimerMillisProviders(
     val displayMillisProvider: (nowElapsedRealtime: Long) -> Long,
     val visualMillisProvider: (nowElapsedRealtime: Long) -> Long,
+    /**
+     * エフェクト（点滅・回転・揺れ）の発火スケジューリングに使う時間基準。
+     *
+     * - 表示値モードや visual 基準とは独立に，常に「論理セッション経過時間」を返す想定。
+     */
+    val effectMillisProvider: (nowElapsedRealtime: Long) -> Long,
 )
 
 /**
@@ -71,9 +77,14 @@ internal class OverlayTimerDisplayCalculator(
             )
         }
 
+        val effectMillisProvider: (Long) -> Long = { nowElapsedRealtime ->
+            sessionTracker.computeElapsedFor(packageName, nowElapsedRealtime) ?: 0L
+        }
+
         return TimerMillisProviders(
             displayMillisProvider = displayMillisProvider,
             visualMillisProvider = visualMillisProvider,
+            effectMillisProvider = effectMillisProvider,
         )
     }
 }

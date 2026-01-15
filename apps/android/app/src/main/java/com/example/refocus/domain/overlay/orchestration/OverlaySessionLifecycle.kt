@@ -164,6 +164,7 @@ internal class OverlaySessionLifecycle(
             token = packageName,
             displayMillisProvider = providers.displayMillisProvider,
             visualMillisProvider = providers.visualMillisProvider,
+            effectMillisProvider = providers.effectMillisProvider,
             onPositionChanged = ::onOverlayPositionChanged,
         )
     }

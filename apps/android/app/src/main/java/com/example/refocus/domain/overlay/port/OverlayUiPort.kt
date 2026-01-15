@@ -28,7 +28,8 @@ interface OverlayUiPort {
      * タイマーオーバーレイ表示。
      *
      * @param displayMillisProvider 表示用の時間を取得する関数
-     * @param visualMillisProvider 演出用の時間を取得する関数
+     * @param visualMillisProvider 演出用の時間（色・サイズなどのベース変化）を取得する関数
+     * @param effectMillisProvider エフェクト発火スケジュール用の時間（論理セッション経過）を取得する関数
      * @param onPositionChanged ドラッグ後の位置変更をドメイン側に伝えるコールバック
      */
     fun showTimer(
@@ -41,6 +42,7 @@ interface OverlayUiPort {
         token: String? = null,
         displayMillisProvider: (Long) -> Long,
         visualMillisProvider: (Long) -> Long,
+        effectMillisProvider: (Long) -> Long,
         onPositionChanged: (x: Int, y: Int) -> Unit,
     )
 

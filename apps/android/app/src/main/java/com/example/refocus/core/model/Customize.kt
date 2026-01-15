@@ -19,6 +19,15 @@ data class Customize(
     val gradientStartColorArgb: Int = CustomizeDefaults.GRADIENT_START_COLOR_ARGB,
     val gradientMiddleColorArgb: Int = CustomizeDefaults.GRADIENT_MIDDLE_COLOR_ARGB,
     val gradientEndColorArgb: Int = CustomizeDefaults.GRADIENT_END_COLOR_ARGB,
+    // --- オーバーレイアニメーション ---
+    // ベース（常時）
+    val baseColorAnimEnabled: Boolean = CustomizeDefaults.BASE_COLOR_ANIM_ENABLED,
+    val baseSizeAnimEnabled: Boolean = CustomizeDefaults.BASE_SIZE_ANIM_ENABLED,
+    val basePulseEnabled: Boolean = CustomizeDefaults.BASE_PULSE_ENABLED,
+    // エフェクト（一定間隔で発火）
+    val effectsEnabled: Boolean = CustomizeDefaults.EFFECTS_ENABLED,
+    val effectIntervalSeconds: Int = CustomizeDefaults.EFFECT_INTERVAL_SECONDS,
+
     // --- 起動・有効/無効 ---
     val overlayEnabled: Boolean = CustomizeDefaults.OVERLAY_ENABLED,
     val autoStartOnBoot: Boolean = CustomizeDefaults.AUTO_START_ON_BOOT,

@@ -1,30 +1,56 @@
 package com.example.refocus.system.overlay.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
 import com.example.refocus.core.util.formatDurationForTimerBubble
 import com.example.refocus.ui.util.interpolateColor
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 @Deprecated(
-    message = "Use TimerOverlay(customize, visualMillis, text) instead.",
+    message = "Use TimerOverlay(customize, visualMillis, effectMillis, text) instead.",
     replaceWith =
         ReplaceWith(
-            "TimerOverlay(customize = customize, visualMillis = visualMillis, text = formatDurationForTimerBubble(displayMillis), modifier = modifier)",
+            "TimerOverlay(customize = customize, visualMillis = visualMillis, effectMillis = 0L, text = formatDurationForTimerBubble(displayMillis), modifier = modifier)",
         ),
 )
 @Composable
@@ -37,6 +63,7 @@ fun TimerOverlay(
     TimerOverlay(
         customize = customize,
         visualMillis = visualMillis,
+        effectMillis = 0L,
         text = formatDurationForTimerBubble(displayMillis),
         modifier = modifier,
     )
@@ -46,6 +73,7 @@ fun TimerOverlay(
 fun TimerOverlay(
     customize: Customize,
     visualMillis: Long,
+    effectMillis: Long = 0L,
     text: String,
     modifier: Modifier = Modifier,
 ) {
@@ -75,9 +103,21 @@ fun TimerOverlay(
             }
         }
 
-    val size = minSize + (maxSize - minSize) * p
+    val targetSize =
+        if (customize.baseSizeAnimEnabled) {
+            minSize + (maxSize - minSize) * p
+        } else {
+            minSize
+        }
 
-    val baseColor =
+    val size by
+    animateDpAsState(
+        targetValue = targetSize,
+        animationSpec = tween(durationMillis = 350),
+        label = "timer_size",
+    )
+
+    val animatedBaseColor =
         when (customize.colorMode) {
             TimerColorMode.Fixed -> Color(customize.fixedColorArgb)
             TimerColorMode.GradientTwo -> {
@@ -98,17 +138,440 @@ fun TimerOverlay(
             }
         }
 
+    val fixedBaseColor =
+        when (customize.colorMode) {
+            TimerColorMode.Fixed -> Color(customize.fixedColorArgb)
+            TimerColorMode.GradientTwo,
+            TimerColorMode.GradientThree -> Color(customize.gradientStartColorArgb)
+        }
+
+    val targetBaseColor =
+        if (customize.baseColorAnimEnabled) {
+            animatedBaseColor
+        } else {
+            fixedBaseColor
+        }
+
+    val baseColor by
+    animateColorAsState(
+        targetValue = targetBaseColor,
+        animationSpec = tween(durationMillis = 400),
+        label = "timer_base_color",
+    )
+
+    val pulseScale = rememberPulseScale(enabled = customize.basePulseEnabled)
+
+    // エフェクト（一定間隔ランダム，提案とは無関係）
+    val attention = remember { Animatable(0f) }
+    val blinkAlphaMul = remember { Animatable(1f) }
+    val rotationDeg = remember { Animatable(0f) }
+    val shakeX = remember { Animatable(0f) }
+    val shakeY = remember { Animatable(0f) }
+
+    var effectJob by remember { mutableStateOf<Job?>(null) }
+    var lastEffectType by remember { mutableStateOf<TimerEffectType?>(null) }
+    var effectBag by remember { mutableStateOf<List<TimerEffectType>>(emptyList()) }
+
+    // 回転エフェクト中のみ，ウィンドウ内部の見切れ対策として一時的に余白を確保する
+    var rotateWindowPaddingActive by remember { mutableStateOf(false) }
+    var rotatingBoxSize by remember { mutableStateOf(IntSize.Zero) }
+
+    val density = LocalDensity.current
+    val shakeAmpPx = with(density) { SHAKE_AMPLITUDE_DP.dp.toPx() }
+
+    var lastBucket by remember { mutableStateOf(0L) }
+    val random = remember { Random(System.currentTimeMillis()) }
+    val intervalSeconds = customize.effectIntervalSeconds
+    val intervalMs = intervalSeconds.toLong() * 1000L
+    val bucket =
+        if (customize.effectsEnabled && intervalSeconds > 0) {
+            effectMillis / intervalMs
+        } else {
+            0L
+        }
+
+    // 設定変更時は走行中エフェクトを止めて初期化
+    LaunchedEffect(customize.effectsEnabled, intervalSeconds) {
+        lastBucket = 0L
+        effectJob?.cancel()
+        effectJob = null
+        lastEffectType = null
+        rotateWindowPaddingActive = false
+
+        attention.snapTo(0f)
+        blinkAlphaMul.snapTo(1f)
+        rotationDeg.snapTo(0f)
+        shakeX.snapTo(0f)
+        shakeY.snapTo(0f)
+    }
+
+    // effectMillis の「一定間隔バケット」の切り替わりで発火させる
+    LaunchedEffect(bucket) {
+        if (!customize.effectsEnabled || intervalSeconds <= 0) return@LaunchedEffect
+        if (bucket <= 0L) {
+            // セッション開始直後（0バケット）は鳴らさない．またセッション境界で状態を落とす
+            lastBucket = 0L
+            effectJob?.cancel()
+            effectJob = null
+            lastEffectType = null
+            rotateWindowPaddingActive = false
+            attention.snapTo(0f)
+            blinkAlphaMul.snapTo(1f)
+            rotationDeg.snapTo(0f)
+            shakeX.snapTo(0f)
+            shakeY.snapTo(0f)
+            return@LaunchedEffect
+        }
+
+        if (bucket == lastBucket) return@LaunchedEffect
+        lastBucket = bucket
+        // 実行中ならこの境界はスキップ（同時実行しない）
+        if (effectJob?.isActive == true) return@LaunchedEffect
+        val next =
+            if (effectBag.isNotEmpty()) {
+                effectBag.first().also { effectBag = effectBag.drop(1) }
+            } else {
+                val bag = makeEffectBag(random = random, last = lastEffectType)
+                // 先頭を next として使い，残りを保持する
+                effectBag = bag.drop(1)
+                bag.first()
+            }
+        lastEffectType = next
+        effectJob =
+            launch {
+                runEffect(
+                    effect = next,
+                    attention = attention,
+                    blinkAlphaMul = blinkAlphaMul,
+                    rotationDeg = rotationDeg,
+                    shakeX = shakeX,
+                    shakeY = shakeY,
+                    shakeAmplitudePx = shakeAmpPx,
+                    onRotateWindowPaddingActive = { rotateWindowPaddingActive = it },
+                )
+            }
+    }
+
+    val effectBlend = (attention.value * ATTENTION_BLEND_MAX).coerceIn(0f, 1f)
+    val effectColor = lerpColor(baseColor, ATTENTION_RED, effectBlend)
+    val bgAlpha = (BASE_BACKGROUND_ALPHA * blinkAlphaMul.value).coerceIn(0f, 1f)
+
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center,
     ) {
-        TimerBubble(
-            text = text,
-            backgroundColor = baseColor.copy(alpha = 0.7f),
-            size = size,
-            textStyle = MaterialTheme.typography.bodyMedium,
-        )
+        // 透明オーバーレイ上で shadow + scale が残像を作ることがあるため，
+        // オフスクリーン合成したうえで毎フレーム描画領域をクリアしてから描く．
+        //
+        // TimerBubble は shadow(clip = false) によりレイアウト外へ描画するので，
+        // クリア領域を確保するために少しだけガード用の padding を入れている．
+        val guard = 16.dp
+
+        // 回転（360度スピン）時にウィンドウ内部で見切れないよう，
+        // 回転前の矩形サイズから対角線分の余白を計算して一時的に確保する．
+        // （graphicsLayer の回転は計測サイズに反映されないため）
+        val (extraPadX, extraPadY) =
+            remember(rotatingBoxSize, density) {
+                if (rotatingBoxSize.width == 0 || rotatingBoxSize.height == 0) {
+                    0.dp to 0.dp
+                } else {
+                    val w = rotatingBoxSize.width.toFloat()
+                    val h = rotatingBoxSize.height.toFloat()
+                    val diag = kotlin.math.sqrt(w * w + h * h)
+                    val padXpx = ((diag - w) / 2f).coerceAtLeast(0f)
+                    val padYpx = ((diag - h) / 2f).coerceAtLeast(0f)
+                    with(density) { padXpx.toDp() to padYpx.toDp() }
+                }
+            }
+
+        val padX = if (rotateWindowPaddingActive) extraPadX else 0.dp
+        val padY = if (rotateWindowPaddingActive) extraPadY else 0.dp
+
+        Box(
+            modifier = Modifier.padding(horizontal = padX, vertical = padY),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .padding(guard)
+                        .onSizeChanged { rotatingBoxSize = it }
+                        // drawWithContent を graphicsLayer より外側に置くことで，
+                        // 位置変化（translation）のたびに「前フレームの位置」を確実にクリアできるようにする．
+                        // （graphicsLayer が外側だと Clear も一緒に動いてしまい，残像が出やすい）
+                        .drawWithContent {
+                            drawRect(color = Color.Transparent, blendMode = BlendMode.Clear)
+                            drawContent()
+                        }
+                        .graphicsLayer(
+                            compositingStrategy = CompositingStrategy.Offscreen,
+                            scaleX = pulseScale,
+                            scaleY = pulseScale,
+                            rotationZ = rotationDeg.value,
+                            translationX = shakeX.value,
+                            translationY = shakeY.value,
+                            transformOrigin = TransformOrigin(0.5f, 0.5f),
+                        ),
+            ) {
+                TimerBubble(
+                    text = text,
+                    backgroundColor = effectColor.copy(alpha = bgAlpha),
+                    size = size,
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
     }
+}
+
+private enum class TimerEffectType {
+    Blink,
+    Rotate,
+    Shake,
+}
+
+private fun makeEffectBag(
+    random: Random,
+    last: TimerEffectType?,
+): List<TimerEffectType> {
+    val bag = TimerEffectType.entries.toMutableList()
+    bag.shuffle(random)
+
+    // bag の先頭が直前と同じだと，バケット境界で「たまたま連続」に見えやすいので避ける
+    if (last != null && bag.size > 1 && bag.first() == last) {
+        val swapIndex = bag.indexOfFirst { it != last }
+        if (swapIndex >= 1) {
+            val tmp = bag[0]
+            bag[0] = bag[swapIndex]
+            bag[swapIndex] = tmp
+        }
+    }
+    return bag
+}
+
+private suspend fun runEffect(
+    effect: TimerEffectType,
+    attention: Animatable<Float, *>,
+    blinkAlphaMul: Animatable<Float, *>,
+    rotationDeg: Animatable<Float, *>,
+    shakeX: Animatable<Float, *>,
+    shakeY: Animatable<Float, *>,
+    shakeAmplitudePx: Float,
+    onRotateWindowPaddingActive: (Boolean) -> Unit,
+) {
+    // 初期化
+    onRotateWindowPaddingActive(false)
+    attention.snapTo(0f)
+    blinkAlphaMul.snapTo(1f)
+    rotationDeg.snapTo(0f)
+    shakeX.snapTo(0f)
+    shakeY.snapTo(0f)
+
+    val totalMs = effectTotalDurationMs(effect)
+    coroutineScope {
+        val attentionJob = launch { runAttentionEnvelope(attention = attention, totalMs = totalMs) }
+        val effectJob =
+            launch {
+                onRotateWindowPaddingActive(false)
+                when (effect) {
+                    TimerEffectType.Blink -> runBlink(blinkAlphaMul = blinkAlphaMul)
+                    TimerEffectType.Rotate -> runRotate(
+                        rotationDeg = rotationDeg,
+                        onRotateWindowPaddingActive = onRotateWindowPaddingActive
+                    )
+
+                    TimerEffectType.Shake -> runShake(shakeX = shakeX, shakeY = shakeY, amplitudePx = shakeAmplitudePx)
+                }
+            }
+        attentionJob.join()
+        effectJob.join()
+    }
+
+    // 念のため終端を整える
+    onRotateWindowPaddingActive(false)
+    attention.snapTo(0f)
+    blinkAlphaMul.snapTo(1f)
+    rotationDeg.snapTo(0f)
+    shakeX.snapTo(0f)
+    shakeY.snapTo(0f)
+}
+
+private fun lerpColor(a: Color, b: Color, t: Float): Color {
+    val tt = t.coerceIn(0f, 1f)
+    return Color(
+        red = a.red + (b.red - a.red) * tt,
+        green = a.green + (b.green - a.green) * tt,
+        blue = a.blue + (b.blue - a.blue) * tt,
+        alpha = a.alpha + (b.alpha - a.alpha) * tt,
+    )
+}
+
+private const val BASE_BACKGROUND_ALPHA: Float = 0.7f
+private const val ATTENTION_BLEND_MAX: Float = 0.65f
+private val ATTENTION_RED: Color = Color(0xFFFF3B30.toInt())
+
+private const val ATTENTION_RAMP_IN_MS: Int = 220
+private const val ATTENTION_RAMP_OUT_MS: Int = 260
+
+// 1 秒周期で 3 回点滅（計 3 秒）
+private const val BLINK_PERIOD_MS: Int = 500
+private const val BLINK_TIMES: Int = 6
+private const val BLINK_MIN_MUL: Float = 0.2f
+
+private const val ROTATE_SPIN_DURATION_MS: Int = 1200
+
+private const val SHAKE_TOTAL_MS: Int = 700
+private const val SHAKE_OSCILLATIONS: Int = 9
+private const val SHAKE_AMPLITUDE_DP: Float = 24f
+
+private fun effectTotalDurationMs(effect: TimerEffectType): Int =
+    when (effect) {
+        TimerEffectType.Blink -> BLINK_PERIOD_MS * BLINK_TIMES
+        TimerEffectType.Rotate -> ROTATE_SPIN_DURATION_MS
+        TimerEffectType.Shake -> SHAKE_TOTAL_MS
+    }
+
+private suspend fun runAttentionEnvelope(
+    attention: Animatable<Float, *>,
+    totalMs: Int,
+) {
+    val total = totalMs.coerceAtLeast(1)
+    val rampIn = ATTENTION_RAMP_IN_MS.coerceAtMost(total)
+    val rampOut = ATTENTION_RAMP_OUT_MS.coerceAtMost((total - rampIn).coerceAtLeast(0))
+    val hold = (total - rampIn - rampOut).coerceAtLeast(0)
+
+    val startNs = withFrameNanos { it }
+    while (currentCoroutineContext().isActive) {
+        val nowNs = withFrameNanos { it }
+        val elapsedMs = ((nowNs - startNs) / 1_000_000L).toInt()
+        val v =
+            when {
+                elapsedMs <= 0 -> 0f
+                elapsedMs < rampIn -> {
+                    val p = elapsedMs.toFloat() / rampIn.toFloat()
+                    FastOutSlowInEasing.transform(p)
+                }
+
+                elapsedMs < rampIn + hold -> 1f
+                elapsedMs < total -> {
+                    val p = (elapsedMs - rampIn - hold).toFloat() / rampOut.toFloat().coerceAtLeast(1f)
+                    1f - FastOutSlowInEasing.transform(p.coerceIn(0f, 1f))
+                }
+
+                else -> 0f
+            }
+        attention.snapTo(v.coerceIn(0f, 1f))
+        if (elapsedMs >= total) break
+    }
+    attention.snapTo(0f)
+}
+
+private suspend fun runBlink(
+    blinkAlphaMul: Animatable<Float, *>,
+) {
+    val totalMs = (BLINK_PERIOD_MS * BLINK_TIMES).coerceAtLeast(1)
+    val startNs = withFrameNanos { it }
+    while (currentCoroutineContext().isActive) {
+        val nowNs = withFrameNanos { it }
+        val elapsedMs = ((nowNs - startNs) / 1_000_000L).toInt()
+        val cycleMs = (elapsedMs % BLINK_PERIOD_MS).coerceAtLeast(0)
+        val phase = cycleMs.toFloat() / BLINK_PERIOD_MS.toFloat()
+
+        val v =
+            if (phase < 0.5f) {
+                val p = FastOutSlowInEasing.transform((phase / 0.5f).coerceIn(0f, 1f))
+                1f + (BLINK_MIN_MUL - 1f) * p
+            } else {
+                val p = FastOutSlowInEasing.transform(((phase - 0.5f) / 0.5f).coerceIn(0f, 1f))
+                BLINK_MIN_MUL + (1f - BLINK_MIN_MUL) * p
+            }
+
+        blinkAlphaMul.snapTo(v.coerceIn(BLINK_MIN_MUL, 1f))
+        if (elapsedMs >= totalMs) break
+    }
+    blinkAlphaMul.snapTo(1f)
+}
+
+private suspend fun runRotate(
+    rotationDeg: Animatable<Float, *>,
+    onRotateWindowPaddingActive: (Boolean) -> Unit,
+) {
+    onRotateWindowPaddingActive(true)
+    try {
+        val spins = 1
+        val totalMs = (ROTATE_SPIN_DURATION_MS * spins).coerceAtLeast(1)
+        rotationDeg.snapTo(0f)
+
+        val start = withFrameNanos { it }
+        while (currentCoroutineContext().isActive) {
+            val now = withFrameNanos { it }
+            val elapsedMs = (now - start) / 1_000_000f
+            val p = (elapsedMs / totalMs.toFloat()).coerceIn(0f, 1f)
+            rotationDeg.snapTo(360f * spins * p)
+            if (p >= 1f) break
+        }
+
+        // 360度は見た目上 0度と同じなので，状態を正規化して次回を安定させる
+        rotationDeg.snapTo(0f)
+    } finally {
+        onRotateWindowPaddingActive(false)
+    }
+}
+
+private suspend fun runShake(
+    shakeX: Animatable<Float, *>,
+    shakeY: Animatable<Float, *>,
+    amplitudePx: Float,
+) {
+    val totalMs = SHAKE_TOTAL_MS.coerceAtLeast(1)
+    val startNs = withFrameNanos { it }
+    while (currentCoroutineContext().isActive) {
+        val nowNs = withFrameNanos { it }
+        val elapsedMs = ((nowNs - startNs) / 1_000_000L).toInt()
+        val p = (elapsedMs.toFloat() / totalMs.toFloat()).coerceIn(0f, 1f)
+
+        // 減衰する正弦波で揺らす（急激なステップ変化を避け，残像っぽいちらつきを減らす）
+        val damping = 1f - p
+        val angle = 2.0 * Math.PI * SHAKE_OSCILLATIONS.toDouble() * p.toDouble()
+        val x = (amplitudePx * damping * kotlin.math.sin(angle)).toFloat()
+        shakeX.snapTo(x)
+        shakeY.snapTo(0f)
+
+        if (elapsedMs >= totalMs) break
+    }
+
+    shakeX.snapTo(0f)
+    shakeY.snapTo(0f)
+}
+
+private const val PULSE_PERIOD_MS: Int = 3200
+private const val PULSE_AMPLITUDE: Float = 0.04f
+
+@Composable
+private fun rememberPulseScale(enabled: Boolean): Float {
+    // システムの Animator duration scale（開発者オプション）に依存せず，
+    // enabled のときだけ一定周期で呼吸させる．
+    // withFrameNanos を使うことで，duration が 0 扱いになってもスピンループにならない．
+    val scaleState = remember { mutableFloatStateOf(1f) }
+    LaunchedEffect(enabled) {
+        if (!enabled) {
+            scaleState.floatValue = 1f
+            return@LaunchedEffect
+        }
+        val periodNs = PULSE_PERIOD_MS.toLong() * 1_000_000L
+        val startNs = withFrameNanos { it }
+        while (isActive) {
+            val nowNs = withFrameNanos { it }
+            val elapsedNs = nowNs - startNs
+            // 0..1 の位相に正規化して cos 波で呼吸（開始時は縮小側）
+            val normalized = (elapsedNs % periodNs).toDouble() / periodNs.toDouble()
+            val phase = normalized * 2.0 * Math.PI
+            val scale = 1.0 - (PULSE_AMPLITUDE.toDouble() * kotlin.math.cos(phase))
+
+            scaleState.floatValue = scale.toFloat()
+        }
+    }
+    return scaleState.floatValue
 }
 
 @Composable
@@ -119,8 +582,18 @@ private fun TimerBubble(
     textStyle: TextStyle,
     modifier: Modifier = Modifier,
 ) {
-    val fontSize = with(LocalDensity.current) { size.toSp() }
+    val density = LocalDensity.current
+    val fontSize = with(density) { size.toSp() }
     val textColor = chooseOnColorForBackground(backgroundColor)
+
+    val resolvedTextStyle =
+        textStyle.copy(
+            fontSize = fontSize,
+            fontFamily = FontFamily.Monospace,
+            fontFeatureSettings = "tnum",
+        )
+
+    val horizontalPadding = 12.dp
 
     Box(
         modifier =
@@ -129,19 +602,22 @@ private fun TimerBubble(
                     elevation = 4.dp,
                     shape = MaterialTheme.shapes.medium,
                     clip = false,
-                ).background(
+                )
+                .background(
                     color = backgroundColor,
                     shape = MaterialTheme.shapes.medium,
-                ).padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+                .padding(horizontal = horizontalPadding, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
             color = textColor,
-            style = textStyle.copy(fontSize = fontSize),
+            style = resolvedTextStyle,
         )
     }
 }
+
 
 private fun chooseOnColorForBackground(bg: Color): Color {
     val r = (bg.red * 255).toInt()

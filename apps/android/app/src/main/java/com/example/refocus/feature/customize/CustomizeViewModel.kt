@@ -165,6 +165,38 @@ class CustomizeViewModel
             }
         }
 
+        // --- タイマーのアニメーション（ベース/エフェクト） ---
+
+        fun updateBaseColorAnimEnabled(enabled: Boolean) =
+            updateSettingsAsCustom(
+                key = SettingsCommand.Keys.BASE_COLOR_ANIM_ENABLED,
+                newValueDescription = enabled.toString(),
+            ) { copy(baseColorAnimEnabled = enabled) }
+
+        fun updateBaseSizeAnimEnabled(enabled: Boolean) =
+            updateSettingsAsCustom(
+                key = SettingsCommand.Keys.BASE_SIZE_ANIM_ENABLED,
+                newValueDescription = enabled.toString(),
+            ) { copy(baseSizeAnimEnabled = enabled) }
+
+        fun updateBasePulseEnabled(enabled: Boolean) =
+            updateSettingsAsCustom(
+                key = SettingsCommand.Keys.BASE_PULSE_ENABLED,
+                newValueDescription = enabled.toString(),
+            ) { copy(basePulseEnabled = enabled) }
+
+        fun updateEffectsEnabled(enabled: Boolean) =
+            updateSettingsAsCustom(
+                key = SettingsCommand.Keys.EFFECTS_ENABLED,
+                newValueDescription = enabled.toString(),
+            ) { copy(effectsEnabled = enabled) }
+
+        fun updateEffectIntervalSeconds(seconds: Int) =
+            updateSettingsAsCustom(
+                key = SettingsCommand.Keys.EFFECT_INTERVAL_SECONDS,
+                newValueDescription = seconds.toString(),
+            ) { copy(effectIntervalSeconds = seconds) }
+
         fun updateGrowthMode(mode: TimerGrowthMode) =
             updateSettingsAsCustom(
                 key = SettingsCommand.Keys.GROWTH_MODE,
