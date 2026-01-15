@@ -4,6 +4,7 @@ import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.ui.minigame.games.eightpuzzle.eightPuzzleEntry
 import com.example.refocus.ui.minigame.games.flashanzan.flashAnzanEntry
 import com.example.refocus.ui.minigame.games.maketen.makeTenEntry
+import com.example.refocus.ui.minigame.games.memoji.memojiEntry
 import com.example.refocus.ui.minigame.games.mirrortext.mirrorTextEntry
 
 /**
@@ -20,6 +21,7 @@ object MiniGameRegistry {
             makeTenEntry,
             eightPuzzleEntry,
             mirrorTextEntry,
+            memojiEntry,
         )
 
     private val byKind: Map<MiniGameKind, MiniGameEntry> =
