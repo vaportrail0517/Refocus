@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -169,6 +171,10 @@ fun TimerOverlay(
     var lastEffectType by remember { mutableStateOf<TimerEffectType?>(null) }
     var effectBag by remember { mutableStateOf<List<TimerEffectType>>(emptyList()) }
 
+    // 回転エフェクト中のみ，ウィンドウ内部の見切れ対策として一時的に余白を確保する
+    var rotateWindowPaddingActive by remember { mutableStateOf(false) }
+    var rotatingBoxSize by remember { mutableStateOf(IntSize.Zero) }
+
     val density = LocalDensity.current
     val shakeAmpPx = with(density) { SHAKE_AMPLITUDE_DP.dp.toPx() }
 
@@ -189,6 +195,7 @@ fun TimerOverlay(
         effectJob?.cancel()
         effectJob = null
         lastEffectType = null
+        rotateWindowPaddingActive = false
 
         attention.snapTo(0f)
         blinkAlphaMul.snapTo(1f)
@@ -206,6 +213,7 @@ fun TimerOverlay(
             effectJob?.cancel()
             effectJob = null
             lastEffectType = null
+            rotateWindowPaddingActive = false
             attention.snapTo(0f)
             blinkAlphaMul.snapTo(1f)
             rotationDeg.snapTo(0f)
@@ -238,6 +246,7 @@ fun TimerOverlay(
                     shakeX = shakeX,
                     shakeY = shakeY,
                     shakeAmplitudePx = shakeAmpPx,
+                    onRotateWindowPaddingActive = { rotateWindowPaddingActive = it },
                 )
             }
     }
@@ -257,31 +266,57 @@ fun TimerOverlay(
         // クリア領域を確保するために少しだけガード用の padding を入れている．
         val guard = 16.dp
 
+        // 回転（360度スピン）時にウィンドウ内部で見切れないよう，
+        // 回転前の矩形サイズから対角線分の余白を計算して一時的に確保する．
+        // （graphicsLayer の回転は計測サイズに反映されないため）
+        val (extraPadX, extraPadY) =
+            remember(rotatingBoxSize, density) {
+                if (rotatingBoxSize.width == 0 || rotatingBoxSize.height == 0) {
+                    0.dp to 0.dp
+                } else {
+                    val w = rotatingBoxSize.width.toFloat()
+                    val h = rotatingBoxSize.height.toFloat()
+                    val diag = kotlin.math.sqrt(w * w + h * h)
+                    val padXpx = ((diag - w) / 2f).coerceAtLeast(0f)
+                    val padYpx = ((diag - h) / 2f).coerceAtLeast(0f)
+                    with(density) { padXpx.toDp() to padYpx.toDp() }
+                }
+            }
+
+        val padX = if (rotateWindowPaddingActive) extraPadX else 0.dp
+        val padY = if (rotateWindowPaddingActive) extraPadY else 0.dp
+
         Box(
-            modifier =
-                Modifier
-                    .padding(guard)
-                    .graphicsLayer(
-                        scaleX = pulseScale,
-                        scaleY = pulseScale,
-                        rotationZ = rotationDeg.value,
-                        translationX = shakeX.value,
-                        translationY = shakeY.value,
-                        transformOrigin = TransformOrigin(0.5f, 0.5f),
-                        compositingStrategy = CompositingStrategy.Offscreen,
-                    )
-                    .drawWithContent {
-                        // 透明レイヤでフレーム間の残像が残るのを防ぐ
-                        drawRect(color = Color.Transparent, blendMode = BlendMode.Clear)
-                        drawContent()
-                    },
+            modifier = Modifier.padding(horizontal = padX, vertical = padY),
+            contentAlignment = Alignment.Center,
         ) {
-            TimerBubble(
-                text = text,
-                backgroundColor = effectColor.copy(alpha = bgAlpha),
-                size = size,
-                textStyle = MaterialTheme.typography.bodyMedium,
-            )
+            Box(
+                modifier =
+                    Modifier
+                        .padding(guard)
+                        .onSizeChanged { rotatingBoxSize = it }
+                        .graphicsLayer(
+                            scaleX = pulseScale,
+                            scaleY = pulseScale,
+                            rotationZ = rotationDeg.value,
+                            translationX = shakeX.value,
+                            translationY = shakeY.value,
+                            transformOrigin = TransformOrigin(0.5f, 0.5f),
+                            compositingStrategy = CompositingStrategy.Offscreen,
+                        )
+                        .drawWithContent {
+                            // 透明レイヤでフレーム間の残像が残るのを防ぐ
+                            drawRect(color = Color.Transparent, blendMode = BlendMode.Clear)
+                            drawContent()
+                        },
+            ) {
+                TimerBubble(
+                    text = text,
+                    backgroundColor = effectColor.copy(alpha = bgAlpha),
+                    size = size,
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                )
+            }
         }
     }
 }
@@ -319,8 +354,10 @@ private suspend fun runEffect(
     shakeX: Animatable<Float, *>,
     shakeY: Animatable<Float, *>,
     shakeAmplitudePx: Float,
+    onRotateWindowPaddingActive: (Boolean) -> Unit,
 ) {
     // 初期化
+    onRotateWindowPaddingActive(false)
     attention.snapTo(0f)
     blinkAlphaMul.snapTo(1f)
     rotationDeg.snapTo(0f)
@@ -342,6 +379,7 @@ private suspend fun runEffect(
         }
 
         val effectJob = launch {
+            onRotateWindowPaddingActive(false)
             when (effect) {
                 TimerEffectType.Blink -> {
                     repeat(BLINK_CYCLES) {
@@ -358,26 +396,31 @@ private suspend fun runEffect(
                 }
 
                 TimerEffectType.Rotate -> {
-                    // その場で 360 度回転するスピン．画面外にはみ出してもよい前提．
-                    //
-                    // 端末側の「Animator duration scale」が 0（アニメーション無効）の場合，
-                    // tween/Animatable の animateTo が即時完了してしまい，見た目として回転が発生しない．
-                    // そこで withFrameNanos によるフレーム駆動で回転角を更新し，端末設定に依存せず回す．
-                    val spins = 1
-                    val totalMs = (ROTATE_SPIN_DURATION_MS * spins).coerceAtLeast(1)
-                    rotationDeg.snapTo(0f)
+                    onRotateWindowPaddingActive(true)
+                    try {
+                        // その場で 360 度回転するスピン．画面外にはみ出してもよい前提．
+                        //
+                        // 端末側の「Animator duration scale」が 0（アニメーション無効）の場合，
+                        // tween/Animatable の animateTo が即時完了してしまい，見た目として回転が発生しない．
+                        // そこで withFrameNanos によるフレーム駆動で回転角を更新し，端末設定に依存せず回す．
+                        val spins = 1
+                        val totalMs = (ROTATE_SPIN_DURATION_MS * spins).coerceAtLeast(1)
+                        rotationDeg.snapTo(0f)
 
-                    val start = withFrameNanos { it }
-                    while (isActive) {
-                        val now = withFrameNanos { it }
-                        val elapsedMs = (now - start) / 1_000_000f
-                        val p = (elapsedMs / totalMs.toFloat()).coerceIn(0f, 1f)
-                        rotationDeg.snapTo(360f * spins * p)
-                        if (p >= 1f) break
+                        val start = withFrameNanos { it }
+                        while (isActive) {
+                            val now = withFrameNanos { it }
+                            val elapsedMs = (now - start) / 1_000_000f
+                            val p = (elapsedMs / totalMs.toFloat()).coerceIn(0f, 1f)
+                            rotationDeg.snapTo(360f * spins * p)
+                            if (p >= 1f) break
+                        }
+
+                        // 360度は見た目上 0度と同じなので，状態を正規化して次回を安定させる
+                        rotationDeg.snapTo(0f)
+                    } finally {
+                        onRotateWindowPaddingActive(false)
                     }
-
-                    // 360度は見た目上 0度と同じなので，状態を正規化して次回を安定させる
-                    rotationDeg.snapTo(0f)
                 }
 
                 TimerEffectType.Shake -> {
@@ -413,6 +456,7 @@ private suspend fun runEffect(
     }
 
     // 念のため終端を整える
+    onRotateWindowPaddingActive(false)
     attention.snapTo(0f)
     blinkAlphaMul.snapTo(1f)
     rotationDeg.snapTo(0f)
