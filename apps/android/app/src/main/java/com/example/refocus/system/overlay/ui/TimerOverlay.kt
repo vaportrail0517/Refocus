@@ -21,10 +21,10 @@ import com.example.refocus.core.util.formatDurationForTimerBubble
 import com.example.refocus.ui.util.interpolateColor
 
 @Deprecated(
-    message = "Use TimerOverlay(customize, visualMillis, text) instead.",
+    message = "Use TimerOverlay(customize, visualMillis, effectMillis, text) instead.",
     replaceWith =
         ReplaceWith(
-            "TimerOverlay(customize = customize, visualMillis = visualMillis, text = formatDurationForTimerBubble(displayMillis), modifier = modifier)",
+            "TimerOverlay(customize = customize, visualMillis = visualMillis, effectMillis = 0L, text = formatDurationForTimerBubble(displayMillis), modifier = modifier)",
         ),
 )
 @Composable
@@ -37,6 +37,7 @@ fun TimerOverlay(
     TimerOverlay(
         customize = customize,
         visualMillis = visualMillis,
+        effectMillis = 0L,
         text = formatDurationForTimerBubble(displayMillis),
         modifier = modifier,
     )
@@ -46,6 +47,7 @@ fun TimerOverlay(
 fun TimerOverlay(
     customize: Customize,
     visualMillis: Long,
+    effectMillis: Long = 0L,
     text: String,
     modifier: Modifier = Modifier,
 ) {
