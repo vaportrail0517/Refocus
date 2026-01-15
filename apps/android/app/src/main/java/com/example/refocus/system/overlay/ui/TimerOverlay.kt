@@ -264,7 +264,7 @@ fun TimerOverlay(
                     .graphicsLayer(
                         scaleX = pulseScale,
                         scaleY = pulseScale,
-                        rotationZ = rotationDeg.value * attention.value,
+                        rotationZ = rotationDeg.value,
                         translationX = shakeX.value,
                         translationY = shakeY.value,
                         transformOrigin = TransformOrigin(0.5f, 0.5f),
@@ -358,22 +358,26 @@ private suspend fun runEffect(
                 }
 
                 TimerEffectType.Rotate -> {
-                    // 穏やかな「首振り回転」．360度スピンよりも視認性が高く，ナッジとして過度にうるさくない．
-                    val a = ROTATE_AMPLITUDE_DEG
-                    repeat(ROTATE_SWINGS) {
-                        rotationDeg.animateTo(
-                            targetValue = a,
-                            animationSpec = tween(durationMillis = ROTATE_HALF_PERIOD_MS, easing = FastOutSlowInEasing),
-                        )
-                        rotationDeg.animateTo(
-                            targetValue = -a,
-                            animationSpec = tween(durationMillis = ROTATE_HALF_PERIOD_MS, easing = FastOutSlowInEasing),
-                        )
+                    // その場で 360 度回転するスピン．画面外にはみ出してもよい前提．
+                    //
+                    // 端末側の「Animator duration scale」が 0（アニメーション無効）の場合，
+                    // tween/Animatable の animateTo が即時完了してしまい，見た目として回転が発生しない．
+                    // そこで withFrameNanos によるフレーム駆動で回転角を更新し，端末設定に依存せず回す．
+                    val spins = 1
+                    val totalMs = (ROTATE_SPIN_DURATION_MS * spins).coerceAtLeast(1)
+                    rotationDeg.snapTo(0f)
+
+                    val start = withFrameNanos { it }
+                    while (isActive) {
+                        val now = withFrameNanos { it }
+                        val elapsedMs = (now - start) / 1_000_000f
+                        val p = (elapsedMs / totalMs.toFloat()).coerceIn(0f, 1f)
+                        rotationDeg.snapTo(360f * spins * p)
+                        if (p >= 1f) break
                     }
-                    rotationDeg.animateTo(
-                        targetValue = 0f,
-                        animationSpec = tween(durationMillis = ROTATE_SETTLE_MS, easing = FastOutSlowInEasing),
-                    )
+
+                    // 360度は見た目上 0度と同じなので，状態を正規化して次回を安定させる
+                    rotationDeg.snapTo(0f)
                 }
 
                 TimerEffectType.Shake -> {
@@ -437,6 +441,8 @@ private const val EFFECT_RAMP_OUT_MS: Int = 420
 private const val BLINK_HALF_PERIOD_MS: Int = 280
 private const val BLINK_CYCLES: Int = 5
 private const val BLINK_MIN_MUL: Float = 0.4f
+
+private const val ROTATE_SPIN_DURATION_MS: Int = 900
 
 private const val ROTATE_HALF_PERIOD_MS: Int = 250
 private const val ROTATE_SWINGS: Int = 4
