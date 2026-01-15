@@ -64,6 +64,13 @@ class SettingsDataStore(
         val GRADIENT_MIDDLE_COLOR_ARGB = intPreferencesKey("gradient_middle_color_argb")
         val GRADIENT_END_COLOR_ARGB = intPreferencesKey("gradient_end_color_argb")
 
+        // --- オーバーレイアニメーション ---
+        val BASE_COLOR_ANIM_ENABLED = booleanPreferencesKey("base_color_anim_enabled")
+        val BASE_SIZE_ANIM_ENABLED = booleanPreferencesKey("base_size_anim_enabled")
+        val BASE_PULSE_ENABLED = booleanPreferencesKey("base_pulse_enabled")
+        val EFFECTS_ENABLED = booleanPreferencesKey("effects_enabled")
+        val EFFECT_INTERVAL_SECONDS = intPreferencesKey("effect_interval_seconds")
+
         // --- 起動・有効/無効 ---
         val OVERLAY_ENABLED = booleanPreferencesKey("overlay_enabled")
         val AUTO_START_ON_BOOT = booleanPreferencesKey("auto_start_on_boot")
@@ -155,6 +162,11 @@ class SettingsDataStore(
             prefs[Keys.GRADIENT_START_COLOR_ARGB] = updated.gradientStartColorArgb
             prefs[Keys.GRADIENT_MIDDLE_COLOR_ARGB] = updated.gradientMiddleColorArgb
             prefs[Keys.GRADIENT_END_COLOR_ARGB] = updated.gradientEndColorArgb
+            prefs[Keys.BASE_COLOR_ANIM_ENABLED] = updated.baseColorAnimEnabled
+            prefs[Keys.BASE_SIZE_ANIM_ENABLED] = updated.baseSizeAnimEnabled
+            prefs[Keys.BASE_PULSE_ENABLED] = updated.basePulseEnabled
+            prefs[Keys.EFFECTS_ENABLED] = updated.effectsEnabled
+            prefs[Keys.EFFECT_INTERVAL_SECONDS] = updated.effectIntervalSeconds
 
             prefs[Keys.SUGGESTION_ENABLED] = updated.suggestionEnabled
             prefs[Keys.SUGGESTION_TRIGGER_SECONDS] = updated.suggestionTriggerSeconds
@@ -288,6 +300,22 @@ class SettingsDataStore(
             gradientEndColorArgb =
                 this[Keys.GRADIENT_END_COLOR_ARGB]
                     ?: base.gradientEndColorArgb,
+            baseColorAnimEnabled =
+                this[Keys.BASE_COLOR_ANIM_ENABLED]
+                    ?: base.baseColorAnimEnabled,
+            baseSizeAnimEnabled =
+                this[Keys.BASE_SIZE_ANIM_ENABLED]
+                    ?: base.baseSizeAnimEnabled,
+            basePulseEnabled =
+                this[Keys.BASE_PULSE_ENABLED]
+                    ?: base.basePulseEnabled,
+            effectsEnabled =
+                this[Keys.EFFECTS_ENABLED]
+                    ?: base.effectsEnabled,
+            effectIntervalSeconds =
+                this[Keys.EFFECT_INTERVAL_SECONDS]
+                    ?: base.effectIntervalSeconds,
+
             suggestionEnabled =
                 this[Keys.SUGGESTION_ENABLED]
                     ?: base.suggestionEnabled,

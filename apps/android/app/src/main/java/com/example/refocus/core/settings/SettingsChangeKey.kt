@@ -42,6 +42,13 @@ object SettingsChangeKeys {
     val GRADIENT_MIDDLE_COLOR_ARGB = SettingsChangeKey("gradientMiddleColorArgb")
     val GRADIENT_END_COLOR_ARGB = SettingsChangeKey("gradientEndColorArgb")
 
+    // --- オーバーレイアニメーション ---
+    val BASE_COLOR_ANIM_ENABLED = SettingsChangeKey("baseColorAnimEnabled")
+    val BASE_SIZE_ANIM_ENABLED = SettingsChangeKey("baseSizeAnimEnabled")
+    val BASE_PULSE_ENABLED = SettingsChangeKey("basePulseEnabled")
+    val EFFECTS_ENABLED = SettingsChangeKey("effectsEnabled")
+    val EFFECT_INTERVAL_SECONDS = SettingsChangeKey("effectIntervalSeconds")
+
     // --- 提案 ---
     val SUGGESTION_ENABLED = SettingsChangeKey("suggestionEnabled")
     val REST_SUGGESTION_ENABLED = SettingsChangeKey("restSuggestionEnabled")
