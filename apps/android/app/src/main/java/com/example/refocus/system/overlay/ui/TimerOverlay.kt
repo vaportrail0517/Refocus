@@ -1,5 +1,15 @@
 package com.example.refocus.system.overlay.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.isActive
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -77,9 +87,21 @@ fun TimerOverlay(
             }
         }
 
-    val size = minSize + (maxSize - minSize) * p
+    val targetSize =
+        if (customize.baseSizeAnimEnabled) {
+            minSize + (maxSize - minSize) * p
+        } else {
+            minSize
+        }
 
-    val baseColor =
+    val size by
+        animateDpAsState(
+            targetValue = targetSize,
+            animationSpec = tween(durationMillis = 350),
+            label = "timer_size",
+        )
+
+    val animatedBaseColor =
         when (customize.colorMode) {
             TimerColorMode.Fixed -> Color(customize.fixedColorArgb)
             TimerColorMode.GradientTwo -> {
@@ -100,6 +122,29 @@ fun TimerOverlay(
             }
         }
 
+    val fixedBaseColor =
+        when (customize.colorMode) {
+            TimerColorMode.Fixed -> Color(customize.fixedColorArgb)
+            TimerColorMode.GradientTwo,
+            TimerColorMode.GradientThree -> Color(customize.gradientStartColorArgb)
+        }
+
+    val targetBaseColor =
+        if (customize.baseColorAnimEnabled) {
+            animatedBaseColor
+        } else {
+            fixedBaseColor
+        }
+
+    val baseColor by
+        animateColorAsState(
+            targetValue = targetBaseColor,
+            animationSpec = tween(durationMillis = 400),
+            label = "timer_base_color",
+        )
+
+    val pulseScale = rememberPulseScale(enabled = customize.basePulseEnabled)
+
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center,
@@ -109,9 +154,43 @@ fun TimerOverlay(
             backgroundColor = baseColor.copy(alpha = 0.7f),
             size = size,
             textStyle = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.graphicsLayer(scaleX = pulseScale, scaleY = pulseScale),
         )
     }
 }
+
+
+private const val PULSE_PERIOD_MS: Int = 2600
+private const val PULSE_AMPLITUDE: Float = 0.04f
+
+@Composable
+private fun rememberPulseScale(enabled: Boolean): Float {
+    val pulse = remember { Animatable(1f) }
+
+    LaunchedEffect(enabled) {
+        if (!enabled) {
+            pulse.snapTo(1f)
+            return@LaunchedEffect
+        }
+
+        val up = 1f + PULSE_AMPLITUDE
+        val down = 1f - PULSE_AMPLITUDE
+
+        while (isActive) {
+            pulse.animateTo(
+                targetValue = up,
+                animationSpec = tween(durationMillis = PULSE_PERIOD_MS / 2, easing = FastOutSlowInEasing),
+            )
+            pulse.animateTo(
+                targetValue = down,
+                animationSpec = tween(durationMillis = PULSE_PERIOD_MS / 2, easing = FastOutSlowInEasing),
+            )
+        }
+    }
+
+    return pulse.value
+}
+
 
 @Composable
 private fun TimerBubble(

@@ -203,7 +203,7 @@ class TimerOverlayController(
         // 既存のジョブがあれば止める
         timerJob?.cancel()
 
-        // コルーチンで 200ms ごとに displayMillis / visualMillis を更新
+        // コルーチンで 1000ms ごとに displayMillis / visualMillis を更新
         // Compose の state 更新は Main のみで行う（Snapshot 競合・不定クラッシュ回避）
         timerJob =
             scope.launch(Dispatchers.Main.immediate) {
@@ -212,7 +212,7 @@ class TimerOverlayController(
                     displayMillis = displayMillisProvider(nowElapsed).coerceAtLeast(0L)
                     visualMillis = visualMillisProvider(nowElapsed).coerceAtLeast(0L)
                     effectMillis = effectMillisProvider(nowElapsed).coerceAtLeast(0L)
-                    delay(200L)
+                    delay(1000L)
                 }
             }
 
