@@ -13,13 +13,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -245,21 +250,39 @@ fun TimerOverlay(
         modifier = modifier,
         contentAlignment = Alignment.Center,
     ) {
-        TimerBubble(
-            text = text,
-            backgroundColor = effectColor.copy(alpha = bgAlpha),
-            size = size,
-            textStyle = MaterialTheme.typography.bodyMedium,
+        // 透明オーバーレイ上で shadow + scale が残像を作ることがあるため，
+        // オフスクリーン合成したうえで毎フレーム描画領域をクリアしてから描く．
+        //
+        // TimerBubble は shadow(clip = false) によりレイアウト外へ描画するので，
+        // クリア領域を確保するために少しだけガード用の padding を入れている．
+        val guard = 16.dp
+
+        Box(
             modifier =
-                Modifier.graphicsLayer(
-                    scaleX = pulseScale,
-                    scaleY = pulseScale,
-                    rotationZ = rotationDeg.value * attention.value,
-                    translationX = shakeX.value,
-                    translationY = shakeY.value,
-                    transformOrigin = TransformOrigin(0.5f, 0.5f),
-                ),
-        )
+                Modifier
+                    .padding(guard)
+                    .graphicsLayer(
+                        scaleX = pulseScale,
+                        scaleY = pulseScale,
+                        rotationZ = rotationDeg.value * attention.value,
+                        translationX = shakeX.value,
+                        translationY = shakeY.value,
+                        transformOrigin = TransformOrigin(0.5f, 0.5f),
+                        compositingStrategy = CompositingStrategy.Offscreen,
+                    )
+                    .drawWithContent {
+                        // 透明レイヤでフレーム間の残像が残るのを防ぐ
+                        drawRect(color = Color.Transparent, blendMode = BlendMode.Clear)
+                        drawContent()
+                    },
+        ) {
+            TimerBubble(
+                text = text,
+                backgroundColor = effectColor.copy(alpha = bgAlpha),
+                size = size,
+                textStyle = MaterialTheme.typography.bodyMedium,
+            )
+        }
     }
 }
 
@@ -428,30 +451,29 @@ private const val PULSE_AMPLITUDE: Float = 0.04f
 
 @Composable
 private fun rememberPulseScale(enabled: Boolean): Float {
-    val pulse = remember { Animatable(1f) }
-
+    // システムの Animator duration scale（開発者オプション）に依存せず，
+    // enabled のときだけ一定周期で呼吸させる．
+    // withFrameNanos を使うことで，duration が 0 扱いになってもスピンループにならない．
+    val scaleState = remember { mutableFloatStateOf(1f) }
     LaunchedEffect(enabled) {
         if (!enabled) {
-            pulse.snapTo(1f)
+            scaleState.floatValue = 1f
             return@LaunchedEffect
         }
-
-        val up = 1f + PULSE_AMPLITUDE
-        val down = 1f - PULSE_AMPLITUDE
-
+        val periodNs = PULSE_PERIOD_MS.toLong() * 1_000_000L
+        val startNs = withFrameNanos { it }
         while (isActive) {
-            pulse.animateTo(
-                targetValue = up,
-                animationSpec = tween(durationMillis = PULSE_PERIOD_MS / 2, easing = FastOutSlowInEasing),
-            )
-            pulse.animateTo(
-                targetValue = down,
-                animationSpec = tween(durationMillis = PULSE_PERIOD_MS / 2, easing = FastOutSlowInEasing),
-            )
+            val nowNs = withFrameNanos { it }
+            val elapsedNs = nowNs - startNs
+            // 0..1 の位相に正規化して cos 波で呼吸（開始時は縮小側）
+            val normalized = (elapsedNs % periodNs).toDouble() / periodNs.toDouble()
+            val phase = normalized * 2.0 * Math.PI
+            val scale = 1.0 - (PULSE_AMPLITUDE.toDouble() * kotlin.math.cos(phase))
+
+            scaleState.floatValue = scale.toFloat()
         }
     }
-
-    return pulse.value
+    return scaleState.floatValue
 }
 
 @Composable
