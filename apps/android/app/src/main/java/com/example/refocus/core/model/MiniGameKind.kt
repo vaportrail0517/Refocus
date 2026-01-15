@@ -10,4 +10,5 @@ enum class MiniGameKind {
     FlashAnzan,
     MakeTen,
     EightPuzzle,
+    MirrorText,
 }
