@@ -9,6 +9,8 @@ sealed interface CustomizeDialogType {
 
     data object TimeToMax : CustomizeDialogType
 
+    data object EffectInterval : CustomizeDialogType
+
     data object TimerTimeDisplayMode : CustomizeDialogType
 
     data object TimerVisualTimeBasis : CustomizeDialogType

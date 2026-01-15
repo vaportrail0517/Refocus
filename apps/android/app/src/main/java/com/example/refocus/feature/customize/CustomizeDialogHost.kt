@@ -2,6 +2,7 @@ package com.example.refocus.feature.customize
 
 import androidx.compose.runtime.Composable
 import com.example.refocus.feature.customize.dialogs.ColorModeDialog
+import com.example.refocus.feature.customize.dialogs.EffectIntervalDialog
 import com.example.refocus.feature.customize.dialogs.FixedColorDialog
 import com.example.refocus.feature.customize.dialogs.FontRangeDialog
 import com.example.refocus.feature.customize.dialogs.GraceTimeDialog
@@ -72,6 +73,17 @@ internal fun CustomizeDialogHost(
                 currentSeconds = uiState.customize.timeToMaxSeconds,
                 onConfirm = { seconds ->
                     viewModel.updateTimeToMaxSeconds(seconds)
+                    onDismiss()
+                },
+                onDismiss = onDismiss,
+            )
+        }
+
+        CustomizeDialogType.EffectInterval -> {
+            EffectIntervalDialog(
+                currentSeconds = uiState.customize.effectIntervalSeconds,
+                onConfirm = { seconds ->
+                    viewModel.updateEffectIntervalSeconds(seconds)
                     onDismiss()
                 },
                 onDismiss = onDismiss,

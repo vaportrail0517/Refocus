@@ -64,6 +64,27 @@ fun TimeToMaxDialog(
     )
 }
 
+/**
+ * エフェクト（点滅・回転・揺れ）の実行間隔のダイアログ．
+ */
+@Composable
+fun EffectIntervalDialog(
+    currentSeconds: Int,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    DurationHmsPickerDialog(
+        title = "エフェクトの間隔",
+        description = "一定間隔ごとに，タイマーへランダムなエフェクト（点滅・回転・揺れ）を適用します．",
+        initialSeconds = currentSeconds.coerceAtLeast(10),
+        minSeconds = 10,
+        maxSeconds = 60 * 60,
+        allowZero = false,
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+    )
+}
+
 @Composable
 fun TimerTimeModeDialog(
     current: TimerTimeMode,
