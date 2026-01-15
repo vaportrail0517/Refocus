@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -581,8 +582,18 @@ private fun TimerBubble(
     textStyle: TextStyle,
     modifier: Modifier = Modifier,
 ) {
-    val fontSize = with(LocalDensity.current) { size.toSp() }
+    val density = LocalDensity.current
+    val fontSize = with(density) { size.toSp() }
     val textColor = chooseOnColorForBackground(backgroundColor)
+
+    val resolvedTextStyle =
+        textStyle.copy(
+            fontSize = fontSize,
+            fontFamily = FontFamily.Monospace,
+            fontFeatureSettings = "tnum",
+        )
+
+    val horizontalPadding = 12.dp
 
     Box(
         modifier =
@@ -596,16 +607,17 @@ private fun TimerBubble(
                     color = backgroundColor,
                     shape = MaterialTheme.shapes.medium,
                 )
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = horizontalPadding, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
             color = textColor,
-            style = textStyle.copy(fontSize = fontSize),
+            style = resolvedTextStyle,
         )
     }
 }
+
 
 private fun chooseOnColorForBackground(bg: Color): Color {
     val r = (bg.red * 255).toInt()
