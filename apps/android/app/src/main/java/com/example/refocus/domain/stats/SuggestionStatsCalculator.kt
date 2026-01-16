@@ -15,6 +15,7 @@ object SuggestionStatsCalculator {
         setOf(
             SessionEventType.SuggestionSnoozed,
             SessionEventType.SuggestionDismissed,
+            SessionEventType.SuggestionOpened,
             SessionEventType.SuggestionDisabledForSession,
         )
 
@@ -70,6 +71,7 @@ object SuggestionStatsCalculator {
                     when (decisionEvent?.type) {
                         SessionEventType.SuggestionSnoozed -> SuggestionDecision.Snoozed
                         SessionEventType.SuggestionDismissed -> SuggestionDecision.Dismissed
+                        SessionEventType.SuggestionOpened -> SuggestionDecision.Opened
                         SessionEventType.SuggestionDisabledForSession -> SuggestionDecision.DisabledForSession
                         else -> null
                     }
@@ -107,6 +109,7 @@ object SuggestionStatsCalculator {
         val totalShown = instances.size
         var snoozed = 0
         var dismissed = 0
+        var opened = 0
         var disabled = 0
         var endedSoon = 0
         var continued = 0
@@ -118,7 +121,7 @@ object SuggestionStatsCalculator {
             when (inst.decision) {
                 SuggestionDecision.Snoozed -> snoozed++
                 SuggestionDecision.Dismissed -> dismissed++
-                SuggestionDecision.Opened -> dismissed++ // フェーズ1では「開いた」は一旦 Dismissed に寄せる
+                SuggestionDecision.Opened -> opened++
                 SuggestionDecision.DisabledForSession -> disabled++
                 null -> {}
             }
@@ -150,6 +153,7 @@ object SuggestionStatsCalculator {
             totalShown = totalShown,
             snoozedCount = snoozed,
             dismissedCount = dismissed,
+            openedCount = opened,
             disabledForSessionCount = disabled,
             endedSoonCount = endedSoon,
             continuedCount = continued,

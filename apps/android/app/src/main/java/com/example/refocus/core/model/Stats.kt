@@ -87,6 +87,7 @@ data class SuggestionDailyStats(
     val totalShown: Int,
     val snoozedCount: Int,
     val dismissedCount: Int,
+    val openedCount: Int,
     val disabledForSessionCount: Int,
     val endedSoonCount: Int, // しきい値以内に終了した提案
     val continuedCount: Int, // しきい値より長く続いた提案

@@ -316,9 +316,7 @@ object SessionProjector {
                                 SessionEventType.SuggestionDismissed
 
                             SuggestionDecision.Opened ->
-                                // フェーズ1では「外部へ遷移した」事実はタイムライン上の decision で保持し，
-                                // セッション統計上は Dismiss と同等扱いにする（後で専用イベントに分離可能）。
-                                SessionEventType.SuggestionDismissed
+                                SessionEventType.SuggestionOpened
 
                             SuggestionDecision.DisabledForSession ->
                                 SessionEventType.SuggestionDisabledForSession
