@@ -5,6 +5,7 @@ import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.core.model.MiniGameOrder
 import com.example.refocus.core.model.SuggestionDecision
+import com.example.refocus.core.model.SuggestionAction
 import com.example.refocus.core.model.SuggestionMode
 import com.example.refocus.core.model.UiInterruptionSource
 import com.example.refocus.core.util.TimeSource
@@ -431,20 +432,22 @@ class SuggestionOrchestrator(
                         return@launch
                     }
 
-                    val (title, mode, suggestionId) =
-                        if (selected != null) {
-                            Triple(
-                                selected.title,
-                                SuggestionMode.Generic,
-                                selected.id,
-                            )
-                        } else {
-                            Triple(
-                                "画面から少し離れて休憩する",
-                                SuggestionMode.Rest,
-                                0L,
-                            )
-                        }
+                    val title: String
+                    val mode: SuggestionMode
+                    val suggestionId: Long
+                    val action: SuggestionAction
+
+                    if (selected != null) {
+                        title = selected.title
+                        mode = SuggestionMode.Generic
+                        suggestionId = selected.id
+                        action = selected.action
+                    } else {
+                        title = "画面から少し離れて休憩する"
+                        mode = SuggestionMode.Rest
+                        suggestionId = 0L
+                        action = SuggestionAction.None
+                    }
 
                     if (epochAtLaunch != suggestionEpoch || !currentCoroutineContext().isActive) {
                         RefocusLog.d(TAG) { "Suggestion show aborted (epoch changed or cancelled)" }
@@ -484,9 +487,10 @@ class SuggestionOrchestrator(
                                 title = title,
                                 targetPackageName = pkg,
                                 mode = mode,
+                                action = action,
                                 autoDismissMillis = suggestionTimeoutMillis(customize),
                                 interactionLockoutMillis = suggestionInteractionLockoutMillis(customize),
-                                onOpenFixedUrl = { handleSuggestionOpenFixedUrl() },
+                                onOpenAction = { handleSuggestionOpenAction() },
                                 onSnoozeLater = { handleSuggestionSnoozeLater() },
                                 onCloseTargetApp = { handleSuggestionCloseTargetApp() },
                                 onDismissOnly = { handleSuggestionDismissOnly() },
@@ -818,7 +822,7 @@ class SuggestionOrchestrator(
         if (pkg != null) maybeStartMiniGameAfterSuggestionIfNeeded(pkg)
     }
 
-    private fun handleSuggestionOpenFixedUrl() {
+    private fun handleSuggestionOpenAction() {
         val packageName = overlayPackageProvider() ?: return
         val suggestionId = currentSuggestionId ?: 0L
 

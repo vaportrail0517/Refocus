@@ -1,6 +1,7 @@
 package com.example.refocus.domain.overlay.port
 
 import com.example.refocus.core.model.Customize
+import com.example.refocus.core.model.SuggestionAction
 import com.example.refocus.core.model.SuggestionMode
 
 /**
@@ -11,9 +12,10 @@ data class SuggestionOverlayUiModel(
     val title: String,
     val targetPackageName: String,
     val mode: SuggestionMode,
+    val action: SuggestionAction,
     val autoDismissMillis: Long,
     val interactionLockoutMillis: Long,
-    val onOpenFixedUrl: () -> Unit,
+    val onOpenAction: () -> Unit,
     val onSnoozeLater: () -> Unit,
     val onCloseTargetApp: () -> Unit,
     val onDismissOnly: () -> Unit,

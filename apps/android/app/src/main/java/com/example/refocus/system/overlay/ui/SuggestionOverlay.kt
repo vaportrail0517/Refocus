@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.example.refocus.core.model.SuggestionAction
 import com.example.refocus.core.model.SuggestionMode
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
@@ -41,10 +42,11 @@ fun SuggestionOverlay(
     title: String,
     targetAppLabel: String,
     mode: SuggestionMode,
+    action: SuggestionAction,
     modifier: Modifier = Modifier.Companion,
     autoDismissMillis: Long = 8_000L,
     interactionLockoutMillis: Long = 400L,
-    onOpenFixedUrl: () -> Unit,
+    onOpenAction: () -> Unit,
     onSnoozeLater: () -> Unit,
     onCloseTargetApp: () -> Unit,
     onDismissOnly: () -> Unit,
@@ -87,12 +89,13 @@ fun SuggestionOverlay(
 
     val cardOffset = remember { mutableStateOf(Offset.Companion.Zero) }
 
-    // 「やりたいこと」提案の場合のみ，タイトルエリアをタップして外部へ遷移できるようにする
-    // フェーズ1では固定URLだが，将来は SuggestionAction に置き換える前提の導線
+    val hasAction = action !is SuggestionAction.None
+
+    // 「やりたいこと」提案かつ Action がある場合のみ，タイトルエリアをタップ可能にする
     val titleAreaModifier =
-        if (mode == SuggestionMode.Generic) {
+        if (mode == SuggestionMode.Generic && hasAction) {
             Modifier.Companion.clickable(enabled = interactive) {
-                onOpenFixedUrl()
+                onOpenAction()
             }
         } else {
             Modifier.Companion
@@ -174,7 +177,7 @@ fun SuggestionOverlay(
                         text = title,
                         style = MaterialTheme.typography.titleLarge,
                     )
-                    if (mode == SuggestionMode.Generic) {
+                    if (mode == SuggestionMode.Generic && hasAction) {
                         Spacer(modifier = Modifier.Companion.height(4.dp))
                         Text(
                             text = "タップして開く",

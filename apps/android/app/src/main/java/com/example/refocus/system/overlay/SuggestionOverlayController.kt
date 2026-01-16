@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.PixelFormat
 import android.net.Uri
 import android.os.Build
+import android.widget.Toast
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -14,6 +15,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.refocus.core.logging.RefocusLog
+import com.example.refocus.core.model.SuggestionAction
 import com.example.refocus.core.model.SuggestionMode
 import com.example.refocus.system.overlay.ui.SuggestionOverlay
 import com.example.refocus.ui.theme.RefocusTheme
@@ -26,9 +28,6 @@ class SuggestionOverlayController(
     private val windowManager =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var suggestionView: View? = null
-
-    // フェーズ1（縦スライス）用：提案から固定URLを開けるかを検証するための仮URL
-    private val fixedOpenUrl: String = "https://example.com"
 
     private fun resolveAppLabel(packageName: String): String {
         if (packageName.isBlank()) return "このアプリ"
@@ -54,9 +53,10 @@ class SuggestionOverlayController(
         title: String,
         targetPackageName: String,
         mode: SuggestionMode,
+        action: SuggestionAction,
         autoDismissMillis: Long,
         interactionLockoutMillis: Long,
-        onOpenFixedUrl: () -> Unit,
+        onOpenAction: () -> Unit,
         onSnoozeLater: () -> Unit,
         onCloseTargetApp: () -> Unit,
         onDismissOnly: () -> Unit,
@@ -98,13 +98,14 @@ class SuggestionOverlayController(
                             title = title,
                             targetAppLabel = resolveAppLabel(targetPackageName),
                             mode = mode,
+                            action = action,
                             autoDismissMillis = autoDismissMillis,
                             interactionLockoutMillis = interactionLockoutMillis,
-                            onOpenFixedUrl = {
+                            onOpenAction = {
                                 runOnce {
                                     hideSuggestionOverlay()
-                                    onOpenFixedUrl()
-                                    openFixedUrl()
+                                    onOpenAction()
+                                    openAction(action)
                                 }
                             },
                             onSnoozeLater = {
@@ -142,8 +143,22 @@ class SuggestionOverlayController(
         }
     }
 
-    private fun openFixedUrl() {
-        val uri = runCatching { Uri.parse(fixedOpenUrl) }.getOrNull() ?: return
+    private fun openAction(action: SuggestionAction) {
+        when (action) {
+            SuggestionAction.None -> return
+
+            is SuggestionAction.Url -> openUrl(action.url)
+
+            is SuggestionAction.App -> openApp(action.packageName)
+        }
+    }
+
+    private fun openUrl(url: String) {
+        val uri = runCatching { Uri.parse(url) }.getOrNull()
+        if (uri == null) {
+            toast("開けませんでした")
+            return
+        }
         val intent =
             Intent(Intent.ACTION_VIEW, uri).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -151,7 +166,30 @@ class SuggestionOverlayController(
         try {
             context.startActivity(intent)
         } catch (e: Exception) {
-            RefocusLog.e("SuggestionOverlay", e) { "openFixedUrl: startActivity failed url=$fixedOpenUrl" }
+            RefocusLog.e("SuggestionOverlay", e) { "openUrl: startActivity failed url=$url" }
+            toast("開けませんでした")
+        }
+    }
+
+    private fun openApp(packageName: String) {
+        val intent = context.packageManager.getLaunchIntentForPackage(packageName)
+        if (intent == null) {
+            RefocusLog.w("SuggestionOverlay") { "openApp: launch intent is null package=$packageName" }
+            toast("開けませんでした")
+            return
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            RefocusLog.e("SuggestionOverlay", e) { "openApp: startActivity failed package=$packageName" }
+            toast("開けませんでした")
+        }
+    }
+
+    private fun toast(message: String) {
+        runCatching {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
 
