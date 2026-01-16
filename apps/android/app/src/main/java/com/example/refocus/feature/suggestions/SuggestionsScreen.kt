@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.refocus.core.model.SuggestionAction
 import com.example.refocus.core.model.SuggestionDurationTag
 import com.example.refocus.core.model.SuggestionPriority
 import com.example.refocus.core.model.SuggestionTimeSlot
@@ -55,6 +56,7 @@ fun SuggestionsScreen(
         timeSlots: Set<SuggestionTimeSlot>,
         durationTag: SuggestionDurationTag,
         priority: SuggestionPriority,
+        action: SuggestionAction,
     ) -> Unit,
     onUpdateSuggestion: (
         id: Long,
@@ -62,6 +64,7 @@ fun SuggestionsScreen(
         timeSlots: Set<SuggestionTimeSlot>,
         durationTag: SuggestionDurationTag,
         priority: SuggestionPriority,
+        action: SuggestionAction,
     ) -> Unit,
     onDeleteConfirmed: (Long) -> Unit,
 ) {
@@ -199,13 +202,40 @@ fun SuggestionsScreen(
                     },
                     sheetState = sheetState,
                 ) {
+                    val draft = screenState.draft
+
+                    val normalizedUrl =
+                        if (draft.actionKind == SuggestionActionKind.Url) {
+                            normalizeHttpUrlOrNull(draft.actionValue)
+                        } else {
+                            null
+                        }
+
+                    val urlErrorMessage =
+                        if (draft.actionKind == SuggestionActionKind.Url) {
+                            when {
+                                draft.actionValue.isBlank() -> "URLを入力してください．"
+                                normalizedUrl == null -> "http または https の URL を入力してください．"
+                                else -> null
+                            }
+                        } else {
+                            null
+                        }
+
+                    val isConfirmEnabled =
+                        draft.title.trim().isNotEmpty() &&
+                            (draft.actionKind != SuggestionActionKind.Url || normalizedUrl != null)
+
                     when (screenState.sheetMode) {
                         EditorSheetMode.View -> {
                             SuggestionViewSheet(
-                                title = screenState.draft.title,
-                                timeSlots = screenState.draft.timeSlots,
-                                durationTag = screenState.draft.durationTag,
-                                priority = screenState.draft.priority,
+                                title = draft.title,
+                                timeSlots = draft.timeSlots,
+                                durationTag = draft.durationTag,
+                                priority = draft.priority,
+                                actionKind = draft.actionKind,
+                                actionValue = draft.actionValue,
+                                actionDisplay = draft.actionDisplay,
                                 onClose = {
                                     screenState = screenState.closeEditor()
                                 },
@@ -229,30 +259,39 @@ fun SuggestionsScreen(
 
                         EditorSheetMode.Edit -> {
                             SuggestionEditorSheet(
-                                title = screenState.draft.title,
+                                title = draft.title,
                                 onTitleChange = { title ->
                                     screenState =
                                         screenState.copy(
-                                            draft = screenState.draft.copy(title = title),
+                                            draft = draft.copy(title = title),
                                         )
                                 },
                                 onConfirm = {
+                                    val action =
+                                        buildSuggestionActionForSave(
+                                            kind = draft.actionKind,
+                                            value = draft.actionValue,
+                                            display = draft.actionDisplay,
+                                        )
+
                                     if (screenState.isCreatingNew) {
                                         onCreateSuggestion(
-                                            screenState.draft.title,
-                                            screenState.draft.timeSlots,
-                                            screenState.draft.durationTag,
-                                            screenState.draft.priority,
+                                            draft.title,
+                                            draft.timeSlots,
+                                            draft.durationTag,
+                                            draft.priority,
+                                            action,
                                         )
                                     } else {
                                         val id = screenState.editingSuggestionId
                                         if (id != null) {
                                             onUpdateSuggestion(
                                                 id,
-                                                screenState.draft.title,
-                                                screenState.draft.timeSlots,
-                                                screenState.draft.durationTag,
-                                                screenState.draft.priority,
+                                                draft.title,
+                                                draft.timeSlots,
+                                                draft.durationTag,
+                                                draft.priority,
+                                                action,
                                             )
                                         }
                                     }
@@ -268,30 +307,70 @@ fun SuggestionsScreen(
                                         screenState = screenState.closeEditor()
                                     }
                                 },
-                                timeSlots = screenState.draft.timeSlots,
+                                timeSlots = draft.timeSlots,
                                 onToggleTimeSlot = { slot ->
                                     screenState =
                                         screenState.copy(
                                             draft =
-                                                screenState.draft.copy(
-                                                    timeSlots = toggleTimeSlots(screenState.draft.timeSlots, slot),
+                                                draft.copy(
+                                                    timeSlots = toggleTimeSlots(draft.timeSlots, slot),
                                                 ),
                                         )
                                 },
-                                durationTag = screenState.draft.durationTag,
+                                durationTag = draft.durationTag,
                                 onDurationTagChange = { tag ->
                                     screenState =
                                         screenState.copy(
-                                            draft = screenState.draft.copy(durationTag = tag),
+                                            draft = draft.copy(durationTag = tag),
                                         )
                                 },
-                                priority = screenState.draft.priority,
+                                priority = draft.priority,
                                 onPriorityChange = { priority ->
                                     screenState =
                                         screenState.copy(
-                                            draft = screenState.draft.copy(priority = priority),
+                                            draft = draft.copy(priority = priority),
                                         )
                                 },
+                                actionKind = draft.actionKind,
+                                onActionKindChange = { kind ->
+                                    val next =
+                                        when (kind) {
+                                            SuggestionActionKind.None ->
+                                                draft.copy(
+                                                    actionKind = SuggestionActionKind.None,
+                                                    actionValue = "",
+                                                    actionDisplay = "",
+                                                )
+
+                                            SuggestionActionKind.Url ->
+                                                draft.copy(
+                                                    actionKind = SuggestionActionKind.Url,
+                                                    actionValue = if (draft.actionKind == SuggestionActionKind.Url) draft.actionValue else "",
+                                                    actionDisplay = "",
+                                                )
+
+                                            SuggestionActionKind.App -> draft
+                                        }
+
+                                    screenState =
+                                        screenState.copy(
+                                            draft = next,
+                                        )
+                                },
+                                actionValue = draft.actionValue,
+                                onActionValueChange = { value ->
+                                    screenState =
+                                        screenState.copy(
+                                            draft =
+                                                draft.copy(
+                                                    actionValue = value,
+                                                    actionDisplay = "",
+                                                ),
+                                        )
+                                },
+                                actionDisplay = draft.actionDisplay,
+                                urlErrorMessage = urlErrorMessage,
+                                isConfirmEnabled = isConfirmEnabled,
                             )
                         }
                     }
