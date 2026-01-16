@@ -4,9 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.PixelFormat
-import android.net.Uri
 import android.os.Build
-import android.widget.Toast
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -105,7 +103,6 @@ class SuggestionOverlayController(
                                 runOnce {
                                     hideSuggestionOverlay()
                                     onOpenAction()
-                                    openAction(action)
                                 }
                             },
                             onSnoozeLater = {
@@ -140,56 +137,6 @@ class SuggestionOverlayController(
             RefocusLog.e("SuggestionOverlay", e) { "showSuggestionOverlay: addView failed" }
             suggestionView = null
             return false
-        }
-    }
-
-    private fun openAction(action: SuggestionAction) {
-        when (action) {
-            SuggestionAction.None -> return
-
-            is SuggestionAction.Url -> openUrl(action.url)
-
-            is SuggestionAction.App -> openApp(action.packageName)
-        }
-    }
-
-    private fun openUrl(url: String) {
-        val uri = runCatching { Uri.parse(url) }.getOrNull()
-        if (uri == null) {
-            toast("開けませんでした")
-            return
-        }
-        val intent =
-            Intent(Intent.ACTION_VIEW, uri).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        try {
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            RefocusLog.e("SuggestionOverlay", e) { "openUrl: startActivity failed url=$url" }
-            toast("開けませんでした")
-        }
-    }
-
-    private fun openApp(packageName: String) {
-        val intent = context.packageManager.getLaunchIntentForPackage(packageName)
-        if (intent == null) {
-            RefocusLog.w("SuggestionOverlay") { "openApp: launch intent is null package=$packageName" }
-            toast("開けませんでした")
-            return
-        }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try {
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            RefocusLog.e("SuggestionOverlay", e) { "openApp: startActivity failed package=$packageName" }
-            toast("開けませんでした")
-        }
-    }
-
-    private fun toast(message: String) {
-        runCatching {
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
 

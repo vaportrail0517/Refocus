@@ -14,6 +14,7 @@ import com.example.refocus.domain.overlay.model.SessionSuggestionGate
 import com.example.refocus.domain.overlay.port.MiniGameOverlayUiModel
 import com.example.refocus.domain.overlay.port.OverlayUiPort
 import com.example.refocus.domain.overlay.port.SuggestionOverlayUiModel
+import com.example.refocus.domain.overlay.port.SuggestionActionLauncherPort
 import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
@@ -44,6 +45,7 @@ class SuggestionOrchestrator(
     private val suggestionSelector: SuggestionSelector,
     private val suggestionsRepository: SuggestionsRepository,
     private val uiController: OverlayUiPort,
+    private val actionLauncher: SuggestionActionLauncherPort,
     private val eventRecorder: EventRecorder,
     private val overlayPackageProvider: () -> String?,
     private val customizeProvider: () -> Customize,
@@ -490,7 +492,7 @@ class SuggestionOrchestrator(
                                 action = action,
                                 autoDismissMillis = suggestionTimeoutMillis(customize),
                                 interactionLockoutMillis = suggestionInteractionLockoutMillis(customize),
-                                onOpenAction = { handleSuggestionOpenAction() },
+                                onOpenAction = { handleSuggestionOpenAction(suggestionId = suggestionId, action = action) },
                                 onSnoozeLater = { handleSuggestionSnoozeLater() },
                                 onCloseTargetApp = { handleSuggestionCloseTargetApp() },
                                 onDismissOnly = { handleSuggestionDismissOnly() },
@@ -822,18 +824,25 @@ class SuggestionOrchestrator(
         if (pkg != null) maybeStartMiniGameAfterSuggestionIfNeeded(pkg)
     }
 
-    private fun handleSuggestionOpenAction() {
+    private fun handleSuggestionOpenAction(
+        suggestionId: Long,
+        action: SuggestionAction,
+    ) {
         val packageName = overlayPackageProvider() ?: return
-        val suggestionId = currentSuggestionId ?: 0L
 
-        // 表示中の提案を閉じ，計測中断を解除する
+        // Close overlay state and resume measurement.
         endSuggestionUiInterruptionIfActive()
         clearOverlayState()
         endSuggestionCycleIfActive()
 
-        // 「提案の後にミニゲーム」を選んでいても，ここでは起動しない
-        // かつ，すでに何らかの理由でミニゲーム表示が進行していれば確実に止める
+        // Do not start minigame here, and ensure any pending minigame is cancelled.
         cancelPendingMiniGameAndHide()
+
+        // Immediately disable suggestions for this session to avoid a fast re-show race.
+        sessionGate = sessionGate.copy(disabledForThisSession = true)
+
+        val nowElapsed = timeSource.elapsedRealtime()
+        val elapsed = sessionElapsedProvider(packageName, nowElapsed)
 
         scope.launch {
             try {
@@ -844,20 +853,24 @@ class SuggestionOrchestrator(
                 )
             } catch (e: CancellationException) {
                 RefocusLog.d(TAG) { "Suggestion decision recording cancelled for $packageName" }
-                return@launch
             } catch (e: Exception) {
                 RefocusLog.e(TAG, e) { "Failed to record SuggestionOpened for $packageName" }
             }
-        }
 
-        // 直後に同じ論理セッションへ戻ってきても再度提案しないよう，このセッションでは提案を止める
-        val nowElapsed = timeSource.elapsedRealtime()
-        val elapsed = sessionElapsedProvider(packageName, nowElapsed)
-        sessionGate =
-            sessionGate.copy(
-                lastDecisionElapsedMillis = elapsed ?: sessionGate.lastDecisionElapsedMillis,
-                disabledForThisSession = true,
-            )
+            // Execute the action after attempting to record the decision.
+            try {
+                actionLauncher.launch(action)
+            } catch (e: Exception) {
+                RefocusLog.e(TAG, e) { "Failed to launch suggestion action for $packageName" }
+            }
+
+            // Update gate after the action trigger (for spec readability).
+            sessionGate =
+                sessionGate.copy(
+                    lastDecisionElapsedMillis = elapsed ?: sessionGate.lastDecisionElapsedMillis,
+                    disabledForThisSession = true,
+                )
+        }
     }
 
     private fun handleSuggestionCloseTargetApp() {
