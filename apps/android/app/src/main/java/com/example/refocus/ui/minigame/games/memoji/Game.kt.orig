@@ -182,7 +182,7 @@ internal fun Game(
 
                             val cellSize =
                                 ((maxWidth - spacing * (columns - 1).toFloat()) / columns.toFloat())
-                                    .coerceAtMost(64.dp)
+                                    .coerceIn(34.dp, 64.dp)
 
                             val density = LocalDensity.current
                             // TextUnit は環境によって Comparable ではないため，value(Float) 側で clamp する
@@ -244,7 +244,7 @@ internal fun Game(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                val columns = 5
+                                val columns = 4
                                 val rows = (OPTION_COUNT + columns - 1) / columns
                                 val spacing = 8.dp
 
