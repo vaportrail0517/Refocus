@@ -237,7 +237,9 @@ internal fun Game(
                         )
 
                         Box(
-                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
                             contentAlignment = Alignment.Center,
                         ) {
                             BoxWithConstraints(
@@ -349,30 +351,31 @@ internal fun Game(
                 ) {
                     OutlinedButton(
                         onClick = { popLast() },
-                        modifier = Modifier.weight(1f).height(52.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
                         enabled = inputSequence.isNotEmpty(),
                     ) {
                         Text("一つ戻す")
                     }
                     OutlinedButton(
                         onClick = { resetInput() },
-                        modifier = Modifier.weight(1f).height(52.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
                     ) {
                         Text("リセット")
                     }
-                    Button(
-                        onClick = onFinished,
-                        modifier = Modifier.weight(1f).height(52.dp),
-                    ) {
-                        Text("閉じる")
-                    }
                 }
             }
+
             MemojiPhase.Result -> {
                 val finishLabel = if (isCorrect) "完了" else "終了"
                 Button(
                     onClick = onFinished,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
                 ) {
                     Text(finishLabel)
                 }
