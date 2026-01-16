@@ -315,6 +315,9 @@ object SessionProjector {
                             SuggestionDecision.Dismissed ->
                                 SessionEventType.SuggestionDismissed
 
+                            SuggestionDecision.Opened ->
+                                SessionEventType.SuggestionOpened
+
                             SuggestionDecision.DisabledForSession ->
                                 SessionEventType.SuggestionDisabledForSession
                         }

@@ -5,6 +5,7 @@ import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.core.model.MiniGameOrder
 import com.example.refocus.core.model.SuggestionDecision
+import com.example.refocus.core.model.SuggestionAction
 import com.example.refocus.core.model.SuggestionMode
 import com.example.refocus.core.model.UiInterruptionSource
 import com.example.refocus.core.util.TimeSource
@@ -13,6 +14,7 @@ import com.example.refocus.domain.overlay.model.SessionSuggestionGate
 import com.example.refocus.domain.overlay.port.MiniGameOverlayUiModel
 import com.example.refocus.domain.overlay.port.OverlayUiPort
 import com.example.refocus.domain.overlay.port.SuggestionOverlayUiModel
+import com.example.refocus.domain.overlay.port.SuggestionActionLauncherPort
 import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
@@ -43,6 +45,7 @@ class SuggestionOrchestrator(
     private val suggestionSelector: SuggestionSelector,
     private val suggestionsRepository: SuggestionsRepository,
     private val uiController: OverlayUiPort,
+    private val actionLauncher: SuggestionActionLauncherPort,
     private val eventRecorder: EventRecorder,
     private val overlayPackageProvider: () -> String?,
     private val customizeProvider: () -> Customize,
@@ -431,20 +434,22 @@ class SuggestionOrchestrator(
                         return@launch
                     }
 
-                    val (title, mode, suggestionId) =
-                        if (selected != null) {
-                            Triple(
-                                selected.title,
-                                SuggestionMode.Generic,
-                                selected.id,
-                            )
-                        } else {
-                            Triple(
-                                "画面から少し離れて休憩する",
-                                SuggestionMode.Rest,
-                                0L,
-                            )
-                        }
+                    val title: String
+                    val mode: SuggestionMode
+                    val suggestionId: Long
+                    val action: SuggestionAction
+
+                    if (selected != null) {
+                        title = selected.title
+                        mode = SuggestionMode.Generic
+                        suggestionId = selected.id
+                        action = selected.action
+                    } else {
+                        title = "画面から少し離れて休憩する"
+                        mode = SuggestionMode.Rest
+                        suggestionId = 0L
+                        action = SuggestionAction.None
+                    }
 
                     if (epochAtLaunch != suggestionEpoch || !currentCoroutineContext().isActive) {
                         RefocusLog.d(TAG) { "Suggestion show aborted (epoch changed or cancelled)" }
@@ -484,8 +489,10 @@ class SuggestionOrchestrator(
                                 title = title,
                                 targetPackageName = pkg,
                                 mode = mode,
+                                action = action,
                                 autoDismissMillis = suggestionTimeoutMillis(customize),
                                 interactionLockoutMillis = suggestionInteractionLockoutMillis(customize),
+                                onOpenAction = { handleSuggestionOpenAction(suggestionId = suggestionId, action = action) },
                                 onSnoozeLater = { handleSuggestionSnoozeLater() },
                                 onCloseTargetApp = { handleSuggestionCloseTargetApp() },
                                 onDismissOnly = { handleSuggestionDismissOnly() },
@@ -815,6 +822,55 @@ class SuggestionOrchestrator(
 
         handleSuggestionSnoozeAndUpdateGate(pkg)
         if (pkg != null) maybeStartMiniGameAfterSuggestionIfNeeded(pkg)
+    }
+
+    private fun handleSuggestionOpenAction(
+        suggestionId: Long,
+        action: SuggestionAction,
+    ) {
+        val packageName = overlayPackageProvider() ?: return
+
+        // Close overlay state and resume measurement.
+        endSuggestionUiInterruptionIfActive()
+        clearOverlayState()
+        endSuggestionCycleIfActive()
+
+        // Do not start minigame here, and ensure any pending minigame is cancelled.
+        cancelPendingMiniGameAndHide()
+
+        // Immediately disable suggestions for this session to avoid a fast re-show race.
+        sessionGate = sessionGate.copy(disabledForThisSession = true)
+
+        val nowElapsed = timeSource.elapsedRealtime()
+        val elapsed = sessionElapsedProvider(packageName, nowElapsed)
+
+        scope.launch {
+            try {
+                eventRecorder.onSuggestionDecision(
+                    packageName = packageName,
+                    suggestionId = suggestionId,
+                    decision = SuggestionDecision.Opened,
+                )
+            } catch (e: CancellationException) {
+                RefocusLog.d(TAG) { "Suggestion decision recording cancelled for $packageName" }
+            } catch (e: Exception) {
+                RefocusLog.e(TAG, e) { "Failed to record SuggestionOpened for $packageName" }
+            }
+
+            // Execute the action after attempting to record the decision.
+            try {
+                actionLauncher.launch(action)
+            } catch (e: Exception) {
+                RefocusLog.e(TAG, e) { "Failed to launch suggestion action for $packageName" }
+            }
+
+            // Update gate after the action trigger (for spec readability).
+            sessionGate =
+                sessionGate.copy(
+                    lastDecisionElapsedMillis = elapsed ?: sessionGate.lastDecisionElapsedMillis,
+                    disabledForThisSession = true,
+                )
+        }
     }
 
     private fun handleSuggestionCloseTargetApp() {

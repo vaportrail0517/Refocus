@@ -3,6 +3,7 @@ package com.example.refocus.feature.suggestions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.model.Suggestion
+import com.example.refocus.core.model.SuggestionAction
 import com.example.refocus.core.model.SuggestionDurationTag
 import com.example.refocus.core.model.SuggestionPriority
 import com.example.refocus.core.model.SuggestionTimeSlot
@@ -51,6 +52,7 @@ class SuggestionsViewModel
             timeSlots: Set<SuggestionTimeSlot>,
             durationTag: SuggestionDurationTag,
             priority: SuggestionPriority,
+            action: SuggestionAction,
         ) {
             val trimmed = title.trim()
             if (trimmed.isEmpty()) return
@@ -60,6 +62,7 @@ class SuggestionsViewModel
                     timeSlots = timeSlots,
                     durationTag = durationTag,
                     priority = priority,
+                    action = action,
                 )
             }
         }
@@ -74,6 +77,7 @@ class SuggestionsViewModel
             timeSlots: Set<SuggestionTimeSlot>,
             durationTag: SuggestionDurationTag,
             priority: SuggestionPriority,
+            action: SuggestionAction,
         ) {
             val trimmed = title.trim()
             if (trimmed.isEmpty()) return
@@ -84,6 +88,10 @@ class SuggestionsViewModel
                     timeSlots = timeSlots,
                     durationTag = durationTag,
                     priority = priority,
+                )
+                suggestionsRepository.updateSuggestionAction(
+                    id = id,
+                    action = action,
                 )
             }
         }

@@ -28,6 +28,7 @@ import com.example.refocus.domain.timeline.EventRecorder
 import com.example.refocus.domain.timeline.TimelineProjectionService
 import com.example.refocus.system.notification.OverlayServiceNotificationController
 import com.example.refocus.system.overlay.MiniGameOverlayController
+import com.example.refocus.system.overlay.SuggestionActionLauncherImpl
 import com.example.refocus.system.overlay.SuggestionOverlayController
 import com.example.refocus.system.overlay.TimerOverlayController
 import com.example.refocus.system.overlay.WindowOverlayUiController
@@ -83,6 +84,8 @@ internal class OverlayServiceComponentsFactory {
                 context = context,
                 lifecycleOwner = lifecycleOwner,
             )
+
+        val suggestionActionLauncher = SuggestionActionLauncherImpl(context)
 
         val overlayUiController =
             WindowOverlayUiController(
@@ -140,6 +143,7 @@ internal class OverlayServiceComponentsFactory {
                 suggestionSelector = suggestionSelector,
                 suggestionsRepository = suggestionsRepository,
                 uiController = overlayUiController,
+                actionLauncher = suggestionActionLauncher,
                 eventRecorder = eventRecorder,
                 overlayPackageProvider = { runtimeState.value.overlayPackage },
                 customizeProvider = { runtimeState.value.customize },

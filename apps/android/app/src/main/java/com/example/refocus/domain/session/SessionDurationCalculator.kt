@@ -102,6 +102,7 @@ object SessionDurationCalculator {
                 SessionEventType.SuggestionShown,
                 SessionEventType.SuggestionSnoozed,
                 SessionEventType.SuggestionDismissed,
+                SessionEventType.SuggestionOpened,
                 SessionEventType.SuggestionDisabledForSession,
                 -> Unit
             }

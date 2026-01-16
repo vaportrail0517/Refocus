@@ -33,6 +33,7 @@ enum class SessionEventType {
     SuggestionShown,
     SuggestionSnoozed,
     SuggestionDismissed,
+    SuggestionOpened,
     SuggestionDisabledForSession,
 }
 
