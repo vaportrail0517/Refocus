@@ -20,6 +20,7 @@ interface SuggestionsRepository {
         timeSlots: Set<SuggestionTimeSlot>,
         durationTag: SuggestionDurationTag,
         priority: SuggestionPriority,
+        action: SuggestionAction = SuggestionAction.None,
     ): Suggestion
 
     suspend fun updateSuggestion(

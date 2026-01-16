@@ -53,10 +53,12 @@ class SuggestionsRepositoryImpl(
         timeSlots: Set<SuggestionTimeSlot>,
         durationTag: SuggestionDurationTag,
         priority: SuggestionPriority,
+        action: SuggestionAction,
     ): Suggestion {
         val normalizedTitle = normalizeTitle(title)
         require(normalizedTitle.isNotEmpty()) { "Suggestion title must not be blank." }
         val now = timeSource.nowMillis()
+        val (actionType, actionValue, actionDisplay) = serializeAction(action)
         val entity =
             SuggestionEntity(
                 id = 0L,
@@ -66,7 +68,9 @@ class SuggestionsRepositoryImpl(
                 timeSlots = serializeTimeSlots(timeSlots),
                 durationTag = durationTag.name,
                 priority = priority.name,
-                actionType = ACTION_TYPE_NONE,
+                actionType = actionType,
+                actionValue = actionValue,
+                actionDisplay = actionDisplay,
             )
         val newId = suggestionDao.insert(entity)
         return entity.copy(id = newId).toModel()

@@ -57,20 +57,13 @@ class SuggestionsViewModel
             val trimmed = title.trim()
             if (trimmed.isEmpty()) return
             viewModelScope.launch {
-                val created =
-                    suggestionsRepository.addSuggestion(
-                        title = trimmed,
-                        timeSlots = timeSlots,
-                        durationTag = durationTag,
-                        priority = priority,
-                    )
-
-                if (action != SuggestionAction.None) {
-                    suggestionsRepository.updateSuggestionAction(
-                        id = created.id,
-                        action = action,
-                    )
-                }
+                suggestionsRepository.addSuggestion(
+                    title = trimmed,
+                    timeSlots = timeSlots,
+                    durationTag = durationTag,
+                    priority = priority,
+                    action = action,
+                )
             }
         }
 
