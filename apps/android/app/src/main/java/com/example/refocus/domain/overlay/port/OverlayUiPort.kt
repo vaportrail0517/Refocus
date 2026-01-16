@@ -13,6 +13,7 @@ data class SuggestionOverlayUiModel(
     val mode: SuggestionMode,
     val autoDismissMillis: Long,
     val interactionLockoutMillis: Long,
+    val onOpenFixedUrl: () -> Unit,
     val onSnoozeLater: () -> Unit,
     val onCloseTargetApp: () -> Unit,
     val onDismissOnly: () -> Unit,

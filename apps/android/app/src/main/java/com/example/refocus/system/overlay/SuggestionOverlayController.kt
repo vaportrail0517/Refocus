@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.PixelFormat
+import android.net.Uri
 import android.os.Build
 import android.view.Gravity
 import android.view.View
@@ -25,6 +26,9 @@ class SuggestionOverlayController(
     private val windowManager =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var suggestionView: View? = null
+
+    // フェーズ1（縦スライス）用：提案から固定URLを開けるかを検証するための仮URL
+    private val fixedOpenUrl: String = "https://example.com"
 
     private fun resolveAppLabel(packageName: String): String {
         if (packageName.isBlank()) return "このアプリ"
@@ -52,6 +56,7 @@ class SuggestionOverlayController(
         mode: SuggestionMode,
         autoDismissMillis: Long,
         interactionLockoutMillis: Long,
+        onOpenFixedUrl: () -> Unit,
         onSnoozeLater: () -> Unit,
         onCloseTargetApp: () -> Unit,
         onDismissOnly: () -> Unit,
@@ -95,6 +100,13 @@ class SuggestionOverlayController(
                             mode = mode,
                             autoDismissMillis = autoDismissMillis,
                             interactionLockoutMillis = interactionLockoutMillis,
+                            onOpenFixedUrl = {
+                                runOnce {
+                                    hideSuggestionOverlay()
+                                    onOpenFixedUrl()
+                                    openFixedUrl()
+                                }
+                            },
                             onSnoozeLater = {
                                 runOnce {
                                     hideSuggestionOverlay()
@@ -127,6 +139,19 @@ class SuggestionOverlayController(
             RefocusLog.e("SuggestionOverlay", e) { "showSuggestionOverlay: addView failed" }
             suggestionView = null
             return false
+        }
+    }
+
+    private fun openFixedUrl() {
+        val uri = runCatching { Uri.parse(fixedOpenUrl) }.getOrNull() ?: return
+        val intent =
+            Intent(Intent.ACTION_VIEW, uri).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        try {
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            RefocusLog.e("SuggestionOverlay", e) { "openFixedUrl: startActivity failed url=$fixedOpenUrl" }
         }
     }
 

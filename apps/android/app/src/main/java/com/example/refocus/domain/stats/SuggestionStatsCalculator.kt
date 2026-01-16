@@ -118,6 +118,7 @@ object SuggestionStatsCalculator {
             when (inst.decision) {
                 SuggestionDecision.Snoozed -> snoozed++
                 SuggestionDecision.Dismissed -> dismissed++
+                SuggestionDecision.Opened -> dismissed++ // フェーズ1では「開いた」は一旦 Dismissed に寄せる
                 SuggestionDecision.DisabledForSession -> disabled++
                 null -> {}
             }

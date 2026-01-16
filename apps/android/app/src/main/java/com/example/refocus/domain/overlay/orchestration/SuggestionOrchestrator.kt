@@ -486,6 +486,7 @@ class SuggestionOrchestrator(
                                 mode = mode,
                                 autoDismissMillis = suggestionTimeoutMillis(customize),
                                 interactionLockoutMillis = suggestionInteractionLockoutMillis(customize),
+                                onOpenFixedUrl = { handleSuggestionOpenFixedUrl() },
                                 onSnoozeLater = { handleSuggestionSnoozeLater() },
                                 onCloseTargetApp = { handleSuggestionCloseTargetApp() },
                                 onDismissOnly = { handleSuggestionDismissOnly() },
@@ -815,6 +816,44 @@ class SuggestionOrchestrator(
 
         handleSuggestionSnoozeAndUpdateGate(pkg)
         if (pkg != null) maybeStartMiniGameAfterSuggestionIfNeeded(pkg)
+    }
+
+    private fun handleSuggestionOpenFixedUrl() {
+        val packageName = overlayPackageProvider() ?: return
+        val suggestionId = currentSuggestionId ?: 0L
+
+        // 表示中の提案を閉じ，計測中断を解除する
+        endSuggestionUiInterruptionIfActive()
+        clearOverlayState()
+        endSuggestionCycleIfActive()
+
+        // 「提案の後にミニゲーム」を選んでいても，ここでは起動しない
+        // かつ，すでに何らかの理由でミニゲーム表示が進行していれば確実に止める
+        cancelPendingMiniGameAndHide()
+
+        scope.launch {
+            try {
+                eventRecorder.onSuggestionDecision(
+                    packageName = packageName,
+                    suggestionId = suggestionId,
+                    decision = SuggestionDecision.Opened,
+                )
+            } catch (e: CancellationException) {
+                RefocusLog.d(TAG) { "Suggestion decision recording cancelled for $packageName" }
+                return@launch
+            } catch (e: Exception) {
+                RefocusLog.e(TAG, e) { "Failed to record SuggestionOpened for $packageName" }
+            }
+        }
+
+        // 直後に同じ論理セッションへ戻ってきても再度提案しないよう，このセッションでは提案を止める
+        val nowElapsed = timeSource.elapsedRealtime()
+        val elapsed = sessionElapsedProvider(packageName, nowElapsed)
+        sessionGate =
+            sessionGate.copy(
+                lastDecisionElapsedMillis = elapsed ?: sessionGate.lastDecisionElapsedMillis,
+                disabledForThisSession = true,
+            )
     }
 
     private fun handleSuggestionCloseTargetApp() {

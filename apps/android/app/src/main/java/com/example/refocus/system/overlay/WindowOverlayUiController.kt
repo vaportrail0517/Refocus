@@ -75,6 +75,7 @@ class WindowOverlayUiController(
                     mode = model.mode,
                     autoDismissMillis = model.autoDismissMillis,
                     interactionLockoutMillis = model.interactionLockoutMillis,
+                    onOpenFixedUrl = { model.onOpenFixedUrl() },
                     onSnoozeLater = { model.onSnoozeLater() },
                     onCloseTargetApp = { model.onCloseTargetApp() },
                     onDismissOnly = { model.onDismissOnly() },

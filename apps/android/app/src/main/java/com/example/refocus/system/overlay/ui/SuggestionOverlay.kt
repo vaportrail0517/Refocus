@@ -1,6 +1,7 @@
 package com.example.refocus.system.overlay.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,6 +44,7 @@ fun SuggestionOverlay(
     modifier: Modifier = Modifier.Companion,
     autoDismissMillis: Long = 8_000L,
     interactionLockoutMillis: Long = 400L,
+    onOpenFixedUrl: () -> Unit,
     onSnoozeLater: () -> Unit,
     onCloseTargetApp: () -> Unit,
     onDismissOnly: () -> Unit,
@@ -84,6 +86,17 @@ fun SuggestionOverlay(
     }
 
     val cardOffset = remember { mutableStateOf(Offset.Companion.Zero) }
+
+    // 「やりたいこと」提案の場合のみ，タイトルエリアをタップして外部へ遷移できるようにする
+    // フェーズ1では固定URLだが，将来は SuggestionAction に置き換える前提の導線
+    val titleAreaModifier =
+        if (mode == SuggestionMode.Generic) {
+            Modifier.Companion.clickable(enabled = interactive) {
+                onOpenFixedUrl()
+            }
+        } else {
+            Modifier.Companion
+        }
 
     Box(
         modifier =
@@ -145,16 +158,31 @@ fun SuggestionOverlay(
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Spacer(modifier = Modifier.Companion.height(8.dp))
-                Text(
-                    text = labelText,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(modifier = Modifier.Companion.height(4.dp))
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                )
+                Column(
+                    modifier =
+                        Modifier.Companion
+                            .fillMaxWidth()
+                            .then(titleAreaModifier),
+                ) {
+                    Text(
+                        text = labelText,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.Companion.height(4.dp))
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    if (mode == SuggestionMode.Generic) {
+                        Spacer(modifier = Modifier.Companion.height(4.dp))
+                        Text(
+                            text = "タップして開く",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.Companion.height(12.dp))
                 Text(
                     text = bodyText,
