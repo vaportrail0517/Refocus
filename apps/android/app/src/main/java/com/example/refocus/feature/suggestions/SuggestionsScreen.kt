@@ -30,18 +30,22 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.example.refocus.core.model.SuggestionAction
 import com.example.refocus.core.model.SuggestionDurationTag
 import com.example.refocus.core.model.SuggestionPriority
 import com.example.refocus.core.model.SuggestionTimeSlot
 import com.example.refocus.feature.suggestions.components.SuggestionCard
+import com.example.refocus.feature.suggestions.components.SuggestionActionAppPickerSheet
 import com.example.refocus.feature.suggestions.components.SuggestionEditorSheet
 import com.example.refocus.feature.suggestions.components.SuggestionViewSheet
 import com.example.refocus.feature.suggestions.components.SwipeToDeleteBackground
@@ -69,6 +73,14 @@ fun SuggestionsScreen(
     onDeleteConfirmed: (Long) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
+
+    val appPickerViewModel: SuggestionActionAppPickerViewModel = hiltViewModel()
+    val appPickerApps by appPickerViewModel.apps.collectAsState()
+
+    var isAppPickerVisible by rememberSaveable { mutableStateOf(false) }
+    var appPickerQuery by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(""))
+    }
 
     var screenState by rememberSaveable(stateSaver = SuggestionsScreenStateSaver) {
         mutableStateOf(SuggestionsScreenState())
@@ -187,6 +199,10 @@ fun SuggestionsScreen(
             if (screenState.isEditorVisible) {
                 ModalBottomSheet(
                     onDismissRequest = {
+                        if (isAppPickerVisible) {
+                            isAppPickerVisible = false
+                            return@ModalBottomSheet
+                        }
                         if (screenState.sheetMode == EditorSheetMode.Edit && screenState.isDirty) {
                             screenState =
                                 screenState.copy(
@@ -204,31 +220,65 @@ fun SuggestionsScreen(
                 ) {
                     val draft = screenState.draft
 
-                    val normalizedUrl =
-                        if (draft.actionKind == SuggestionActionKind.Url) {
-                            normalizeHttpUrlOrNull(draft.actionValue)
-                        } else {
-                            null
-                        }
-
-                    val urlErrorMessage =
-                        if (draft.actionKind == SuggestionActionKind.Url) {
-                            when {
-                                draft.actionValue.isBlank() -> "URLを入力してください．"
-                                normalizedUrl == null -> "http または https の URL を入力してください．"
-                                else -> null
+                    if (isAppPickerVisible) {
+                        SuggestionActionAppPickerSheet(
+                            apps = appPickerApps,
+                            query = appPickerQuery,
+                            onQueryChange = { appPickerQuery = it },
+                            onSelect = { app ->
+                                screenState =
+                                    screenState.copy(
+                                        draft =
+                                            draft.copy(
+                                                actionKind = SuggestionActionKind.App,
+                                                actionValue = app.packageName,
+                                                actionDisplay = app.label,
+                                            ),
+                                    )
+                                isAppPickerVisible = false
+                            },
+                            onClose = {
+                                isAppPickerVisible = false
+                            },
+                        )
+                    } else {
+                        val normalizedUrl =
+                            if (draft.actionKind == SuggestionActionKind.Url) {
+                                normalizeHttpUrlOrNull(draft.actionValue)
+                            } else {
+                                null
                             }
-                        } else {
-                            null
-                        }
 
-                    val isConfirmEnabled =
-                        draft.title.trim().isNotEmpty() &&
-                            (draft.actionKind != SuggestionActionKind.Url || normalizedUrl != null)
+                        val urlErrorMessage =
+                            if (draft.actionKind == SuggestionActionKind.Url) {
+                                when {
+                                    draft.actionValue.isBlank() -> "URLを入力してください．"
+                                    normalizedUrl == null -> "http または https の URL を入力してください．"
+                                    else -> null
+                                }
+                            } else {
+                                null
+                            }
 
-                    when (screenState.sheetMode) {
-                        EditorSheetMode.View -> {
-                            SuggestionViewSheet(
+                        val appErrorMessage =
+                            if (draft.actionKind == SuggestionActionKind.App) {
+                                if (draft.actionValue.trim().isBlank()) {
+                                    "アプリを選択してください．"
+                                } else {
+                                    null
+                                }
+                            } else {
+                                null
+                            }
+
+                        val isConfirmEnabled =
+                            draft.title.trim().isNotEmpty() &&
+                                (draft.actionKind != SuggestionActionKind.Url || normalizedUrl != null) &&
+                                (draft.actionKind != SuggestionActionKind.App || draft.actionValue.trim().isNotEmpty())
+
+                        when (screenState.sheetMode) {
+                            EditorSheetMode.View -> {
+                                SuggestionViewSheet(
                                 title = draft.title,
                                 timeSlots = draft.timeSlots,
                                 durationTag = draft.durationTag,
@@ -255,10 +305,10 @@ fun SuggestionsScreen(
                                     }
                                 },
                             )
-                        }
+                            }
 
-                        EditorSheetMode.Edit -> {
-                            SuggestionEditorSheet(
+                            EditorSheetMode.Edit -> {
+                                SuggestionEditorSheet(
                                 title = draft.title,
                                 onTitleChange = { title ->
                                     screenState =
@@ -349,7 +399,12 @@ fun SuggestionsScreen(
                                                     actionDisplay = "",
                                                 )
 
-                                            SuggestionActionKind.App -> draft
+                                            SuggestionActionKind.App ->
+                                                draft.copy(
+                                                    actionKind = SuggestionActionKind.App,
+                                                    actionValue = if (draft.actionKind == SuggestionActionKind.App) draft.actionValue else "",
+                                                    actionDisplay = if (draft.actionKind == SuggestionActionKind.App) draft.actionDisplay else "",
+                                                )
                                         }
 
                                     screenState =
@@ -369,9 +424,15 @@ fun SuggestionsScreen(
                                         )
                                 },
                                 actionDisplay = draft.actionDisplay,
+                                onRequestPickApp = {
+                                    appPickerQuery = TextFieldValue("")
+                                    isAppPickerVisible = true
+                                },
                                 urlErrorMessage = urlErrorMessage,
+                                appErrorMessage = appErrorMessage,
                                 isConfirmEnabled = isConfirmEnabled,
                             )
+                            }
                         }
                     }
                 }

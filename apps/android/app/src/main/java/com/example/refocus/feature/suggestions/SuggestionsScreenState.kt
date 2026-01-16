@@ -26,7 +26,7 @@ internal data class SuggestionDraft(
     val priority: SuggestionPriority = SuggestionPriority.Normal,
     /**
      * 遷移先種別．
-     * - フェーズ3では Url のみ編集対応．
+     * - フェーズ4で Url と App を編集対応．
      */
     val actionKind: SuggestionActionKind = SuggestionActionKind.None,
     /**

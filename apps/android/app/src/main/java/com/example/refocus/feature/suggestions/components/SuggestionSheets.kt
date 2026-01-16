@@ -138,7 +138,9 @@ internal fun SuggestionEditorSheet(
     actionValue: String,
     onActionValueChange: (String) -> Unit,
     actionDisplay: String,
+    onRequestPickApp: () -> Unit,
     urlErrorMessage: String?,
+    appErrorMessage: String?,
     isConfirmEnabled: Boolean,
 ) {
     val focusManager = LocalFocusManager.current
@@ -303,17 +305,38 @@ internal fun SuggestionEditorSheet(
 
             SuggestionActionKind.App -> {
                 val label = actionDisplay.trim().ifBlank { actionValue.trim() }
-                Text(
-                    text = if (label.isNotBlank()) "アプリ: $label" else "アプリ: （未設定）",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "アプリの選択編集は次のフェーズで対応予定です．いまは削除のみできます．",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = if (label.isNotBlank()) "アプリ: $label" else "アプリ: （未選択）",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(
+                        onClick = onRequestPickApp,
+                    ) {
+                        Text("選ぶ")
+                    }
+                }
+
+                if (appErrorMessage != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = appErrorMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                } else {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "インストール済みアプリから選択します．",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
 
@@ -345,8 +368,8 @@ private fun ActionKindSelector(
         ActionKindButton(
             label = "アプリ",
             selected = actionKind == SuggestionActionKind.App,
-            enabled = false,
-            onClick = {},
+            enabled = true,
+            onClick = { onActionKindChange(SuggestionActionKind.App) },
         )
     }
 }
