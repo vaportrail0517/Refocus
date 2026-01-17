@@ -411,7 +411,6 @@ class SuggestionOrchestrator(
                 customize = customize,
                 lastDecisionElapsedMillis = sessionGate.lastDecisionElapsedMillis,
                 isOverlayShown = isSuggestionOverlayShown || isMiniGameOverlayShown,
-                disabledForThisSession = sessionGate.disabledForThisSession,
             )
 
         if (!suggestionEngine.shouldShow(input)) return
@@ -838,11 +837,15 @@ class SuggestionOrchestrator(
         // Do not start minigame here, and ensure any pending minigame is cancelled.
         cancelPendingMiniGameAndHide()
 
-        // Immediately disable suggestions for this session to avoid a fast re-show race.
-        sessionGate = sessionGate.copy(disabledForThisSession = true)
-
+        // 直後の即再表示を避けるため，アクション起動より前にクールダウン起点を同期的に更新する
         val nowElapsed = timeSource.elapsedRealtime()
         val elapsed = sessionElapsedProvider(packageName, nowElapsed)
+        if (elapsed != null) {
+            sessionGate = sessionGate.copy(lastDecisionElapsedMillis = elapsed)
+            RefocusLog.d(TAG) { "Suggestion decision recorded at sessionElapsed=$elapsed ms (Opened)" }
+        } else {
+            RefocusLog.w(TAG) { "handleSuggestionOpenAction: no session elapsed for $packageName" }
+        }
 
         scope.launch {
             try {
@@ -863,13 +866,6 @@ class SuggestionOrchestrator(
             } catch (e: Exception) {
                 RefocusLog.e(TAG, e) { "Failed to launch suggestion action for $packageName" }
             }
-
-            // Update gate after the action trigger (for spec readability).
-            sessionGate =
-                sessionGate.copy(
-                    lastDecisionElapsedMillis = elapsed ?: sessionGate.lastDecisionElapsedMillis,
-                    disabledForThisSession = true,
-                )
         }
     }
 
@@ -899,13 +895,12 @@ class SuggestionOrchestrator(
             }
         }
 
-        // 直後に同じ論理セッションへ戻ってきても再度提案しないよう，このセッションでは提案を止める
+        // 直後の即再表示を避けるため，クールダウン起点を更新する（提案停止はしない）
         val nowElapsed = timeSource.elapsedRealtime()
         val elapsed = sessionElapsedProvider(packageName, nowElapsed)
         sessionGate =
             sessionGate.copy(
                 lastDecisionElapsedMillis = elapsed ?: sessionGate.lastDecisionElapsedMillis,
-                disabledForThisSession = true,
             )
     }
 
