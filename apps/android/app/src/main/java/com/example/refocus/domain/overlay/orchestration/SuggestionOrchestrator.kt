@@ -4,8 +4,8 @@ import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.core.model.MiniGameOrder
-import com.example.refocus.core.model.SuggestionDecision
 import com.example.refocus.core.model.SuggestionAction
+import com.example.refocus.core.model.SuggestionDecision
 import com.example.refocus.core.model.SuggestionMode
 import com.example.refocus.core.model.UiInterruptionSource
 import com.example.refocus.core.util.TimeSource
@@ -13,8 +13,8 @@ import com.example.refocus.domain.overlay.model.SessionBootstrapFromTimeline
 import com.example.refocus.domain.overlay.model.SessionSuggestionGate
 import com.example.refocus.domain.overlay.port.MiniGameOverlayUiModel
 import com.example.refocus.domain.overlay.port.OverlayUiPort
-import com.example.refocus.domain.overlay.port.SuggestionOverlayUiModel
 import com.example.refocus.domain.overlay.port.SuggestionActionLauncherPort
+import com.example.refocus.domain.overlay.port.SuggestionOverlayUiModel
 import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
@@ -521,7 +521,12 @@ class SuggestionOrchestrator(
                                 action = action,
                                 autoDismissMillis = suggestionTimeoutMillis(customize),
                                 interactionLockoutMillis = suggestionInteractionLockoutMillis(customize),
-                                onOpenAction = { handleSuggestionOpenAction(suggestionId = suggestionId, action = action) },
+                                onOpenAction = {
+                                    handleSuggestionOpenAction(
+                                        suggestionId = suggestionId,
+                                        action = action,
+                                    )
+                                },
                                 onSnoozeLater = { handleSuggestionSnoozeLater() },
                                 onCloseTargetApp = { handleSuggestionCloseTargetApp() },
                                 onDismissOnly = { handleSuggestionDismissOnly() },

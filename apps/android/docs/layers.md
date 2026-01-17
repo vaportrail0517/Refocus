@@ -59,6 +59,23 @@ Refocus は，後から機能を増やしても設計が崩れないように，
 - overlay の WindowManager 制御は `system/overlay` に置き，`ui` の Composable を呼び出す．
 - feature からミニゲームを表示したい場合も，参照先は `ui` にする（`system` への import は `checkFeatureBoundaries` で禁止）．
 
+## 補足，提案機能のゲーティング方針
+
+提案の表示可否は `domain/suggestion/SuggestionEngine` が純粋ロジックとして判定する．
+
+提案を出さない条件は，次の場合のみに限定する．
+
+- 提案機能がオフになっている（`Customize.suggestionEnabled == false`）．
+- オーバーレイタイマーを非表示にしている（UI 側で評価を止める）．
+- すでに提案オーバーレイを表示中である（多重表示防止）．
+
+提案の「頻度抑制」は，セッション累積時間（`elapsedMillis`）上のクールダウンで表現する．
+提案の受け入れやスキップ操作により，停止猶予時間内の復帰を含めて恒久的に提案が止まるようなゲートは持たない．
+
+タイムライン上の `SuggestionDisabledForSession` は互換目的で残るが，現在解釈では「最後の意思決定」としてクールダウン起点にのみ用いる．
+
+`SuggestionOrchestrator` は `packageName -> SessionSuggestionGate` を保持し，アプリ間でクールダウンが干渉しないようにする．
+
 ## 現状の自動チェック
 
 `apps/android/app/build.gradle.kts` に import ベースの軽量ガードを置いている．

@@ -86,7 +86,6 @@ class SessionBootstrapper(
                     nowMillis = nowMillis,
                 ).coerceAtLeast(0L)
 
-
         val lastDecisionAt =
             last.events
                 .filter {

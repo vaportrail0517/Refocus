@@ -315,7 +315,6 @@ class SettingsDataStore(
             effectIntervalSeconds =
                 this[Keys.EFFECT_INTERVAL_SECONDS]
                     ?: base.effectIntervalSeconds,
-
             suggestionEnabled =
                 this[Keys.SUGGESTION_ENABLED]
                     ?: base.suggestionEnabled,

@@ -27,7 +27,6 @@ data class Customize(
     // エフェクト（一定間隔で発火）
     val effectsEnabled: Boolean = CustomizeDefaults.EFFECTS_ENABLED,
     val effectIntervalSeconds: Int = CustomizeDefaults.EFFECT_INTERVAL_SECONDS,
-
     // --- 起動・有効/無効 ---
     val overlayEnabled: Boolean = CustomizeDefaults.OVERLAY_ENABLED,
     val autoStartOnBoot: Boolean = CustomizeDefaults.AUTO_START_ON_BOOT,
