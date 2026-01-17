@@ -3,11 +3,11 @@ package com.example.refocus.domain.overlay.model
 /**
  * セッション復元における「提案ゲート」．
  *
- * - disabledForThisSession: この論理セッションではもう提案を出さない
- * - lastDecisionElapsedMillis: Snooze/Dismiss が最後に行われた時点の「セッション累積」
+ * - lastDecisionElapsedMillis: 提案に対する意思決定（Snooze/Dismiss/Open など）が最後に行われた時点の「セッション累積」．
+ *
+ * 提案を恒久的に止めるゲートは持たず，抑制はクールダウンで表現する．
  */
 data class SessionSuggestionGate(
-    val disabledForThisSession: Boolean = false,
     val lastDecisionElapsedMillis: Long? = null,
 )
 

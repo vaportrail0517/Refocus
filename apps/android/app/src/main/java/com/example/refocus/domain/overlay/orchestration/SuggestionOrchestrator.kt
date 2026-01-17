@@ -282,7 +282,7 @@ class SuggestionOrchestrator(
     fun clearOverlayState() {
         isSuggestionOverlayShown = false
         currentSuggestionId = null
-        // クールダウン / disabledForThisSession は sessionGate 側に保持する
+        // クールダウン（lastDecisionElapsedMillis）は sessionGate 側に保持する
     }
 
     private fun clearMiniGameOverlayState(expectedToken: Long? = null) {
@@ -930,7 +930,12 @@ class SuggestionOrchestrator(
             }
         }
 
-        sessionGate = sessionGate.copy(disabledForThisSession = true)
+        // 「このセッションでは提案しない」は廃止し，直後の即再表示のみクールダウンで抑止する
+        val nowElapsed = timeSource.elapsedRealtime()
+        val elapsed = sessionElapsedProvider(packageName, nowElapsed)
+        if (elapsed != null) {
+            sessionGate = sessionGate.copy(lastDecisionElapsedMillis = elapsed)
+        }
         maybeStartMiniGameAfterSuggestionIfNeeded(packageName)
     }
 
