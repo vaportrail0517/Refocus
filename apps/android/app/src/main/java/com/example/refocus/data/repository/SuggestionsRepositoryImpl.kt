@@ -191,11 +191,12 @@ class SuggestionsRepositoryImpl(
         val priorityEnum =
             runCatching { SuggestionPriority.valueOf(priority) }
                 .getOrDefault(SuggestionPriority.Normal)
-        val actionModel = deserializeAction(
-            actionType = actionType,
-            actionValue = actionValue,
-            actionDisplay = actionDisplay,
-        )
+        val actionModel =
+            deserializeAction(
+                actionType = actionType,
+                actionValue = actionValue,
+                actionDisplay = actionDisplay,
+            )
         return Suggestion(
             id = id,
             title = title,
