@@ -111,11 +111,11 @@ fun TimerOverlay(
         }
 
     val size by
-    animateDpAsState(
-        targetValue = targetSize,
-        animationSpec = tween(durationMillis = 350),
-        label = "timer_size",
-    )
+        animateDpAsState(
+            targetValue = targetSize,
+            animationSpec = tween(durationMillis = 350),
+            label = "timer_size",
+        )
 
     val animatedBaseColor =
         when (customize.colorMode) {
@@ -142,7 +142,8 @@ fun TimerOverlay(
         when (customize.colorMode) {
             TimerColorMode.Fixed -> Color(customize.fixedColorArgb)
             TimerColorMode.GradientTwo,
-            TimerColorMode.GradientThree -> Color(customize.gradientStartColorArgb)
+            TimerColorMode.GradientThree,
+            -> Color(customize.gradientStartColorArgb)
         }
 
     val targetBaseColor =
@@ -153,11 +154,11 @@ fun TimerOverlay(
         }
 
     val baseColor by
-    animateColorAsState(
-        targetValue = targetBaseColor,
-        animationSpec = tween(durationMillis = 400),
-        label = "timer_base_color",
-    )
+        animateColorAsState(
+            targetValue = targetBaseColor,
+            animationSpec = tween(durationMillis = 400),
+            label = "timer_base_color",
+        )
 
     val pulseScale = rememberPulseScale(enabled = customize.basePulseEnabled)
 
@@ -302,8 +303,7 @@ fun TimerOverlay(
                         .drawWithContent {
                             drawRect(color = Color.Transparent, blendMode = BlendMode.Clear)
                             drawContent()
-                        }
-                        .graphicsLayer(
+                        }.graphicsLayer(
                             compositingStrategy = CompositingStrategy.Offscreen,
                             scaleX = pulseScale,
                             scaleY = pulseScale,
@@ -375,10 +375,11 @@ private suspend fun runEffect(
                 onRotateWindowPaddingActive(false)
                 when (effect) {
                     TimerEffectType.Blink -> runBlink(blinkAlphaMul = blinkAlphaMul)
-                    TimerEffectType.Rotate -> runRotate(
-                        rotationDeg = rotationDeg,
-                        onRotateWindowPaddingActive = onRotateWindowPaddingActive
-                    )
+                    TimerEffectType.Rotate ->
+                        runRotate(
+                            rotationDeg = rotationDeg,
+                            onRotateWindowPaddingActive = onRotateWindowPaddingActive,
+                        )
 
                     TimerEffectType.Shake -> runShake(shakeX = shakeX, shakeY = shakeY, amplitudePx = shakeAmplitudePx)
                 }
@@ -396,7 +397,11 @@ private suspend fun runEffect(
     shakeY.snapTo(0f)
 }
 
-private fun lerpColor(a: Color, b: Color, t: Float): Color {
+private fun lerpColor(
+    a: Color,
+    b: Color,
+    t: Float,
+): Color {
     val tt = t.coerceIn(0f, 1f)
     return Color(
         red = a.red + (b.red - a.red) * tt,
@@ -466,9 +471,7 @@ private suspend fun runAttentionEnvelope(
     attention.snapTo(0f)
 }
 
-private suspend fun runBlink(
-    blinkAlphaMul: Animatable<Float, *>,
-) {
+private suspend fun runBlink(blinkAlphaMul: Animatable<Float, *>) {
     val totalMs = (BLINK_PERIOD_MS * BLINK_TIMES).coerceAtLeast(1)
     val startNs = withFrameNanos { it }
     while (currentCoroutineContext().isActive) {
@@ -602,12 +605,10 @@ private fun TimerBubble(
                     elevation = 4.dp,
                     shape = MaterialTheme.shapes.medium,
                     clip = false,
-                )
-                .background(
+                ).background(
                     color = backgroundColor,
                     shape = MaterialTheme.shapes.medium,
-                )
-                .padding(horizontal = horizontalPadding, vertical = 8.dp),
+                ).padding(horizontal = horizontalPadding, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -617,7 +618,6 @@ private fun TimerBubble(
         )
     }
 }
-
 
 private fun chooseOnColorForBackground(bg: Color): Color {
     val r = (bg.red * 255).toInt()

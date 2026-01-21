@@ -200,8 +200,8 @@ private fun Suggestion.toDraft(): SuggestionDraft {
     )
 }
 
-private fun SuggestionAction.toDraftFields(): Triple<SuggestionActionKind, String, String> {
-    return when (this) {
+private fun SuggestionAction.toDraftFields(): Triple<SuggestionActionKind, String, String> =
+    when (this) {
         SuggestionAction.None -> Triple(SuggestionActionKind.None, "", "")
         is SuggestionAction.Url ->
             Triple(
@@ -217,7 +217,6 @@ private fun SuggestionAction.toDraftFields(): Triple<SuggestionActionKind, Strin
                 display.orEmpty(),
             )
     }
-}
 
 private fun timeSlotNames(slots: Set<SuggestionTimeSlot>): List<String> = normalizeTimeSlots(slots).map { it.name }
 

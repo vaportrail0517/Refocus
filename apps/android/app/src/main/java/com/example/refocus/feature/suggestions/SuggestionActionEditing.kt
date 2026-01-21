@@ -37,8 +37,8 @@ internal fun buildSuggestionActionForSave(
     kind: SuggestionActionKind,
     value: String,
     display: String,
-): SuggestionAction {
-    return when (kind) {
+): SuggestionAction =
+    when (kind) {
         SuggestionActionKind.None -> SuggestionAction.None
         SuggestionActionKind.Url -> {
             val normalized = normalizeHttpUrlOrNull(value)
@@ -61,10 +61,9 @@ internal fun buildSuggestionActionForSave(
             }
         }
     }
-}
 
-internal fun actionSummaryForDisplay(action: SuggestionAction): String? {
-    return when (action) {
+internal fun actionSummaryForDisplay(action: SuggestionAction): String? =
+    when (action) {
         SuggestionAction.None -> null
         is SuggestionAction.Url -> {
             val label =
@@ -83,4 +82,3 @@ internal fun actionSummaryForDisplay(action: SuggestionAction): String? {
             "アプリ: $label"
         }
     }
-}

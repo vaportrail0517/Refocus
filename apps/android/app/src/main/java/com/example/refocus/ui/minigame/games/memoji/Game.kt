@@ -40,13 +40,59 @@ import com.example.refocus.ui.minigame.components.MiniGameHeader
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
-private val EMOJI_POOL = listOf(
-    "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯",
-    "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦆",
-    "🍎", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🍈", "🍒", "🍑",
-    "⚽", "🏀", "🏈", "⚾", "🎾", "🏐", "🏉", "🎱", "🏓", "🏸",
-    "😀", "😂", "😎", "😍", "🤔", "😴", "🥶", "🤯", "🥳", "🥺",
-)
+private val EMOJI_POOL =
+    listOf(
+        "🐶",
+        "🐱",
+        "🐭",
+        "🐹",
+        "🐰",
+        "🦊",
+        "🐻",
+        "🐼",
+        "🐨",
+        "🐯",
+        "🦁",
+        "🐮",
+        "🐷",
+        "🐸",
+        "🐵",
+        "🐔",
+        "🐧",
+        "🐦",
+        "🐤",
+        "🦆",
+        "🍎",
+        "🍊",
+        "🍋",
+        "🍌",
+        "🍉",
+        "🍇",
+        "🍓",
+        "🍈",
+        "🍒",
+        "🍑",
+        "⚽",
+        "🏀",
+        "🏈",
+        "⚾",
+        "🎾",
+        "🏐",
+        "🏉",
+        "🎱",
+        "🏓",
+        "🏸",
+        "😀",
+        "😂",
+        "😎",
+        "😍",
+        "🤔",
+        "😴",
+        "🥶",
+        "🤯",
+        "🥳",
+        "🥺",
+    )
 
 private const val MEMORIZE_SECONDS = 5
 private const val TARGET_COUNT = 5
@@ -70,19 +116,21 @@ internal fun Game(
     // プールの重複が混ざっても挙動が壊れないように，ここで一度ユニーク化する
     val pool = remember { EMOJI_POOL.distinct() }
 
-    val targetEmojis = remember(seed) {
-        pool.shuffled(rng).take(TARGET_COUNT)
-    }
+    val targetEmojis =
+        remember(seed) {
+            pool.shuffled(rng).take(TARGET_COUNT)
+        }
 
     // 出題に含まれる絵文字が必ず選択肢に入るように構築する
-    val options = remember(seed) {
-        buildOptions(
-            rng = rng,
-            target = targetEmojis,
-            pool = pool,
-            optionCount = OPTION_COUNT,
-        )
-    }
+    val options =
+        remember(seed) {
+            buildOptions(
+                rng = rng,
+                target = targetEmojis,
+                pool = pool,
+                optionCount = OPTION_COUNT,
+            )
+        }
 
     var phase by remember(seed) { mutableStateOf(MemojiPhase.Memorize) }
     var timeLeft by remember(seed) { mutableIntStateOf(MEMORIZE_SECONDS) }
@@ -210,7 +258,7 @@ internal fun Game(
                         }
 
                         Text(
-                            text = "あと ${timeLeft} 秒",
+                            text = "あと $timeLeft 秒",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
@@ -237,9 +285,10 @@ internal fun Game(
                         )
 
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
                             contentAlignment = Alignment.Center,
                         ) {
                             BoxWithConstraints(
@@ -291,7 +340,12 @@ internal fun Game(
                             text = if (isCorrect) "正解" else "不正解",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
-                            color = if (isCorrect) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            color =
+                                if (isCorrect) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                },
                         )
 
                         Column(
@@ -351,18 +405,20 @@ internal fun Game(
                 ) {
                     OutlinedButton(
                         onClick = { popLast() },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp),
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .height(52.dp),
                         enabled = inputSequence.isNotEmpty(),
                     ) {
                         Text("一つ戻す")
                     }
                     OutlinedButton(
                         onClick = { resetInput() },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp),
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .height(52.dp),
                     ) {
                         Text("リセット")
                     }
@@ -373,9 +429,10 @@ internal fun Game(
                 val finishLabel = if (isCorrect) "完了" else "終了"
                 Button(
                     onClick = onFinished,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
                 ) {
                     Text(finishLabel)
                 }

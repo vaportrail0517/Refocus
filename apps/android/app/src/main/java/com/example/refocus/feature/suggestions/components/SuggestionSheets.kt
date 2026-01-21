@@ -401,8 +401,8 @@ private fun buildDestinationText(
     actionKind: SuggestionActionKind,
     actionValue: String,
     actionDisplay: String,
-): String? {
-    return when (actionKind) {
+): String? =
+    when (actionKind) {
         SuggestionActionKind.None -> null
         SuggestionActionKind.Url -> {
             val label = actionDisplay.trim().ifBlank { actionValue.trim() }
@@ -414,4 +414,3 @@ private fun buildDestinationText(
             if (label.isNotBlank()) "アプリ: $label" else "アプリ"
         }
     }
-}

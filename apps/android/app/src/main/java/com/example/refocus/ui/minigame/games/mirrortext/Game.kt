@@ -53,11 +53,12 @@ private enum class MirrorTextPhase {
     TimeUp,
 }
 
-private val QWERTY_ROWS = listOf(
-    listOf('Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'),
-    listOf('A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'),
-    listOf('Z', 'X', 'C', 'V', 'B', 'N', 'M'),
-)
+private val QWERTY_ROWS =
+    listOf(
+        listOf('Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'),
+        listOf('A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'),
+        listOf('Z', 'X', 'C', 'V', 'B', 'N', 'M'),
+    )
 
 @Composable
 private fun QwertyKeyboard(
@@ -140,13 +141,14 @@ internal fun Game(
     modifier: Modifier = Modifier,
 ) {
     val rng = remember(seed) { Random(seed) }
-    val sentenceList = listOf(
-        "HELLO ANDROID WORLD",
-        "JETPACK COMPOSE UI",
-        "REFOCUS YOUR MIND",
-        "QWERTY KEYBOARD TEST",
-        "THE QUICK BROWN FOX",
-    )
+    val sentenceList =
+        listOf(
+            "HELLO ANDROID WORLD",
+            "JETPACK COMPOSE UI",
+            "REFOCUS YOUR MIND",
+            "QWERTY KEYBOARD TEST",
+            "THE QUICK BROWN FOX",
+        )
     val targetSentence = remember(seed) { sentenceList.random(rng) }
 
     var phase by remember(seed) { mutableStateOf(MirrorTextPhase.Playing) }
@@ -413,8 +415,11 @@ private fun InputDisplay(
                 fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold,
                 color =
-                    if (isCorrect) MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurface,
+                    if (isCorrect) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
