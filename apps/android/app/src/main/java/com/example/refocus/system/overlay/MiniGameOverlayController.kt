@@ -60,24 +60,22 @@ class MiniGameOverlayController(
             }
         }
 
-        // ★画面サイズを取得して適切なウィンドウサイズを計算（幅95%, 高さ70%）
-        val displayMetrics = context.resources.displayMetrics
-        val width = (displayMetrics.widthPixels * 0.95).toInt()
-        val height = (displayMetrics.heightPixels * 0.7).toInt()
-
+        // ミニゲームは「ゲート」として確実に操作できる必要があるため，フルスクリーンで表示する．
+        // （サイズを小さくすると，MiniGameHostOverlay のスクリーン全体スクリーンがウィンドウ内に
+        // 収まり，外側に黒い四角いスクリーンが見える，内容が縦に圧縮される，などの UX 崩れが起きる）
+        // また TextField を含むゲームがあるため，フォーカス可能にして IME も利用できるようにする．
         val params =
-            WindowManager
-                .LayoutParams(
-                    width,
-                    height,
-                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                    PixelFormat.TRANSLUCENT,
-                ).apply {
-                    // ★画面中央に表示
-                    gravity = Gravity.CENTER
-                }
+            WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT,
+            ).apply {
+                gravity = Gravity.TOP or Gravity.START
+                softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+            }
 
         val composeView =
             ComposeView(context).apply {
