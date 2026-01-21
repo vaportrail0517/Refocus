@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -30,10 +31,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.refocus.core.model.SuggestionDurationTag
 import com.example.refocus.core.model.SuggestionPriority
 import com.example.refocus.core.model.SuggestionTimeSlot
+import com.example.refocus.feature.suggestions.SuggestionActionKind
 
 @Composable
 internal fun SuggestionViewSheet(
@@ -41,6 +44,9 @@ internal fun SuggestionViewSheet(
     timeSlots: Set<SuggestionTimeSlot>,
     durationTag: SuggestionDurationTag,
     priority: SuggestionPriority,
+    actionKind: SuggestionActionKind,
+    actionValue: String,
+    actionDisplay: String,
     onClose: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -102,6 +108,16 @@ internal fun SuggestionViewSheet(
             onDurationTagChange = {},
             onPriorityChange = {},
         )
+
+        val destinationText = buildDestinationText(actionKind, actionValue, actionDisplay)
+        if (destinationText != null) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = destinationText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -117,6 +133,15 @@ internal fun SuggestionEditorSheet(
     onDurationTagChange: (SuggestionDurationTag) -> Unit,
     priority: SuggestionPriority,
     onPriorityChange: (SuggestionPriority) -> Unit,
+    actionKind: SuggestionActionKind,
+    onActionKindChange: (SuggestionActionKind) -> Unit,
+    actionValue: String,
+    onActionValueChange: (String) -> Unit,
+    actionDisplay: String,
+    onRequestPickApp: () -> Unit,
+    urlErrorMessage: String?,
+    appErrorMessage: String?,
+    isConfirmEnabled: Boolean,
 ) {
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
@@ -147,11 +172,11 @@ internal fun SuggestionEditorSheet(
 
             TextButton(
                 onClick = {
-                    if (title.isNotBlank()) {
+                    if (isConfirmEnabled) {
                         onConfirm()
                     }
                 },
-                enabled = title.isNotBlank(),
+                enabled = isConfirmEnabled,
             ) {
                 Text("保存")
             }
@@ -213,5 +238,180 @@ internal fun SuggestionEditorSheet(
             onDurationTagChange = onDurationTagChange,
             onPriorityChange = onPriorityChange,
         )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text(
+            text = "遷移先",
+            style = MaterialTheme.typography.titleSmall,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        ActionKindSelector(
+            actionKind = actionKind,
+            onActionKindChange = onActionKindChange,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        when (actionKind) {
+            SuggestionActionKind.None -> {
+                Text(
+                    text = "設定すると，提案オーバーレイのやりたいこと表示をタップして移動できます．",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            SuggestionActionKind.Url -> {
+                OutlinedTextField(
+                    value = actionValue,
+                    onValueChange = onActionValueChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("URL") },
+                    placeholder = { Text("https://example.com") },
+                    isError = urlErrorMessage != null,
+                    keyboardOptions =
+                        KeyboardOptions.Default.copy(
+                            keyboardType = KeyboardType.Uri,
+                            imeAction = ImeAction.Done,
+                        ),
+                    keyboardActions =
+                        KeyboardActions(
+                            onDone = {
+                                focusManager.clearFocus(force = true)
+                            },
+                        ),
+                )
+
+                if (urlErrorMessage != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = urlErrorMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                } else {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "http または https の URL を入力してください．scheme を省略すると https を補完します．",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            SuggestionActionKind.App -> {
+                val label = actionDisplay.trim().ifBlank { actionValue.trim() }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = if (label.isNotBlank()) "アプリ: $label" else "アプリ: （未選択）",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(
+                        onClick = onRequestPickApp,
+                    ) {
+                        Text("選ぶ")
+                    }
+                }
+
+                if (appErrorMessage != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = appErrorMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                } else {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "インストール済みアプリから選択します．",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun ActionKindSelector(
+    actionKind: SuggestionActionKind,
+    onActionKindChange: (SuggestionActionKind) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        ActionKindButton(
+            label = "なし",
+            selected = actionKind == SuggestionActionKind.None,
+            enabled = true,
+            onClick = { onActionKindChange(SuggestionActionKind.None) },
+        )
+        ActionKindButton(
+            label = "URL",
+            selected = actionKind == SuggestionActionKind.Url,
+            enabled = true,
+            onClick = { onActionKindChange(SuggestionActionKind.Url) },
+        )
+        ActionKindButton(
+            label = "アプリ",
+            selected = actionKind == SuggestionActionKind.App,
+            enabled = true,
+            onClick = { onActionKindChange(SuggestionActionKind.App) },
+        )
+    }
+}
+
+@Composable
+private fun ActionKindButton(
+    label: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    TextButton(
+        onClick = onClick,
+        enabled = enabled,
+    ) {
+        Text(
+            text = label,
+            color =
+                if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+        )
+    }
+}
+
+private fun buildDestinationText(
+    actionKind: SuggestionActionKind,
+    actionValue: String,
+    actionDisplay: String,
+): String? {
+    return when (actionKind) {
+        SuggestionActionKind.None -> null
+        SuggestionActionKind.Url -> {
+            val label = actionDisplay.trim().ifBlank { actionValue.trim() }
+            if (label.isNotBlank()) "リンク: $label" else "リンク"
+        }
+
+        SuggestionActionKind.App -> {
+            val label = actionDisplay.trim().ifBlank { actionValue.trim() }
+            if (label.isNotBlank()) "アプリ: $label" else "アプリ"
+        }
     }
 }

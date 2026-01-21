@@ -37,6 +37,18 @@ interface SuggestionDao {
         priority: String,
     )
 
+    @Query(
+        "UPDATE suggestions " +
+            "SET actionType = :actionType, actionValue = :actionValue, actionDisplay = :actionDisplay " +
+            "WHERE id = :id",
+    )
+    suspend fun updateAction(
+        id: Long,
+        actionType: String,
+        actionValue: String?,
+        actionDisplay: String?,
+    )
+
     @Query("DELETE FROM suggestions WHERE id = :id")
     suspend fun deleteById(id: Long)
 

@@ -93,7 +93,8 @@ class SessionBootstrapper(
             last.events
                 .filter {
                     it.type == SessionEventType.SuggestionSnoozed ||
-                        it.type == SessionEventType.SuggestionDismissed
+                        it.type == SessionEventType.SuggestionDismissed ||
+                        it.type == SessionEventType.SuggestionOpened
                 }.maxOfOrNull { it.timestampMillis }
 
         val lastDecisionElapsed =

@@ -13,11 +13,11 @@ fun SuggestionsRoute(viewModel: SuggestionsViewModel = hiltViewModel()) {
 
     SuggestionsScreen(
         uiState = uiState,
-        onCreateSuggestion = { title, timeSlots, durationTag, priority ->
-            viewModel.createSuggestion(title, timeSlots, durationTag, priority)
+        onCreateSuggestion = { title, timeSlots, durationTag, priority, action ->
+            viewModel.createSuggestion(title, timeSlots, durationTag, priority, action)
         },
-        onUpdateSuggestion = { id, title, timeSlots, durationTag, priority ->
-            viewModel.updateSuggestion(id, title, timeSlots, durationTag, priority)
+        onUpdateSuggestion = { id, title, timeSlots, durationTag, priority, action ->
+            viewModel.updateSuggestion(id, title, timeSlots, durationTag, priority, action)
         },
         onDeleteConfirmed = { id ->
             viewModel.deleteSuggestion(id)

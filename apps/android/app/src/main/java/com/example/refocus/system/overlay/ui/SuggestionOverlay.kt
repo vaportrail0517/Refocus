@@ -1,6 +1,7 @@
 package com.example.refocus.system.overlay.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.example.refocus.core.model.SuggestionAction
 import com.example.refocus.core.model.SuggestionMode
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
@@ -40,9 +42,11 @@ fun SuggestionOverlay(
     title: String,
     targetAppLabel: String,
     mode: SuggestionMode,
+    action: SuggestionAction,
     modifier: Modifier = Modifier.Companion,
     autoDismissMillis: Long = 8_000L,
     interactionLockoutMillis: Long = 400L,
+    onOpenAction: () -> Unit,
     onSnoozeLater: () -> Unit,
     onCloseTargetApp: () -> Unit,
     onDismissOnly: () -> Unit,
@@ -84,6 +88,18 @@ fun SuggestionOverlay(
     }
 
     val cardOffset = remember { mutableStateOf(Offset.Companion.Zero) }
+
+    val hasAction = action !is SuggestionAction.None
+
+    // 「やりたいこと」提案かつ Action がある場合のみ，タイトルエリアをタップ可能にする
+    val titleAreaModifier =
+        if (mode == SuggestionMode.Generic && hasAction) {
+            Modifier.Companion.clickable(enabled = interactive) {
+                onOpenAction()
+            }
+        } else {
+            Modifier.Companion
+        }
 
     Box(
         modifier =
@@ -145,16 +161,31 @@ fun SuggestionOverlay(
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Spacer(modifier = Modifier.Companion.height(8.dp))
-                Text(
-                    text = labelText,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(modifier = Modifier.Companion.height(4.dp))
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                )
+                Column(
+                    modifier =
+                        Modifier.Companion
+                            .fillMaxWidth()
+                            .then(titleAreaModifier),
+                ) {
+                    Text(
+                        text = labelText,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.Companion.height(4.dp))
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    if (mode == SuggestionMode.Generic && hasAction) {
+                        Spacer(modifier = Modifier.Companion.height(4.dp))
+                        Text(
+                            text = "タップして開く",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.Companion.height(12.dp))
                 Text(
                     text = bodyText,

@@ -13,6 +13,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.refocus.core.logging.RefocusLog
+import com.example.refocus.core.model.SuggestionAction
 import com.example.refocus.core.model.SuggestionMode
 import com.example.refocus.system.overlay.ui.SuggestionOverlay
 import com.example.refocus.ui.theme.RefocusTheme
@@ -50,8 +51,10 @@ class SuggestionOverlayController(
         title: String,
         targetPackageName: String,
         mode: SuggestionMode,
+        action: SuggestionAction,
         autoDismissMillis: Long,
         interactionLockoutMillis: Long,
+        onOpenAction: () -> Unit,
         onSnoozeLater: () -> Unit,
         onCloseTargetApp: () -> Unit,
         onDismissOnly: () -> Unit,
@@ -93,8 +96,15 @@ class SuggestionOverlayController(
                             title = title,
                             targetAppLabel = resolveAppLabel(targetPackageName),
                             mode = mode,
+                            action = action,
                             autoDismissMillis = autoDismissMillis,
                             interactionLockoutMillis = interactionLockoutMillis,
+                            onOpenAction = {
+                                runOnce {
+                                    hideSuggestionOverlay()
+                                    onOpenAction()
+                                }
+                            },
                             onSnoozeLater = {
                                 runOnce {
                                     hideSuggestionOverlay()

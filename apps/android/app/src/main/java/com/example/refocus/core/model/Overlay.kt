@@ -79,6 +79,7 @@ data class Suggestion(
     val timeSlots: Set<SuggestionTimeSlot> = setOf(SuggestionTimeSlot.Anytime),
     val durationTag: SuggestionDurationTag = SuggestionDurationTag.Medium,
     val priority: SuggestionPriority = SuggestionPriority.Normal,
+    val action: SuggestionAction = SuggestionAction.None,
 )
 
 enum class SuggestionMode {
@@ -114,6 +115,8 @@ enum class SuggestionPriority {
 enum class SuggestionDecision {
     Snoozed, // あとで
     Dismissed, // 閉じた（自動タイムアウト含む）
+    Opened, // 提案から外部（URL/他アプリ）へ遷移した
+
     DisabledForSession, // このセッションでは非表示
 }
 

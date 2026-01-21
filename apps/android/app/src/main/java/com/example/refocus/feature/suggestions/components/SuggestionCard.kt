@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.refocus.core.model.Suggestion
+import com.example.refocus.feature.suggestions.actionSummaryForDisplay
 
 @Composable
 internal fun SuggestionCard(
@@ -36,6 +37,17 @@ internal fun SuggestionCard(
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
+
+            val actionSummary = actionSummaryForDisplay(suggestion.action)
+            if (actionSummary != null) {
+                Text(
+                    text = actionSummary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
