@@ -93,7 +93,10 @@ internal class OverlaySessionLifecycle(
             )
 
         if (isNewSession) {
-            suggestionOrchestrator.onNewSession(bootstrap)
+            suggestionOrchestrator.onNewSession(
+                packageName = packageName,
+                bootstrap = bootstrap,
+            )
 
             // 「このセッションのみ非表示」フラグは新規セッション開始時にリセットする
             runtimeState.update {
