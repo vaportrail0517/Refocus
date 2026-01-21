@@ -1,7 +1,6 @@
 package com.example.refocus.ui.minigame.games.mirrortext
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,26 +30,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.refocus.ui.minigame.components.MiniGameHeader
-import kotlinx.coroutines.delay
 import kotlin.random.Random
 
-private const val TIME_LIMIT_SECONDS = 60
-
-private enum class MirrorTextPhase {
-    Playing,
-    Solved,
-    TimeUp,
-}
+// --- QWERTYキーボードの定義 ---
 
 private val QWERTY_ROWS =
     listOf(
@@ -83,11 +69,7 @@ private fun QwertyKeyboard(
                 if (index == 2) Spacer(Modifier.weight(1.5f))
 
                 rowKeys.forEach { char ->
-                    KeyButton(
-                        char = char,
-                        enabled = enabled,
-                        onClick = { onKeyClick(char) },
-                    )
+                    KeyButton(char = char, onClick = { onKeyClick(char) })
                 }
 
                 if (index == 1) Spacer(Modifier.weight(0.5f))
@@ -113,14 +95,11 @@ private fun RowScope.KeyButton(
                 .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = char.toString(),
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Medium,
-            color = if (enabled) MaterialTheme.colorScheme.onSurface else Color.Gray,
-        )
+        Text(text = char.toString(), fontSize = 20.sp, fontWeight = FontWeight.Medium)
     }
 }
+
+// --- ゲーム本体の実装 ---
 
 @Composable
 internal fun Game(
@@ -139,35 +118,8 @@ internal fun Game(
         )
     val targetSentence = remember(seed) { sentenceList.random(rng) }
 
-    var phase by remember(seed) { mutableStateOf(MirrorTextPhase.Playing) }
-    var remainingSeconds by remember(seed) { mutableIntStateOf(TIME_LIMIT_SECONDS) }
     var inputText by remember(seed) { mutableStateOf("") }
-
     val isCorrect = inputText == targetSentence
-
-    LaunchedEffect(seed) {
-        remainingSeconds = TIME_LIMIT_SECONDS
-        phase = MirrorTextPhase.Playing
-        inputText = ""
-    }
-
-    LaunchedEffect(phase, isCorrect) {
-        if (phase == MirrorTextPhase.Playing && isCorrect) {
-            phase = MirrorTextPhase.Solved
-        }
-    }
-
-    LaunchedEffect(phase) {
-        if (phase != MirrorTextPhase.Playing) return@LaunchedEffect
-        while (remainingSeconds > 0) {
-            delay(1000L)
-            remainingSeconds -= 1
-            if (phase != MirrorTextPhase.Playing) return@LaunchedEffect
-        }
-        if (!isCorrect) {
-            phase = MirrorTextPhase.TimeUp
-        }
-    }
 
     Column(
         modifier =
@@ -200,6 +152,7 @@ internal fun Game(
             )
         }
 
+        // 入力結果表示エリア
         Box(
             modifier =
                 Modifier
@@ -215,11 +168,9 @@ internal fun Game(
                     ).padding(12.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+            if (inputText.isEmpty()) {
+                Text("Tap keys to type...", color = Color.Gray)
+            } else {
                 Text(
                     text = inputText,
                     fontSize = 24.sp,
@@ -230,35 +181,10 @@ internal fun Game(
                             MaterialTheme.colorScheme.onSurface
                         },
                 )
-
-                Box(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    AutoFitMirroredSentence(
-                        text = targetSentence,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-
-                if (phase == MirrorTextPhase.TimeUp) {
-                    Text(
-                        text = "正解：$targetSentence",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
             }
         }
 
-        InputDisplay(
-            text = inputText,
-            isCorrect = isCorrect,
-            enabled = phase == MirrorTextPhase.Playing,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Spacer(Modifier.height(8.dp))
 
         if (!isCorrect) {
             // キーボード
@@ -269,25 +195,7 @@ internal fun Game(
                 modifier = Modifier.wrapContentHeight(),
             )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    OutlinedButton(
-                        onClick = { inputText += " " },
-                        modifier = Modifier.weight(1f).height(52.dp),
-                    ) {
-                        Text("SPACE")
-                    }
-                    Button(
-                        onClick = { if (inputText.isNotEmpty()) inputText = inputText.dropLast(1) },
-                        modifier = Modifier.weight(0.6f).height(52.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    ) {
-                        Text("DEL")
-                    }
-                }
-            }
+            Spacer(Modifier.height(8.dp))
 
             // ★機能キー（SPACEとDEL）を独立して配置
             Row(
@@ -302,7 +210,7 @@ internal fun Game(
                             .height(48.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(),
                 ) {
-                    Text("完了")
+                    Text("SPACE")
                 }
                 Button(
                     onClick = { if (inputText.isNotEmpty()) inputText = inputText.dropLast(1) },
@@ -312,10 +220,11 @@ internal fun Game(
                             .height(48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                 ) {
-                    Text("終了")
+                    Text("DEL")
                 }
             }
         } else {
+            // クリア画面
             Text(
                 "CORRECT!",
                 style = MaterialTheme.typography.headlineLarge,
@@ -332,11 +241,6 @@ internal fun Game(
                 Text("CLOSE")
             }
         }
+        Spacer(Modifier.height(16.dp))
     }
-}
-
-private fun formatSeconds(totalSeconds: Int): String {
-    val m = (totalSeconds.coerceAtLeast(0)) / 60
-    val s = (totalSeconds.coerceAtLeast(0)) % 60
-    return "%d:%02d".format(m, s)
 }
