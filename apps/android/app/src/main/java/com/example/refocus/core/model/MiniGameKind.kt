@@ -11,4 +11,5 @@ enum class MiniGameKind {
     MakeTen,
     EightPuzzle,
     MirrorText,
+    Memoji,
 }
