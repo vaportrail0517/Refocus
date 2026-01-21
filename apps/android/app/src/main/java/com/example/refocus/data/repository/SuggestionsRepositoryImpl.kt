@@ -1,6 +1,7 @@
 package com.example.refocus.data.repository
 
 import com.example.refocus.core.model.Suggestion
+import com.example.refocus.core.model.SuggestionAction
 import com.example.refocus.core.model.SuggestionDurationTag
 import com.example.refocus.core.model.SuggestionMode
 import com.example.refocus.core.model.SuggestionPriority
@@ -52,10 +53,12 @@ class SuggestionsRepositoryImpl(
         timeSlots: Set<SuggestionTimeSlot>,
         durationTag: SuggestionDurationTag,
         priority: SuggestionPriority,
+        action: SuggestionAction,
     ): Suggestion {
         val normalizedTitle = normalizeTitle(title)
         require(normalizedTitle.isNotEmpty()) { "Suggestion title must not be blank." }
         val now = timeSource.nowMillis()
+        val (actionType, actionValue, actionDisplay) = serializeAction(action)
         val entity =
             SuggestionEntity(
                 id = 0L,
@@ -65,6 +68,9 @@ class SuggestionsRepositoryImpl(
                 timeSlots = serializeTimeSlots(timeSlots),
                 durationTag = durationTag.name,
                 priority = priority.name,
+                actionType = actionType,
+                actionValue = actionValue,
+                actionDisplay = actionDisplay,
             )
         val newId = suggestionDao.insert(entity)
         return entity.copy(id = newId).toModel()
@@ -93,6 +99,19 @@ class SuggestionsRepositoryImpl(
         )
     }
 
+    override suspend fun updateSuggestionAction(
+        id: Long,
+        action: SuggestionAction,
+    ) {
+        val (type, value, display) = serializeAction(action)
+        suggestionDao.updateAction(
+            id = id,
+            actionType = type,
+            actionValue = value,
+            actionDisplay = display,
+        )
+    }
+
     override suspend fun deleteSuggestion(id: Long) {
         suggestionDao.deleteById(id)
     }
@@ -118,6 +137,40 @@ class SuggestionsRepositoryImpl(
         return normalized.joinToString(separator = "|") { it.name }
     }
 
+    private companion object {
+        private const val ACTION_TYPE_NONE = "NONE"
+        private const val ACTION_TYPE_URL = "URL"
+        private const val ACTION_TYPE_APP = "APP"
+    }
+
+    private fun serializeAction(action: SuggestionAction): Triple<String, String?, String?> =
+        when (action) {
+            SuggestionAction.None -> Triple(ACTION_TYPE_NONE, null, null)
+            is SuggestionAction.Url -> Triple(ACTION_TYPE_URL, action.url, action.display)
+            is SuggestionAction.App -> Triple(ACTION_TYPE_APP, action.packageName, action.display)
+        }
+
+    private fun deserializeAction(
+        actionType: String,
+        actionValue: String?,
+        actionDisplay: String?,
+    ): SuggestionAction =
+        when (actionType) {
+            ACTION_TYPE_URL ->
+                actionValue
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { SuggestionAction.Url(url = it, display = actionDisplay) }
+                    ?: SuggestionAction.None
+
+            ACTION_TYPE_APP ->
+                actionValue
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { SuggestionAction.App(packageName = it, display = actionDisplay) }
+                    ?: SuggestionAction.None
+
+            else -> SuggestionAction.None
+        }
+
     private fun deserializeTimeSlots(raw: String): Set<SuggestionTimeSlot> {
         val tokens = raw.split("|").map { it.trim() }.filter { it.isNotEmpty() }
         val parsed =
@@ -138,6 +191,12 @@ class SuggestionsRepositoryImpl(
         val priorityEnum =
             runCatching { SuggestionPriority.valueOf(priority) }
                 .getOrDefault(SuggestionPriority.Normal)
+        val actionModel =
+            deserializeAction(
+                actionType = actionType,
+                actionValue = actionValue,
+                actionDisplay = actionDisplay,
+            )
         return Suggestion(
             id = id,
             title = title,
@@ -146,6 +205,7 @@ class SuggestionsRepositoryImpl(
             timeSlots = deserializeTimeSlots(timeSlots),
             durationTag = durationEnum,
             priority = priorityEnum,
+            action = actionModel,
         )
     }
 }

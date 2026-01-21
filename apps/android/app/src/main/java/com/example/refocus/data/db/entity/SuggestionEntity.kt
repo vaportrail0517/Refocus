@@ -17,4 +17,8 @@ data class SuggestionEntity(
     val timeSlots: String,
     val durationTag: String,
     val priority: String,
+    // Action 永続化（フェーズ2）
+    val actionType: String = "NONE",
+    val actionValue: String? = null,
+    val actionDisplay: String? = null,
 )

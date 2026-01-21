@@ -15,7 +15,6 @@ class SuggestionEngine {
         val customize: Customize,
         val lastDecisionElapsedMillis: Long?,
         val isOverlayShown: Boolean,
-        val disabledForThisSession: Boolean,
     )
 
     /**
@@ -23,8 +22,6 @@ class SuggestionEngine {
      */
     fun shouldShow(input: Input): Boolean {
         if (input.isOverlayShown) return false
-        if (input.disabledForThisSession) return false
-
         val s = input.customize
         if (!s.suggestionEnabled) return false
 

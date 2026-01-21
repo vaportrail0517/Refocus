@@ -70,6 +70,7 @@ internal fun SuggestionCard(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text("提案例数: ${stats.totalShown}")
+            Text("開いた: ${stats.openedCount}")
             Text("「あとで」「閉じる」: ${stats.skippedCount}")
             Text("短時間で終了した提案: ${stats.endedSoonCount}")
             Text("続行した提案: ${stats.continuedCount}")

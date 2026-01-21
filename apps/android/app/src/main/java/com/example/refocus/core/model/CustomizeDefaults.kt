@@ -38,6 +38,16 @@ object CustomizeDefaults {
     const val GRADIENT_MIDDLE_COLOR_ARGB: Int = 0xFFFFC107.toInt()
     const val GRADIENT_END_COLOR_ARGB: Int = 0xFFF44336.toInt()
 
+    // --- オーバーレイアニメーション ---
+    // ベース（常時）
+    const val BASE_COLOR_ANIM_ENABLED: Boolean = true
+    const val BASE_SIZE_ANIM_ENABLED: Boolean = true
+    const val BASE_PULSE_ENABLED: Boolean = false
+
+    // エフェクト（一定間隔で発火）
+    const val EFFECTS_ENABLED: Boolean = true
+    const val EFFECT_INTERVAL_SECONDS: Int = 60
+
     // --- 起動・有効/無効 ---
     const val OVERLAY_ENABLED: Boolean = true
     const val AUTO_START_ON_BOOT: Boolean = true

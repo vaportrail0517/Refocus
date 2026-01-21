@@ -56,6 +56,9 @@ class TimerOverlayController(
     // Compose が監視する演出用時間（サイズ・色などに使う）
     private var visualMillis by mutableStateOf(0L)
 
+    // Compose が監視するエフェクト用時間（一定間隔の発火判定に使う）
+    private var effectMillis by mutableStateOf(0L)
+
     // 経過時間を更新するためのジョブ
     private var timerJob: Job? = null
 
@@ -180,8 +183,10 @@ class TimerOverlayController(
         token: String? = null,
         // 文字列として表示する時間
         displayMillisProvider: (Long) -> Long,
-        // 色やサイズなどの演出に使う時間
+        // 色やサイズなどの演出に使う時間（ベース）
         visualMillisProvider: (Long) -> Long,
+        // 点滅・回転・揺れなどのエフェクト発火判定に使う時間（論理セッション経過）
+        effectMillisProvider: (Long) -> Long,
         onPositionChanged: ((Int, Int) -> Unit)? = null,
     ) {
         if (token != null) currentToken = token
@@ -193,11 +198,12 @@ class TimerOverlayController(
         val nowElapsedForInit = timeSource.elapsedRealtime()
         displayMillis = displayMillisProvider(nowElapsedForInit).coerceAtLeast(0L)
         visualMillis = visualMillisProvider(nowElapsedForInit).coerceAtLeast(0L)
+        effectMillis = effectMillisProvider(nowElapsedForInit).coerceAtLeast(0L)
 
         // 既存のジョブがあれば止める
         timerJob?.cancel()
 
-        // コルーチンで 200ms ごとに displayMillis / visualMillis を更新
+        // コルーチンで 1000ms ごとに displayMillis / visualMillis を更新
         // Compose の state 更新は Main のみで行う（Snapshot 競合・不定クラッシュ回避）
         timerJob =
             scope.launch(Dispatchers.Main.immediate) {
@@ -205,7 +211,8 @@ class TimerOverlayController(
                     val nowElapsed = timeSource.elapsedRealtime()
                     displayMillis = displayMillisProvider(nowElapsed).coerceAtLeast(0L)
                     visualMillis = visualMillisProvider(nowElapsed).coerceAtLeast(0L)
-                    delay(200L)
+                    effectMillis = effectMillisProvider(nowElapsed).coerceAtLeast(0L)
+                    delay(1000L)
                 }
             }
 
@@ -252,6 +259,7 @@ class TimerOverlayController(
                         TimerOverlay(
                             customize = overlayCustomizeState,
                             visualMillis = visualMillis,
+                            effectMillis = effectMillis,
                             text = formatDurationForTimerBubble(displayMillis),
                         )
                     }
@@ -278,6 +286,7 @@ class TimerOverlayController(
             timerJob = null
             displayMillis = 0L
             visualMillis = 0L
+            effectMillis = 0L
         }
     }
 
@@ -294,6 +303,7 @@ class TimerOverlayController(
         timerJob = null
         displayMillis = 0L
         visualMillis = 0L
+        effectMillis = 0L
 
         val view = overlayView ?: return
         try {

@@ -25,6 +25,10 @@ object CustomizePresetValues {
             minFontSizeSp = 32f,
             maxFontSizeSp = 96f,
             timeToMaxSeconds = 60,
+            // アニメーションの体感をしやすくするため，デバッグでは短めに設定
+            basePulseEnabled = true,
+            effectsEnabled = true,
+            effectIntervalSeconds = 10,
             growthMode = TimerGrowthMode.SlowFastSlow,
             colorMode = TimerColorMode.GradientThree,
             suggestionEnabled = true,

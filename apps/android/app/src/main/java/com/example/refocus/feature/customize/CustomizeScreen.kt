@@ -155,6 +155,9 @@ fun CustomizeScreen(modifier: Modifier = Modifier) {
                                     onOpenTimerVisualTimeBasisDialog = {
                                         activeDialog = CustomizeDialogType.TimerVisualTimeBasis
                                     },
+                                    onOpenEffectIntervalDialog = {
+                                        activeDialog = CustomizeDialogType.EffectInterval
+                                    },
                                     onOpenMiniGameOrderDialog = {
                                         activeDialog = CustomizeDialogType.MiniGameOrder
                                     },

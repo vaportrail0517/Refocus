@@ -4,6 +4,7 @@ import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.core.model.MiniGameOrder
+import com.example.refocus.core.model.SuggestionAction
 import com.example.refocus.core.model.SuggestionDecision
 import com.example.refocus.core.model.SuggestionMode
 import com.example.refocus.core.model.UiInterruptionSource
@@ -12,6 +13,7 @@ import com.example.refocus.domain.overlay.model.SessionBootstrapFromTimeline
 import com.example.refocus.domain.overlay.model.SessionSuggestionGate
 import com.example.refocus.domain.overlay.port.MiniGameOverlayUiModel
 import com.example.refocus.domain.overlay.port.OverlayUiPort
+import com.example.refocus.domain.overlay.port.SuggestionActionLauncherPort
 import com.example.refocus.domain.overlay.port.SuggestionOverlayUiModel
 import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.suggestion.SuggestionEngine
@@ -43,6 +45,7 @@ class SuggestionOrchestrator(
     private val suggestionSelector: SuggestionSelector,
     private val suggestionsRepository: SuggestionsRepository,
     private val uiController: OverlayUiPort,
+    private val actionLauncher: SuggestionActionLauncherPort,
     private val eventRecorder: EventRecorder,
     private val overlayPackageProvider: () -> String?,
     private val customizeProvider: () -> Customize,
@@ -151,7 +154,29 @@ class SuggestionOrchestrator(
     private var showMiniGameJob: Job? = null
 
     @Volatile
-    private var sessionGate: SessionSuggestionGate = SessionSuggestionGate()
+    private var sessionGates: Map<String, SessionSuggestionGate> = emptyMap()
+
+    private fun gateFor(packageName: String): SessionSuggestionGate =
+        sessionGates[packageName] ?: SessionSuggestionGate()
+
+    private fun setGate(
+        packageName: String,
+        gate: SessionSuggestionGate,
+    ) {
+        synchronized(this) {
+            sessionGates = sessionGates + (packageName to gate)
+        }
+    }
+
+    private fun updateGate(
+        packageName: String,
+        transform: (SessionSuggestionGate) -> SessionSuggestionGate,
+    ) {
+        synchronized(this) {
+            val current = sessionGates[packageName] ?: SessionSuggestionGate()
+            sessionGates = sessionGates + (packageName to transform(current))
+        }
+    }
 
     @Volatile
     private var isSuggestionOverlayShown: Boolean = false
@@ -250,36 +275,43 @@ class SuggestionOrchestrator(
     }
 
     fun resetGate() {
-        sessionGate = SessionSuggestionGate()
+        sessionGates = emptyMap()
     }
 
     /**
      * セッション開始時に呼ばれる。
      * Timeline 投影で「継続セッション」だと判定された場合は，ゲート状態も復元する。
      */
-    fun onNewSession(bootstrap: SessionBootstrapFromTimeline?) {
+    fun onNewSession(
+        packageName: String,
+        bootstrap: SessionBootstrapFromTimeline?,
+    ) {
         // 新規セッション開始時は，提案サイクル状態を必ずリセットする
         // （同一論理セッション継続の場合は gate を復元するが，UI サイクルは復元しない）
         endSuggestionCycleIfActive()
 
-        sessionGate =
+        val gate =
             if (bootstrap?.isOngoingSession == true) bootstrap.gate else SessionSuggestionGate()
+        setGate(packageName, gate)
     }
 
     /**
      * 停止猶予時間の変更などで tracker を再注入するとき，
      * 「いまのセッションが継続扱い」ならゲートも復元する。
      */
-    fun restoreGateIfOngoing(bootstrap: SessionBootstrapFromTimeline?) {
+    fun restoreGateIfOngoing(
+        packageName: String,
+        bootstrap: SessionBootstrapFromTimeline?,
+    ) {
         if (bootstrap?.isOngoingSession == true) {
-            sessionGate = bootstrap.gate
+            setGate(packageName, bootstrap.gate)
         }
     }
 
     fun clearOverlayState() {
         isSuggestionOverlayShown = false
         currentSuggestionId = null
-        // クールダウン / disabledForThisSession は sessionGate 側に保持する
+        // クールダウン（lastDecisionElapsedMillis）は sessionGates 側に保持する
     }
 
     private fun clearMiniGameOverlayState(expectedToken: Long? = null) {
@@ -400,15 +432,15 @@ class SuggestionOrchestrator(
         }
 
         val customize = customizeProvider()
+        val gate = gateFor(packageName)
 
         val input =
             SuggestionEngine.Input(
                 elapsedMillis = elapsedMillis,
                 sinceForegroundMillis = sinceForegroundMillis,
                 customize = customize,
-                lastDecisionElapsedMillis = sessionGate.lastDecisionElapsedMillis,
+                lastDecisionElapsedMillis = gate.lastDecisionElapsedMillis,
                 isOverlayShown = isSuggestionOverlayShown || isMiniGameOverlayShown,
-                disabledForThisSession = sessionGate.disabledForThisSession,
             )
 
         if (!suggestionEngine.shouldShow(input)) return
@@ -431,20 +463,22 @@ class SuggestionOrchestrator(
                         return@launch
                     }
 
-                    val (title, mode, suggestionId) =
-                        if (selected != null) {
-                            Triple(
-                                selected.title,
-                                SuggestionMode.Generic,
-                                selected.id,
-                            )
-                        } else {
-                            Triple(
-                                "画面から少し離れて休憩する",
-                                SuggestionMode.Rest,
-                                0L,
-                            )
-                        }
+                    val title: String
+                    val mode: SuggestionMode
+                    val suggestionId: Long
+                    val action: SuggestionAction
+
+                    if (selected != null) {
+                        title = selected.title
+                        mode = SuggestionMode.Generic
+                        suggestionId = selected.id
+                        action = selected.action
+                    } else {
+                        title = "画面から少し離れて休憩する"
+                        mode = SuggestionMode.Rest
+                        suggestionId = 0L
+                        action = SuggestionAction.None
+                    }
 
                     if (epochAtLaunch != suggestionEpoch || !currentCoroutineContext().isActive) {
                         RefocusLog.d(TAG) { "Suggestion show aborted (epoch changed or cancelled)" }
@@ -484,8 +518,15 @@ class SuggestionOrchestrator(
                                 title = title,
                                 targetPackageName = pkg,
                                 mode = mode,
+                                action = action,
                                 autoDismissMillis = suggestionTimeoutMillis(customize),
                                 interactionLockoutMillis = suggestionInteractionLockoutMillis(customize),
+                                onOpenAction = {
+                                    handleSuggestionOpenAction(
+                                        suggestionId = suggestionId,
+                                        action = action,
+                                    )
+                                },
                                 onSnoozeLater = { handleSuggestionSnoozeLater() },
                                 onCloseTargetApp = { handleSuggestionCloseTargetApp() },
                                 onDismissOnly = { handleSuggestionDismissOnly() },
@@ -559,7 +600,7 @@ class SuggestionOrchestrator(
         val nowElapsed = timeSource.elapsedRealtime()
         val elapsed = sessionElapsedProvider(pkg, nowElapsed)
         if (elapsed != null) {
-            sessionGate = sessionGate.copy(lastDecisionElapsedMillis = elapsed)
+            updateGate(pkg) { it.copy(lastDecisionElapsedMillis = elapsed) }
             RefocusLog.d(TAG) { "Suggestion decision recorded at sessionElapsed=$elapsed ms" }
         } else {
             RefocusLog.w(TAG) { "handleSuggestionSnooze: no session elapsed for $pkg" }
@@ -817,6 +858,52 @@ class SuggestionOrchestrator(
         if (pkg != null) maybeStartMiniGameAfterSuggestionIfNeeded(pkg)
     }
 
+    private fun handleSuggestionOpenAction(
+        suggestionId: Long,
+        action: SuggestionAction,
+    ) {
+        val packageName = overlayPackageProvider() ?: return
+
+        // Close overlay state and resume measurement.
+        endSuggestionUiInterruptionIfActive()
+        clearOverlayState()
+        endSuggestionCycleIfActive()
+
+        // Do not start minigame here, and ensure any pending minigame is cancelled.
+        cancelPendingMiniGameAndHide()
+
+        // 直後の即再表示を避けるため，アクション起動より前にクールダウン起点を同期的に更新する
+        val nowElapsed = timeSource.elapsedRealtime()
+        val elapsed = sessionElapsedProvider(packageName, nowElapsed)
+        if (elapsed != null) {
+            updateGate(packageName) { it.copy(lastDecisionElapsedMillis = elapsed) }
+            RefocusLog.d(TAG) { "Suggestion decision recorded at sessionElapsed=$elapsed ms (Opened)" }
+        } else {
+            RefocusLog.w(TAG) { "handleSuggestionOpenAction: no session elapsed for $packageName" }
+        }
+
+        scope.launch {
+            try {
+                eventRecorder.onSuggestionDecision(
+                    packageName = packageName,
+                    suggestionId = suggestionId,
+                    decision = SuggestionDecision.Opened,
+                )
+            } catch (e: CancellationException) {
+                RefocusLog.d(TAG) { "Suggestion decision recording cancelled for $packageName" }
+            } catch (e: Exception) {
+                RefocusLog.e(TAG, e) { "Failed to record SuggestionOpened for $packageName" }
+            }
+
+            // Execute the action after attempting to record the decision.
+            try {
+                actionLauncher.launch(action)
+            } catch (e: Exception) {
+                RefocusLog.e(TAG, e) { "Failed to launch suggestion action for $packageName" }
+            }
+        }
+    }
+
     private fun handleSuggestionCloseTargetApp() {
         val packageName = overlayPackageProvider() ?: return
         val suggestionId = currentSuggestionId ?: 0L
@@ -843,14 +930,12 @@ class SuggestionOrchestrator(
             }
         }
 
-        // 直後に同じ論理セッションへ戻ってきても再度提案しないよう，このセッションでは提案を止める
+        // 直後の即再表示を避けるため，クールダウン起点を更新する（提案停止はしない）
         val nowElapsed = timeSource.elapsedRealtime()
         val elapsed = sessionElapsedProvider(packageName, nowElapsed)
-        sessionGate =
-            sessionGate.copy(
-                lastDecisionElapsedMillis = elapsed ?: sessionGate.lastDecisionElapsedMillis,
-                disabledForThisSession = true,
-            )
+        updateGate(packageName) { current ->
+            current.copy(lastDecisionElapsedMillis = elapsed ?: current.lastDecisionElapsedMillis)
+        }
     }
 
     private fun handleSuggestionDisableThisSession() {
@@ -879,7 +964,12 @@ class SuggestionOrchestrator(
             }
         }
 
-        sessionGate = sessionGate.copy(disabledForThisSession = true)
+        // 「このセッションでは提案しない」は廃止し，直後の即再表示のみクールダウンで抑止する
+        val nowElapsed = timeSource.elapsedRealtime()
+        val elapsed = sessionElapsedProvider(packageName, nowElapsed)
+        if (elapsed != null) {
+            updateGate(packageName) { it.copy(lastDecisionElapsedMillis = elapsed) }
+        }
         maybeStartMiniGameAfterSuggestionIfNeeded(packageName)
     }
 

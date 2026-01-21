@@ -86,14 +86,13 @@ class SessionBootstrapper(
                     nowMillis = nowMillis,
                 ).coerceAtLeast(0L)
 
-        val disabledForSession =
-            last.events.any { it.type == SessionEventType.SuggestionDisabledForSession }
-
         val lastDecisionAt =
             last.events
                 .filter {
                     it.type == SessionEventType.SuggestionSnoozed ||
-                        it.type == SessionEventType.SuggestionDismissed
+                        it.type == SessionEventType.SuggestionDismissed ||
+                        it.type == SessionEventType.SuggestionOpened ||
+                        it.type == SessionEventType.SuggestionDisabledForSession
                 }.maxOfOrNull { it.timestampMillis }
 
         val lastDecisionElapsed =
@@ -111,7 +110,6 @@ class SessionBootstrapper(
             isOngoingSession = true,
             gate =
                 SessionSuggestionGate(
-                    disabledForThisSession = disabledForSession,
                     lastDecisionElapsedMillis = lastDecisionElapsed,
                 ),
         )

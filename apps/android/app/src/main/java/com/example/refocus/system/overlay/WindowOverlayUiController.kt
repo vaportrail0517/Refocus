@@ -38,6 +38,7 @@ class WindowOverlayUiController(
         token: String?,
         displayMillisProvider: (Long) -> Long,
         visualMillisProvider: (Long) -> Long,
+        effectMillisProvider: (Long) -> Long,
         onPositionChanged: (x: Int, y: Int) -> Unit,
     ) {
         scope.launch(Dispatchers.Main) {
@@ -46,6 +47,7 @@ class WindowOverlayUiController(
                     token = token,
                     displayMillisProvider = displayMillisProvider,
                     visualMillisProvider = visualMillisProvider,
+                    effectMillisProvider = effectMillisProvider,
                     onPositionChanged = onPositionChanged,
                 )
             } catch (e: Exception) {
@@ -71,8 +73,10 @@ class WindowOverlayUiController(
                     title = model.title,
                     targetPackageName = model.targetPackageName,
                     mode = model.mode,
+                    action = model.action,
                     autoDismissMillis = model.autoDismissMillis,
                     interactionLockoutMillis = model.interactionLockoutMillis,
+                    onOpenAction = { model.onOpenAction() },
                     onSnoozeLater = { model.onSnoozeLater() },
                     onCloseTargetApp = { model.onCloseTargetApp() },
                     onDismissOnly = { model.onDismissOnly() },

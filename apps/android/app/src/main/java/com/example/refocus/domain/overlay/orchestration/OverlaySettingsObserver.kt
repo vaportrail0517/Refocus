@@ -107,7 +107,10 @@ internal class OverlaySettingsObserver(
                                     gracePeriodMillis = settings.gracePeriodMillis,
                                     initialElapsedIfNew = initialElapsed,
                                 )
-                                suggestionOrchestrator.restoreGateIfOngoing(bootstrap)
+                                suggestionOrchestrator.restoreGateIfOngoing(
+                                    packageName = pkg,
+                                    bootstrap = bootstrap,
+                                )
                             } else {
                                 // 表示中でなければ単純にクリアだけ
                                 sessionTracker.clear()

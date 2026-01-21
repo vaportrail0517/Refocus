@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -14,16 +13,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -53,24 +52,24 @@ private enum class MirrorTextPhase {
     TimeUp,
 }
 
-private val QWERTY_ROWS = listOf(
-    listOf('Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'),
-    listOf('A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'),
-    listOf('Z', 'X', 'C', 'V', 'B', 'N', 'M'),
-)
+private val QWERTY_ROWS =
+    listOf(
+        listOf('Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'),
+        listOf('A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'),
+        listOf('Z', 'X', 'C', 'V', 'B', 'N', 'M'),
+    )
 
 @Composable
 private fun QwertyKeyboard(
     onKeyClick: (Char) -> Unit,
-    enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier =
             modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                .padding(10.dp),
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                .padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -101,27 +100,17 @@ private fun QwertyKeyboard(
 @Composable
 private fun RowScope.KeyButton(
     char: Char,
-    enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val containerColor =
-        if (enabled) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant
-
     Box(
         modifier =
             Modifier
                 .weight(1f)
                 .height(48.dp)
                 .padding(2.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(containerColor)
-                .let {
-                    if (enabled) {
-                        it.clickable(onClick = onClick)
-                    } else {
-                        it
-                    }
-                },
+                .clip(RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -140,13 +129,14 @@ internal fun Game(
     modifier: Modifier = Modifier,
 ) {
     val rng = remember(seed) { Random(seed) }
-    val sentenceList = listOf(
-        "HELLO ANDROID WORLD",
-        "JETPACK COMPOSE UI",
-        "REFOCUS YOUR MIND",
-        "QWERTY KEYBOARD TEST",
-        "THE QUICK BROWN FOX",
-    )
+    val sentenceList =
+        listOf(
+            "HELLO ANDROID WORLD",
+            "JETPACK COMPOSE UI",
+            "REFOCUS YOUR MIND",
+            "QWERTY KEYBOARD TEST",
+            "THE QUICK BROWN FOX",
+        )
     val targetSentence = remember(seed) { sentenceList.random(rng) }
 
     var phase by remember(seed) { mutableStateOf(MirrorTextPhase.Playing) }
@@ -180,29 +170,49 @@ internal fun Game(
     }
 
     Column(
-        modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        MiniGameHeader(
-            title = "鏡文字デコード",
-            subtitle =
-                when (phase) {
-                    MirrorTextPhase.Playing -> "反転した文を読み取って入力します．"
-                    MirrorTextPhase.Solved -> "正解"
-                    MirrorTextPhase.TimeUp -> "時間切れ"
-                },
-            rightTop = formatSeconds(remainingSeconds.coerceAtLeast(0)),
-            rightBottom = "制限 ${formatSeconds(TIME_LIMIT_SECONDS)}",
-        )
+        // ★スクロール対応：問題文エリアが圧迫されても大丈夫なようにweightとscrollを設定
+        Column(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text("Decode this:", style = MaterialTheme.typography.labelMedium)
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = targetSentence,
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                lineHeight = 40.sp,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer { scaleX = -1f }, // 左右反転
+            )
+        }
 
         Box(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .weight(1f)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-                    .padding(16.dp),
+                    .padding(vertical = 16.dp)
+                    .background(
+                        if (isCorrect) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        },
+                        RoundedCornerShape(4.dp),
+                    ).padding(12.dp),
             contentAlignment = Alignment.Center,
         ) {
             Column(
@@ -211,11 +221,14 @@ internal fun Game(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
-                    text = "この文を読み取って入力してください．",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
+                    text = inputText,
+                    fontSize = 24.sp,
+                    color =
+                        if (isCorrect) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
                 )
 
                 Box(
@@ -247,13 +260,14 @@ internal fun Game(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        when (phase) {
-            MirrorTextPhase.Playing -> {
-                QwertyKeyboard(
-                    onKeyClick = { char -> inputText += char },
-                    enabled = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+        if (!isCorrect) {
+            // キーボード
+            QwertyKeyboard(
+                onKeyClick = { char ->
+                    inputText += char
+                },
+                modifier = Modifier.wrapContentHeight(),
+            )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -275,149 +289,48 @@ internal fun Game(
                 }
             }
 
-            MirrorTextPhase.Solved -> {
-                Text(
-                    text = "正解",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+            // ★機能キー（SPACEとDEL）を独立して配置
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Button(
-                    onClick = onFinished,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    onClick = { inputText += " " },
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(),
                 ) {
                     Text("完了")
                 }
-            }
-
-            MirrorTextPhase.TimeUp -> {
-                Text(
-                    text = "時間切れ",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.error,
-                )
-                OutlinedButton(
-                    onClick = onFinished,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                Button(
+                    onClick = { if (inputText.isNotEmpty()) inputText = inputText.dropLast(1) },
+                    modifier =
+                        Modifier
+                            .weight(0.5f)
+                            .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                 ) {
                     Text("終了")
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun AutoFitMirroredSentence(
-    text: String,
-    modifier: Modifier = Modifier,
-) {
-    BoxWithConstraints(
-        modifier = modifier,
-        contentAlignment = Alignment.Center,
-    ) {
-        val density = LocalDensity.current
-        val measurer = rememberTextMeasurer()
-
-        val maxWidthPx = with(density) { maxWidth.roundToPx() }
-        val maxHeightPx = with(density) { maxHeight.roundToPx() }
-
-        val baseStyle =
-            MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-            )
-
-        val fontSize =
-            remember(text, maxWidthPx, maxHeightPx) {
-                if (maxWidthPx <= 0 || maxHeightPx <= 0) return@remember 30.sp
-
-                val constraints = Constraints(maxWidth = maxWidthPx, maxHeight = maxHeightPx)
-                val maxSp = 38
-                val minSp = 14
-
-                var chosen = minSp
-                for (candidate in maxSp downTo minSp) {
-                    val candidateSp = candidate.sp
-                    val layout =
-                        measurer.measure(
-                            text = AnnotatedString(text),
-                            style =
-                                baseStyle.copy(
-                                    fontSize = candidateSp,
-                                    lineHeight = (candidate * 1.22f).sp,
-                                ),
-                            constraints = constraints,
-                            overflow = TextOverflow.Clip,
-                            softWrap = true,
-                            maxLines = Int.MAX_VALUE,
-                        )
-
-                    if (!layout.hasVisualOverflow && layout.size.height <= maxHeightPx) {
-                        chosen = candidate
-                        break
-                    }
-                }
-
-                chosen.sp
-            }
-
-        Text(
-            text = text,
-            style =
-                baseStyle.copy(
-                    fontSize = fontSize,
-                    lineHeight = (fontSize.value * 1.22f).sp,
-                ),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .graphicsLayer { scaleX = -1f },
-        )
-    }
-}
-
-@Composable
-private fun InputDisplay(
-    text: String,
-    isCorrect: Boolean,
-    enabled: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val containerColor =
-        when {
-            !enabled -> MaterialTheme.colorScheme.surfaceVariant
-            isCorrect -> MaterialTheme.colorScheme.primaryContainer
-            else -> MaterialTheme.colorScheme.surface
-        }
-
-    Box(
-        modifier =
-            modifier
-                .background(containerColor, RoundedCornerShape(12.dp))
-                .padding(12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (text.isEmpty()) {
-            Text(
-                text = "キーをタップして入力します．",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
         } else {
             Text(
-                text = text,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.SemiBold,
-                color =
-                    if (isCorrect) MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
+                "CORRECT!",
+                style = MaterialTheme.typography.headlineLarge,
+                color = MaterialTheme.colorScheme.primary,
             )
+            Spacer(Modifier.height(24.dp))
+            Button(
+                onClick = onFinished,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+            ) {
+                Text("CLOSE")
+            }
         }
     }
 }
