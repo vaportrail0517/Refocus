@@ -361,6 +361,5 @@ class TimelineHistoryViewModel
             return start to end
         }
 
-        private fun toUtcDateMillis(date: LocalDate): Long =
-            date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+        private fun toUtcDateMillis(date: LocalDate): Long = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
     }

@@ -51,6 +51,5 @@ internal class TimerVisualBasisProviderSelector(
             TimerVisualTimeBasis.FollowDisplayTime to FollowDisplayTimeVisualBasisProvider,
         )
 
-    fun select(basis: TimerVisualTimeBasis): TimerVisualBasisProvider =
-        providers[basis] ?: providers.getValue(TimerVisualTimeBasis.SessionElapsed)
+    fun select(basis: TimerVisualTimeBasis): TimerVisualBasisProvider = providers[basis] ?: providers.getValue(TimerVisualTimeBasis.SessionElapsed)
 }

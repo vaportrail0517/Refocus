@@ -17,7 +17,10 @@ import kotlinx.coroutines.flow.map
  * UsageStatsManager 経由で「前面にいるアプリ」の推定を行うクラス．
  *
  * - MOVE_TO_FOREGROUND / ACTIVITY_RESUMED を最後に受け取ったパッケージを「前面」とみなす
- * - ホームアプリ（Launcher）や SystemUI へ遷移した場合は null を emit する
+ * - ホームアプリ（Launcher）や SystemUI を一時的に観測しても，直ちに null へ落とさず，
+ *   直前の通常アプリを保持する（通知シェードやナビゲーション操作での誤 null 化を避ける）
+ * - ただし home-like 状態が長時間継続し，かつ復帰イベントが観測できない場合は，
+ *   誤って前面が残り続けるのを防ぐために null へフォールバックする
  * - イベントが何もないループでは前回の値をそのまま維持する
  */
 class ForegroundAppMonitor(
@@ -25,12 +28,16 @@ class ForegroundAppMonitor(
     private val timeSource: TimeSource,
 ) {
     companion object {
-        private const val TAG = "ForegroundAppMonitor"
+        private const val TAG = "Foreground"
 
-        // home-like（Launcher / SystemUI）への遷移を見たとき，
-        // MOVE_TO_BACKGROUND を取り逃がしていても前面判定が古いまま残り続けないようにするための確認猶予．
+        // home-like（Launcher / SystemUI）への遷移を観測した後に，
+        // MOVE_TO_BACKGROUND を取り逃がしても前面判定が残り続けないようにするためのハードタイムアウト．
         // 短すぎると通知シェード操作などで不要に null になりやすい．
-        private const val HOME_LIKE_CONFIRM_DELAY_MS: Long = 1_200L
+        private const val HOME_LIKE_HARD_CLEAR_DELAY_MS: Long = 8_000L
+
+        // ハードタイムアウト到達時に，「直近の非 home-like の前面イベント」を再確認するためのウィンドウ．
+        // OEM によっては復帰側イベントが欠落することがあるため，短い巻き戻しで拾える場合は拾う．
+        private const val HOME_LIKE_RECHECK_WINDOW_MS: Long = 2_500L
     }
 
     /**
@@ -66,7 +73,7 @@ class ForegroundAppMonitor(
         // よくある SystemUI のパッケージも念のため含めておく
         result += "com.android.systemui"
 
-        RefocusLog.d("Foreground") { "homePackages = $result" }
+        RefocusLog.d(TAG) { "homePackages = $result" }
         return result
     }
 
@@ -79,7 +86,8 @@ class ForegroundAppMonitor(
      * 一定間隔で前面アプリの推定値を Flow<String?> として返す．
      *
      * - 前面アプリが通常のアプリ → その packageName
-     * - ホームアプリ / SystemUI → null
+     * - home-like を観測しても直ちに null へ落とさず，直前の通常アプリを維持する
+     * - home-like が長く続き，復帰イベントも見えない場合のみ null へフォールバックする
      */
     fun foregroundAppFlow(
         pollingIntervalMs: Long = 1_000L,
@@ -104,7 +112,7 @@ class ForegroundAppMonitor(
         flow {
             val usm = usageStatsManager
             if (usm == null) {
-                RefocusLog.w("Foreground") { "UsageStatsManager is null, cannot monitor foreground app" }
+                RefocusLog.w(TAG) { "UsageStatsManager is null, cannot monitor foreground app" }
                 emit(ForegroundSample(packageName = null, generation = 0L))
                 while (true) delay(pollingIntervalMs)
             }
@@ -118,55 +126,161 @@ class ForegroundAppMonitor(
             var currentTop: String? = null
             var generation: Long = 0L
 
-            // home-like 遷移を観測した後，短時間だけ「離脱確定」を待つための pending．
-            // pending 中に別の通常アプリが RESUMED / FOREGROUND されたらキャンセルする．
-            var pendingNullAtMillis: Long? = null
-            var pendingNullForTop: String? = null
+            // home-like（Launcher / SystemUI）を観測した期間．
+            // この間に復帰イベントが欠落すると，従来は currentTop が null へ落ちたままになることがあったため，
+            // 直前の通常アプリ（currentTop）を維持しつつ，長時間継続した場合のみ null へフォールバックする．
+            var homeLikeSinceMillis: Long? = null
+            var homeLikePackage: String? = null
 
-            fun clearPendingNull() {
-                pendingNullAtMillis = null
-                pendingNullForTop = null
-            }
-
-            fun schedulePendingNull(nowMillis: Long) {
-                if (pendingNullAtMillis != null) return
-                if (currentTop == null) return
-                pendingNullAtMillis = nowMillis + HOME_LIKE_CONFIRM_DELAY_MS
-                pendingNullForTop = currentTop
-            }
-
-            fun applyPendingNullIfDue(nowMillis: Long) {
-                val pendingAt = pendingNullAtMillis
-                val pendingFor = pendingNullForTop
-                if (pendingAt != null && pendingFor != null && nowMillis >= pendingAt) {
-                    if (currentTop == pendingFor) {
-                        currentTop = null
+            fun clearHomeLike(reason: String) {
+                if (homeLikeSinceMillis != null || homeLikePackage != null) {
+                    RefocusLog.d(TAG) {
+                        "homeLike cleared: reason=$reason " +
+                            "since=$homeLikeSinceMillis pkg=$homeLikePackage " +
+                            "currentTop=$currentTop"
                     }
-                    clearPendingNull()
                 }
+                homeLikeSinceMillis = null
+                homeLikePackage = null
+            }
+
+            fun markHomeLike(
+                packageName: String,
+                nowMillis: Long,
+            ) {
+                val since = homeLikeSinceMillis
+                val prevPkg = homeLikePackage
+
+                if (since == null) {
+                    homeLikeSinceMillis = nowMillis
+                    homeLikePackage = packageName
+                    RefocusLog.d(TAG) {
+                        "homeLike started: pkg=$packageName now=$nowMillis " +
+                            "currentTop=$currentTop generation=$generation"
+                    }
+                } else {
+                    homeLikePackage = packageName
+                    if (prevPkg != packageName) {
+                        RefocusLog.d(TAG) {
+                            "homeLike updated: pkg=$packageName now=$nowMillis since=$since currentTop=$currentTop"
+                        }
+                    }
+                }
+            }
+
+            fun queryLastNonHomeForeground(nowMillis: Long): String? {
+                val start = (nowMillis - HOME_LIKE_RECHECK_WINDOW_MS).coerceAtLeast(0L)
+                val usageEvents: UsageEvents = usm.queryEvents(start, nowMillis)
+
+                val recheckEvent = UsageEvents.Event()
+                var lastNonHome: String? = null
+                while (usageEvents.hasNextEvent()) {
+                    usageEvents.getNextEvent(recheckEvent)
+                    val pkg = recheckEvent.packageName ?: continue
+
+                    when (recheckEvent.eventType) {
+                        UsageEvents.Event.MOVE_TO_FOREGROUND,
+                        UsageEvents.Event.ACTIVITY_RESUMED,
+                        -> {
+                            if (!isHomeLikePackage(pkg)) {
+                                lastNonHome = pkg
+                            }
+                        }
+
+                        else -> {
+                            // ignore
+                        }
+                    }
+                }
+
+                return lastNonHome
+            }
+
+            fun applyHomeLikeHardClearIfNeeded(nowMillis: Long) {
+                val since = homeLikeSinceMillis ?: return
+                val elapsed = nowMillis - since
+                if (elapsed < HOME_LIKE_HARD_CLEAR_DELAY_MS) return
+
+                RefocusLog.d(TAG) {
+                    "homeLike hard-clear due: elapsedMs=$elapsed homePkg=$homeLikePackage currentTop=$currentTop"
+                }
+
+                val recheckedTop: String? =
+                    try {
+                        queryLastNonHomeForeground(nowMillis)
+                    } catch (e: SecurityException) {
+                        RefocusLog.wRateLimited(
+                            TAG,
+                            "homeLike_recheck_security",
+                            60_000L,
+                            e,
+                        ) { "homeLike recheck queryEvents failed (missing Usage Access permission?)" }
+                        null
+                    } catch (e: Exception) {
+                        RefocusLog.wRateLimited(
+                            TAG,
+                            "homeLike_recheck_generic",
+                            60_000L,
+                            e,
+                        ) { "homeLike recheck queryEvents failed" }
+                        null
+                    }
+
+                if (recheckedTop != null) {
+                    if (recheckedTop != currentTop) {
+                        currentTop = recheckedTop
+                        generation += 1L
+                        RefocusLog.d(TAG) {
+                            "homeLike recheck found top: pkg=$recheckedTop -> " +
+                                "currentTop=$currentTop generation=$generation"
+                        }
+                    } else {
+                        generation += 1L
+                        RefocusLog.d(TAG) {
+                            "homeLike recheck reaffirmed top: pkg=$recheckedTop generation=$generation"
+                        }
+                    }
+                } else {
+                    RefocusLog.d(TAG) {
+                        "homeLike hard-clear: no non-home foreground found -> currentTop=null"
+                    }
+                    currentTop = null
+                }
+
+                clearHomeLike(reason = "hard_clear")
             }
 
             fun onMovedToForeground(
                 packageName: String,
                 nowMillis: Long,
             ) {
-                // SystemUI / Launcher が「前面」として出ることがある．
-                // ただし，ここで即座に currentTop=null にすると通知シェード等で誤判定しやすい．
-                // そのため home-like は「pending を立てる」だけにして，
-                // 短い猶予後も別アプリへの遷移が見えなければ null へフォールバックする．
                 if (isHomeLikePackage(packageName)) {
-                    schedulePendingNull(nowMillis)
-                } else {
-                    clearPendingNull()
-                    currentTop = packageName
-                    generation += 1L
+                    markHomeLike(packageName, nowMillis)
+                    return
+                }
+
+                clearHomeLike(reason = "non_home_foreground")
+                currentTop = packageName
+                generation += 1L
+
+                RefocusLog.d(TAG) {
+                    "onMovedToForeground: pkg=$packageName now=$nowMillis -> " +
+                        "currentTop=$currentTop generation=$generation"
                 }
             }
 
             fun onMovedToBackground(packageName: String) {
+                if (isHomeLikePackage(packageName)) {
+                    clearHomeLike(reason = "home_like_background:$packageName")
+                    return
+                }
+
                 // いま前面扱いしているアプリが BACKGROUND に落ちたら前面なし
                 if (packageName == currentTop) {
-                    clearPendingNull()
+                    RefocusLog.d(TAG) {
+                        "onMovedToBackground: pkg=$packageName matched currentTop -> null (generation=$generation)"
+                    }
+                    clearHomeLike(reason = "current_top_background")
                     currentTop = null
                 }
             }
@@ -200,22 +314,21 @@ class ForegroundAppMonitor(
                     }
                 } catch (e: SecurityException) {
                     RefocusLog.wRateLimited(
-                        "Foreground",
+                        TAG,
                         "queryEvents_security",
                         60_000L,
                         e,
                     ) { "queryEvents failed (missing Usage Access permission?)" }
                 } catch (e: Exception) {
                     RefocusLog.wRateLimited(
-                        "Foreground",
+                        TAG,
                         "queryEvents_generic",
                         60_000L,
                         e,
                     ) { "queryEvents failed" }
                 }
 
-                // home-like 遷移を見たが BACKGROUND 取り逃がしが疑われる場合のフォールバック
-                applyPendingNullIfDue(now)
+                applyHomeLikeHardClearIfNeeded(now)
 
                 lastCheckedTime = now
 

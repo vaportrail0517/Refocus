@@ -156,8 +156,7 @@ class SuggestionOrchestrator(
     @Volatile
     private var sessionGates: Map<String, SessionSuggestionGate> = emptyMap()
 
-    private fun gateFor(packageName: String): SessionSuggestionGate =
-        sessionGates[packageName] ?: SessionSuggestionGate()
+    private fun gateFor(packageName: String): SessionSuggestionGate = sessionGates[packageName] ?: SessionSuggestionGate()
 
     private fun setGate(
         packageName: String,
@@ -579,8 +578,7 @@ class SuggestionOrchestrator(
         return seconds.toLong() * 1_000L
     }
 
-    private fun suggestionInteractionLockoutMillis(customize: Customize): Long =
-        customize.suggestionInteractionLockoutMillis.coerceAtLeast(0L)
+    private fun suggestionInteractionLockoutMillis(customize: Customize): Long = customize.suggestionInteractionLockoutMillis.coerceAtLeast(0L)
 
     private fun handleSuggestionSnoozeAndUpdateGate(packageName: String?) {
         endSuggestionUiInterruptionIfActive()

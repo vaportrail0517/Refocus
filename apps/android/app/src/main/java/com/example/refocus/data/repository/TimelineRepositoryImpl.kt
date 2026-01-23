@@ -47,8 +47,7 @@ class TimelineRepositoryImpl(
             .observeEventsBetween(startMillis, endMillis)
             .map { list -> list.mapNotNull { mapper.toDomain(it) } }
 
-    override suspend fun getSeedEventsBefore(beforeMillis: Long): List<TimelineEvent> =
-        seedEventsLoader.load(beforeMillis)
+    override suspend fun getSeedEventsBefore(beforeMillis: Long): List<TimelineEvent> = seedEventsLoader.load(beforeMillis)
 
     @Deprecated("全件購読は性能劣化の原因になるため，observeEventsBetween を使う")
     override fun observeEvents(): Flow<List<TimelineEvent>> =
