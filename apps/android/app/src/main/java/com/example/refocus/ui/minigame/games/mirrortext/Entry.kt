@@ -10,7 +10,13 @@ internal val mirrorTextEntry: MiniGameEntry =
             MiniGameDescriptor(
                 kind = MiniGameKind.MirrorText,
                 title = "鏡文字デコード",
-                description = "反転した英文を読み取り，1分以内に入力してください．",
+                description = "反転した英文を読み取って入力します．",
+                timeLimitSeconds = 60,
+                rules =
+                    listOf(
+                        "左右反転した文を読み取ります．",
+                        "キーボードで入力し，完全一致でクリアです．",
+                    ),
             ),
         content = { seed, onFinished, modifier ->
             Game(

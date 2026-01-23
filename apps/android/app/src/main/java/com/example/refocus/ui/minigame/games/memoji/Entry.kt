@@ -10,7 +10,12 @@ internal val memojiEntry =
             MiniGameDescriptor(
                 kind = MiniGameKind.Memoji,
                 title = "Memoji",
-                description = "5秒で絵文字の順番を覚え，5回入力した時点で判定します．",
+                description = "絵文字の順番を覚えて入力します．",
+                rules =
+                    listOf(
+                        "最初の5秒で絵文字の順番を覚えます．",
+                        "選択肢から順番に5回入力します．",
+                    ),
             ),
         content = { seed, onFinished, modifier ->
             Game(

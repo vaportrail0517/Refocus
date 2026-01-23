@@ -11,6 +11,13 @@ internal val makeTenEntry: MiniGameEntry =
                 kind = MiniGameKind.MakeTen,
                 title = "make ten",
                 description = "4つの数字と記号で10を作ります．",
+                timeLimitSeconds = 60,
+                rules =
+                    listOf(
+                        "4つの数字はそれぞれ1回だけ使います．",
+                        "＋ − × ÷ と括弧が使えます．",
+                        "式が10になればクリアです．",
+                    ),
             ),
         content = { seed, onFinished, modifier ->
             Game(

@@ -54,6 +54,7 @@ domain はミニゲーム表示の失敗（WindowManager の一時的失敗な�
 
 - クリア，時間切れ，キャンセルのいずれでも，最終的に `onFinished()` に到達できる UI を用意してください．
 - 背景タップは閉じません（`MiniGameHostOverlay` が吸収します）．「閉じる」ボタンなどを必須にしてください．
+- なお，プレイ開始前のスキップ（脱出）導線は，共通開始画面（Intro）側で提供します．ただし，プレイ開始後はゲーム側の「閉じる」導線に依存します．
 
 ### 1-6．Activity 依存の Compose API に注意（overlay 表示では owner が存在しない）
 
@@ -86,6 +87,19 @@ if (owner != null) {
 補足
 - overlay は `FLAG_NOT_FOCUSABLE` を含むため，端末や状況によっては Back キーイベント自体がミニゲームに届きません．
 - Back で閉じる設計に依存せず，必ず画面内ボタンで完結する導線を用意してください（1-5 と同様）．
+### 1-7．共通開始画面（Intro）との整合を取る
+
+Refocus のミニゲームは，ホスト側（`MiniGameHostOverlay`）が共通の開始画面（Intro）を表示し，ユーザが「開始」を押した後にだけゲーム本体の Composable を Compose する設計です．
+この設計により，「説明を読んでいる間にタイマーが進む」「問題表示が先に始まる」といった事故を構造的に防ぎます．
+
+追加するゲームは，次を守ってください．
+
+- ゲーム本体に「開始ボタン」や `Ready` 画面を置かないことを推奨します（開始操作は Intro に一本化します）．
+- 説明文，操作ルール，制限時間の表示は `MiniGameDescriptor` のメタ情報（`description`，`rules`，`timeLimitSeconds` など）へ集約してください．ゲーム本体の UI に重複して書くと，文言の不整合が起きやすくなります．
+- タイマーや `LaunchedEffect` による進行は「ゲーム Composable が Compose されてから」始めれば十分です．ホストが未開始状態ではゲームを Compose しないため，説明中に進行しません．
+
+補足
+- どうしても開始直後に「準備」演出を入れたい場合は，ゲーム内で短い導入フェーズ（例: 0.5〜1秒のカウントイン）を持つのは許容できますが，ユーザ操作としての開始ボタンは置かないことを推奨します．
 
 ---
 
@@ -180,6 +194,13 @@ internal val <gameId>Entry: MiniGameEntry =
                 kind = MiniGameKind.<NewKind>,
                 title = "<表示名>",
                 description = "<一行説明>",
+                rules = listOf(
+                    "<操作ルール1>",
+                    "<操作ルール2>",
+                ),
+                timeLimitSeconds = null, // 制限時間がある場合は秒で指定（例: 60）
+                primaryActionLabel = "開始",
+                canSkipBeforeStart = true,
             ),
         content = { seed, onFinished, modifier ->
             Game(
@@ -194,6 +215,7 @@ internal val <gameId>Entry: MiniGameEntry =
 ポイント
 - `internal val ...Entry` にして，レジストリ以外からの参照を最小化します（既存と同様）．
 - `title` と `description` はデバッグ UI の一覧に出ます（`feature/customize/BasicCustomizeContent.kt` が `MiniGameRegistry.descriptors` を表示）．
+- `rules` や `timeLimitSeconds` は共通開始画面（Intro）で表示されます．ゲーム内に同じ説明を重複させるより，カタログ側へ寄せることを推奨します．
 
 ### 手順4．`Game.kt` を実装する（Composable 本体）
 
@@ -335,7 +357,8 @@ cd apps/android
 ### 4-1．UX
 
 - 3分以上の長いゲームにしない（ナッジとしての「切り替え」目的に合わない）．
-- 途中で迷子にならないように，フェーズを明確にする（例: Ready，Playing，Result）．
+- 途中で迷子にならないように，フェーズを明確にする（例: Playing，Result）．
+- 開始前の説明と開始操作は共通開始画面（Intro）側で提供されるため，ゲーム内に開始ボタンを置かないことを推奨します．
 - 結果表示から必ず「閉じる」に進める．
 - 小さい端末でも押せるボタンサイズを保つ（既存は `height(52.dp)` を基準にしています）．
 
