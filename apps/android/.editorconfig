@@ -11,7 +11,7 @@ trim_trailing_whitespace = true
 [*.{kt,kts}]
 ij_kotlin_code_style_defaults = KOTLIN_OFFICIAL
 # Kotlin official は明確な上限がないが，レビューと可読性のため暫定で 120 に揃える
-max_line_length = 120
+max_line_length = 150
 
 # Compose UI では PascalCase 関数名を許容する
 [app/src/main/java/**/feature/**/*.kt]

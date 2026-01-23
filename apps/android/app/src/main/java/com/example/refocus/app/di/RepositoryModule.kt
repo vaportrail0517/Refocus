@@ -31,8 +31,7 @@ import javax.inject.Singleton
 object RepositoryModule {
     @Provides
     @Singleton
-    fun provideOnboardingRepository(dataStore: OnboardingDataStore): OnboardingRepository =
-        OnboardingRepositoryImpl(dataStore)
+    fun provideOnboardingRepository(dataStore: OnboardingDataStore): OnboardingRepository = OnboardingRepositoryImpl(dataStore)
 
     @Provides
     @Singleton
@@ -58,11 +57,9 @@ object RepositoryModule {
 
     @Provides
     @Singleton
-    fun provideTimelineRepository(timelineEventDao: TimelineEventDao): TimelineRepository =
-        TimelineRepositoryImpl(timelineEventDao)
+    fun provideTimelineRepository(timelineEventDao: TimelineEventDao): TimelineRepository = TimelineRepositoryImpl(timelineEventDao)
 
     @Provides
     @Singleton
-    fun provideAppCatalogRepository(appCatalogDao: AppCatalogDao): AppCatalogRepository =
-        AppCatalogRepositoryImpl(appCatalogDao)
+    fun provideAppCatalogRepository(appCatalogDao: AppCatalogDao): AppCatalogRepository = AppCatalogRepositoryImpl(appCatalogDao)
 }

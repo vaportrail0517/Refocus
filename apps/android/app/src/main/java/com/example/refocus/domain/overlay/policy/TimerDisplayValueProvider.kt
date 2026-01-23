@@ -62,6 +62,5 @@ internal class TimerDisplayValueProviderSelector(
             TimerTimeMode.TodayAllTargets to TodayAllTargetsDisplayValueProvider(dailyUsageUseCase),
         )
 
-    fun select(mode: TimerTimeMode): TimerDisplayValueProvider =
-        providers[mode] ?: providers.getValue(TimerTimeMode.SessionElapsed)
+    fun select(mode: TimerTimeMode): TimerDisplayValueProvider = providers[mode] ?: providers.getValue(TimerTimeMode.SessionElapsed)
 }

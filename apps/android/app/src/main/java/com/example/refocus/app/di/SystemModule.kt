@@ -53,8 +53,7 @@ object SystemModule {
 
     @Provides
     @Singleton
-    fun provideForegroundAppObserver(monitor: ForegroundAppMonitor): ForegroundAppObserver =
-        ForegroundAppObserverImpl(monitor)
+    fun provideForegroundAppObserver(monitor: ForegroundAppMonitor): ForegroundAppObserver = ForegroundAppObserverImpl(monitor)
 
     @Provides
     @Singleton
@@ -66,8 +65,7 @@ object SystemModule {
 
     @Provides
     @Singleton
-    fun provideSuggestionSelector(timeSlotWeightModel: TimeSlotWeightModel): SuggestionSelector =
-        SuggestionSelector(timeSlotWeightModel)
+    fun provideSuggestionSelector(timeSlotWeightModel: TimeSlotWeightModel): SuggestionSelector = SuggestionSelector(timeSlotWeightModel)
 
     @Provides
     @Singleton

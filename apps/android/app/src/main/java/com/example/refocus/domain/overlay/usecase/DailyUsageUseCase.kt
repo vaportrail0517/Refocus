@@ -2,8 +2,11 @@ package com.example.refocus.domain.overlay.usecase
 
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
+import com.example.refocus.core.model.ForegroundAppEvent
+import com.example.refocus.core.model.ScreenEvent
+import com.example.refocus.core.model.ServiceLifecycleEvent
+import com.example.refocus.core.model.TargetAppsChangedEvent
 import com.example.refocus.core.model.TimerTimeMode
-import com.example.refocus.core.util.MILLIS_PER_HOUR
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.timeline.TimelineInterpretationConfig
 import com.example.refocus.domain.timeline.TimelineProjectionService
@@ -191,7 +194,17 @@ class DailyUsageUseCase(
         nowMillis: Long = timeSource.nowMillis(),
     ) {
         if (customize.timerTimeMode == TimerTimeMode.SessionElapsed) return
-        if (!needsSnapshotRefresh(customize, targetPackages, nowMillis)) return
+        val refreshReason = snapshotRefreshReasonOrNull(customize, targetPackages, nowMillis) ?: return
+
+        RefocusLog.d(TAG) {
+            val msg =
+                "requestRefreshIfNeeded: " +
+                    "reason=$refreshReason " +
+                    "mode=${customize.timerTimeMode} " +
+                    "now=$nowMillis " +
+                    "targetCount=${targetPackages.size}"
+            msg
+        }
 
         // requestRefreshIfNeeded は複数箇所（overlay tick / 設定変更など）から並行に呼ばれ得る．
         // - refreshJob のチェックと代入は lock で原子的に行い，多重起動を防ぐ
@@ -250,7 +263,7 @@ class DailyUsageUseCase(
         nowMillis: Long,
     ) {
         if (customize.timerTimeMode == TimerTimeMode.SessionElapsed) return
-        if (!needsSnapshotRefresh(customize, targetPackages, nowMillis)) return
+        val refreshReason = snapshotRefreshReasonOrNull(customize, targetPackages, nowMillis) ?: return
 
         val baseline: RefreshBaseline =
             synchronized(lock) {
@@ -261,6 +274,18 @@ class DailyUsageUseCase(
             }
 
         val startOfDayMillis = computeStartOfDayMillis(nowMillis)
+
+        RefocusLog.d(TAG) {
+            val msg =
+                "refreshIfNeeded: start " +
+                    "reason=$refreshReason " +
+                    "dayStart=$startOfDayMillis " +
+                    "now=$nowMillis " +
+                    "grace=${customize.gracePeriodMillis} " +
+                    "targetCount=${targetPackages.size} " +
+                    "lookbackHours=$lookbackHours"
+            msg
+        }
 
         val computedSnapshot: DailyUsageSnapshot =
             if (targetPackages.isEmpty()) {
@@ -275,15 +300,34 @@ class DailyUsageUseCase(
             } else {
                 // startOfDay 以前の状態復元に必要な seed + 今日のイベントだけを読み，
                 // 同じ投影ロジック（TimelineProjector）で「今日の累計」を再構成する．
-                val maxLookbackMillis = lookbackHours * MILLIS_PER_HOUR
+                // 重要: seed に含まれる TargetAppsChangedEvent は，48h 等の lookback で落とすと
+                // 「対象集合が空」と解釈され，日次累計が 0 に倒れ得る．
+                // seed は種類ごとに最大 1 件程度なので，ここでは lookback をかけない．
                 val events =
                     withContext(Dispatchers.IO) {
                         timelineProjectionService.loadWithSeed(
                             windowStartMillis = startOfDayMillis,
                             windowEndMillis = nowMillis,
-                            seedLookbackMillis = maxLookbackMillis,
                         )
                     }
+
+                RefocusLog.d(TAG) {
+                    val seedCount = events.count { it.timestampMillis < startOfDayMillis }
+                    val windowCount = events.size - seedCount
+                    val hasTargetSeed =
+                        events.any { e ->
+                            e is TargetAppsChangedEvent &&
+                                e.timestampMillis < startOfDayMillis
+                        }
+                    val msg =
+                        "refreshIfNeeded: loaded events " +
+                            "total=${events.size} " +
+                            "seed=$seedCount " +
+                            "window=$windowCount " +
+                            "hasTargetAppsSeed=$hasTargetSeed " +
+                            "kinds=${summarizeEventKinds(events)}"
+                    msg
+                }
 
                 val zone = ZoneId.systemDefault()
                 val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
@@ -311,6 +355,15 @@ class DailyUsageUseCase(
 
                         per.toMap() to total
                     }
+
+                RefocusLog.d(TAG) {
+                    val msg =
+                        "refreshIfNeeded: projected " +
+                            "perPkg=${perPkg.size} " +
+                            "allTargetsMillis=$all " +
+                            "todayPartsTotal=${perPkg.values.sum()}"
+                    msg
+                }
 
                 DailyUsageSnapshot(
                     computedAtMillis = nowMillis,
@@ -345,6 +398,17 @@ class DailyUsageUseCase(
                     perPackageMillis = deltaPerPkg,
                     allTargetsMillis = deltaAll,
                 )
+
+            RefocusLog.d(TAG) {
+                val msg =
+                    "refreshIfNeeded: commit " +
+                        "snapshotAll=${computedSnapshot.allTargetsMillis} " +
+                        "snapshotPerPkg=${computedSnapshot.perPackageMillis.size} " +
+                        "keptDeltaAll=$deltaAll " +
+                        "keptDeltaPerPkg=${deltaPerPkg.size} " +
+                        "generation=$generation"
+                msg
+            }
         }
     }
 
@@ -352,16 +416,52 @@ class DailyUsageUseCase(
         customize: Customize,
         targetPackages: Set<String>,
         nowMillis: Long,
-    ): Boolean {
-        val dayStartMillis = computeStartOfDayMillis(nowMillis)
-        val existing = snapshot ?: return true
+    ): Boolean = snapshotRefreshReasonOrNull(customize, targetPackages, nowMillis) != null
 
-        if (existing.dayStartMillis != dayStartMillis) return true
-        if (existing.gracePeriodMillis != customize.gracePeriodMillis) return true
-        if (existing.targetPackages != targetPackages) return true
+    private fun snapshotRefreshReasonOrNull(
+        customize: Customize,
+        targetPackages: Set<String>,
+        nowMillis: Long,
+    ): String? {
+        val dayStartMillis = computeStartOfDayMillis(nowMillis)
+        val existing = snapshot ?: return "missing_snapshot"
+
+        if (existing.dayStartMillis != dayStartMillis) {
+            return "day_changed(existing=${existing.dayStartMillis}, now=$dayStartMillis)"
+        }
+        if (existing.gracePeriodMillis != customize.gracePeriodMillis) {
+            return "grace_changed(existing=${existing.gracePeriodMillis}, now=${customize.gracePeriodMillis})"
+        }
+        if (existing.targetPackages != targetPackages) {
+            return "targets_changed(existingCount=${existing.targetPackages.size}, nowCount=${targetPackages.size})"
+        }
 
         // TTL
-        return (nowMillis - existing.computedAtMillis) >= SNAPSHOT_TTL_MILLIS
+        val age = (nowMillis - existing.computedAtMillis)
+        return if (age >= SNAPSHOT_TTL_MILLIS) {
+            "ttl_expired(age=${age}ms, ttl=${SNAPSHOT_TTL_MILLIS}ms)"
+        } else {
+            null
+        }
+    }
+
+    private fun summarizeEventKinds(events: List<com.example.refocus.core.model.TimelineEvent>): String {
+        if (events.isEmpty()) return "{}"
+        var service = 0
+        var screen = 0
+        var fg = 0
+        var targets = 0
+        var other = 0
+        for (e in events) {
+            when (e) {
+                is ServiceLifecycleEvent -> service += 1
+                is ScreenEvent -> screen += 1
+                is ForegroundAppEvent -> fg += 1
+                is TargetAppsChangedEvent -> targets += 1
+                else -> other += 1
+            }
+        }
+        return "{service=$service, screen=$screen, foreground=$fg, targetsChanged=$targets, other=$other}"
     }
 
     private fun accumulateRuntimeDelta(

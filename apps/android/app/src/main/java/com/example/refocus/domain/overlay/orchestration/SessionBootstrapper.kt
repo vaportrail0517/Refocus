@@ -46,13 +46,13 @@ class SessionBootstrapper(
 
         // startMillis より前の TargetAppsChanged などを seed として補い，
         // ウィンドウ内の ForegroundAppEvent を「当時の対象集合」で解釈できるようにする。
-        // ただし異常に古い seed は避ける（保険）
-        val maxLookbackMillis = lookbackHours * MILLIS_PER_HOUR
+        // 重要: seed の TargetAppsChangedEvent を lookback で落とすと，セッションが一切組み立たず
+        // bootstrap が失敗し得る（端末再起動・サービス再起動でタイマーが 0 に戻る原因）．
+        // seed は種類ごとに最大 1 件程度なので，ここでは lookback をかけない．
         val events =
             timelineProjectionService.loadWithSeed(
                 windowStartMillis = startMillis,
                 windowEndMillis = nowMillis,
-                seedLookbackMillis = maxLookbackMillis,
             )
         if (events.isEmpty()) return null
 

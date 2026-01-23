@@ -1,5 +1,6 @@
 package com.example.refocus.data.repository
 
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.TimelineEvent
 import com.example.refocus.data.db.dao.TimelineEventDao
 import com.example.refocus.data.db.entity.TimelineEventEntity
@@ -9,6 +10,10 @@ internal class SeedEventsLoader(
     private val dao: TimelineEventDao,
     private val mapper: TimelineEventEntityMapper,
 ) {
+    private companion object {
+        private const val TAG = "SeedEventsLoader"
+    }
+
     suspend fun load(beforeMillis: Long): List<TimelineEvent> {
         // 状態復元に必要な最小限の「直前イベント」を拾う．
         // 完璧なスナップショットではなく，ウィンドウ購読の欠損を埋めるための保険．
@@ -51,8 +56,39 @@ internal class SeedEventsLoader(
             }
         }
 
-        return seedEntities
-            .mapNotNull { mapper.toDomain(it) }
-            .sortedBy { it.timestampMillis }
+        RefocusLog.d(TAG) {
+            val kindCounts = seedEntities.groupingBy { it.kind }.eachCount()
+            val target =
+                seedEntities
+                    .firstOrNull { it.kind == TimelineEventEntityMapper.KIND_TARGET_APPS_CHANGED }
+            val foreground =
+                seedEntities
+                    .firstOrNull { it.kind == TimelineEventEntityMapper.KIND_FOREGROUND_APP }
+            val permKinds =
+                seedEntities
+                    .filter { it.kind == TimelineEventEntityMapper.KIND_PERMISSION }
+                    .mapNotNull { it.permissionKind }
+                    .distinct()
+            val targetAge = target?.let { (beforeMillis - it.timestampMillis).coerceAtLeast(0L) }
+            val fgAge = foreground?.let { (beforeMillis - it.timestampMillis).coerceAtLeast(0L) }
+            "load(before=$beforeMillis): seedKinds=$kindCounts permissionKinds=$permKinds " +
+                "targetAppsTs=${target?.timestampMillis} targetAppsAgeMs=$targetAge " +
+                "foregroundTs=${foreground?.timestampMillis} foregroundAgeMs=$fgAge"
+        }
+
+        val mapped =
+            seedEntities
+                .mapNotNull { mapper.toDomain(it) }
+                .sortedBy { it.timestampMillis }
+
+        RefocusLog.d(TAG) {
+            val kinds = seedEntities.mapNotNull { it.kind }.groupingBy { it }.eachCount()
+            val permKinds = seedEntities.mapNotNull { it.permissionKind }.distinct().size
+            val oldest = mapped.minOfOrNull { it.timestampMillis }
+            val newest = mapped.maxOfOrNull { it.timestampMillis }
+            "load(before=$beforeMillis): picked seed=${seedEntities.size} kinds=$kinds permissionKinds=$permKinds range=[${oldest ?: "-"}, ${newest ?: "-"}]"
+        }
+
+        return mapped
     }
 }
