@@ -94,8 +94,7 @@ private fun EightPuzzleGoalCell(
                     width = 1.dp,
                     color = MaterialTheme.colorScheme.outline,
                     shape = shape,
-                )
-                .clip(shape),
+                ).clip(shape),
         contentAlignment = Alignment.Center,
     ) {
         Text(

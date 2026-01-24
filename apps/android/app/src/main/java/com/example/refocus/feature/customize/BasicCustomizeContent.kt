@@ -26,6 +26,7 @@ fun BasicCustomizeContent(
     onOpenEffectIntervalDialog: () -> Unit,
     onOpenPresetManager: () -> Unit,
     onOpenMiniGameOrderDialog: () -> Unit,
+    onOpenMiniGameSelectionDialog: () -> Unit,
     onDebugPlayMiniGame: (MiniGameKind) -> Unit = {},
 ) {
     val settings = uiState.customize
@@ -270,6 +271,31 @@ fun BasicCustomizeContent(
                     MiniGameOrder.AfterSuggestion -> "現在：提案 → ミニゲーム"
                 } + if (!orderEnabled) "（ミニゲームがオフです）" else "",
             onClick = if (orderEnabled) onOpenMiniGameOrderDialog else null,
+        )
+
+        val descriptors = MiniGameRegistry.descriptors
+        val totalGames = descriptors.size
+        val enabledGames =
+            descriptors.count { desc -> !settings.miniGameDisabledKinds.contains(desc.kind) }
+
+        val selectionNote =
+            when {
+                !suggestionEnabled -> "（提案がオフです）"
+                !miniGameEnabled -> "（ミニゲームがオフです）"
+                enabledGames == 0 && totalGames > 0 -> "（全て無効）"
+                else -> ""
+            }
+
+        SettingRow(
+            title = "提案に出すミニゲーム",
+            subtitle =
+                when {
+                    totalGames == 0 -> "利用可能なミニゲームがありません．"
+                    enabledGames == totalGames -> "現在：全て有効"
+                    enabledGames == 0 -> "現在：なし"
+                    else -> "現在：有効 $enabledGames/$totalGames"
+                } + selectionNote,
+            onClick = if (totalGames > 0) onOpenMiniGameSelectionDialog else null,
         )
 
         if (isDebuggable) {

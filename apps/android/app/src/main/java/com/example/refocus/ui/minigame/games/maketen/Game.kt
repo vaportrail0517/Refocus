@@ -18,11 +18,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.Backspace
+import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Undo
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -182,7 +182,7 @@ fun Game(
             MakeTenInputToken.Minus,
             MakeTenInputToken.Times,
             MakeTenInputToken.Divide,
-                -> MakeTenTokenKind.Operator
+            -> MakeTenTokenKind.Operator
         }
 
     fun isAllowedPair(
@@ -196,11 +196,11 @@ fun Game(
             null -> nextKind == null || nextKind == MakeTenTokenKind.Operand || nextKind == MakeTenTokenKind.LParen
             MakeTenTokenKind.Operand,
             MakeTenTokenKind.RParen,
-                -> nextKind == null || nextKind == MakeTenTokenKind.Operator || nextKind == MakeTenTokenKind.RParen
+            -> nextKind == null || nextKind == MakeTenTokenKind.Operator || nextKind == MakeTenTokenKind.RParen
 
             MakeTenTokenKind.Operator,
             MakeTenTokenKind.LParen,
-                -> nextKind == null || nextKind == MakeTenTokenKind.Operand || nextKind == MakeTenTokenKind.LParen
+            -> nextKind == null || nextKind == MakeTenTokenKind.Operand || nextKind == MakeTenTokenKind.LParen
         }
     }
 
@@ -668,7 +668,7 @@ private fun MakeTenKeyboard(
             horizontalArrangement = Arrangement.spacedBy(gap),
         ) {
             MakeTenIconKey(
-                imageVector = Icons.Outlined.Undo,
+                imageVector = Icons.AutoMirrored.Outlined.Undo,
                 contentDescription = "戻す",
                 enabled = enabled && canUndo,
                 height = keyHeight,
@@ -691,7 +691,7 @@ private fun MakeTenKeyboard(
                 onClick = { onInsert(MakeTenInputToken.RParen) },
             )
             MakeTenIconKey(
-                imageVector = Icons.Outlined.Backspace,
+                imageVector = Icons.AutoMirrored.Outlined.Backspace,
                 contentDescription = "削除",
                 enabled = enabled && canBackspace,
                 height = keyHeight,

@@ -81,6 +81,9 @@ class SuggestionOrchestrator(
     private var cycleMiniGameOrder: MiniGameOrder? = null
 
     @Volatile
+    private var cycleMiniGameKinds: List<MiniGameKind> = emptyList()
+
+    @Volatile
     private var miniGameCycleState: MiniGameCycleState = MiniGameCycleState.NotStarted
 
     private fun beginNewSuggestionCycle(
@@ -99,7 +102,22 @@ class SuggestionOrchestrator(
 
         activeCycleId = id
         activeCyclePackageName = packageName
-        cycleMiniGameOrder = if (customize.miniGameEnabled) customize.miniGameOrder else null
+
+        val enabledKinds =
+            if (customize.miniGameEnabled) {
+                MiniGameKind.entries.filterNot { customize.miniGameDisabledKinds.contains(it) }
+            } else {
+                emptyList()
+            }
+
+        cycleMiniGameKinds = enabledKinds
+        cycleMiniGameOrder =
+            if (customize.miniGameEnabled && enabledKinds.isNotEmpty()) {
+                customize.miniGameOrder
+            } else {
+                null
+            }
+
         miniGameCycleState = MiniGameCycleState.NotStarted
 
         return id
@@ -121,6 +139,7 @@ class SuggestionOrchestrator(
         activeCycleId = null
         activeCyclePackageName = null
         cycleMiniGameOrder = null
+        cycleMiniGameKinds = emptyList()
         miniGameCycleState = MiniGameCycleState.NotStarted
         clearPendingMiniGameGate()
     }
@@ -797,7 +816,7 @@ class SuggestionOrchestrator(
     }
 
     private fun pickRandomMiniGameKind(seed: Long): MiniGameKind {
-        val kinds = MiniGameKind.entries
+        val kinds = cycleMiniGameKinds
         if (kinds.isEmpty()) return MiniGameKind.FlashAnzan
 
         // seed から軽く混ぜた値でインデックスを作る（Random 依存を増やさずに済ませる）

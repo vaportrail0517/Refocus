@@ -27,6 +27,8 @@ sealed interface CustomizeDialogType {
 
     data object MiniGameOrder : CustomizeDialogType
 
+    data object MiniGameSelection : CustomizeDialogType
+
     data object GrowthMode : CustomizeDialogType
 
     data object ColorMode : CustomizeDialogType

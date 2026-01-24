@@ -82,6 +82,7 @@ class SettingsCommand
 
             val MINI_GAME_ENABLED: SettingsChangeKey = SettingsChangeKeys.MINI_GAME_ENABLED
             val MINI_GAME_ORDER: SettingsChangeKey = SettingsChangeKeys.MINI_GAME_ORDER
+            val MINI_GAME_DISABLED_KINDS: SettingsChangeKey = SettingsChangeKeys.MINI_GAME_DISABLED_KINDS
             val RESET_TO_DEFAULTS: SettingsChangeKey = SettingsChangeKeys.RESET_TO_DEFAULTS
 
             val OVERLAY_POSITION: SettingsChangeKey = SettingsChangeKeys.OVERLAY_POSITION

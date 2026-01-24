@@ -11,6 +11,7 @@ import com.example.refocus.feature.customize.dialogs.GradientMiddleColorDialog
 import com.example.refocus.feature.customize.dialogs.GradientStartColorDialog
 import com.example.refocus.feature.customize.dialogs.GrowthModeDialog
 import com.example.refocus.feature.customize.dialogs.MiniGameOrderDialog
+import com.example.refocus.feature.customize.dialogs.MiniGameSelectionDialog
 import com.example.refocus.feature.customize.dialogs.PollingIntervalDialog
 import com.example.refocus.feature.customize.dialogs.SuggestionCooldownDialog
 import com.example.refocus.feature.customize.dialogs.SuggestionForegroundStableDialog
@@ -172,6 +173,17 @@ internal fun CustomizeDialogHost(
                 current = uiState.customize.miniGameOrder,
                 onConfirm = { order ->
                     viewModel.updateMiniGameOrder(order)
+                    onDismiss()
+                },
+                onDismiss = onDismiss,
+            )
+        }
+
+        CustomizeDialogType.MiniGameSelection -> {
+            MiniGameSelectionDialog(
+                currentDisabledKinds = uiState.customize.miniGameDisabledKinds,
+                onConfirm = { disabled ->
+                    viewModel.updateMiniGameDisabledKinds(disabled)
                     onDismiss()
                 },
                 onDismiss = onDismiss,

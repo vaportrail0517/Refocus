@@ -61,6 +61,7 @@ object SettingsChangeKeys {
     // --- ミニゲーム ---
     val MINI_GAME_ENABLED = SettingsChangeKey("miniGameEnabled")
     val MINI_GAME_ORDER = SettingsChangeKey("miniGameOrder")
+    val MINI_GAME_DISABLED_KINDS = SettingsChangeKey("miniGameDisabledKinds")
 
     // --- その他 ---
     val RESET_TO_DEFAULTS = SettingsChangeKey("resetToDefaults")

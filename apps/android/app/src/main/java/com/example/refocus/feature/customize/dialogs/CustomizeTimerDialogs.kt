@@ -19,7 +19,7 @@ fun FontRangeDialog(
     onConfirm: (ClosedFloatingPointRange<Float>) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val minFontSpLimit = 8f
+    val minFontSpLimit = 24f
     val maxFontSpLimit = 96f
     val clampedInitial =
         initialRange.start.coerceIn(

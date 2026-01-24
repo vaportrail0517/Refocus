@@ -111,7 +111,6 @@ internal fun Game(
     onFinished: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-
     // プールの重複が混ざっても挙動が壊れないように，ここで一度ユニーク化する
     val pool = remember { EMOJI_POOL.distinct() }
 
