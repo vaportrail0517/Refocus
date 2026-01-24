@@ -26,12 +26,12 @@ internal val eightPuzzleEntry: MiniGameEntry =
             MiniGameDescriptor(
                 kind = MiniGameKind.EightPuzzle,
                 title = "8パズル",
-                description = "空白を使ってタイルを揃えます．",
+                description = "空白を使ってタイルを整列",
                 timeLimitSeconds = 60,
                 rules =
                     listOf(
-                        "空白に隣接するタイルをタップして動かします．",
-                        "クリアするか時間切れになるまで終了できません．",
+                        "空白に隣接するタイルをタップやスライドで動かし，以下に示す並びを完成させてください",
+                        "クリアするか時間切れになると終了します",
                     ),
             ),
         content = { seed, onFinished, modifier ->
@@ -94,7 +94,8 @@ private fun EightPuzzleGoalCell(
                     width = 1.dp,
                     color = MaterialTheme.colorScheme.outline,
                     shape = shape,
-                ).clip(shape),
+                )
+                .clip(shape),
         contentAlignment = Alignment.Center,
     ) {
         Text(
