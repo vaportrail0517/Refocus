@@ -229,13 +229,43 @@ fun Game(
         setCursorSafe(cursorIndex)
     }
 
+    fun isArithmeticOperatorToken(token: MakeTenInputToken): Boolean =
+        token == MakeTenInputToken.Plus ||
+            token == MakeTenInputToken.Minus ||
+            token == MakeTenInputToken.Times ||
+            token == MakeTenInputToken.Divide
+
     fun insertToken(token: MakeTenInputToken) {
         if (!canInsertToken(token)) return
+
+        val idx = cursorIndex.coerceIn(0, expr.size)
+
+        // 四則演算子を連続で入力した場合は，直前の演算子を置き換える
+        if (isArithmeticOperatorToken(token)) {
+            val left = expr.getOrNull(idx - 1)
+            val right = expr.getOrNull(idx)
+
+            // 直前が演算子なら，それを置換してカーソル位置は維持する
+            if (left != null && isArithmeticOperatorToken(left)) {
+                pushUndoSnapshot()
+                expr[idx - 1] = token
+                setCursorSafe(idx)
+                return
+            }
+
+            // カーソルが演算子の直前にある場合も，その演算子を置換する
+            if (right != null && isArithmeticOperatorToken(right)) {
+                pushUndoSnapshot()
+                expr[idx] = token
+                setCursorSafe(idx + 1)
+                return
+            }
+        }
+
         pushUndoSnapshot()
         if (token is MakeTenInputToken.Number) {
             digitKeys.getOrNull(token.digitId)?.used = true
         }
-        val idx = cursorIndex.coerceIn(0, expr.size)
         expr.add(idx, token)
         setCursorSafe(idx + 1)
     }
