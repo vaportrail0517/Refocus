@@ -9,7 +9,7 @@ internal val makeTenEntry: MiniGameEntry =
         descriptor =
             MiniGameDescriptor(
                 kind = MiniGameKind.MakeTen,
-                title = "make ten",
+                title = "make 10",
                 description = "4つの数字と記号で10を作ります．",
                 timeLimitSeconds = 60,
                 rules =

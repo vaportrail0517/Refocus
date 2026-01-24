@@ -15,11 +15,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Backspace
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Undo
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -46,7 +54,9 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -172,7 +182,7 @@ fun Game(
             MakeTenInputToken.Minus,
             MakeTenInputToken.Times,
             MakeTenInputToken.Divide,
-            -> MakeTenTokenKind.Operator
+                -> MakeTenTokenKind.Operator
         }
 
     fun isAllowedPair(
@@ -186,11 +196,11 @@ fun Game(
             null -> nextKind == null || nextKind == MakeTenTokenKind.Operand || nextKind == MakeTenTokenKind.LParen
             MakeTenTokenKind.Operand,
             MakeTenTokenKind.RParen,
-            -> nextKind == null || nextKind == MakeTenTokenKind.Operator || nextKind == MakeTenTokenKind.RParen
+                -> nextKind == null || nextKind == MakeTenTokenKind.Operator || nextKind == MakeTenTokenKind.RParen
 
             MakeTenTokenKind.Operator,
             MakeTenTokenKind.LParen,
-            -> nextKind == null || nextKind == MakeTenTokenKind.Operand || nextKind == MakeTenTokenKind.LParen
+                -> nextKind == null || nextKind == MakeTenTokenKind.Operand || nextKind == MakeTenTokenKind.LParen
         }
     }
 
@@ -245,9 +255,19 @@ fun Game(
         setCursorSafe(0)
     }
 
+    fun moveCursorLeft() {
+        if (!editingEnabled) return
+        setCursorSafe(cursorIndex - 1)
+    }
+
+    fun moveCursorRight() {
+        if (!editingEnabled) return
+        setCursorSafe(cursorIndex + 1)
+    }
+
     Column(
         modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         MakeTenHeader(
             phase = phase,
@@ -278,11 +298,15 @@ fun Game(
                 canInsert = { canInsertToken(it) },
                 canUndo = undoStack.isNotEmpty(),
                 canBackspace = cursorIndex > 0,
-                canClear = expr.isNotEmpty(),
+                canMoveCursorLeft = cursorIndex > 0,
+                canMoveCursorRight = cursorIndex < expr.size,
+                canReset = expr.isNotEmpty(),
                 onInsert = { insertToken(it) },
                 onUndo = { undo() },
                 onBackspace = { backspace() },
-                onClear = { clearAll() },
+                onMoveCursorLeft = { moveCursorLeft() },
+                onMoveCursorRight = { moveCursorRight() },
+                onReset = { clearAll() },
             )
         } else {
             ResultFooter(onFinished = onFinished)
@@ -305,7 +329,7 @@ private fun MakeTenHeader(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
-                text = "make ten",
+                text = "make 10",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -422,10 +446,13 @@ private fun ExpressionEditor(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
+
                 Text(
                     text = "使用 $usedDigitsCount/$totalDigitsCount",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
 
@@ -554,11 +581,11 @@ private fun ExpressionEditor(
                 }
             }
 
-            Text(
-                text = "式をタップしてカーソル位置を変更できます．",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+//            Text(
+//                text = "式をタップしてカーソル位置を変更できます．",
+//                style = MaterialTheme.typography.bodySmall,
+//                color = MaterialTheme.colorScheme.onSurfaceVariant,
+//            )
         }
     }
 }
@@ -572,12 +599,12 @@ private fun EvaluationText(
 ) {
     val text =
         when (evalState) {
-            is MakeTenEvalState.NotParsable -> "式を評価できません"
-            is MakeTenEvalState.DivisionByZero -> "0 では割れません"
+            is MakeTenEvalState.NotParsable -> "＝ *"
+            is MakeTenEvalState.DivisionByZero -> "＝ * (0 では割れません)"
             is MakeTenEvalState.Ok -> {
                 val base = "＝ ${evalState.value.toDisplayString()}"
                 if (evalState.value.isTen() && !allDigitsUsed) {
-                    "$base（数字をすべて使ってください）"
+                    "$base（数字を全て使ってください）"
                 } else {
                     base
                 }
@@ -599,129 +626,226 @@ private fun MakeTenKeyboard(
     canInsert: (MakeTenInputToken) -> Boolean,
     canUndo: Boolean,
     canBackspace: Boolean,
-    canClear: Boolean,
+    canMoveCursorLeft: Boolean,
+    canMoveCursorRight: Boolean,
+    canReset: Boolean,
     onInsert: (MakeTenInputToken) -> Unit,
     onUndo: () -> Unit,
     onBackspace: () -> Unit,
-    onClear: () -> Unit,
+    onMoveCursorLeft: () -> Unit,
+    onMoveCursorRight: () -> Unit,
+    onReset: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val keyHeight = 46.dp
+    val gap = 8.dp
+    val iconSize = 22.dp
+
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(gap),
     ) {
+        // 1行目: 数字キー（問題の4数字）
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(gap),
         ) {
             digitKeys.forEach { key ->
                 val token = MakeTenInputToken.Number(digitId = key.id, value = key.value)
-                MakeTenKeyButton(
+                MakeTenTextKey(
                     text = key.value.toString(),
                     enabled = enabled && canInsert(token),
+                    height = keyHeight,
                     modifier = Modifier.weight(1f),
                     onClick = { onInsert(token) },
                 )
             }
         }
 
+        // 2行目: Undo, (, ), Backspace
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(gap),
         ) {
-            MakeTenKeyButton(
+            MakeTenIconKey(
+                imageVector = Icons.Outlined.Undo,
+                contentDescription = "戻す",
+                enabled = enabled && canUndo,
+                height = keyHeight,
+                iconSize = iconSize,
+                modifier = Modifier.weight(1f),
+                onClick = onUndo,
+            )
+            MakeTenTextKey(
                 text = "(",
                 enabled = enabled && canInsert(MakeTenInputToken.LParen),
+                height = keyHeight,
                 modifier = Modifier.weight(1f),
                 onClick = { onInsert(MakeTenInputToken.LParen) },
             )
-            MakeTenKeyButton(
+            MakeTenTextKey(
                 text = ")",
                 enabled = enabled && canInsert(MakeTenInputToken.RParen),
+                height = keyHeight,
                 modifier = Modifier.weight(1f),
                 onClick = { onInsert(MakeTenInputToken.RParen) },
             )
-            MakeTenKeyButton(
+            MakeTenIconKey(
+                imageVector = Icons.Outlined.Backspace,
+                contentDescription = "削除",
+                enabled = enabled && canBackspace,
+                height = keyHeight,
+                iconSize = iconSize,
+                modifier = Modifier.weight(1f),
+                onClick = onBackspace,
+            )
+        }
+
+        // 3行目: カーソル左, +, -, カーソル右
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(gap),
+        ) {
+            MakeTenIconKey(
+                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
+                contentDescription = "カーソルを左へ",
+                enabled = enabled && canMoveCursorLeft,
+                height = keyHeight,
+                iconSize = iconSize,
+                modifier = Modifier.weight(1f),
+                onClick = onMoveCursorLeft,
+            )
+            MakeTenTextKey(
                 text = "+",
                 enabled = enabled && canInsert(MakeTenInputToken.Plus),
+                height = keyHeight,
                 modifier = Modifier.weight(1f),
                 onClick = { onInsert(MakeTenInputToken.Plus) },
             )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            MakeTenKeyButton(
+            MakeTenTextKey(
                 text = "-",
                 enabled = enabled && canInsert(MakeTenInputToken.Minus),
+                height = keyHeight,
                 modifier = Modifier.weight(1f),
                 onClick = { onInsert(MakeTenInputToken.Minus) },
             )
-            MakeTenKeyButton(
-                text = "×",
-                enabled = enabled && canInsert(MakeTenInputToken.Times),
+            MakeTenIconKey(
+                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = "カーソルを右へ",
+                enabled = enabled && canMoveCursorRight,
+                height = keyHeight,
+                iconSize = iconSize,
                 modifier = Modifier.weight(1f),
-                onClick = { onInsert(MakeTenInputToken.Times) },
-            )
-            MakeTenKeyButton(
-                text = "÷",
-                enabled = enabled && canInsert(MakeTenInputToken.Divide),
-                modifier = Modifier.weight(1f),
-                onClick = { onInsert(MakeTenInputToken.Divide) },
+                onClick = onMoveCursorRight,
             )
         }
 
+        // 4行目: （空）, ×, ÷, リセット
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(gap),
         ) {
-            OutlinedButton(
-                onClick = onUndo,
-                enabled = enabled && canUndo,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .height(52.dp),
-            ) {
-                Text(text = "戻す")
-            }
-            OutlinedButton(
-                onClick = onClear,
-                enabled = enabled && canClear,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .height(52.dp),
-            ) {
-                Text(text = "クリア")
-            }
-            OutlinedButton(
-                onClick = onBackspace,
-                enabled = enabled && canBackspace,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .height(52.dp),
-            ) {
-                Text(text = "削除")
-            }
+            MakeTenEmptyKey(
+                height = keyHeight,
+                modifier = Modifier.weight(1f),
+            )
+            MakeTenTextKey(
+                text = "×",
+                enabled = enabled && canInsert(MakeTenInputToken.Times),
+                height = keyHeight,
+                modifier = Modifier.weight(1f),
+                onClick = { onInsert(MakeTenInputToken.Times) },
+            )
+            MakeTenTextKey(
+                text = "÷",
+                enabled = enabled && canInsert(MakeTenInputToken.Divide),
+                height = keyHeight,
+                modifier = Modifier.weight(1f),
+                onClick = { onInsert(MakeTenInputToken.Divide) },
+            )
+            MakeTenIconKey(
+                imageVector = Icons.Outlined.Refresh,
+                contentDescription = "リセット",
+                enabled = enabled && canReset,
+                height = keyHeight,
+                iconSize = iconSize,
+                modifier = Modifier.weight(1f),
+                onClick = onReset,
+            )
         }
     }
 }
 
 @Composable
-private fun MakeTenKeyButton(
+private fun MakeTenTextKey(
     text: String,
     enabled: Boolean,
+    height: Dp,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+) {
+    MakeTenKeyBase(
+        enabled = enabled,
+        height = height,
+        onClick = onClick,
+        modifier = modifier,
+    ) {
+        Text(
+            text = text,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 18.sp,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
+        )
+    }
+}
+
+@Composable
+private fun MakeTenIconKey(
+    imageVector: ImageVector,
+    contentDescription: String,
+    enabled: Boolean,
+    height: Dp,
+    iconSize: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    MakeTenKeyBase(
+        enabled = enabled,
+        height = height,
+        onClick = onClick,
+        modifier = modifier,
+    ) {
+        Icon(
+            imageVector = imageVector,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(iconSize),
+        )
+    }
+}
+
+@Composable
+private fun MakeTenEmptyKey(
+    height: Dp,
+    modifier: Modifier = Modifier,
+) {
+    // グリッドの見た目を揃えるための空セル
+    Spacer(modifier = modifier.height(height))
+}
+
+@Composable
+private fun MakeTenKeyBase(
+    enabled: Boolean,
+    height: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
 ) {
     Surface(
         modifier =
             modifier
-                .height(52.dp)
+                .height(height)
                 .clickable(enabled = enabled, onClick = onClick),
         shape = MaterialTheme.shapes.small,
         color = if (enabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
@@ -732,11 +856,7 @@ private fun MakeTenKeyButton(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = text,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 18.sp,
-            )
+            content()
         }
     }
 }
