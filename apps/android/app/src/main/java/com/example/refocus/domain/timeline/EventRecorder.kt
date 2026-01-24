@@ -1,6 +1,7 @@
 package com.example.refocus.domain.timeline
 
 import com.example.refocus.core.model.ForegroundAppEvent
+import com.example.refocus.core.model.HiddenAppsChangedEvent
 import com.example.refocus.core.model.PermissionEvent
 import com.example.refocus.core.model.PermissionKind
 import com.example.refocus.core.model.PermissionState
@@ -112,6 +113,15 @@ class EventRecorder(
             TargetAppsChangedEvent(
                 timestampMillis = now(),
                 targetPackages = targetPackages,
+            ),
+        )
+    }
+
+    suspend fun onHiddenAppsChanged(hiddenPackages: Set<String>) {
+        timelineRepository.append(
+            HiddenAppsChangedEvent(
+                timestampMillis = now(),
+                hiddenPackages = hiddenPackages,
             ),
         )
     }

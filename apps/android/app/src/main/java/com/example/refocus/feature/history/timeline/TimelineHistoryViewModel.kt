@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.ForegroundAppEvent
+import com.example.refocus.core.model.HiddenAppsChangedEvent
 import com.example.refocus.core.model.PermissionEvent
 import com.example.refocus.core.model.ScreenEvent
 import com.example.refocus.core.model.ServiceConfigEvent
@@ -48,6 +49,7 @@ enum class TimelineCategory(
     Service("サービス"),
     ServiceConfig("サービス設定"),
     TargetApps("対象アプリ"),
+    HiddenApps("非表示アプリ"),
     Suggestion("提案"),
     Settings("設定"),
     Other("その他"),
@@ -226,6 +228,7 @@ class TimelineHistoryViewModel
                 is ServiceLifecycleEvent -> TimelineCategory.Service
                 is ServiceConfigEvent -> TimelineCategory.ServiceConfig
                 is TargetAppsChangedEvent -> TimelineCategory.TargetApps
+                is HiddenAppsChangedEvent -> TimelineCategory.HiddenApps
                 is SuggestionShownEvent, is SuggestionDecisionEvent -> TimelineCategory.Suggestion
                 is UiInterruptionEvent -> TimelineCategory.Other
                 is SettingsChangedEvent -> TimelineCategory.Settings
@@ -294,6 +297,10 @@ class TimelineHistoryViewModel
 
                 is TargetAppsChangedEvent -> {
                     "対象アプリ変更" to "${event.targetPackages.size} 件"
+                }
+
+                is HiddenAppsChangedEvent -> {
+                    "非表示アプリ変更" to "${event.hiddenPackages.size} 件"
                 }
 
                 is SuggestionShownEvent -> {

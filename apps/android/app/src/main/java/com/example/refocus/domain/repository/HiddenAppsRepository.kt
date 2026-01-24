@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.Flow
 /**
  * 対象アプリ選択画面における「候補から除外するアプリ」集合（packageName の Set）の永続化と購読の抽象．
  *
- * Phase2 ではイベント記録は行わず，DataStore 永続化と購読のみを提供する．
+ * Phase4 から，必要に応じてタイムラインイベントとしても記録できる．
  */
 interface HiddenAppsRepository {
     fun observeHiddenApps(): Flow<Set<String>>

@@ -1,6 +1,7 @@
 package com.example.refocus.domain.timeline
 
 import com.example.refocus.core.model.ForegroundAppEvent
+import com.example.refocus.core.model.HiddenAppsChangedEvent
 import com.example.refocus.core.model.PermissionEvent
 import com.example.refocus.core.model.PermissionKind
 import com.example.refocus.core.model.PermissionState
@@ -334,6 +335,8 @@ object SessionProjector {
                         }
                     appendEventIfActive(event.packageName, t, ts)
                 }
+
+                is HiddenAppsChangedEvent -> Unit // セッション境界には影響させない
 
                 is SettingsChangedEvent -> Unit // セッション境界には影響させない
 

@@ -49,7 +49,10 @@ object RepositoryModule {
 
     @Provides
     @Singleton
-    fun provideHiddenAppsRepository(dataStore: HiddenAppsDataStore): HiddenAppsRepository = HiddenAppsRepositoryImpl(dataStore)
+    fun provideHiddenAppsRepository(
+        dataStore: HiddenAppsDataStore,
+        eventRecorder: EventRecorder,
+    ): HiddenAppsRepository = HiddenAppsRepositoryImpl(dataStore, eventRecorder)
 
     @Provides
     @Singleton

@@ -2,6 +2,7 @@ package com.example.refocus.data.db.mapper
 
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.ForegroundAppEvent
+import com.example.refocus.core.model.HiddenAppsChangedEvent
 import com.example.refocus.core.model.PermissionEvent
 import com.example.refocus.core.model.PermissionKind
 import com.example.refocus.core.model.PermissionState
@@ -77,6 +78,14 @@ internal class TimelineEventEntityMapper {
                     timestampMillis = baseTimestamp,
                     kind = KIND_TARGET_APPS_CHANGED,
                     extra = event.targetPackages.joinToString(","),
+                )
+
+            is HiddenAppsChangedEvent ->
+                TimelineEventEntity(
+                    id = event.id ?: 0L,
+                    timestampMillis = baseTimestamp,
+                    kind = KIND_HIDDEN_APPS_CHANGED,
+                    extra = event.hiddenPackages.joinToString(","),
                 )
 
             is SuggestionShownEvent ->
@@ -217,6 +226,18 @@ internal class TimelineEventEntityMapper {
                             ?: emptySet(),
                 )
 
+            KIND_HIDDEN_APPS_CHANGED ->
+                HiddenAppsChangedEvent(
+                    id = entity.id,
+                    timestampMillis = entity.timestampMillis,
+                    hiddenPackages =
+                        entity.extra
+                            ?.split(",")
+                            ?.filter { it.isNotBlank() }
+                            ?.toSet()
+                            ?: emptySet(),
+                )
+
             KIND_SUGGESTION_SHOWN -> {
                 val sid = entity.suggestionId ?: return null
                 val pkg = entity.packageName ?: return null
@@ -316,6 +337,7 @@ internal class TimelineEventEntityMapper {
         const val KIND_SCREEN = "Screen"
         const val KIND_FOREGROUND_APP = "ForegroundApp"
         const val KIND_TARGET_APPS_CHANGED = "TargetAppsChanged"
+        const val KIND_HIDDEN_APPS_CHANGED = "HiddenAppsChanged"
         const val KIND_SUGGESTION_SHOWN = "SuggestionShown"
         const val KIND_SUGGESTION_DECISION = "SuggestionDecision"
         const val KIND_SETTINGS_CHANGED = "SettingsChanged"

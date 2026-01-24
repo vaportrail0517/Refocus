@@ -2,10 +2,13 @@ package com.example.refocus.data.repository
 
 import com.example.refocus.data.datastore.HiddenAppsDataStore
 import com.example.refocus.domain.repository.HiddenAppsRepository
+import com.example.refocus.domain.timeline.EventRecorder
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 class HiddenAppsRepositoryImpl(
     private val hiddenAppsDataStore: HiddenAppsDataStore,
+    private val eventRecorder: EventRecorder,
 ) : HiddenAppsRepository {
     override fun observeHiddenApps(): Flow<Set<String>> = hiddenAppsDataStore.hiddenPackagesFlow
 
@@ -13,10 +16,12 @@ class HiddenAppsRepositoryImpl(
         hiddenApps: Set<String>,
         recordEvent: Boolean,
     ) {
-        // Phase2: イベント記録はまだ導入しないため，永続化のみを行う．
+        val current = hiddenAppsDataStore.hiddenPackagesFlow.first()
+        if (current == hiddenApps) return
+
         hiddenAppsDataStore.updateHiddenApps(hiddenApps)
         if (recordEvent) {
-            // Phase4 で EventRecorder と統合する．
+            eventRecorder.onHiddenAppsChanged(hiddenApps)
         }
     }
 

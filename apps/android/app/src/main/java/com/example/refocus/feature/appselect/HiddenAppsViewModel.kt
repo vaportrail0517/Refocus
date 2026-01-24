@@ -144,8 +144,8 @@ class HiddenAppsViewModel
                 val newHidden = hiddenDraft.value
 
                 withContext(Dispatchers.Default) {
-                    // Phase3：非表示集合を永続化（イベント記録は Phase4 で対応）
-                    hiddenAppsRepository.setHiddenApps(newHidden, recordEvent = false)
+                    // Phase4：非表示集合を永続化し，タイムラインイベントとして記録する
+                    hiddenAppsRepository.setHiddenApps(newHidden, recordEvent = true)
 
                     // Phase3：hiddenApps は targets と排他的に扱う．
                     // hidden に含まれるアプリが targets に存在する場合は targets から除外し，対象変更イベントのみ記録する．

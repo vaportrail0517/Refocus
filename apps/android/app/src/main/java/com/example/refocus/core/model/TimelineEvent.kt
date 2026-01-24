@@ -88,6 +88,13 @@ data class TargetAppsChangedEvent(
     val targetPackages: Set<String>,
 ) : TimelineEvent
 
+/** 非表示アプリ（対象アプリ選択画面の候補から除外するアプリ）の変更 */
+data class HiddenAppsChangedEvent(
+    override val id: Long? = null,
+    override val timestampMillis: Long,
+    val hiddenPackages: Set<String>,
+) : TimelineEvent
+
 /** 提案カードが表示された */
 data class SuggestionShownEvent(
     override val id: Long? = null,
