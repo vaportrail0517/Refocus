@@ -111,25 +111,26 @@ internal fun Game(
     onFinished: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val rng = remember(seed) { Random(seed) }
 
     // プールの重複が混ざっても挙動が壊れないように，ここで一度ユニーク化する
     val pool = remember { EMOJI_POOL.distinct() }
 
-    val targetEmojis =
-        remember(seed) {
-            pool.shuffled(rng).take(TARGET_COUNT)
-        }
-
-    // 出題に含まれる絵文字が必ず選択肢に入るように構築する
+    // まず選択肢をユニークに構築し，その中から出題（順番）を選ぶ
+    // これにより「選択肢内の重複」と「出題と選択肢の不整合」を構造的に防げる
     val options =
         remember(seed) {
-            buildOptions(
-                rng = rng,
-                target = targetEmojis,
-                pool = pool,
-                optionCount = OPTION_COUNT,
-            )
+            // options 用の RNG を分離し，出題生成の RNG 消費順に依存しないようにする
+            // 0x9E3779B97F4A7C15 を符号付き Long として扱う（Kotlin の 0x...L が Long の範囲超過になるため）
+            val optionsRng = Random(seed xor (-7046029254386353131L))
+            pool.shuffled(optionsRng).take(minOf(OPTION_COUNT, pool.size))
+        }
+
+    val targetEmojis =
+        remember(seed, options) {
+            // target 用の RNG を分離し，options の RNG 消費順に依存しないようにする
+            // 0xD1B54A32D192ED03 を符号付き Long として扱う
+            val targetRng = Random(seed xor (-3335678366873096957L))
+            options.shuffled(targetRng).take(minOf(TARGET_COUNT, options.size))
         }
 
     var phase by remember(seed) { mutableStateOf(MemojiPhase.Memorize) }
@@ -504,21 +505,22 @@ private fun buildOptions(
     pool: List<String>,
     optionCount: Int,
 ): List<String> {
-    if (target.isEmpty()) return pool.shuffled(rng).take(optionCount.coerceAtLeast(0))
-    if (optionCount <= target.size) return target.take(optionCount).shuffled(rng)
+    // optionCount が負の場合でも落ちないように防御する
+    val count = optionCount.coerceAtLeast(0)
+
+    if (target.isEmpty()) return pool.shuffled(rng).take(count)
+    if (count <= target.size) return target.take(count).shuffled(rng)
 
     val targetSet = target.toSet()
-    val dummySource = pool.filterNot { it in targetSet }.ifEmpty { pool }
 
-    val need = optionCount - target.size
-    val dummies =
-        List(need) {
-            if (dummySource.isEmpty()) {
-                target[rng.nextInt(target.size)]
-            } else {
-                dummySource[rng.nextInt(dummySource.size)]
-            }
-        }
+    // ダミー候補は「target に含まれないもの」から非復元抽出する（重複を防ぐ）
+    val dummySource = pool.filterNot { it in targetSet }
+
+    // 候補が足りない場合は，重複を作らずに選べる最大数までに縮める
+    val effectiveCount = minOf(count, target.size + dummySource.size)
+    val need = effectiveCount - target.size
+
+    val dummies = dummySource.shuffled(rng).take(need)
 
     // target は必ず全て含める
     return (target + dummies).shuffled(rng)
