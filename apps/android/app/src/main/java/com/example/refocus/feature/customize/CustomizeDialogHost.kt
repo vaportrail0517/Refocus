@@ -1,6 +1,7 @@
 package com.example.refocus.feature.customize
 
 import androidx.compose.runtime.Composable
+import com.example.refocus.feature.customize.dialogs.BaseAnimationDialog
 import com.example.refocus.feature.customize.dialogs.ColorModeDialog
 import com.example.refocus.feature.customize.dialogs.EffectIntervalDialog
 import com.example.refocus.feature.customize.dialogs.FixedColorDialog
@@ -107,6 +108,22 @@ internal fun CustomizeDialogHost(
                 current = uiState.customize.timerVisualTimeBasis,
                 onConfirm = { basis ->
                     viewModel.updateTimerVisualTimeBasis(basis)
+                    onDismiss()
+                },
+                onDismiss = onDismiss,
+            )
+        }
+        CustomizeDialogType.BaseAnimation -> {
+            BaseAnimationDialog(
+                initialBaseColorAnimEnabled = uiState.customize.baseColorAnimEnabled,
+                initialBaseSizeAnimEnabled = uiState.customize.baseSizeAnimEnabled,
+                initialBasePulseEnabled = uiState.customize.basePulseEnabled,
+                onConfirm = { colorEnabled, sizeEnabled, pulseEnabled ->
+                    viewModel.updateBaseAnimationSettings(
+                        colorEnabled = colorEnabled,
+                        sizeEnabled = sizeEnabled,
+                        pulseEnabled = pulseEnabled,
+                    )
                     onDismiss()
                 },
                 onDismiss = onDismiss,

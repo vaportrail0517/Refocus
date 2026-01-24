@@ -15,6 +15,8 @@ sealed interface CustomizeDialogType {
 
     data object TimerVisualTimeBasis : CustomizeDialogType
 
+    data object BaseAnimation : CustomizeDialogType
+
     data object SuggestionTriggerTime : CustomizeDialogType
 
     data object SuggestionForegroundStable : CustomizeDialogType

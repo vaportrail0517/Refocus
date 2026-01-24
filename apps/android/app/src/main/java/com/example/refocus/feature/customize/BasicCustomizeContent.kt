@@ -24,6 +24,7 @@ fun BasicCustomizeContent(
     onOpenTimerTimeModeDialog: () -> Unit,
     onOpenTimerVisualTimeBasisDialog: () -> Unit,
     onOpenEffectIntervalDialog: () -> Unit,
+    onOpenBaseAnimationDialog: () -> Unit,
     onOpenPresetManager: () -> Unit,
     onOpenMiniGameOrderDialog: () -> Unit,
     onOpenMiniGameSelectionDialog: () -> Unit,
@@ -92,59 +93,19 @@ fun BasicCustomizeContent(
     // --- アニメーション ---
     SectionCard(title = "アニメーション") {
         val baseColorAnimEnabled = settings.baseColorAnimEnabled
-        SettingRow(
-            title = "色の変化（ベース）",
-            subtitle =
-                if (baseColorAnimEnabled) {
-                    "オン：時間に応じてタイマーの色が変化します。"
-                } else {
-                    "オフ：タイマーの色は固定になります。"
-                },
-            trailing = {
-                Switch(
-                    checked = baseColorAnimEnabled,
-                    onCheckedChange = { viewModel.updateBaseColorAnimEnabled(it) },
-                )
-            },
-            onClick = { viewModel.updateBaseColorAnimEnabled(!baseColorAnimEnabled) },
-        )
-
         val baseSizeAnimEnabled = settings.baseSizeAnimEnabled
-        SettingRow(
-            title = "サイズの変化（ベース）",
-            subtitle =
-                if (baseSizeAnimEnabled) {
-                    "オン：時間に応じてタイマーのサイズが変化します。"
-                } else {
-                    "オフ：タイマーのサイズは固定になります。"
-                },
-            trailing = {
-                Switch(
-                    checked = baseSizeAnimEnabled,
-                    onCheckedChange = { viewModel.updateBaseSizeAnimEnabled(it) },
-                )
-            },
-            onClick = { viewModel.updateBaseSizeAnimEnabled(!baseSizeAnimEnabled) },
-        )
-
         val basePulseEnabled = settings.basePulseEnabled
-        SettingRow(
-            title = "呼吸（ベース）",
-            subtitle =
-                if (basePulseEnabled) {
-                    "オン：タイマーが穏やかに拡大縮小を繰り返します。"
-                } else {
-                    "オフ：呼吸アニメーションを表示しません。"
-                },
-            trailing = {
-                Switch(
-                    checked = basePulseEnabled,
-                    onCheckedChange = { viewModel.updateBasePulseEnabled(it) },
-                )
-            },
-            onClick = { viewModel.updateBasePulseEnabled(!basePulseEnabled) },
-        )
 
+        val baseSummary =
+            "色：" + (if (baseColorAnimEnabled) "オン" else "オフ") +
+                "，サイズ：" + (if (baseSizeAnimEnabled) "オン" else "オフ") +
+                "，呼吸：" + (if (basePulseEnabled) "オン" else "オフ")
+
+        SettingRow(
+            title = "ベースアニメーション",
+            subtitle = baseSummary,
+            onClick = onOpenBaseAnimationDialog,
+        )
         val effectsEnabled = settings.effectsEnabled
         SettingRow(
             title = "エフェクト（点滅・回転・揺れ）",

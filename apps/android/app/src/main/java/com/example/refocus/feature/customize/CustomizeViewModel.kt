@@ -168,6 +168,21 @@ class CustomizeViewModel
 
         // --- タイマーのアニメーション（ベース/エフェクト） ---
 
+        fun updateBaseAnimationSettings(
+            colorEnabled: Boolean,
+            sizeEnabled: Boolean,
+            pulseEnabled: Boolean,
+        ) = updateSettingsAsCustom(
+            key = SettingsCommand.Keys.BASE_ANIMATIONS,
+            newValueDescription = "color=$colorEnabled,size=$sizeEnabled,pulse=$pulseEnabled",
+        ) {
+            copy(
+                baseColorAnimEnabled = colorEnabled,
+                baseSizeAnimEnabled = sizeEnabled,
+                basePulseEnabled = pulseEnabled,
+            )
+        }
+
         fun updateBaseColorAnimEnabled(enabled: Boolean) =
             updateSettingsAsCustom(
                 key = SettingsCommand.Keys.BASE_COLOR_ANIM_ENABLED,

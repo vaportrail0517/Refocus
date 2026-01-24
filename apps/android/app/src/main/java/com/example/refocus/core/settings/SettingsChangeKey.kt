@@ -44,6 +44,7 @@ object SettingsChangeKeys {
 
     // --- オーバーレイアニメーション ---
     val BASE_COLOR_ANIM_ENABLED = SettingsChangeKey("baseColorAnimEnabled")
+    val BASE_ANIMATIONS = SettingsChangeKey("baseAnimations")
     val BASE_SIZE_ANIM_ENABLED = SettingsChangeKey("baseSizeAnimEnabled")
     val BASE_PULSE_ENABLED = SettingsChangeKey("basePulseEnabled")
     val EFFECTS_ENABLED = SettingsChangeKey("effectsEnabled")

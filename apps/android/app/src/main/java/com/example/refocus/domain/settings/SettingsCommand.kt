@@ -66,6 +66,7 @@ class SettingsCommand
             val GRADIENT_END_COLOR_ARGB: SettingsChangeKey = SettingsChangeKeys.GRADIENT_END_COLOR_ARGB
 
             val BASE_COLOR_ANIM_ENABLED: SettingsChangeKey = SettingsChangeKeys.BASE_COLOR_ANIM_ENABLED
+            val BASE_ANIMATIONS: SettingsChangeKey = SettingsChangeKeys.BASE_ANIMATIONS
             val BASE_SIZE_ANIM_ENABLED: SettingsChangeKey = SettingsChangeKeys.BASE_SIZE_ANIM_ENABLED
             val BASE_PULSE_ENABLED: SettingsChangeKey = SettingsChangeKeys.BASE_PULSE_ENABLED
             val EFFECTS_ENABLED: SettingsChangeKey = SettingsChangeKeys.EFFECTS_ENABLED
