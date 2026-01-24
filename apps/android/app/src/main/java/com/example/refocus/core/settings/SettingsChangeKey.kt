@@ -44,6 +44,7 @@ object SettingsChangeKeys {
 
     // --- オーバーレイアニメーション ---
     val BASE_COLOR_ANIM_ENABLED = SettingsChangeKey("baseColorAnimEnabled")
+    val BASE_ANIMATIONS = SettingsChangeKey("baseAnimations")
     val BASE_SIZE_ANIM_ENABLED = SettingsChangeKey("baseSizeAnimEnabled")
     val BASE_PULSE_ENABLED = SettingsChangeKey("basePulseEnabled")
     val EFFECTS_ENABLED = SettingsChangeKey("effectsEnabled")
@@ -61,6 +62,7 @@ object SettingsChangeKeys {
     // --- ミニゲーム ---
     val MINI_GAME_ENABLED = SettingsChangeKey("miniGameEnabled")
     val MINI_GAME_ORDER = SettingsChangeKey("miniGameOrder")
+    val MINI_GAME_DISABLED_KINDS = SettingsChangeKey("miniGameDisabledKinds")
 
     // --- その他 ---
     val RESET_TO_DEFAULTS = SettingsChangeKey("resetToDefaults")

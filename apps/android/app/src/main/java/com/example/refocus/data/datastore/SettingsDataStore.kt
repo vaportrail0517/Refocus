@@ -9,9 +9,11 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.CustomizePreset
+import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.core.model.MiniGameOrder
 import com.example.refocus.core.model.TimerColorMode
 import com.example.refocus.core.model.TimerGrowthMode
@@ -89,6 +91,7 @@ class SettingsDataStore(
         // --- ミニゲーム（提案フローに挟むチャレンジ） ---
         val MINI_GAME_ENABLED = booleanPreferencesKey("mini_game_enabled")
         val MINI_GAME_ORDER_NAME = stringPreferencesKey("mini_game_order_name")
+        val MINI_GAME_DISABLED_KINDS = stringSetPreferencesKey("mini_game_disabled_kinds")
     }
 
     val customizeFlow: Flow<Customize> =
@@ -180,6 +183,7 @@ class SettingsDataStore(
 
             prefs[Keys.MINI_GAME_ENABLED] = updated.miniGameEnabled
             prefs[Keys.MINI_GAME_ORDER_NAME] = updated.miniGameOrder.name
+            prefs[Keys.MINI_GAME_DISABLED_KINDS] = updated.miniGameDisabledKinds.map { it.name }.toSet()
         }
     }
 
@@ -254,6 +258,12 @@ class SettingsDataStore(
                 default = base.miniGameOrder,
                 valueOf = { MiniGameOrder.valueOf(it) },
             )
+
+        val miniGameDisabledKinds: Set<MiniGameKind> =
+            this[Keys.MINI_GAME_DISABLED_KINDS]
+                ?.mapNotNull { raw -> MiniGameKind.entries.firstOrNull { it.name == raw } }
+                ?.toSet()
+                ?: base.miniGameDisabledKinds
         val timeToMaxSeconds =
             this[Keys.TIME_TO_MAX_SECONDS]
                 ?: this[Keys.TIME_TO_MAX_MINUTES]?.let { it * 60 }
@@ -338,6 +348,7 @@ class SettingsDataStore(
                     ?: base.suggestionInteractionLockoutMillis,
             miniGameEnabled = this[Keys.MINI_GAME_ENABLED] ?: base.miniGameEnabled,
             miniGameOrder = miniGameOrder,
+            miniGameDisabledKinds = miniGameDisabledKinds,
         )
     }
 

@@ -12,7 +12,7 @@ object CustomizeDefaults {
     const val POLLING_INTERVAL_MILLIS: Long = 1_000L
 
     // --- オーバーレイ見た目 ---
-    const val MIN_FONT_SIZE_SP: Float = 24f
+    const val MIN_FONT_SIZE_SP: Float = 32f
     const val MAX_FONT_SIZE_SP: Float = 64f
 
     const val TIME_TO_MAX_SECONDS: Int = 20 * 60
@@ -64,4 +64,5 @@ object CustomizeDefaults {
     // --- ミニゲーム（提案フローに挟むチャレンジ） ---
     const val MINI_GAME_ENABLED: Boolean = true
     val MINI_GAME_ORDER: MiniGameOrder = MiniGameOrder.BeforeSuggestion
+    val MINI_GAME_DISABLED_KINDS: Set<MiniGameKind> = emptySet()
 }

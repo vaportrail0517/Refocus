@@ -1,6 +1,7 @@
 package com.example.refocus.feature.customize
 
 import androidx.compose.runtime.Composable
+import com.example.refocus.feature.customize.dialogs.BaseAnimationDialog
 import com.example.refocus.feature.customize.dialogs.ColorModeDialog
 import com.example.refocus.feature.customize.dialogs.EffectIntervalDialog
 import com.example.refocus.feature.customize.dialogs.FixedColorDialog
@@ -11,6 +12,7 @@ import com.example.refocus.feature.customize.dialogs.GradientMiddleColorDialog
 import com.example.refocus.feature.customize.dialogs.GradientStartColorDialog
 import com.example.refocus.feature.customize.dialogs.GrowthModeDialog
 import com.example.refocus.feature.customize.dialogs.MiniGameOrderDialog
+import com.example.refocus.feature.customize.dialogs.MiniGameSelectionDialog
 import com.example.refocus.feature.customize.dialogs.PollingIntervalDialog
 import com.example.refocus.feature.customize.dialogs.SuggestionCooldownDialog
 import com.example.refocus.feature.customize.dialogs.SuggestionForegroundStableDialog
@@ -111,6 +113,22 @@ internal fun CustomizeDialogHost(
                 onDismiss = onDismiss,
             )
         }
+        CustomizeDialogType.BaseAnimation -> {
+            BaseAnimationDialog(
+                initialBaseColorAnimEnabled = uiState.customize.baseColorAnimEnabled,
+                initialBaseSizeAnimEnabled = uiState.customize.baseSizeAnimEnabled,
+                initialBasePulseEnabled = uiState.customize.basePulseEnabled,
+                onConfirm = { colorEnabled, sizeEnabled, pulseEnabled ->
+                    viewModel.updateBaseAnimationSettings(
+                        colorEnabled = colorEnabled,
+                        sizeEnabled = sizeEnabled,
+                        pulseEnabled = pulseEnabled,
+                    )
+                    onDismiss()
+                },
+                onDismiss = onDismiss,
+            )
+        }
 
         CustomizeDialogType.SuggestionTriggerTime -> {
             SuggestionTriggerTimeDialog(
@@ -172,6 +190,17 @@ internal fun CustomizeDialogHost(
                 current = uiState.customize.miniGameOrder,
                 onConfirm = { order ->
                     viewModel.updateMiniGameOrder(order)
+                    onDismiss()
+                },
+                onDismiss = onDismiss,
+            )
+        }
+
+        CustomizeDialogType.MiniGameSelection -> {
+            MiniGameSelectionDialog(
+                currentDisabledKinds = uiState.customize.miniGameDisabledKinds,
+                onConfirm = { disabled ->
+                    viewModel.updateMiniGameDisabledKinds(disabled)
                     onDismiss()
                 },
                 onDismiss = onDismiss,

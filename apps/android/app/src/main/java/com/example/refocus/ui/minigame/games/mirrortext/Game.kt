@@ -1,8 +1,11 @@
 package com.example.refocus.ui.minigame.games.mirrortext
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -13,12 +16,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Backspace
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,10 +40,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
@@ -59,6 +75,99 @@ private val QWERTY_ROWS =
         listOf('A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'),
         listOf('Z', 'X', 'C', 'V', 'B', 'N', 'M'),
     )
+
+private fun generateTargetSentence(rng: Random): String {
+    // キー入力（A-Z + SPACE）だけで打てるよう，記号は使わない
+    val verbs =
+        listOf(
+            "FOCUS",
+            "BREATHE",
+            "WRITE",
+            "READ",
+            "STUDY",
+            "BUILD",
+            "PLAN",
+            "START",
+            "CONTINUE",
+            "FINISH",
+            "RELAX",
+            "RESET",
+            "REFOCUS",
+            "MOVE",
+            "LEARN",
+            "CREATE",
+        )
+
+    val nouns =
+        listOf(
+            "ONE THING",
+            "THE NEXT STEP",
+            "YOUR TASK",
+            "YOUR GOAL",
+            "THIS MOMENT",
+            "YOUR WORK",
+            "A SMALL STEP",
+            "THE PLAN",
+            "THE IDEA",
+            "THE PAGE",
+            "YOUR NOTE",
+            "YOUR TIME",
+            "THE TODAY",
+            "YOUR FOCUS",
+            "THE IMPORTANT",
+            "THE PRESENT",
+        )
+
+    val adjs =
+        listOf(
+            "CALM",
+            "SMALL",
+            "CLEAR",
+            "GENTLE",
+            "STEADY",
+            "BRAVE",
+            "SIMPLE",
+            "QUIET",
+            "SMART",
+            "FRESH",
+        )
+
+    val times =
+        listOf(
+            "NOW",
+            "TODAY",
+            "RIGHT HERE",
+            "THIS MINUTE",
+        )
+
+    val starters =
+        listOf(
+            "OK",
+            "HEY",
+            "ALRIGHT",
+            "LISTEN",
+            "READY",
+        )
+
+    val templates: List<(Random) -> String> =
+        listOf(
+            { _ -> "REFOCUS YOUR MIND" },
+            { _ -> "THE QUICK BROWN FOX" },
+            { r -> "${starters.random(r)} ${verbs.random(r)} ${nouns.random(r)}" },
+            { r -> "${verbs.random(r)} ${nouns.random(r)} ${times.random(r)}" },
+            { r -> "TAKE A ${adjs.random(r)} BREAK" },
+            { r -> "ONE STEP AT A TIME" },
+            { r -> "KEEP IT ${adjs.random(r)}" },
+            { r -> "${verbs.random(r)} AND ${verbs.random(r)}" },
+            { r -> "${verbs.random(r)} ${adjs.random(r)}" },
+            { r -> "${adjs.random(r)} MIND ${adjs.random(r)} ACTION" },
+        )
+
+    val sentence = templates.random(rng)(rng)
+    return sentence
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
 
 @Composable
 private fun QwertyKeyboard(
@@ -135,32 +244,325 @@ private fun RowScope.KeyButton(
 }
 
 @Composable
+private fun InputEditor(
+    text: String,
+    cursorIndex: Int,
+    onSetCursor: (Int) -> Unit,
+    isCorrect: Boolean,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val containerColor =
+        when {
+            !enabled -> MaterialTheme.colorScheme.surfaceVariant
+            isCorrect -> MaterialTheme.colorScheme.primaryContainer
+            else -> MaterialTheme.colorScheme.surface
+        }
+
+    val contentColor =
+        when {
+            !enabled -> MaterialTheme.colorScheme.onSurfaceVariant
+            isCorrect -> MaterialTheme.colorScheme.onPrimaryContainer
+            else -> MaterialTheme.colorScheme.onSurface
+        }
+
+    val density = LocalDensity.current
+    val scrollState = rememberScrollState()
+
+    val caretColor = MaterialTheme.colorScheme.primary
+    val caretStrokeWidthPx = with(density) { 2.dp.toPx() }
+    val fallbackCaretHeightPx = with(density) { 22.sp.toPx() }
+
+    var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    var caretVisible by remember { mutableStateOf(true) }
+
+    LaunchedEffect(enabled) {
+        if (!enabled) return@LaunchedEffect
+        caretVisible = true
+        while (enabled) {
+            delay(520L)
+            caretVisible = !caretVisible
+        }
+    }
+
+    Surface(
+        modifier = modifier,
+        color = containerColor,
+        contentColor = contentColor,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        BoxWithConstraints(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    .clipToBounds(),
+        ) {
+            val viewportWidthPx = with(density) { maxWidth.toPx() }
+            val contentPadding = 12.dp
+            val contentPaddingPx = with(density) { contentPadding.toPx() }
+            val marginPx = with(density) { 18.dp.toPx() }
+
+            LaunchedEffect(text, cursorIndex, layoutResult, viewportWidthPx) {
+                if (!enabled) return@LaunchedEffect
+                val lr = layoutResult ?: return@LaunchedEffect
+                val safeIndex = cursorIndex.coerceIn(0, text.length)
+                val rect = lr.getCursorRect(safeIndex)
+                val caretXInContent = contentPaddingPx + rect.left
+
+                val visibleStart = scrollState.value.toFloat()
+                val visibleEnd = visibleStart + viewportWidthPx
+
+                val target =
+                    when {
+                        caretXInContent < visibleStart + marginPx -> (caretXInContent - marginPx).toInt()
+                        caretXInContent > visibleEnd - marginPx ->
+                            (caretXInContent - viewportWidthPx + marginPx)
+                                .toInt()
+
+                        else -> return@LaunchedEffect
+                    }.coerceIn(0, scrollState.maxValue)
+
+                scrollState.animateScrollTo(target)
+            }
+
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp)
+                        .horizontalScroll(scrollState)
+                        .pointerInput(enabled, text) {
+                            detectTapGestures { pos ->
+                                if (!enabled) return@detectTapGestures
+                                val lr = layoutResult
+                                if (lr == null) {
+                                    onSetCursor(text.length)
+                                    return@detectTapGestures
+                                }
+
+                                val local =
+                                    Offset(
+                                        x = pos.x + scrollState.value - contentPaddingPx,
+                                        y = pos.y - contentPaddingPx,
+                                    )
+                                val off = lr.getOffsetForPosition(local)
+                                onSetCursor(off.coerceIn(0, text.length))
+                            }
+                        },
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .padding(contentPadding)
+                            .drawWithContent {
+                                drawContent()
+                                if (!enabled) return@drawWithContent
+                                if (!caretVisible) return@drawWithContent
+
+                                val safeIndex = cursorIndex.coerceIn(0, text.length)
+                                val lr = layoutResult
+                                val caret = lr?.getCursorRect(safeIndex)
+
+                                if (caret != null) {
+                                    drawLine(
+                                        color = caretColor,
+                                        start = Offset(caret.left, caret.top),
+                                        end = Offset(caret.left, caret.bottom),
+                                        strokeWidth = caretStrokeWidthPx,
+                                    )
+                                } else {
+                                    val h = fallbackCaretHeightPx
+                                    drawLine(
+                                        color = caretColor,
+                                        start = Offset(0f, 0f),
+                                        end = Offset(0f, h),
+                                        strokeWidth = caretStrokeWidthPx,
+                                    )
+                                }
+                            },
+                ) {
+                    if (text.isEmpty()) {
+                        Text(
+                            text = "ここに入力",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            softWrap = false,
+                            onTextLayout = { layoutResult = it },
+                        )
+                    } else {
+                        Text(
+                            text = text,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            softWrap = false,
+                            onTextLayout = { layoutResult = it },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CursorActionRow(
+    onMoveLeft: () -> Unit,
+    onInsertSpace: () -> Unit,
+    onMoveRight: () -> Unit,
+    onBackspace: () -> Unit,
+    canMoveLeft: Boolean,
+    canMoveRight: Boolean,
+    canBackspace: Boolean,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ActionKey(
+            weight = 0.7f,
+            enabled = enabled && canMoveLeft,
+            onClick = onMoveLeft,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.ArrowBack,
+                contentDescription = "カーソルを左に",
+            )
+        }
+
+        ActionKey(
+            weight = 1.6f,
+            enabled = enabled,
+            onClick = onInsertSpace,
+        ) {
+            Text(
+                text = "SPACE",
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+
+        ActionKey(
+            weight = 0.7f,
+            enabled = enabled && canMoveRight,
+            onClick = onMoveRight,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.ArrowForward,
+                contentDescription = "カーソルを右に",
+            )
+        }
+
+        ActionKey(
+            weight = 1.0f,
+            enabled = enabled && canBackspace,
+            onClick = onBackspace,
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Backspace,
+                contentDescription = "削除",
+            )
+        }
+    }
+}
+
+@Composable
+private fun RowScope.ActionKey(
+    weight: Float,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    content: @Composable () -> Unit,
+) {
+    Surface(
+        modifier = modifier.weight(weight).height(52.dp),
+        color = if (enabled) MaterialTheme.colorScheme.surface else containerColor,
+        contentColor = if (enabled) MaterialTheme.colorScheme.onSurface else contentColor,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .let {
+                        if (enabled) {
+                            it.clickable(onClick = onClick)
+                        } else {
+                            it
+                        }
+                    },
+            contentAlignment = Alignment.Center,
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
 internal fun Game(
     seed: Long,
     onFinished: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val rng = remember(seed) { Random(seed) }
-    val sentenceList =
-        listOf(
-            "HELLO ANDROID WORLD",
-            "JETPACK COMPOSE UI",
-            "REFOCUS YOUR MIND",
-            "QWERTY KEYBOARD TEST",
-            "THE QUICK BROWN FOX",
-        )
-    val targetSentence = remember(seed) { sentenceList.random(rng) }
+    val targetSentence = remember(seed) { generateTargetSentence(rng) }
 
     var phase by remember(seed) { mutableStateOf(MirrorTextPhase.Playing) }
     var remainingSeconds by remember(seed) { mutableIntStateOf(TIME_LIMIT_SECONDS) }
+
     var inputText by remember(seed) { mutableStateOf("") }
+    var cursorIndex by remember(seed) { mutableIntStateOf(0) }
 
     val isCorrect = inputText == targetSentence
+
+    fun setCursorSafe(newIndex: Int) {
+        cursorIndex = newIndex.coerceIn(0, inputText.length)
+    }
+
+    fun insertText(value: String) {
+        if (phase != MirrorTextPhase.Playing) return
+        val safeIndex = cursorIndex.coerceIn(0, inputText.length)
+        inputText = inputText.substring(0, safeIndex) + value + inputText.substring(safeIndex)
+        cursorIndex = (safeIndex + value.length).coerceIn(0, inputText.length)
+    }
+
+    fun backspace() {
+        if (phase != MirrorTextPhase.Playing) return
+        val safeIndex = cursorIndex.coerceIn(0, inputText.length)
+        if (safeIndex <= 0) return
+        inputText = inputText.removeRange(safeIndex - 1, safeIndex)
+        cursorIndex = (safeIndex - 1).coerceIn(0, inputText.length)
+    }
+
+    fun moveCursorLeft() {
+        if (phase != MirrorTextPhase.Playing) return
+        setCursorSafe(cursorIndex - 1)
+    }
+
+    fun moveCursorRight() {
+        if (phase != MirrorTextPhase.Playing) return
+        setCursorSafe(cursorIndex + 1)
+    }
 
     LaunchedEffect(seed) {
         remainingSeconds = TIME_LIMIT_SECONDS
         phase = MirrorTextPhase.Playing
         inputText = ""
+        cursorIndex = 0
     }
 
     LaunchedEffect(phase, isCorrect) {
@@ -242,8 +644,10 @@ internal fun Game(
             }
         }
 
-        InputDisplay(
+        InputEditor(
             text = inputText,
+            cursorIndex = cursorIndex,
+            onSetCursor = ::setCursorSafe,
             isCorrect = isCorrect,
             enabled = phase == MirrorTextPhase.Playing,
             modifier = Modifier.fillMaxWidth(),
@@ -252,29 +656,22 @@ internal fun Game(
         when (phase) {
             MirrorTextPhase.Playing -> {
                 QwertyKeyboard(
-                    onKeyClick = { char -> inputText += char },
+                    onKeyClick = { char -> insertText(char.toString()) },
                     enabled = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                Row(
+                CursorActionRow(
+                    onMoveLeft = ::moveCursorLeft,
+                    onInsertSpace = { insertText(" ") },
+                    onMoveRight = ::moveCursorRight,
+                    onBackspace = ::backspace,
+                    canMoveLeft = cursorIndex > 0,
+                    canMoveRight = cursorIndex < inputText.length,
+                    canBackspace = cursorIndex > 0,
+                    enabled = true,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    OutlinedButton(
-                        onClick = { inputText += " " },
-                        modifier = Modifier.weight(1f).height(52.dp),
-                    ) {
-                        Text("SPACE")
-                    }
-                    Button(
-                        onClick = { if (inputText.isNotEmpty()) inputText = inputText.dropLast(1) },
-                        modifier = Modifier.weight(0.6f).height(52.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    ) {
-                        Text("DEL")
-                    }
-                }
+                )
             }
 
             MirrorTextPhase.Solved -> {
@@ -377,53 +774,6 @@ private fun AutoFitMirroredSentence(
                     .fillMaxWidth()
                     .graphicsLayer { scaleX = -1f },
         )
-    }
-}
-
-@Composable
-private fun InputDisplay(
-    text: String,
-    isCorrect: Boolean,
-    enabled: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val containerColor =
-        when {
-            !enabled -> MaterialTheme.colorScheme.surfaceVariant
-            isCorrect -> MaterialTheme.colorScheme.primaryContainer
-            else -> MaterialTheme.colorScheme.surface
-        }
-
-    Box(
-        modifier =
-            modifier
-                .background(containerColor, RoundedCornerShape(12.dp))
-                .padding(12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (text.isEmpty()) {
-            Text(
-                text = "キーをタップして入力します．",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        } else {
-            Text(
-                text = text,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.SemiBold,
-                color =
-                    if (isCorrect) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
     }
 }
 

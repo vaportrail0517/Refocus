@@ -41,7 +41,7 @@ import kotlin.random.Random
  * フラッシュ暗算（最小実装）。
  *
  * 要件：
- * - スタートはユーザ操作（ボタンタップ）
+ * - スタートはホスト側の開始操作後に自動開始（ゲーム内に開始ボタンは置かない）
  * - 固定の表示時間で数字を順に表示（残り時間表示なし）
  * - 入力は数字キーパッド
  * - ユーザが回答したら正誤を表示し，タップで閉じる
@@ -68,11 +68,11 @@ fun Game(
         remember(seed, count, min, max) { List(count) { rng.nextInt(min, max + 1) } }
     val answer = remember(numbers) { numbers.sum() }
 
-    var phase by remember { mutableStateOf(Phase.Ready) }
-    var displayValue by remember { mutableStateOf<Int?>(null) }
-    var shownCount by remember { mutableStateOf(0) }
-    var input by remember { mutableStateOf("") }
-    var isCorrect by remember { mutableStateOf(false) }
+    var phase by remember(seed) { mutableStateOf(Phase.Showing) }
+    var displayValue by remember(seed) { mutableStateOf<Int?>(null) }
+    var shownCount by remember(seed) { mutableStateOf(0) }
+    var input by remember(seed) { mutableStateOf("") }
+    var isCorrect by remember(seed) { mutableStateOf(false) }
 
     // 表示フェーズでは，「数字を showMillis だけ表示」→「必ず消す」→（次があれば）空白 blankMillis
     // を繰り返す．同じ数字が連続しても必ず一度消えるため，区切りが分かる．
@@ -100,8 +100,7 @@ fun Game(
             title = "フラッシュ暗算",
             subtitle =
                 when (phase) {
-                    Phase.Ready -> "表示される 5 つの数字の合計を計算してください．"
-                    Phase.Showing -> ""
+                    Phase.Showing -> "表示される 5 つの数字の合計を計算してください．"
                     Phase.Input -> "合計を入力してください．"
                     Phase.Result -> ""
                 },
@@ -113,7 +112,6 @@ fun Game(
             total = count,
             filled =
                 when (phase) {
-                    Phase.Ready -> 0
                     Phase.Showing -> shownCount
                     Phase.Input -> count
                     Phase.Result -> count
@@ -132,14 +130,6 @@ fun Game(
             contentAlignment = Alignment.Center,
         ) {
             when (phase) {
-                Phase.Ready -> {
-                    Text(
-                        text = "",
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center,
-                    )
-                }
-
                 Phase.Showing -> {
                     val toShow = displayValue?.toString() ?: " "
                     Text(
@@ -193,32 +183,6 @@ fun Game(
         Spacer(Modifier.height(12.dp))
 
         when (phase) {
-            Phase.Ready -> {
-                Button(
-                    onClick = {
-                        input = ""
-                        displayValue = null
-                        shownCount = 0
-                        phase = Phase.Showing
-                    },
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                ) {
-                    Text("開始")
-                }
-                Spacer(Modifier.height(12.dp))
-
-                NumericKeypad(
-                    onDigit = {},
-                    onBackspace = {},
-                    onOk = {},
-                    enabled = false,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
             Phase.Showing -> {
                 NumericKeypad(
                     onDigit = {},
@@ -321,7 +285,6 @@ private fun ProgressDots(
 }
 
 private enum class Phase {
-    Ready,
     Showing,
     Input,
     Result,

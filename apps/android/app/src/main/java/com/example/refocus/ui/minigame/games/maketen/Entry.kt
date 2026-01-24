@@ -9,8 +9,15 @@ internal val makeTenEntry: MiniGameEntry =
         descriptor =
             MiniGameDescriptor(
                 kind = MiniGameKind.MakeTen,
-                title = "make ten",
-                description = "4つの数字と記号で10を作ります．",
+                title = "make 10",
+                description = "4つの数字と四則演算と括弧で10を作る",
+                timeLimitSeconds = 60,
+                rules =
+                    listOf(
+                        "4つの数字全てをそれぞれ1回ずつ使って10を作ってください",
+                        "四則演算と括弧が使えます",
+                        "クリアするか時間切れになると終了します",
+                    ),
             ),
         content = { seed, onFinished, modifier ->
             Game(

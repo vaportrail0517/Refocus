@@ -10,7 +10,11 @@ internal val flashAnzanEntry: MiniGameEntry =
             MiniGameDescriptor(
                 kind = MiniGameKind.FlashAnzan,
                 title = "フラッシュ暗算",
-                description = "5つの数字の合計を素早く計算します．",
+                description = "順に表示される数字の和を計算",
+                rules =
+                    listOf(
+                        "5つの数字が順番に表示されるので，最後に計算した和を入力してください",
+                    ),
             ),
         content = { seed, onFinished, modifier ->
             Game(

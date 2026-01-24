@@ -186,21 +186,21 @@ fun AdvancedCustomizeContent(
             subtitle = "現在: ${formatDurationSeconds(settings.suggestionCooldownSeconds.toLong())}待ってから再び提案をします。",
             onClick = onOpenSuggestionCooldownDialog,
         )
-        SettingRow(
-            title = "提案カードを自動で閉じるまでの時間",
-            subtitle =
-                if (settings.suggestionTimeoutSeconds != 0) {
-                    "現在: ${formatDurationSeconds(settings.suggestionTimeoutSeconds.toLong())}後に自動で閉じます。"
-                } else {
-                    "現在：時間経過では閉じません。"
-                },
-            onClick = onOpenSuggestionTimeoutDialog,
-        )
-        SettingRow(
-            title = "提案表示直後の誤タップ防止時間",
-            subtitle = "現在: 表示してから${settings.suggestionInteractionLockoutMillis} ms の間、提案カードを消せなくします。",
-            onClick = onOpenSuggestionInteractionLockoutDialog,
-        )
+//        SettingRow(
+//            title = "提案カードを自動で閉じるまでの時間",
+//            subtitle =
+//                if (settings.suggestionTimeoutSeconds != 0) {
+//                    "現在: ${formatDurationSeconds(settings.suggestionTimeoutSeconds.toLong())}後に自動で閉じます。"
+//                } else {
+//                    "現在：時間経過では閉じません。"
+//                },
+//            onClick = onOpenSuggestionTimeoutDialog,
+//        )
+//        SettingRow(
+//            title = "提案表示直後の誤タップ防止時間",
+//            subtitle = "現在: 表示してから${settings.suggestionInteractionLockoutMillis} ms の間、提案カードを消せなくします。",
+//            onClick = onOpenSuggestionInteractionLockoutDialog,
+//        )
     }
 
     // --- プリセット（管理） ---

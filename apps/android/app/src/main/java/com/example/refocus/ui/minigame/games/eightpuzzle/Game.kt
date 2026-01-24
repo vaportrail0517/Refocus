@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,9 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -136,8 +140,9 @@ fun Game(
 
         Board(
             tiles = tiles,
+            blankIndex = blankIndex,
             enabled = phase == EightPuzzlePhase.Playing && remainingSeconds > 0,
-            onTapTile = { idx -> tryMove(idx) },
+            onMoveTile = { idx -> tryMove(idx) },
             modifier = Modifier.fillMaxWidth().aspectRatio(1f),
         )
 
@@ -232,27 +237,30 @@ private fun Header(
 @Composable
 private fun Board(
     tiles: SnapshotStateList<Int>,
+    blankIndex: Int,
     enabled: Boolean,
-    onTapTile: (index: Int) -> Unit,
+    onMoveTile: (index: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        for (r in 0 until 3) {
+        for (r in 0 until BOARD_SIZE) {
             Row(
                 modifier = Modifier.fillMaxWidth().weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                for (c in 0 until 3) {
-                    val idx = r * 3 + c
+                for (c in 0 until BOARD_SIZE) {
+                    val idx = r * BOARD_SIZE + c
                     val v = tiles.getOrNull(idx) ?: 0
 
                     Tile(
                         value = v,
+                        index = idx,
+                        blankIndex = blankIndex,
                         enabled = enabled && v != 0,
-                        onClick = { onTapTile(idx) },
+                        onMoveRequest = onMoveTile,
                         modifier = Modifier.weight(1f).fillMaxSize(),
                     )
                 }
@@ -264,11 +272,14 @@ private fun Board(
 @Composable
 private fun Tile(
     value: Int,
+    index: Int,
+    blankIndex: Int,
     enabled: Boolean,
-    onClick: () -> Unit,
+    onMoveRequest: (index: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    val swipeThresholdPx = with(LocalDensity.current) { 24.dp.toPx() }
 
     if (value == 0) {
         Surface(
@@ -282,7 +293,42 @@ private fun Tile(
     Surface(
         modifier =
             modifier
-                .clickable(enabled = enabled, onClick = onClick),
+                .pointerInput(enabled, index, blankIndex) {
+                    if (!enabled) return@pointerInput
+
+                    var total = Offset.Companion.Zero
+                    detectDragGestures(
+                        onDragStart = { total = Offset.Companion.Zero },
+                        onDrag = { change, dragAmount ->
+                            total += dragAmount
+                            change.consume()
+                        },
+                        onDragCancel = { total = Offset.Companion.Zero },
+                        onDragEnd = {
+                            val absX = abs(total.x)
+                            val absY = abs(total.y)
+                            if (absX < swipeThresholdPx && absY < swipeThresholdPx) return@detectDragGestures
+
+                            val isHorizontal = absX >= absY
+                            val canMove =
+                                if (isHorizontal) {
+                                    if (total.x > 0f) {
+                                        index % BOARD_SIZE != BOARD_SIZE - 1 && blankIndex == index + 1
+                                    } else {
+                                        index % BOARD_SIZE != 0 && blankIndex == index - 1
+                                    }
+                                } else {
+                                    if (total.y > 0f) {
+                                        index / BOARD_SIZE != BOARD_SIZE - 1 && blankIndex == index + BOARD_SIZE
+                                    } else {
+                                        index / BOARD_SIZE != 0 && blankIndex == index - BOARD_SIZE
+                                    }
+                                }
+
+                            if (canMove) onMoveRequest(index)
+                        },
+                    )
+                }.clickable(enabled = enabled) { onMoveRequest(index) },
         border = border,
         color = MaterialTheme.colorScheme.surface,
     ) {
@@ -331,6 +377,8 @@ private fun ResultFooter(
     }
 }
 
+private const val BOARD_SIZE: Int = 3
+
 private const val TIME_LIMIT_SECONDS: Int = 60
 
 private val GOAL_TILES: List<Int> = listOf(1, 2, 3, 4, 5, 6, 7, 8, 0)
@@ -345,10 +393,10 @@ private fun isAdjacent(
     a: Int,
     b: Int,
 ): Boolean {
-    val ar = a / 3
-    val ac = a % 3
-    val br = b / 3
-    val bc = b % 3
+    val ar = a / BOARD_SIZE
+    val ac = a % BOARD_SIZE
+    val br = b / BOARD_SIZE
+    val bc = b % BOARD_SIZE
     return abs(ar - br) + abs(ac - bc) == 1
 }
 
@@ -393,14 +441,14 @@ private fun generateInitialTiles(seed: Long): List<Int> {
 }
 
 private fun adjacentIndices(index: Int): List<Int> {
-    val r = index / 3
-    val c = index % 3
+    val r = index / BOARD_SIZE
+    val c = index % BOARD_SIZE
 
     val out = mutableListOf<Int>()
-    if (r > 0) out += (r - 1) * 3 + c
-    if (r < 2) out += (r + 1) * 3 + c
-    if (c > 0) out += r * 3 + (c - 1)
-    if (c < 2) out += r * 3 + (c + 1)
+    if (r > 0) out += (r - 1) * BOARD_SIZE + c
+    if (r < BOARD_SIZE - 1) out += (r + 1) * BOARD_SIZE + c
+    if (c > 0) out += r * BOARD_SIZE + (c - 1)
+    if (c < BOARD_SIZE - 1) out += r * BOARD_SIZE + (c + 1)
     return out
 }
 

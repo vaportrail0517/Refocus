@@ -24,8 +24,10 @@ fun BasicCustomizeContent(
     onOpenTimerTimeModeDialog: () -> Unit,
     onOpenTimerVisualTimeBasisDialog: () -> Unit,
     onOpenEffectIntervalDialog: () -> Unit,
+    onOpenBaseAnimationDialog: () -> Unit,
     onOpenPresetManager: () -> Unit,
     onOpenMiniGameOrderDialog: () -> Unit,
+    onOpenMiniGameSelectionDialog: () -> Unit,
     onDebugPlayMiniGame: (MiniGameKind) -> Unit = {},
 ) {
     val settings = uiState.customize
@@ -91,59 +93,19 @@ fun BasicCustomizeContent(
     // --- アニメーション ---
     SectionCard(title = "アニメーション") {
         val baseColorAnimEnabled = settings.baseColorAnimEnabled
-        SettingRow(
-            title = "色の変化（ベース）",
-            subtitle =
-                if (baseColorAnimEnabled) {
-                    "オン：時間に応じてタイマーの色が変化します。"
-                } else {
-                    "オフ：タイマーの色は固定になります。"
-                },
-            trailing = {
-                Switch(
-                    checked = baseColorAnimEnabled,
-                    onCheckedChange = { viewModel.updateBaseColorAnimEnabled(it) },
-                )
-            },
-            onClick = { viewModel.updateBaseColorAnimEnabled(!baseColorAnimEnabled) },
-        )
-
         val baseSizeAnimEnabled = settings.baseSizeAnimEnabled
-        SettingRow(
-            title = "サイズの変化（ベース）",
-            subtitle =
-                if (baseSizeAnimEnabled) {
-                    "オン：時間に応じてタイマーのサイズが変化します。"
-                } else {
-                    "オフ：タイマーのサイズは固定になります。"
-                },
-            trailing = {
-                Switch(
-                    checked = baseSizeAnimEnabled,
-                    onCheckedChange = { viewModel.updateBaseSizeAnimEnabled(it) },
-                )
-            },
-            onClick = { viewModel.updateBaseSizeAnimEnabled(!baseSizeAnimEnabled) },
-        )
-
         val basePulseEnabled = settings.basePulseEnabled
-        SettingRow(
-            title = "呼吸（ベース）",
-            subtitle =
-                if (basePulseEnabled) {
-                    "オン：タイマーが穏やかに拡大縮小を繰り返します。"
-                } else {
-                    "オフ：呼吸アニメーションを表示しません。"
-                },
-            trailing = {
-                Switch(
-                    checked = basePulseEnabled,
-                    onCheckedChange = { viewModel.updateBasePulseEnabled(it) },
-                )
-            },
-            onClick = { viewModel.updateBasePulseEnabled(!basePulseEnabled) },
-        )
 
+        val baseSummary =
+            "色：" + (if (baseColorAnimEnabled) "オン" else "オフ") +
+                "，サイズ：" + (if (baseSizeAnimEnabled) "オン" else "オフ") +
+                "，呼吸：" + (if (basePulseEnabled) "オン" else "オフ")
+
+        SettingRow(
+            title = "ベースアニメーション",
+            subtitle = baseSummary,
+            onClick = onOpenBaseAnimationDialog,
+        )
         val effectsEnabled = settings.effectsEnabled
         SettingRow(
             title = "エフェクト（点滅・回転・揺れ）",
@@ -270,6 +232,31 @@ fun BasicCustomizeContent(
                     MiniGameOrder.AfterSuggestion -> "現在：提案 → ミニゲーム"
                 } + if (!orderEnabled) "（ミニゲームがオフです）" else "",
             onClick = if (orderEnabled) onOpenMiniGameOrderDialog else null,
+        )
+
+        val descriptors = MiniGameRegistry.descriptors
+        val totalGames = descriptors.size
+        val enabledGames =
+            descriptors.count { desc -> !settings.miniGameDisabledKinds.contains(desc.kind) }
+
+        val selectionNote =
+            when {
+                !suggestionEnabled -> "（提案がオフです）"
+                !miniGameEnabled -> "（ミニゲームがオフです）"
+                enabledGames == 0 && totalGames > 0 -> "（全て無効）"
+                else -> ""
+            }
+
+        SettingRow(
+            title = "提案に出すミニゲーム",
+            subtitle =
+                when {
+                    totalGames == 0 -> "利用可能なミニゲームがありません．"
+                    enabledGames == totalGames -> "現在：全て有効"
+                    enabledGames == 0 -> "現在：なし"
+                    else -> "現在：有効 $enabledGames/$totalGames"
+                } + selectionNote,
+            onClick = if (totalGames > 0) onOpenMiniGameSelectionDialog else null,
         )
 
         if (isDebuggable) {
