@@ -2,6 +2,7 @@ package com.example.refocus.app.navigation
 
 import android.app.Activity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -129,10 +130,17 @@ fun RefocusNavHost() {
         }
 
         composable(Destinations.HIDDEN_APPS) {
+            val parentEntry =
+                remember {
+                    runCatching { navController.getBackStackEntry(Destinations.APP_SELECT_SETTINGS) }.getOrNull()
+                        ?: runCatching { navController.getBackStackEntry(Destinations.APP_SELECT) }.getOrNull()
+                }
+
             HiddenAppsScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
+                parentEntry = parentEntry,
             )
         }
 

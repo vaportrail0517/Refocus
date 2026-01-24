@@ -27,7 +27,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,20 +40,39 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.navigation.NavBackStackEntry
 import com.example.refocus.feature.appselect.components.SearchBar
 import com.example.refocus.ui.components.SettingsBaseDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HiddenAppsScreen(onNavigateBack: () -> Unit) {
-    val viewModel: HiddenAppsViewModel = hiltViewModel()
-    val apps by viewModel.apps.collectAsState()
-    val isDirty by viewModel.isDirty.collectAsState()
-    val isSaving by viewModel.isSavingState.collectAsState()
-    val didSave by viewModel.didSaveState.collectAsState()
-    val confirmTargetsToRemove by viewModel.confirmTargetsToRemovePackages.collectAsState()
+fun HiddenAppsScreen(
+    onNavigateBack: () -> Unit,
+    parentEntry: NavBackStackEntry? = null,
+) {
+    val catalogViewModel: AppListViewModel =
+        if (parentEntry != null) {
+            hiltViewModel(parentEntry)
+        } else {
+            hiltViewModel()
+        }
+    val sessionViewModel: AppSelectEditSessionViewModel =
+        if (parentEntry != null) {
+            hiltViewModel(parentEntry)
+        } else {
+            hiltViewModel()
+        }
+
+    val apps by catalogViewModel.apps.collectAsState()
+    val draftHidden by sessionViewModel.draftHiddenState.collectAsState()
+    val draftTargets by sessionViewModel.draftTargetsState.collectAsState()
+    val committedTargets by sessionViewModel.committedTargets.collectAsState()
+    val isDirty by sessionViewModel.isDirtyHidden.collectAsState()
+    val isSaving by sessionViewModel.isSavingState.collectAsState()
+    val isLoaded by sessionViewModel.isLoadedState.collectAsState()
 
     var query by remember { mutableStateOf(TextFieldValue("")) }
+    var confirmTargetsToRemove by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     val filtered =
         remember(apps, query) {
@@ -67,29 +85,26 @@ fun HiddenAppsScreen(onNavigateBack: () -> Unit) {
         }
 
     val (hiddenApps, visibleApps) =
-        remember(filtered) {
-            val hidden = filtered.filter { it.isHidden }
-            val others = filtered.filter { !it.isHidden }
+        remember(filtered, draftHidden) {
+            val hidden = filtered.filter { it.packageName in draftHidden }
+            val others = filtered.filter { it.packageName !in draftHidden }
             hidden to others
         }
-
-    LaunchedEffect(didSave) {
-        if (didSave) {
-            onNavigateBack()
-        }
-    }
 
     if (confirmTargetsToRemove.isNotEmpty()) {
         SettingsBaseDialog(
             title = "対象から外れます",
             description =
                 "非表示にしたアプリは，対象アプリから外れます．\n" +
-                    "（対象から外れるアプリ：${confirmTargetsToRemove.size}件）\n" +
+                    "（保存済みの対象から外れるアプリ：${confirmTargetsToRemove.size}件）\n" +
                     "このまま保存しますか．",
             confirmLabel = "保存",
             dismissLabel = "キャンセル",
-            onConfirm = { viewModel.confirmSave() },
-            onDismiss = { viewModel.dismissConfirmDialog() },
+            onConfirm = {
+                confirmTargetsToRemove = emptySet()
+                sessionViewModel.saveHiddenOnly { onNavigateBack() }
+            },
+            onDismiss = { confirmTargetsToRemove = emptySet() },
         )
     }
 
@@ -121,8 +136,15 @@ fun HiddenAppsScreen(onNavigateBack: () -> Unit) {
                         .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 Button(
-                    onClick = { viewModel.onSaveClicked() },
-                    enabled = isDirty && !isSaving,
+                    onClick = {
+                        val toRemove = committedTargets intersect draftHidden
+                        if (toRemove.isNotEmpty()) {
+                            confirmTargetsToRemove = toRemove
+                        } else {
+                            sessionViewModel.saveHiddenOnly { onNavigateBack() }
+                        }
+                    },
+                    enabled = isLoaded && isDirty && !isSaving,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("保存")
@@ -174,7 +196,9 @@ fun HiddenAppsScreen(onNavigateBack: () -> Unit) {
                         ) { appItem ->
                             HiddenAppRow(
                                 app = appItem,
-                                onClick = { viewModel.toggleHidden(appItem.packageName) },
+                                isHidden = true,
+                                isTarget = appItem.packageName in draftTargets,
+                                onClick = { sessionViewModel.toggleHidden(appItem.packageName) },
                             )
                         }
                         item { Spacer(modifier = Modifier.height(8.dp)) }
@@ -196,7 +220,9 @@ fun HiddenAppsScreen(onNavigateBack: () -> Unit) {
                         ) { appItem ->
                             HiddenAppRow(
                                 app = appItem,
-                                onClick = { viewModel.toggleHidden(appItem.packageName) },
+                                isHidden = false,
+                                isTarget = appItem.packageName in draftTargets,
+                                onClick = { sessionViewModel.toggleHidden(appItem.packageName) },
                             )
                         }
                     }
@@ -220,7 +246,9 @@ private fun SectionHeader(title: String) {
 
 @Composable
 private fun HiddenAppRow(
-    app: HiddenAppsViewModel.AppUiModel,
+    app: AppListViewModel.AppCatalogUiModel,
+    isHidden: Boolean,
+    isTarget: Boolean,
     onClick: () -> Unit,
 ) {
     androidx.compose.foundation.layout.Row(
@@ -260,7 +288,7 @@ private fun HiddenAppRow(
                 text = formatUsage(app.usageTimeMs),
                 style = MaterialTheme.typography.bodySmall,
             )
-            if (app.isTarget) {
+            if (isTarget) {
                 Text(
                     text = "現在：対象",
                     style = MaterialTheme.typography.bodySmall,
@@ -269,7 +297,7 @@ private fun HiddenAppRow(
         }
 
         Checkbox(
-            checked = app.isHidden,
+            checked = isHidden,
             onCheckedChange = { onClick() },
         )
     }

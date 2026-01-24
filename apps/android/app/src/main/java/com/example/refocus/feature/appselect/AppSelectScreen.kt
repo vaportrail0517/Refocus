@@ -52,9 +52,14 @@ fun AppSelectScreen(
     onOpenHiddenApps: () -> Unit,
 ) {
     val permissionStatusProvider = rememberPermissionStatusProvider()
-    val viewModel: AppListViewModel = hiltViewModel()
-    val apps by viewModel.apps.collectAsState()
-    val hiddenPackages by viewModel.hiddenPackages.collectAsState()
+    val catalogViewModel: AppListViewModel = hiltViewModel()
+    val sessionViewModel: AppSelectEditSessionViewModel = hiltViewModel()
+
+    val apps by catalogViewModel.apps.collectAsState()
+    val selectedPackages by sessionViewModel.draftTargetsState.collectAsState()
+    val hiddenPackages by sessionViewModel.draftHiddenState.collectAsState()
+    val isLoaded by sessionViewModel.isLoadedState.collectAsState()
+    val isSaving by sessionViewModel.isSavingState.collectAsState()
     var query by remember { mutableStateOf(TextFieldValue("")) }
     val filtered =
         remember(apps, query) {
@@ -69,9 +74,9 @@ fun AppSelectScreen(
     // Phase1（対象選択UI改善）：選択中を常に上部に集約して表示する
     // Phase2（hiddenApps 基盤）：候補から hiddenApps を除外できるようにする
     val (selectedApps, candidateApps) =
-        remember(filtered, hiddenPackages) {
-            val selected = filtered.filter { it.isSelected }
-            val candidates = filtered.filter { !it.isSelected && it.packageName !in hiddenPackages }
+        remember(filtered, selectedPackages, hiddenPackages) {
+            val selected = filtered.filter { it.packageName in selectedPackages }
+            val candidates = filtered.filter { it.packageName !in selectedPackages && it.packageName !in hiddenPackages }
             selected to candidates
         }
 
@@ -106,14 +111,15 @@ fun AppSelectScreen(
                     onClick = {
                         val snapshot = permissionStatusProvider.readCurrentInstant()
                         val hasCorePermissions = snapshot.usageGranted && snapshot.overlayGranted
-                        viewModel.save(
+                        sessionViewModel.saveAll {
                             if (hasCorePermissions) {
-                                onFinished
+                                onFinished()
                             } else {
-                                onFinishedWithoutPermission
-                            },
-                        )
+                                onFinishedWithoutPermission()
+                            }
+                        }
                     },
+                    enabled = isLoaded && !isSaving,
                     modifier =
                         Modifier
                             .fillMaxWidth(),
@@ -162,7 +168,8 @@ fun AppSelectScreen(
                         ) { appItem ->
                             AppRow(
                                 app = appItem,
-                                onClick = { viewModel.toggleSelection(appItem.packageName) },
+                                isSelected = appItem.packageName in selectedPackages,
+                                onClick = { sessionViewModel.toggleTarget(appItem.packageName) },
                             )
                         }
                         item { Spacer(modifier = Modifier.height(8.dp)) }
@@ -186,7 +193,8 @@ fun AppSelectScreen(
                         ) { appItem ->
                             AppRow(
                                 app = appItem,
-                                onClick = { viewModel.toggleSelection(appItem.packageName) },
+                                isSelected = appItem.packageName in selectedPackages,
+                                onClick = { sessionViewModel.toggleTarget(appItem.packageName) },
                             )
                         }
                     }
@@ -210,7 +218,8 @@ private fun SectionHeader(title: String) {
 
 @Composable
 private fun AppRow(
-    app: AppListViewModel.AppUiModel,
+    app: AppListViewModel.AppCatalogUiModel,
+    isSelected: Boolean,
     onClick: () -> Unit,
 ) {
     Row(
@@ -255,7 +264,7 @@ private fun AppRow(
             Text(formatUsage(app.usageTimeMs), style = MaterialTheme.typography.bodySmall)
         }
         Checkbox(
-            checked = app.isSelected,
+            checked = isSelected,
             onCheckedChange = { onClick() },
         )
     }
