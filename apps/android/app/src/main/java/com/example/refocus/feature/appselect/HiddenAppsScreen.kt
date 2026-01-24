@@ -4,7 +4,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,7 +16,7 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,6 +27,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,20 +42,20 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.example.refocus.feature.appselect.components.SearchBar
-import com.example.refocus.feature.common.permissions.rememberPermissionStatusProvider
+import com.example.refocus.ui.components.SettingsBaseDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppSelectScreen(
-    onFinished: () -> Unit,
-    onFinishedWithoutPermission: () -> Unit,
-    onOpenHiddenApps: () -> Unit,
-) {
-    val permissionStatusProvider = rememberPermissionStatusProvider()
-    val viewModel: AppListViewModel = hiltViewModel()
+fun HiddenAppsScreen(onNavigateBack: () -> Unit) {
+    val viewModel: HiddenAppsViewModel = hiltViewModel()
     val apps by viewModel.apps.collectAsState()
-    val hiddenPackages by viewModel.hiddenPackages.collectAsState()
+    val isDirty by viewModel.isDirty.collectAsState()
+    val isSaving by viewModel.isSavingState.collectAsState()
+    val didSave by viewModel.didSaveState.collectAsState()
+    val confirmTargetsToRemove by viewModel.confirmTargetsToRemovePackages.collectAsState()
+
     var query by remember { mutableStateOf(TextFieldValue("")) }
+
     val filtered =
         remember(apps, query) {
             val q = query.text.trim()
@@ -66,14 +66,32 @@ fun AppSelectScreen(
             }
         }
 
-    // Phase1（対象選択UI改善）：選択中を常に上部に集約して表示する
-    // Phase2（hiddenApps 基盤）：候補から hiddenApps を除外できるようにする
-    val (selectedApps, candidateApps) =
-        remember(filtered, hiddenPackages) {
-            val selected = filtered.filter { it.isSelected }
-            val candidates = filtered.filter { !it.isSelected && it.packageName !in hiddenPackages }
-            selected to candidates
+    val (hiddenApps, visibleApps) =
+        remember(filtered) {
+            val hidden = filtered.filter { it.isHidden }
+            val others = filtered.filter { !it.isHidden }
+            hidden to others
         }
+
+    LaunchedEffect(didSave) {
+        if (didSave) {
+            onNavigateBack()
+        }
+    }
+
+    if (confirmTargetsToRemove.isNotEmpty()) {
+        SettingsBaseDialog(
+            title = "対象から外れます",
+            description =
+                "非表示にしたアプリは，対象アプリから外れます．\n" +
+                    "（対象から外れるアプリ：${confirmTargetsToRemove.size}件）\n" +
+                    "このまま保存しますか．",
+            confirmLabel = "保存",
+            dismissLabel = "キャンセル",
+            onConfirm = { viewModel.confirmSave() },
+            onDismiss = { viewModel.dismissConfirmDialog() },
+        )
+    }
 
     Scaffold(
         modifier =
@@ -82,12 +100,12 @@ fun AppSelectScreen(
                 .systemBarsPadding(),
         topBar = {
             TopAppBar(
-                title = { Text("対象アプリ") },
-                actions = {
-                    IconButton(onClick = onOpenHiddenApps) {
+                title = { Text("非表示アプリ") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
                         Icon(
-                            imageVector = Icons.Filled.VisibilityOff,
-                            contentDescription = "非表示アプリを管理",
+                            imageVector = Icons.Filled.ChevronLeft,
+                            contentDescription = "戻る",
                         )
                     }
                 },
@@ -103,22 +121,11 @@ fun AppSelectScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 Button(
-                    onClick = {
-                        val snapshot = permissionStatusProvider.readCurrentInstant()
-                        val hasCorePermissions = snapshot.usageGranted && snapshot.overlayGranted
-                        viewModel.save(
-                            if (hasCorePermissions) {
-                                onFinished
-                            } else {
-                                onFinishedWithoutPermission
-                            },
-                        )
-                    },
-                    modifier =
-                        Modifier
-                            .fillMaxWidth(),
+                    onClick = { viewModel.onSaveClicked() },
+                    enabled = isDirty && !isSaving,
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("完了")
+                    Text("保存")
                 }
             }
         },
@@ -131,6 +138,12 @@ fun AppSelectScreen(
                     .padding(padding)
                     .padding(horizontal = 16.dp),
         ) {
+            Text(
+                text = "ここで非表示にしたアプリは，対象アプリ選択画面の候補に表示されません．",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
+            )
+
             SearchBar(
                 value = query,
                 onValueChange = { query = it },
@@ -140,10 +153,11 @@ fun AppSelectScreen(
                         .padding(vertical = 8.dp),
                 label = "検索",
             )
+
             LazyColumn(
                 modifier = Modifier.weight(1f),
             ) {
-                if (selectedApps.isEmpty() && candidateApps.isEmpty()) {
+                if (hiddenApps.isEmpty() && visibleApps.isEmpty()) {
                     item {
                         Text(
                             text = "該当するアプリがありません．",
@@ -152,41 +166,37 @@ fun AppSelectScreen(
                         )
                     }
                 } else {
-                    if (selectedApps.isNotEmpty()) {
-                        item {
-                            SectionHeader(title = "選択中（${selectedApps.size}）")
-                        }
+                    if (hiddenApps.isNotEmpty()) {
+                        item { SectionHeader(title = "非表示中（${hiddenApps.size}）") }
                         items(
-                            items = selectedApps,
+                            items = hiddenApps,
                             key = { it.packageName },
                         ) { appItem ->
-                            AppRow(
+                            HiddenAppRow(
                                 app = appItem,
-                                onClick = { viewModel.toggleSelection(appItem.packageName) },
+                                onClick = { viewModel.toggleHidden(appItem.packageName) },
                             )
                         }
                         item { Spacer(modifier = Modifier.height(8.dp)) }
                     }
 
-                    item {
-                        SectionHeader(title = "候補（${candidateApps.size}）")
-                    }
-                    if (candidateApps.isEmpty()) {
+                    item { SectionHeader(title = "その他（${visibleApps.size}）") }
+                    if (visibleApps.isEmpty()) {
                         item {
                             Text(
-                                text = "候補がありません．",
+                                text = "その他のアプリがありません．",
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.padding(vertical = 8.dp),
                             )
                         }
                     } else {
                         items(
-                            items = candidateApps,
+                            items = visibleApps,
                             key = { it.packageName },
                         ) { appItem ->
-                            AppRow(
+                            HiddenAppRow(
                                 app = appItem,
-                                onClick = { viewModel.toggleSelection(appItem.packageName) },
+                                onClick = { viewModel.toggleHidden(appItem.packageName) },
                             )
                         }
                     }
@@ -209,11 +219,11 @@ private fun SectionHeader(title: String) {
 }
 
 @Composable
-private fun AppRow(
-    app: AppListViewModel.AppUiModel,
+private fun HiddenAppRow(
+    app: HiddenAppsViewModel.AppUiModel,
     onClick: () -> Unit,
 ) {
-    Row(
+    androidx.compose.foundation.layout.Row(
         modifier =
             Modifier
                 .fillMaxWidth()
@@ -221,15 +231,14 @@ private fun AppRow(
                 .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Drawable → Painter 変換（パッケージ名ごとに remember）
         val iconPainter =
             remember(app.packageName) {
                 app.icon?.let { drawable ->
-                    // サイズは Drawable 側に任せつつ，そのままBitmap化
                     val bitmap = drawable.toBitmap()
                     BitmapPainter(bitmap.asImageBitmap())
                 }
             }
+
         if (iconPainter != null) {
             Image(
                 painter = iconPainter,
@@ -237,14 +246,9 @@ private fun AppRow(
                 modifier = Modifier.size(40.dp),
             )
         } else {
-            Box(
-                modifier =
-                    Modifier
-                        .size(40.dp),
-            ) {
-                //  Text(app.label.firstOrNull()?.toString() ?: "") などでもOK
-            }
+            Box(modifier = Modifier.size(40.dp))
         }
+
         Column(
             modifier =
                 Modifier
@@ -252,10 +256,20 @@ private fun AppRow(
                     .padding(start = 12.dp),
         ) {
             Text(app.label)
-            Text(formatUsage(app.usageTimeMs), style = MaterialTheme.typography.bodySmall)
+            Text(
+                text = formatUsage(app.usageTimeMs),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (app.isTarget) {
+                Text(
+                    text = "現在：対象",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
+
         Checkbox(
-            checked = app.isSelected,
+            checked = app.isHidden,
             onCheckedChange = { onClick() },
         )
     }

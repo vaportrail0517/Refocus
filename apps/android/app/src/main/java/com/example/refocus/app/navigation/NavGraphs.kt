@@ -9,6 +9,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.feature.MainScreen
 import com.example.refocus.feature.appselect.AppSelectScreen
+import com.example.refocus.feature.appselect.HiddenAppsScreen
 import com.example.refocus.feature.entry.EntryScreen
 import com.example.refocus.feature.history.HistoryRoute
 import com.example.refocus.feature.onboarding.OnboardingFinishScreen
@@ -27,6 +28,7 @@ object Destinations {
     const val ONBOARDING_READY = "onboarding_ready"
     const val APP_SELECT = "app_select"
     const val APP_SELECT_SETTINGS = "app_select_settings"
+    const val HIDDEN_APPS = "hidden_apps"
     const val ONBOARDING_START_MODE = "onboarding_start_mode"
     const val ONBOARDING_FINISH = "onboarding_finish"
     const val HOME = "home"
@@ -106,6 +108,9 @@ fun RefocusNavHost() {
                         popUpTo(Destinations.ONBOARDING_READY) { inclusive = false }
                     }
                 },
+                onOpenHiddenApps = {
+                    navController.navigate(Destinations.HIDDEN_APPS)
+                },
             )
         }
 
@@ -115,6 +120,17 @@ fun RefocusNavHost() {
                     navController.popBackStack()
                 },
                 onFinishedWithoutPermission = {
+                    navController.popBackStack()
+                },
+                onOpenHiddenApps = {
+                    navController.navigate(Destinations.HIDDEN_APPS)
+                },
+            )
+        }
+
+        composable(Destinations.HIDDEN_APPS) {
+            HiddenAppsScreen(
+                onNavigateBack = {
                     navController.popBackStack()
                 },
             )

@@ -3,6 +3,7 @@ package com.example.refocus.feature.appselect
 import android.graphics.drawable.Drawable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.refocus.domain.repository.HiddenAppsRepository
 import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.domain.targets.UpdateTargetsUseCase
 import com.example.refocus.gateway.LaunchableAppProvider
@@ -24,6 +25,7 @@ class AppListViewModel
     @Inject
     constructor(
         private val targetsRepository: TargetsRepository,
+        private val hiddenAppsRepository: HiddenAppsRepository,
         private val updateTargetsUseCase: UpdateTargetsUseCase,
         private val launchableAppProvider: LaunchableAppProvider,
     ) : ViewModel() {
@@ -52,6 +54,17 @@ class AppListViewModel
         private val catalog = MutableStateFlow<List<AppCatalogItem>>(emptyList())
         private val selectedPackages = MutableStateFlow<Set<String>>(emptySet())
 
+        /**
+         * Phase2：候補から除外するアプリ集合（永続化された hiddenApps）．
+         *
+         * - フェーズ2では編集UIをまだ提供しないため，通常は空集合のまま．
+         * - ただし後続フェーズで hiddenApps が導入された際に，自動で UI と保存ガードに反映される．
+         */
+        val hiddenPackages: StateFlow<Set<String>> =
+            hiddenAppsRepository
+                .observeHiddenApps()
+                .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
         val apps: StateFlow<List<AppUiModel>> =
             combine(catalog, selectedPackages) { currentCatalog, currentSelected ->
                 currentCatalog.map { item ->
@@ -67,6 +80,7 @@ class AppListViewModel
 
         init {
             load()
+            keepSelectionConsistentWithHiddenApps()
         }
 
         private fun load() {
@@ -96,6 +110,18 @@ class AppListViewModel
             }
         }
 
+        private fun keepSelectionConsistentWithHiddenApps() {
+            viewModelScope.launch {
+                hiddenPackages.collect { hidden ->
+                    val current = selectedPackages.value
+                    val updated = current - hidden
+                    if (updated != current) {
+                        selectedPackages.value = updated
+                    }
+                }
+            }
+        }
+
         fun toggleSelection(packageName: String) {
             val current = selectedPackages.value
             selectedPackages.value = if (packageName in current) current - packageName else current + packageName
@@ -104,7 +130,9 @@ class AppListViewModel
         fun save(onSaved: () -> Unit) {
             viewModelScope.launch {
                 withContext(Dispatchers.Default) {
-                    updateTargetsUseCase.updateTargets(selectedPackages.value)
+                    // Phase2：hiddenApps を targets に保存しないためのガード．
+                    val targetsToSave = selectedPackages.value - hiddenPackages.value
+                    updateTargetsUseCase.updateTargets(targetsToSave)
                 }
                 onSaved()
             }

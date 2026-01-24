@@ -1,6 +1,7 @@
 package com.example.refocus.app.di
 
 import android.content.Context
+import com.example.refocus.data.datastore.HiddenAppsDataStore
 import com.example.refocus.data.datastore.OnboardingDataStore
 import com.example.refocus.data.datastore.OverlayHealthDataStore
 import com.example.refocus.data.datastore.PermissionStateDataStore
@@ -35,6 +36,12 @@ object DataStoreModule {
     fun provideTargetsDataStore(
         @ApplicationContext context: Context,
     ): TargetsDataStore = TargetsDataStore(context)
+
+    @Provides
+    @Singleton
+    fun provideHiddenAppsDataStore(
+        @ApplicationContext context: Context,
+    ): HiddenAppsDataStore = HiddenAppsDataStore(context)
 
     @Provides
     @Singleton

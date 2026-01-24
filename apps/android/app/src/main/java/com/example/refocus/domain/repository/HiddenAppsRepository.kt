@@ -1,0 +1,19 @@
+package com.example.refocus.domain.repository
+
+import kotlinx.coroutines.flow.Flow
+
+/**
+ * 対象アプリ選択画面における「候補から除外するアプリ」集合（packageName の Set）の永続化と購読の抽象．
+ *
+ * Phase2 ではイベント記録は行わず，DataStore 永続化と購読のみを提供する．
+ */
+interface HiddenAppsRepository {
+    fun observeHiddenApps(): Flow<Set<String>>
+
+    suspend fun setHiddenApps(
+        hiddenApps: Set<String>,
+        recordEvent: Boolean = false,
+    )
+
+    suspend fun clearForReset()
+}
