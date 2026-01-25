@@ -17,6 +17,7 @@ import com.example.refocus.domain.overlay.runtime.OverlayCoordinator
 import com.example.refocus.domain.overlay.runtime.OverlayEventDispatcher
 import com.example.refocus.domain.overlay.runtime.OverlaySideEffectHandler
 import com.example.refocus.domain.overlay.usecase.DailyUsageUseCase
+import com.example.refocus.domain.repository.HiddenAppsRepository
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.repository.TargetsRepository
@@ -56,6 +57,7 @@ internal class OverlayServiceComponentsFactory {
         timeSource: TimeSource,
         overlayHealthStore: OverlayHealthStore,
         targetsRepository: TargetsRepository,
+        hiddenAppsRepository: HiddenAppsRepository,
         settingsRepository: SettingsRepository,
         settingsCommand: SettingsCommand,
         suggestionsRepository: SuggestionsRepository,
@@ -208,6 +210,7 @@ internal class OverlayServiceComponentsFactory {
                 timeSource = timeSource,
                 overlayHealthStore = overlayHealthStore,
                 targetsRepository = targetsRepository,
+                hiddenAppsRepository = hiddenAppsRepository,
                 foregroundAppObserver = foregroundAppObserver,
                 runtimeState = runtimeState,
                 sessionTracker = sessionTracker,

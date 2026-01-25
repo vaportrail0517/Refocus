@@ -109,8 +109,35 @@ class AppSelectEditSessionViewModel
         }
 
         fun toggleHidden(packageName: String) {
+            val currentHidden = draftHidden.value
+            val willHide = packageName !in currentHidden
+
+            // hidden を ON にした瞬間に draftTargets からも同期的に除外する．
+            // draftHidden の collect でも整合を保っているが，非同期の反映遅延に依存しないよう即時に反映する．
+            if (willHide) {
+                draftHidden.value = currentHidden + packageName
+                val currentTargets = draftTargets.value
+                if (packageName in currentTargets) {
+                    draftTargets.value = currentTargets - packageName
+                }
+            } else {
+                draftHidden.value = currentHidden - packageName
+            }
+        }
+
+        /**
+         * 複数の package をまとめて非表示解除する（draft のみ）．
+         *
+         * - targets への追加は行わない（ユーザが明示的に対象として選び直す）．
+         * - 主に「アンインストール済み等で一覧に出ない非表示」を一括解除する用途を想定する．
+         */
+        fun unhidePackages(packageNames: Set<String>) {
+            if (packageNames.isEmpty()) return
             val current = draftHidden.value
-            draftHidden.value = if (packageName in current) current - packageName else current + packageName
+            val updated = current - packageNames
+            if (updated != current) {
+                draftHidden.value = updated
+            }
         }
 
         /**

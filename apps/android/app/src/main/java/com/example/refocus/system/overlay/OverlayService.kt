@@ -17,6 +17,7 @@ import com.example.refocus.core.util.TimeSource
 import com.example.refocus.domain.monitor.port.ForegroundAppObserver
 import com.example.refocus.domain.overlay.port.OverlayHealthStore
 import com.example.refocus.domain.overlay.runtime.OverlayCoordinator
+import com.example.refocus.domain.repository.HiddenAppsRepository
 import com.example.refocus.domain.repository.SettingsRepository
 import com.example.refocus.domain.repository.SuggestionsRepository
 import com.example.refocus.domain.repository.TargetsRepository
@@ -24,6 +25,7 @@ import com.example.refocus.domain.repository.TimelineRepository
 import com.example.refocus.domain.settings.SettingsCommand
 import com.example.refocus.domain.suggestion.SuggestionEngine
 import com.example.refocus.domain.suggestion.SuggestionSelector
+import com.example.refocus.domain.targets.EnsureTargetsExcludeHiddenAppsUseCase
 import com.example.refocus.domain.timeline.EventRecorder
 import com.example.refocus.gateway.di.getOverlayHealthStoreOrNull
 import com.example.refocus.system.appinfo.AppLabelResolver
@@ -98,6 +100,9 @@ class OverlayService : LifecycleService() {
     lateinit var targetsRepository: TargetsRepository
 
     @Inject
+    lateinit var hiddenAppsRepository: HiddenAppsRepository
+
+    @Inject
     lateinit var settingsRepository: SettingsRepository
 
     @Inject
@@ -127,6 +132,9 @@ class OverlayService : LifecycleService() {
     @Inject
     lateinit var appLabelResolver: AppLabelResolver
 
+    @Inject
+    lateinit var ensureTargetsExcludeHiddenAppsUseCase: EnsureTargetsExcludeHiddenAppsUseCase
+
     private lateinit var timerOverlayController: TimerOverlayController
     private lateinit var suggestionOverlayController: SuggestionOverlayController
     private lateinit var miniGameOverlayController: MiniGameOverlayController
@@ -155,6 +163,11 @@ class OverlayService : LifecycleService() {
 
         startHeartbeatUpdater()
 
+        // 永続データの不整合（targets に hidden が混入）を起動時に自動修復する
+        serviceScope.launch {
+            ensureTargetsExcludeHiddenAppsUseCase.ensure(recordEvent = false)
+        }
+
         lifecycleScope.launch {
             try {
                 eventRecorder.onServiceStarted()
@@ -172,6 +185,7 @@ class OverlayService : LifecycleService() {
                     timeSource = timeSource,
                     overlayHealthStore = overlayHealthStore,
                     targetsRepository = targetsRepository,
+                    hiddenAppsRepository = hiddenAppsRepository,
                     settingsRepository = settingsRepository,
                     settingsCommand = settingsCommand,
                     suggestionsRepository = suggestionsRepository,

@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.navigation.NavBackStackEntry
 import com.example.refocus.feature.appselect.components.SearchBar
 import com.example.refocus.feature.appselect.components.rememberAppIconPainter
 import com.example.refocus.feature.common.permissions.rememberPermissionStatusProvider
@@ -52,10 +53,21 @@ fun AppSelectScreen(
     onFinished: () -> Unit,
     onFinishedWithoutPermission: () -> Unit,
     onOpenHiddenApps: () -> Unit,
+    parentEntry: NavBackStackEntry? = null,
 ) {
     val permissionStatusProvider = rememberPermissionStatusProvider()
-    val catalogViewModel: AppListViewModel = hiltViewModel()
-    val sessionViewModel: AppSelectEditSessionViewModel = hiltViewModel()
+    val catalogViewModel: AppListViewModel =
+        if (parentEntry != null) {
+            hiltViewModel(parentEntry)
+        } else {
+            hiltViewModel()
+        }
+    val sessionViewModel: AppSelectEditSessionViewModel =
+        if (parentEntry != null) {
+            hiltViewModel(parentEntry)
+        } else {
+            hiltViewModel()
+        }
 
     val apps by catalogViewModel.apps.collectAsState()
     val selectedPackages by sessionViewModel.draftTargetsState.collectAsState()

@@ -10,6 +10,7 @@ import com.example.refocus.domain.overlay.model.OverlayRuntimeState
 import com.example.refocus.domain.overlay.port.OverlayHealthStore
 import com.example.refocus.domain.overlay.port.OverlayUiPort
 import com.example.refocus.domain.overlay.usecase.DailyUsageUseCase
+import com.example.refocus.domain.repository.HiddenAppsRepository
 import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.domain.timeline.EventRecorder
 import kotlinx.coroutines.CancellationException
@@ -55,6 +56,7 @@ class ForegroundTrackingOrchestrator(
     private val timeSource: TimeSource,
     private val overlayHealthStore: OverlayHealthStore,
     private val targetsRepository: TargetsRepository,
+    private val hiddenAppsRepository: HiddenAppsRepository,
     private val foregroundAppObserver: ForegroundAppObserver,
     private val runtimeState: MutableStateFlow<OverlayRuntimeState>,
     private val sessionTracker: OverlaySessionTracker,
@@ -246,7 +248,13 @@ class ForegroundTrackingOrchestrator(
     ) {
         // ここで例外を投げると supervise が拾って再起動する。
         // ただし，1 回の tick 内で起きた一時的な例外は，collect 内で握って監視継続する。
-        val targetsFlow = targetsRepository.observeTargets()
+        val targetsFlow =
+            combine(
+                targetsRepository.observeTargets(),
+                hiddenAppsRepository.observeHiddenApps(),
+            ) { targets, hidden ->
+                if (hidden.isEmpty()) targets else targets - hidden
+            }.distinctUntilChanged()
 
         // pollingIntervalMillis は runtimeState.customize から取得して単一の真実に寄せる
         val pollingIntervalFlow =

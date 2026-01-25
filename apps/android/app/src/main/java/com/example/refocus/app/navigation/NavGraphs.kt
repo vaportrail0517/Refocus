@@ -2,11 +2,13 @@ package com.example.refocus.app.navigation
 
 import android.app.Activity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navigation
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.feature.MainScreen
 import com.example.refocus.feature.appselect.AppSelectScreen
@@ -27,9 +29,15 @@ object Destinations {
     const val PERMISSION_FLOW = "permission_flow"
     const val PERMISSION_FLOW_FIX = "permission_flow_fix"
     const val ONBOARDING_READY = "onboarding_ready"
+
+    // AppSelect は「編集セッションを共有する画面群」なので，NavGraph を単位に ViewModel をスコープする．
+    const val APP_SELECT_GRAPH = "app_select_graph"
+    const val APP_SELECT_SETTINGS_GRAPH = "app_select_settings_graph"
     const val APP_SELECT = "app_select"
     const val APP_SELECT_SETTINGS = "app_select_settings"
-    const val HIDDEN_APPS = "hidden_apps"
+    const val APP_SELECT_HIDDEN_APPS = "app_select_hidden_apps"
+    const val APP_SELECT_SETTINGS_HIDDEN_APPS = "app_select_settings_hidden_apps"
+
     const val ONBOARDING_START_MODE = "onboarding_start_mode"
     const val ONBOARDING_FINISH = "onboarding_finish"
     const val HOME = "home"
@@ -92,63 +100,116 @@ fun RefocusNavHost() {
         composable(Destinations.ONBOARDING_READY) {
             OnboardingReadyScreen(
                 onSelectApps = {
-                    navController.navigate(Destinations.APP_SELECT)
+                    navController.navigate(Destinations.APP_SELECT_GRAPH)
                 },
             )
         }
 
-        composable(Destinations.APP_SELECT) {
-            AppSelectScreen(
-                onFinished = {
-                    navController.navigate(Destinations.ONBOARDING_START_MODE) {
-                        popUpTo(Destinations.ONBOARDING_READY) { inclusive = false }
+        navigation(
+            route = Destinations.APP_SELECT_GRAPH,
+            startDestination = Destinations.APP_SELECT,
+        ) {
+            composable(Destinations.APP_SELECT) {
+                val parentEntry =
+                    remember {
+                        navController.getBackStackEntry(Destinations.APP_SELECT_GRAPH)
                     }
-                },
-                onFinishedWithoutPermission = {
-                    navController.navigate(Destinations.ONBOARDING_FINISH) {
-                        popUpTo(Destinations.ONBOARDING_READY) { inclusive = false }
+
+                AppSelectScreen(
+                    onFinished = {
+                        navController.navigate(Destinations.ONBOARDING_START_MODE) {
+                            popUpTo(Destinations.ONBOARDING_READY) { inclusive = false }
+                        }
+                    },
+                    onFinishedWithoutPermission = {
+                        navController.navigate(Destinations.ONBOARDING_FINISH) {
+                            popUpTo(Destinations.ONBOARDING_READY) { inclusive = false }
+                        }
+                    },
+                    onOpenHiddenApps = {
+                        navController.navigate(Destinations.APP_SELECT_HIDDEN_APPS)
+                    },
+                    parentEntry = parentEntry,
+                )
+            }
+
+            composable(Destinations.APP_SELECT_HIDDEN_APPS) {
+                val parentEntry =
+                    remember {
+                        runCatching { navController.getBackStackEntry(Destinations.APP_SELECT_GRAPH) }.getOrNull()
                     }
-                },
-                onOpenHiddenApps = {
-                    navController.navigate(Destinations.HIDDEN_APPS)
-                },
-            )
-        }
 
-        composable(Destinations.APP_SELECT_SETTINGS) {
-            AppSelectScreen(
-                onFinished = {
-                    navController.popBackStack()
-                },
-                onFinishedWithoutPermission = {
-                    navController.popBackStack()
-                },
-                onOpenHiddenApps = {
-                    navController.navigate(Destinations.HIDDEN_APPS)
-                },
-            )
-        }
-
-        composable(Destinations.HIDDEN_APPS) {
-            val parentEntry =
-                remember {
-                    runCatching { navController.getBackStackEntry(Destinations.APP_SELECT_SETTINGS) }.getOrNull()
-                        ?: runCatching { navController.getBackStackEntry(Destinations.APP_SELECT) }.getOrNull()
+                if (parentEntry == null) {
+                    RefocusLog.w("NavGraphs") { "APP_SELECT_HIDDEN_APPS opened without graph entry. Redirect to APP_SELECT_GRAPH." }
+                    LaunchedEffect(Unit) {
+                        navController.navigate(Destinations.APP_SELECT_GRAPH) {
+                            popUpTo(Destinations.APP_SELECT_HIDDEN_APPS) { inclusive = true }
+                        }
+                    }
+                } else {
+                    HiddenAppsScreen(
+                        onNavigateBack = {
+                            navController.popBackStack()
+                        },
+                        parentEntry = parentEntry,
+                    )
                 }
+            }
+        }
 
-            HiddenAppsScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                parentEntry = parentEntry,
-            )
+        navigation(
+            route = Destinations.APP_SELECT_SETTINGS_GRAPH,
+            startDestination = Destinations.APP_SELECT_SETTINGS,
+        ) {
+            composable(Destinations.APP_SELECT_SETTINGS) {
+                val parentEntry =
+                    remember {
+                        navController.getBackStackEntry(Destinations.APP_SELECT_SETTINGS_GRAPH)
+                    }
+
+                AppSelectScreen(
+                    onFinished = {
+                        navController.popBackStack()
+                    },
+                    onFinishedWithoutPermission = {
+                        navController.popBackStack()
+                    },
+                    onOpenHiddenApps = {
+                        navController.navigate(Destinations.APP_SELECT_SETTINGS_HIDDEN_APPS)
+                    },
+                    parentEntry = parentEntry,
+                )
+            }
+
+            composable(Destinations.APP_SELECT_SETTINGS_HIDDEN_APPS) {
+                val parentEntry =
+                    remember {
+                        runCatching { navController.getBackStackEntry(Destinations.APP_SELECT_SETTINGS_GRAPH) }.getOrNull()
+                    }
+
+                if (parentEntry == null) {
+                    RefocusLog.w("NavGraphs") { "APP_SELECT_SETTINGS_HIDDEN_APPS opened without graph entry. Redirect to APP_SELECT_SETTINGS_GRAPH." }
+                    LaunchedEffect(Unit) {
+                        navController.navigate(Destinations.APP_SELECT_SETTINGS_GRAPH) {
+                            popUpTo(Destinations.APP_SELECT_SETTINGS_HIDDEN_APPS) { inclusive = true }
+                        }
+                    }
+                } else {
+                    HiddenAppsScreen(
+                        onNavigateBack = {
+                            navController.popBackStack()
+                        },
+                        parentEntry = parentEntry,
+                    )
+                }
+            }
         }
 
         composable(Destinations.ONBOARDING_START_MODE) {
             OnboardingStartModeScreen(
                 onDecide = {
                     navController.navigate(Destinations.ONBOARDING_FINISH) {
-                        popUpTo(Destinations.APP_SELECT) { inclusive = true }
+                        popUpTo(Destinations.APP_SELECT_GRAPH) { inclusive = true }
                     }
                 },
             )
@@ -168,7 +229,7 @@ fun RefocusNavHost() {
                         RefocusLog.w("NavGraphs") { "Failed to start OverlayService from onboarding_finish" }
                     }
                     navController.navigate(Destinations.HOME) {
-                        popUpTo(Destinations.APP_SELECT) { inclusive = true }
+                        popUpTo(Destinations.APP_SELECT_GRAPH) { inclusive = true }
                     }
                 },
             )
@@ -185,7 +246,7 @@ fun RefocusNavHost() {
         composable(Destinations.SETTINGS) {
             SettingsScreen(
                 onOpenAppSelect = {
-                    navController.navigate(Destinations.APP_SELECT_SETTINGS)
+                    navController.navigate(Destinations.APP_SELECT_SETTINGS_GRAPH)
                 },
                 onOpenPermissionFixFlow = {
                     navController.navigate(Destinations.PERMISSION_FLOW_FIX)
@@ -199,7 +260,7 @@ fun RefocusNavHost() {
         composable(Destinations.HOME) {
             MainScreen(
                 onOpenAppSelect = {
-                    navController.navigate(Destinations.APP_SELECT_SETTINGS)
+                    navController.navigate(Destinations.APP_SELECT_SETTINGS_GRAPH)
                 },
                 onOpenPermissionFixFlow = {
                     navController.navigate(Destinations.PERMISSION_FLOW_FIX)

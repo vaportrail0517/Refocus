@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.domain.repository.OnboardingRepository
 import com.example.refocus.domain.targets.EnsureAppCatalogForCurrentTargetsUseCase
+import com.example.refocus.domain.targets.EnsureTargetsExcludeHiddenAppsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,7 @@ class EntryViewModel
     constructor(
         val onboardingRepository: OnboardingRepository,
         private val ensureAppCatalogForCurrentTargetsUseCase: EnsureAppCatalogForCurrentTargetsUseCase,
+        private val ensureTargetsExcludeHiddenAppsUseCase: EnsureTargetsExcludeHiddenAppsUseCase,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(EntryUiState())
         val uiState: StateFlow<EntryUiState> = _uiState.asStateFlow()
@@ -32,6 +34,12 @@ class EntryViewModel
         init {
             viewModelScope.launch {
                 launch(Dispatchers.Default) {
+                    try {
+                        ensureTargetsExcludeHiddenAppsUseCase.ensure(recordEvent = false)
+                    } catch (e: Exception) {
+                        RefocusLog.w("EntryViewModel", e) { "Failed to normalize targets" }
+                    }
+
                     try {
                         ensureAppCatalogForCurrentTargetsUseCase.ensure()
                     } catch (e: Exception) {

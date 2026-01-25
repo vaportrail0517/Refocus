@@ -2,8 +2,10 @@ package com.example.refocus.feature.appselect
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +27,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -72,13 +75,33 @@ fun HiddenAppsScreen(
     var query by remember { mutableStateOf(TextFieldValue("")) }
     var confirmTargetsToRemove by remember { mutableStateOf<Set<String>>(emptySet()) }
 
+    val q = query.text.trim()
+
     val filtered =
-        remember(apps, query) {
-            val q = query.text.trim()
+        remember(apps, q) {
             if (q.isEmpty()) {
                 apps
             } else {
                 apps.filter { it.label.contains(q, ignoreCase = true) }
+            }
+        }
+
+    val knownPackages =
+        remember(apps) {
+            apps.map { it.packageName }.toSet()
+        }
+
+    val unknownHiddenAll: List<String> =
+        remember(draftHidden, knownPackages) {
+            draftHidden.filter { it !in knownPackages }.sorted()
+        }
+
+    val unknownHidden: List<String> =
+        remember(unknownHiddenAll, q) {
+            if (q.isEmpty()) {
+                unknownHiddenAll
+            } else {
+                unknownHiddenAll.filter { it.contains(q, ignoreCase = true) }
             }
         }
 
@@ -93,8 +116,8 @@ fun HiddenAppsScreen(
         SettingsBaseDialog(
             title = "対象から外れます",
             description =
-                "非表示にしたアプリは，対象アプリから外れます．\n" +
-                    "（保存済みの対象から外れるアプリ：${confirmTargetsToRemove.size}件）\n" +
+                "非表示にしたアプリは，対象アプリから外れます．" +
+                    "（保存済みの対象から外れるアプリ：${confirmTargetsToRemove.size}件）" +
                     "このまま保存しますか．",
             confirmLabel = "保存",
             dismissLabel = "キャンセル",
@@ -159,7 +182,10 @@ fun HiddenAppsScreen(
                     .padding(horizontal = 16.dp),
         ) {
             Text(
-                text = "ここで非表示にしたアプリは，対象アプリ選択画面の候補に表示されません．",
+                text =
+                    "ここで非表示にしたアプリは，対象アプリ選択画面の候補に表示されません．" +
+                        "非表示にしたアプリは対象アプリから外れます（保存時に反映）．" +
+                        "アンインストール済みなどで一覧に出ない非表示アプリは，パッケージ名で表示されます．",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
             )
@@ -177,7 +203,7 @@ fun HiddenAppsScreen(
             LazyColumn(
                 modifier = Modifier.weight(1f),
             ) {
-                if (hiddenApps.isEmpty() && visibleApps.isEmpty()) {
+                if (unknownHidden.isEmpty() && hiddenApps.isEmpty() && visibleApps.isEmpty()) {
                     item {
                         Text(
                             text = "該当するアプリがありません．",
@@ -186,6 +212,33 @@ fun HiddenAppsScreen(
                         )
                     }
                 } else {
+                    if (unknownHidden.isNotEmpty()) {
+                        item {
+                            SectionHeader(
+                                title = "見つからない非表示（${unknownHidden.size}）",
+                                action = {
+                                    TextButton(
+                                        onClick = { sessionViewModel.unhidePackages(unknownHidden.toSet()) },
+                                        enabled = isLoaded && !isSaving,
+                                    ) {
+                                        Text("すべて解除")
+                                    }
+                                },
+                            )
+                        }
+                        items(
+                            items = unknownHidden,
+                            key = { it },
+                        ) { packageName ->
+                            UnknownHiddenRow(
+                                packageName = packageName,
+                                isCommittedTarget = packageName in committedTargets,
+                                onClick = { sessionViewModel.toggleHidden(packageName) },
+                            )
+                        }
+                        item { Spacer(modifier = Modifier.height(8.dp)) }
+                    }
+
                     if (hiddenApps.isNotEmpty()) {
                         item { SectionHeader(title = "非表示中（${hiddenApps.size}）") }
                         items(
@@ -231,15 +284,24 @@ fun HiddenAppsScreen(
 }
 
 @Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
+private fun SectionHeader(
+    title: String,
+    action: (@Composable () -> Unit)? = null,
+) {
+    Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .padding(top = 12.dp, bottom = 4.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+        )
+        action?.invoke()
+    }
 }
 
 @Composable
@@ -249,7 +311,7 @@ private fun HiddenAppRow(
     isTarget: Boolean,
     onClick: () -> Unit,
 ) {
-    androidx.compose.foundation.layout.Row(
+    Row(
         modifier =
             Modifier
                 .fillMaxWidth()
@@ -295,6 +357,49 @@ private fun HiddenAppRow(
 
         Checkbox(
             checked = isHidden,
+            onCheckedChange = { onClick() },
+        )
+    }
+}
+
+@Composable
+private fun UnknownHiddenRow(
+    packageName: String,
+    isCommittedTarget: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable { onClick() }
+                .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // アイコンが取得できないためプレースホルダのみ表示する
+        Box(modifier = Modifier.size(40.dp))
+
+        Column(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp),
+        ) {
+            Text(packageName)
+            Text(
+                text = "見つかりません（アンインストール済みなど）",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (isCommittedTarget) {
+                Text(
+                    text = "保存済み：対象",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+
+        Checkbox(
+            checked = true,
             onCheckedChange = { onClick() },
         )
     }
