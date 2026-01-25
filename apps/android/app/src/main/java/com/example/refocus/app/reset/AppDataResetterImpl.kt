@@ -1,6 +1,7 @@
 package com.example.refocus.app.reset
 
 import com.example.refocus.data.db.RefocusDatabase
+import com.example.refocus.domain.repository.HiddenAppsRepository
 import com.example.refocus.domain.repository.OnboardingRepository
 import com.example.refocus.domain.repository.TargetsRepository
 import com.example.refocus.domain.reset.port.AppDataResetter
@@ -23,6 +24,7 @@ class AppDataResetterImpl
         private val database: RefocusDatabase,
         private val settingsCommand: SettingsCommand,
         private val targetsRepository: TargetsRepository,
+        private val hiddenAppsRepository: HiddenAppsRepository,
         private val onboardingRepository: OnboardingRepository,
     ) : AppDataResetter {
         override suspend fun resetAll() =
@@ -31,6 +33,7 @@ class AppDataResetterImpl
                 // リセット時はタイムラインも初期化されるため，イベント記録は行わない
                 settingsCommand.resetToDefaults(source = "app_reset", recordEvent = false)
                 targetsRepository.clearForReset()
+                hiddenAppsRepository.clearForReset()
                 onboardingRepository.setCompleted(false)
             }
     }
