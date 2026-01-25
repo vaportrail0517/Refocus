@@ -10,11 +10,11 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -28,8 +28,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,13 +39,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.example.refocus.feature.appselect.components.SearchBar
+import com.example.refocus.feature.appselect.components.rememberAppIconPainter
 import com.example.refocus.feature.common.permissions.rememberPermissionStatusProvider
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -405,14 +403,12 @@ private fun AppRow(
                 .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Drawable → Painter 変換（パッケージ名ごとに remember）
         val iconPainter =
-            remember(app.packageName) {
-                app.icon?.let { drawable ->
-                    val bitmap = drawable.toBitmap()
-                    BitmapPainter(bitmap.asImageBitmap())
-                }
-            }
+            rememberAppIconPainter(
+                packageName = app.packageName,
+                icon = app.icon,
+                size = 40.dp,
+            )
 
         if (iconPainter != null) {
             Image(

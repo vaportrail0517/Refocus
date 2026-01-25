@@ -147,11 +147,12 @@ class DefaultStatsUseCase
             if (events.isEmpty()) return null
 
             val targets = targetsRepository.observeTargets().first()
-            val eventsForProjection = ensureTargetAppsSeedIfMissing(
-                events = events,
-                fallbackTargets = targets,
-                windowStartMillis = windowStart,
-            )
+            val eventsForProjection =
+                ensureTargetAppsSeedIfMissing(
+                    events = events,
+                    fallbackTargets = targets,
+                    windowStartMillis = windowStart,
+                )
 
             return buildDailyStatsForDate(
                 date = date,
@@ -181,7 +182,6 @@ class DefaultStatsUseCase
             val seed = TargetAppsChangedEvent(timestampMillis = baseTs, targetPackages = fallbackTargets)
             return (events + seed).sortedBy { it.timestampMillis }
         }
-
 
         /**
          * 共通の「日次統計計算」の本体。

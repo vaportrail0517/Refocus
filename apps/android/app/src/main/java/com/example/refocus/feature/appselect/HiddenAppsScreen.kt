@@ -34,14 +34,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import com.example.refocus.feature.appselect.components.SearchBar
+import com.example.refocus.feature.appselect.components.rememberAppIconPainter
 import com.example.refocus.ui.components.SettingsBaseDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -260,12 +258,11 @@ private fun HiddenAppRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val iconPainter =
-            remember(app.packageName) {
-                app.icon?.let { drawable ->
-                    val bitmap = drawable.toBitmap()
-                    BitmapPainter(bitmap.asImageBitmap())
-                }
-            }
+            rememberAppIconPainter(
+                packageName = app.packageName,
+                icon = app.icon,
+                size = 40.dp,
+            )
 
         if (iconPainter != null) {
             Image(

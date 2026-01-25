@@ -236,7 +236,6 @@ class SessionHistoryViewModel
             const val TAG = "SessionHistoryViewModel"
         }
 
-
         private fun resolveAppName(packageName: String): String = appLabelProvider.labelOf(packageName)
 
         private fun formatDateTime(millis: Long): String = dateTimeFormat.format(Date(millis))
