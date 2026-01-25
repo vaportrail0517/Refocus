@@ -93,23 +93,23 @@ fun MiniGameIntroScreen(
                         )
                     }
 
-                    val metaLines =
-                        buildList {
-                            descriptor.estimatedSeconds?.let { add("目安: ${it}秒") }
-                        }
-                    if (metaLines.isNotEmpty()) {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            metaLines.forEach { line ->
-                                Text(
-                                    text = line,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
+//                    val metaLines =
+//                        buildList {
+//                            descriptor.estimatedSeconds?.let { add("目安: ${it}秒") }
+//                        }
+//                    if (metaLines.isNotEmpty()) {
+//                        Column(
+//                            verticalArrangement = Arrangement.spacedBy(4.dp),
+//                        ) {
+//                            metaLines.forEach { line ->
+//                                Text(
+//                                    text = line,
+//                                    style = MaterialTheme.typography.bodySmall,
+//                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+//                                )
+//                            }
+//                        }
+//                    }
                 }
             }
 

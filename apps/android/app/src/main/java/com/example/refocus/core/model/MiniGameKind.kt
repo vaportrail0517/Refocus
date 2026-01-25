@@ -10,6 +10,7 @@ enum class MiniGameKind {
     FlashAnzan,
     MakeTen,
     EightPuzzle,
+    LightsOut,
     MirrorText,
     Memoji,
     Minesweeper,
