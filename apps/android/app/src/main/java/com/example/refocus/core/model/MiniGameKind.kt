@@ -12,4 +12,5 @@ enum class MiniGameKind {
     EightPuzzle,
     MirrorText,
     Memoji,
+    Minesweeper,
 }
