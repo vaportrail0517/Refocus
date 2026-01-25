@@ -14,4 +14,5 @@ enum class MiniGameKind {
     MirrorText,
     Memoji,
     Minesweeper,
+    Stroop,
 }

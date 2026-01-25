@@ -8,6 +8,7 @@ import com.example.refocus.ui.minigame.games.lightsout.lightsOutEntry
 import com.example.refocus.ui.minigame.games.memoji.memojiEntry
 import com.example.refocus.ui.minigame.games.minesweeper.minesweeperEntry
 import com.example.refocus.ui.minigame.games.mirrortext.mirrorTextEntry
+import com.example.refocus.ui.minigame.games.stroop.stroopEntry
 
 /**
  * 実装済みのミニゲームを列挙するレジストリ。
@@ -26,6 +27,7 @@ object MiniGameRegistry {
             minesweeperEntry,
             mirrorTextEntry,
             memojiEntry,
+            stroopEntry,
         )
 
     private val byKind: Map<MiniGameKind, MiniGameEntry> =
