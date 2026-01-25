@@ -6,6 +6,7 @@ import com.example.refocus.core.model.Session
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionPart
 import com.example.refocus.core.model.SessionStats
+import com.example.refocus.core.model.TargetAppsChangedEvent
 import com.example.refocus.core.model.TimelineEvent
 import com.example.refocus.core.util.MILLIS_PER_HOUR
 import com.example.refocus.core.util.TimeSource
@@ -145,15 +146,42 @@ class DefaultStatsUseCase
                 )
             if (events.isEmpty()) return null
 
+            val targets = targetsRepository.observeTargets().first()
+            val eventsForProjection = ensureTargetAppsSeedIfMissing(
+                events = events,
+                fallbackTargets = targets,
+                windowStartMillis = windowStart,
+            )
+
             return buildDailyStatsForDate(
                 date = date,
-                events = events,
+                events = eventsForProjection,
                 customize = settings,
                 // セッション投影は TargetAppsChangedEvent から「当時の対象集合」を復元するため，
                 // 現在の targets をフィルタとして渡さない。
                 nowMillis = nowMillisForDay,
             )
         }
+
+        private fun ensureTargetAppsSeedIfMissing(
+            events: List<TimelineEvent>,
+            fallbackTargets: Set<String>,
+            windowStartMillis: Long,
+        ): List<TimelineEvent> {
+            if (fallbackTargets.isEmpty()) return events
+            if (events.any { it is TargetAppsChangedEvent }) return events
+
+            val baseTs =
+                if (events.isNotEmpty()) {
+                    minOf(windowStartMillis, events.minOf { it.timestampMillis })
+                } else {
+                    windowStartMillis
+                }.coerceAtLeast(0L)
+
+            val seed = TargetAppsChangedEvent(timestampMillis = baseTs, targetPackages = fallbackTargets)
+            return (events + seed).sortedBy { it.timestampMillis }
+        }
+
 
         /**
          * 共通の「日次統計計算」の本体。

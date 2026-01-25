@@ -2,10 +2,12 @@ package com.example.refocus.feature.history.session
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.refocus.core.logging.RefocusLog
 import com.example.refocus.core.model.Customize
 import com.example.refocus.core.model.SessionEvent
 import com.example.refocus.core.model.SessionStats
 import com.example.refocus.core.model.SessionStatus
+import com.example.refocus.core.model.TargetAppsChangedEvent
 import com.example.refocus.core.model.TimelineEvent
 import com.example.refocus.core.util.TimeSource
 import com.example.refocus.core.util.formatDurationMilliSeconds
@@ -105,6 +107,7 @@ class SessionHistoryViewModel
                         customize = input.customize,
                         targets = input.targets,
                         foregroundPackage = input.foregroundPackage,
+                        windowStartMillis = windowStart,
                     )
                 }
             }
@@ -122,6 +125,7 @@ class SessionHistoryViewModel
             customize: Customize,
             targets: Set<String>,
             foregroundPackage: String?,
+            windowStartMillis: Long,
         ) {
             if (events.isEmpty()) {
                 _uiState.value =
@@ -134,10 +138,17 @@ class SessionHistoryViewModel
 
             val nowMillis = timeSource.nowMillis()
 
+            val eventsForProjection =
+                ensureTargetAppsSeedIfMissing(
+                    events = events,
+                    fallbackTargets = targets,
+                    windowStartMillis = windowStartMillis,
+                )
+
             // TimelineEvent からセッションとイベント列を再構成（共通プロジェクタに一本化）
             val projection =
                 TimelineProjector.project(
-                    events = events,
+                    events = eventsForProjection,
                     config = TimelineInterpretationConfig(stopGracePeriodMillis = customize.gracePeriodMillis),
                     nowMillis = nowMillis,
                     zoneId = ZoneId.systemDefault(),
@@ -197,6 +208,34 @@ class SessionHistoryViewModel
                     isLoading = false,
                 )
         }
+
+        private fun ensureTargetAppsSeedIfMissing(
+            events: List<TimelineEvent>,
+            fallbackTargets: Set<String>,
+            windowStartMillis: Long,
+        ): List<TimelineEvent> {
+            if (fallbackTargets.isEmpty()) return events
+            if (events.any { it is TargetAppsChangedEvent }) return events
+
+            val baseTs =
+                if (events.isNotEmpty()) {
+                    minOf(windowStartMillis, events.minOf { it.timestampMillis })
+                } else {
+                    windowStartMillis
+                }.coerceAtLeast(0L)
+
+            RefocusLog.w(TAG) {
+                "TargetAppsChangedEvent が見つからないため，現在の対象アプリ（${fallbackTargets.size}件）を seed として補完します（ts=$baseTs）"
+            }
+
+            val seed = TargetAppsChangedEvent(timestampMillis = baseTs, targetPackages = fallbackTargets)
+            return (events + seed).sortedBy { it.timestampMillis }
+        }
+
+        private companion object {
+            const val TAG = "SessionHistoryViewModel"
+        }
+
 
         private fun resolveAppName(packageName: String): String = appLabelProvider.labelOf(packageName)
 

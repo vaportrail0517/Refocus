@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,13 +26,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,10 +64,18 @@ fun AppSelectScreen(
     val hiddenPackages by sessionViewModel.draftHiddenState.collectAsState()
     val isLoaded by sessionViewModel.isLoadedState.collectAsState()
     val isSaving by sessionViewModel.isSavingState.collectAsState()
+
     var query by remember { mutableStateOf(TextFieldValue("")) }
-    val filtered =
-        remember(apps, query) {
-            val q = query.text.trim()
+    val q = query.text.trim()
+
+    // Phase6（UX）：非表示が原因で「見つからない」状況を解消するため，
+    // - 非表示件数の可視化と管理導線
+    // - 検索時に「非表示も含める」トグル
+    // - 検索結果が0のときに原因候補と導線を提示
+    var includeHiddenInSearch by rememberSaveable { mutableStateOf(false) }
+
+    val searchMatched =
+        remember(apps, q) {
             if (q.isEmpty()) {
                 apps
             } else {
@@ -73,12 +85,13 @@ fun AppSelectScreen(
 
     // Phase1（対象選択UI改善）：選択中を常に上部に集約して表示する
     // Phase2（hiddenApps 基盤）：候補から hiddenApps を除外できるようにする
-    val (selectedApps, candidateApps) =
-        remember(filtered, selectedPackages, hiddenPackages) {
-            val selected = filtered.filter { it.packageName in selectedPackages }
-            val candidates = filtered.filter { it.packageName !in selectedPackages && it.packageName !in hiddenPackages }
-            selected to candidates
-        }
+    val selectedApps = searchMatched.filter { it.packageName in selectedPackages }
+    val nonSelectedMatched = searchMatched.filter { it.packageName !in selectedPackages }
+    val visibleCandidates = nonSelectedMatched.filter { it.packageName !in hiddenPackages }
+    val hiddenMatched = nonSelectedMatched.filter { it.packageName in hiddenPackages }
+    val hiddenMatchesToShow = if (includeHiddenInSearch && q.isNotEmpty()) hiddenMatched else emptyList()
+
+    val hiddenCount = hiddenPackages.size
 
     Scaffold(
         modifier =
@@ -146,14 +159,52 @@ fun AppSelectScreen(
                         .padding(vertical = 8.dp),
                 label = "検索",
             )
+
+            if (hiddenCount > 0) {
+                HiddenAppsInfoBar(
+                    hiddenCount = hiddenCount,
+                    onOpenHiddenApps = onOpenHiddenApps,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                if (q.isNotEmpty()) {
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(
+                            checked = includeHiddenInSearch,
+                            onCheckedChange = { includeHiddenInSearch = it },
+                        )
+                        Text(
+                            text = "検索で非表示も含める",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             LazyColumn(
                 modifier = Modifier.weight(1f),
             ) {
-                if (selectedApps.isEmpty() && candidateApps.isEmpty()) {
+                val isAllEmpty = selectedApps.isEmpty() && visibleCandidates.isEmpty() && hiddenMatchesToShow.isEmpty()
+
+                if (isAllEmpty) {
                     item {
-                        Text(
-                            text = "該当するアプリがありません．",
-                            style = MaterialTheme.typography.bodyMedium,
+                        EmptySearchState(
+                            query = q,
+                            hiddenMatchedCount = hiddenMatched.size,
+                            onOpenHiddenApps = onOpenHiddenApps,
+                            onEnableIncludeHiddenInSearch = {
+                                includeHiddenInSearch = true
+                            },
                             modifier = Modifier.padding(vertical = 16.dp),
                         )
                     }
@@ -169,36 +220,156 @@ fun AppSelectScreen(
                             AppRow(
                                 app = appItem,
                                 isSelected = appItem.packageName in selectedPackages,
+                                isHidden = false,
                                 onClick = { sessionViewModel.toggleTarget(appItem.packageName) },
+                                onHiddenClick = onOpenHiddenApps,
                             )
                         }
                         item { Spacer(modifier = Modifier.height(8.dp)) }
                     }
 
                     item {
-                        SectionHeader(title = "候補（${candidateApps.size}）")
+                        SectionHeader(title = "候補（${visibleCandidates.size}）")
                     }
-                    if (candidateApps.isEmpty()) {
+
+                    if (visibleCandidates.isEmpty()) {
                         item {
+                            val msg =
+                                if (q.isNotEmpty() && hiddenMatched.isNotEmpty() && !includeHiddenInSearch) {
+                                    "候補がありません．検索に一致するアプリが非表示に${hiddenMatched.size}件あります．"
+                                } else {
+                                    "候補がありません．"
+                                }
                             Text(
-                                text = "候補がありません．",
+                                text = msg,
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.padding(vertical = 8.dp),
                             )
+                            if (q.isNotEmpty() && hiddenMatched.isNotEmpty() && !includeHiddenInSearch) {
+                                TextButton(onClick = { includeHiddenInSearch = true }) {
+                                    Text("検索で非表示も含めるをONにする")
+                                }
+                            }
                         }
                     } else {
                         items(
-                            items = candidateApps,
+                            items = visibleCandidates,
                             key = { it.packageName },
                         ) { appItem ->
                             AppRow(
                                 app = appItem,
                                 isSelected = appItem.packageName in selectedPackages,
+                                isHidden = false,
                                 onClick = { sessionViewModel.toggleTarget(appItem.packageName) },
+                                onHiddenClick = onOpenHiddenApps,
+                            )
+                        }
+                    }
+
+                    if (hiddenMatchesToShow.isNotEmpty()) {
+                        item { Spacer(modifier = Modifier.height(8.dp)) }
+                        item {
+                            SectionHeader(title = "非表示（検索結果）（${hiddenMatchesToShow.size}）")
+                        }
+                        items(
+                            items = hiddenMatchesToShow,
+                            key = { it.packageName },
+                        ) { appItem ->
+                            AppRow(
+                                app = appItem,
+                                isSelected = false,
+                                isHidden = true,
+                                onClick = { },
+                                onHiddenClick = onOpenHiddenApps,
                             )
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HiddenAppsInfoBar(
+    hiddenCount: Int,
+    onOpenHiddenApps: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier =
+            modifier
+                .clickable { onOpenHiddenApps() },
+        tonalElevation = 2.dp,
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "非表示中のアプリが${hiddenCount}件あります．",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = "管理",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptySearchState(
+    query: String,
+    hiddenMatchedCount: Int,
+    onOpenHiddenApps: () -> Unit,
+    onEnableIncludeHiddenInSearch: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        val hasQuery = query.isNotEmpty()
+        val hasHiddenHit = hiddenMatchedCount > 0
+
+        val msg =
+            when {
+                hasQuery && hasHiddenHit ->
+                    "該当する候補がありません．検索に一致するアプリが非表示に${hiddenMatchedCount}件あります．"
+                hasQuery ->
+                    "該当するアプリがありません．"
+                else ->
+                    "該当するアプリがありません．"
+            }
+
+        Text(
+            text = msg,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+
+        if (hasQuery && hasHiddenHit) {
+            Row(
+                modifier = Modifier.padding(top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = onOpenHiddenApps) {
+                    Text("非表示アプリを管理")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                TextButton(onClick = onEnableIncludeHiddenInSearch) {
+                    Text("検索で非表示も含めるをONにする")
+                }
+            }
+        } else if (!hasQuery && hiddenMatchedCount > 0) {
+            TextButton(
+                onClick = onOpenHiddenApps,
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                Text("非表示アプリを管理")
             }
         }
     }
@@ -220,13 +391,17 @@ private fun SectionHeader(title: String) {
 private fun AppRow(
     app: AppListViewModel.AppCatalogUiModel,
     isSelected: Boolean,
+    isHidden: Boolean,
     onClick: () -> Unit,
+    onHiddenClick: () -> Unit,
 ) {
+    val rowClick = if (isHidden) onHiddenClick else onClick
+
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable { onClick() }
+                .clickable { rowClick() }
                 .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -234,11 +409,11 @@ private fun AppRow(
         val iconPainter =
             remember(app.packageName) {
                 app.icon?.let { drawable ->
-                    // サイズは Drawable 側に任せつつ，そのままBitmap化
                     val bitmap = drawable.toBitmap()
                     BitmapPainter(bitmap.asImageBitmap())
                 }
             }
+
         if (iconPainter != null) {
             Image(
                 painter = iconPainter,
@@ -251,9 +426,10 @@ private fun AppRow(
                     Modifier
                         .size(40.dp),
             ) {
-                //  Text(app.label.firstOrNull()?.toString() ?: "") などでもOK
+                // noop
             }
         }
+
         Column(
             modifier =
                 Modifier
@@ -263,10 +439,19 @@ private fun AppRow(
             Text(app.label)
             Text(formatUsage(app.usageTimeMs), style = MaterialTheme.typography.bodySmall)
         }
-        Checkbox(
-            checked = isSelected,
-            onCheckedChange = { onClick() },
-        )
+
+        if (isHidden) {
+            Text(
+                text = "非表示中",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onClick() },
+            )
+        }
     }
 }
 
