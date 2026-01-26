@@ -15,4 +15,5 @@ enum class MiniGameKind {
     Memoji,
     Minesweeper,
     Stroop,
+    WhackAMole,
 }
