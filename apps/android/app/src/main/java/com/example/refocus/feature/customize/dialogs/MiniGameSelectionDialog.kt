@@ -26,7 +26,6 @@ fun MiniGameSelectionDialog(
     val descriptors =
         remember {
             MiniGameRegistry.descriptors
-                .sortedBy { it.title }
         }
 
     var disabledKinds by remember(currentDisabledKinds) { mutableStateOf(currentDisabledKinds) }
@@ -37,6 +36,7 @@ fun MiniGameSelectionDialog(
     SettingsBaseDialog(
         title = "提案に出すミニゲーム",
         description = "オンのミニゲームのみ，提案時にランダムで表示されます．",
+        scrollableBody = true,
         onConfirm = { onConfirm(disabledKinds) },
         onDismiss = onDismiss,
     ) {
