@@ -1,0 +1,6 @@
+displayName	キリル文字（地名）
+direction	LTR
+source	wikidata_cc0
+scheme	wikidata_en_label_v1
+allowedCountriesIso2	RU,KZ,MN
+validateRomanAgainstTokens	false

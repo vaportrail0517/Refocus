@@ -9,6 +9,7 @@ import com.example.refocus.ui.minigame.games.maketen.makeTenEntry
 import com.example.refocus.ui.minigame.games.memoji.memojiEntry
 import com.example.refocus.ui.minigame.games.minesweeper.minesweeperEntry
 import com.example.refocus.ui.minigame.games.mirrortext.mirrorTextEntry
+import com.example.refocus.ui.minigame.games.romanizationquiz.romanizationQuizEntry
 import com.example.refocus.ui.minigame.games.stroop.stroopEntry
 import com.example.refocus.ui.minigame.games.whackamole.whackAMoleEntry
 
@@ -22,14 +23,15 @@ import com.example.refocus.ui.minigame.games.whackamole.whackAMoleEntry
 object MiniGameRegistry {
     val entries: List<MiniGameEntry> =
         listOf(
+            eightPuzzleEntry,
             flashAnzanEntry,
             hanoiPuzzleEntry,
-            makeTenEntry,
-            eightPuzzleEntry,
             lightsOutEntry,
+            makeTenEntry,
             minesweeperEntry,
             mirrorTextEntry,
             memojiEntry,
+            romanizationQuizEntry,
             stroopEntry,
             whackAMoleEntry,
         )

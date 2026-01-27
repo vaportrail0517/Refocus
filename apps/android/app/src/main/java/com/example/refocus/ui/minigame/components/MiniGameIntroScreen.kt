@@ -13,7 +13,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -169,17 +168,17 @@ fun MiniGameIntroScreen(
                 Text(descriptor.primaryActionLabel)
             }
 
-            if (descriptor.canSkipBeforeStart) {
-                OutlinedButton(
-                    onClick = onSkip,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .testTag(MiniGameTestTags.INTRO_SKIP_BUTTON),
-                ) {
-                    Text(skipLabel)
-                }
-            }
+//            if (descriptor.canSkipBeforeStart) {
+//                OutlinedButton(
+//                    onClick = onSkip,
+//                    modifier =
+//                        Modifier
+//                            .fillMaxWidth()
+//                            .testTag(MiniGameTestTags.INTRO_SKIP_BUTTON),
+//                ) {
+//                    Text(skipLabel)
+//                }
+//            }
         }
     }
 }
