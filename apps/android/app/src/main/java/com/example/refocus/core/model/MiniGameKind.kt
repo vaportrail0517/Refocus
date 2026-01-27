@@ -12,4 +12,5 @@ enum class MiniGameKind {
     RomanizationQuiz,
     Stroop,
     WhackAMole,
+    MorseTreeWord,
 }
