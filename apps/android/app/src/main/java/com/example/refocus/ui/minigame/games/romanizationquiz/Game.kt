@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,6 +60,14 @@ private sealed interface PlanLoadState {
     data class Loaded(val plan: RomanizationQuizSessionPlan) : PlanLoadState
     data class Error(val message: String) : PlanLoadState
 }
+
+
+private data class RoundOutcome(
+    val questionScript: String,
+    val options: List<String>,
+    val correctIndex: Int,
+    val selectedIndex: Int?,
+)
 
 @Composable
 fun Game(
@@ -201,6 +210,8 @@ private fun GameWithPlan(
     var correctCount by remember(seed, plan.pack.packId) { mutableIntStateOf(0) }
     var remainingSeconds by remember(seed, plan.pack.packId) { mutableIntStateOf(plan.timeLimitSeconds) }
 
+    val outcomes = remember(seed, plan.pack.packId) { mutableStateListOf<RoundOutcome>() }
+
     var lastSelectedIndex by remember(seed, plan.pack.packId) { mutableIntStateOf(-1) }
     var lastWasCorrect by remember(seed, plan.pack.packId) { mutableStateOf<Boolean?>(null) }
 
@@ -212,6 +223,20 @@ private fun GameWithPlan(
             if (phase == Phase.Result) break
             remainingSeconds -= 1
             if (remainingSeconds <= 0) {
+                // タイムアウトで未回答のまま終わった場合も，結果画面で確認できるように記録する
+                if (phase == Phase.Playing && currentIndex == outcomes.size) {
+                    val round = plan.rounds.getOrNull(currentIndex)
+                    if (round != null) {
+                        outcomes.add(
+                            RoundOutcome(
+                                questionScript = round.questionScript,
+                                options = round.options.toList(),
+                                correctIndex = round.correctIndex,
+                                selectedIndex = null,
+                            ),
+                        )
+                    }
+                }
                 phase = Phase.Result
                 break
             }
@@ -253,6 +278,7 @@ private fun GameWithPlan(
                 ResultScreen(
                     correctCount = correctCount,
                     total = plan.rounds.size,
+                    outcomes = outcomes,
                     onFinished = onFinished,
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -264,6 +290,7 @@ private fun GameWithPlan(
                     ResultScreen(
                         correctCount = correctCount,
                         total = plan.rounds.size,
+                        outcomes = outcomes,
                         onFinished = onFinished,
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -281,6 +308,14 @@ private fun GameWithPlan(
                             lastWasCorrect = correct
                             answeredCount += 1
                             if (correct) correctCount += 1
+                            outcomes.add(
+                                RoundOutcome(
+                                    questionScript = round.questionScript,
+                                    options = round.options.toList(),
+                                    correctIndex = round.correctIndex,
+                                    selectedIndex = selectedIndex,
+                                ),
+                            )
                             phase = Phase.Feedback
                         },
                         modifier = Modifier.fillMaxSize(),
@@ -541,6 +576,8 @@ private fun OptionButton(
                     ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        disabledContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        disabledContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     ),
                 modifier = modifier,
             ) {
@@ -557,6 +594,8 @@ private fun OptionButton(
                     ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                         contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        disabledContainerColor = MaterialTheme.colorScheme.errorContainer,
+                        disabledContentColor = MaterialTheme.colorScheme.onErrorContainer,
                     ),
                 modifier = modifier,
             ) {
@@ -581,28 +620,111 @@ private fun OptionButton(
 private fun ResultScreen(
     correctCount: Int,
     total: Int,
+    outcomes: List<RoundOutcome>,
     onFinished: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val scroll = rememberScrollState()
+    val safeTotal = total.coerceAtLeast(1)
+    val unanswered = (safeTotal - outcomes.size).coerceAtLeast(0)
+
     Column(
-        modifier = modifier,
+        modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.heightIn(min = 12.dp))
 
-        Text(
-            text = "結果",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = "正解 ${correctCount.coerceAtLeast(0)}/${total.coerceAtLeast(1)}",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
+        if (unanswered > 0) {
+            Text(
+                text = "未回答 ${unanswered}/${safeTotal}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
-        Spacer(Modifier.weight(1f))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(scroll)
+                .padding(horizontal = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (outcomes.isEmpty()) {
+                Text(
+                    text = "結果を表示できませんでした．",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                )
+            } else {
+                outcomes.forEachIndexed { idx, o ->
+                    val correctLabel = o.options.getOrNull(o.correctIndex).orEmpty()
+                    val selectedLabel = o.selectedIndex?.let { o.options.getOrNull(it).orEmpty() }
+                    val status =
+                        when {
+                            o.selectedIndex == null -> "未回答"
+                            o.selectedIndex == o.correctIndex -> "正解"
+                            else -> "不正解"
+                        }
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        tonalElevation = 0.dp,
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "第${idx + 1}問",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    text = status,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+
+                            Text(
+                                text = o.questionScript,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+
+                            Text(text = "正解: ${correctLabel}", style = MaterialTheme.typography.bodyMedium)
+                            Text(text = "あなた: ${selectedLabel ?: "未回答"}", style = MaterialTheme.typography.bodyMedium)
+
+                            OptionsGrid(
+                                options = o.options,
+                                correctIndex = o.correctIndex,
+                                selectedIndex = o.selectedIndex ?: -1,
+                                enabled = false,
+                                showFeedback = true,
+                                onSelect = { _ -> },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         Button(
             onClick = onFinished,
