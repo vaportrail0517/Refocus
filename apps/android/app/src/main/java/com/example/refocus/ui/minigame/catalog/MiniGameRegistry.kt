@@ -3,9 +3,16 @@ package com.example.refocus.ui.minigame.catalog
 import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.ui.minigame.games.eightpuzzle.eightPuzzleEntry
 import com.example.refocus.ui.minigame.games.flashanzan.flashAnzanEntry
+import com.example.refocus.ui.minigame.games.hanoipuzzle.hanoiPuzzleEntry
+import com.example.refocus.ui.minigame.games.lightsout.lightsOutEntry
 import com.example.refocus.ui.minigame.games.maketen.makeTenEntry
 import com.example.refocus.ui.minigame.games.memoji.memojiEntry
+import com.example.refocus.ui.minigame.games.minesweeper.minesweeperEntry
 import com.example.refocus.ui.minigame.games.mirrortext.mirrorTextEntry
+import com.example.refocus.ui.minigame.games.morsetreeword.morseTreeWordEntry
+import com.example.refocus.ui.minigame.games.romanizationquiz.romanizationQuizEntry
+import com.example.refocus.ui.minigame.games.stroop.stroopEntry
+import com.example.refocus.ui.minigame.games.whackamole.whackAMoleEntry
 
 /**
  * 実装済みのミニゲームを列挙するレジストリ。
@@ -17,11 +24,18 @@ import com.example.refocus.ui.minigame.games.mirrortext.mirrorTextEntry
 object MiniGameRegistry {
     val entries: List<MiniGameEntry> =
         listOf(
-            flashAnzanEntry,
-            makeTenEntry,
             eightPuzzleEntry,
+            flashAnzanEntry,
+            hanoiPuzzleEntry,
+            lightsOutEntry,
+            makeTenEntry,
+            minesweeperEntry,
             mirrorTextEntry,
+            morseTreeWordEntry,
             memojiEntry,
+            romanizationQuizEntry,
+            stroopEntry,
+            whackAMoleEntry,
         )
 
     private val byKind: Map<MiniGameKind, MiniGameEntry> =

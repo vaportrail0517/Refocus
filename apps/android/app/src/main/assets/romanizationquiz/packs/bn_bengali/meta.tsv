@@ -1,0 +1,7 @@
+displayName	ベンガル文字
+direction	LTR
+source	wikidata_cc0_dump
+scheme	bn_bengali
+allowedCountriesIso2	BD,IN
+allowedCountriesQid	Q902,Q668
+romanSource	wikidata_label_en

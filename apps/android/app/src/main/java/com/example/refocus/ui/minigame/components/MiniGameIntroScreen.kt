@@ -13,7 +13,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -93,23 +92,23 @@ fun MiniGameIntroScreen(
                         )
                     }
 
-                    val metaLines =
-                        buildList {
-                            descriptor.estimatedSeconds?.let { add("目安: ${it}秒") }
-                        }
-                    if (metaLines.isNotEmpty()) {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            metaLines.forEach { line ->
-                                Text(
-                                    text = line,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
+//                    val metaLines =
+//                        buildList {
+//                            descriptor.estimatedSeconds?.let { add("目安: ${it}秒") }
+//                        }
+//                    if (metaLines.isNotEmpty()) {
+//                        Column(
+//                            verticalArrangement = Arrangement.spacedBy(4.dp),
+//                        ) {
+//                            metaLines.forEach { line ->
+//                                Text(
+//                                    text = line,
+//                                    style = MaterialTheme.typography.bodySmall,
+//                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+//                                )
+//                            }
+//                        }
+//                    }
                 }
             }
 
@@ -169,17 +168,17 @@ fun MiniGameIntroScreen(
                 Text(descriptor.primaryActionLabel)
             }
 
-            if (descriptor.canSkipBeforeStart) {
-                OutlinedButton(
-                    onClick = onSkip,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .testTag(MiniGameTestTags.INTRO_SKIP_BUTTON),
-                ) {
-                    Text(skipLabel)
-                }
-            }
+//            if (descriptor.canSkipBeforeStart) {
+//                OutlinedButton(
+//                    onClick = onSkip,
+//                    modifier =
+//                        Modifier
+//                            .fillMaxWidth()
+//                            .testTag(MiniGameTestTags.INTRO_SKIP_BUTTON),
+//                ) {
+//                    Text(skipLabel)
+//                }
+//            }
         }
     }
 }

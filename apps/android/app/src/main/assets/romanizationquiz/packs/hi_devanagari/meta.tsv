@@ -1,0 +1,7 @@
+displayName	ヒンディー語（デーヴァナーガリー）
+direction	LTR
+source	wikidata_cc0_dump
+scheme	hi_devanagari
+allowedCountriesIso2	IN
+allowedCountriesQid	Q668
+romanSource	wikidata_label_en

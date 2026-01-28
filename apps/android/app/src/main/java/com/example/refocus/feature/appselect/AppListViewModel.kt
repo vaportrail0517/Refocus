@@ -9,9 +9,11 @@ import com.example.refocus.gateway.LaunchableAppProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
@@ -25,6 +27,20 @@ class AppListViewModel
         private val updateTargetsUseCase: UpdateTargetsUseCase,
         private val launchableAppProvider: LaunchableAppProvider,
     ) : ViewModel() {
+        /**
+         * 「アプリ一覧の固定情報」と「選択状態」を分離して保持するためのモデル．
+         *
+         * Phase0（安全な下準備）：
+         * - 後続フェーズで他の状態（例：hiddenApps）を合成しやすくするため，
+         *   isSelected を catalog 側に持たず，選択集合から派生させる構造にする．
+         */
+        private data class AppCatalogItem(
+            val label: String,
+            val packageName: String,
+            val usageTimeMs: Long,
+            val icon: Drawable?,
+        )
+
         data class AppUiModel(
             val label: String,
             val packageName: String,
@@ -33,10 +49,21 @@ class AppListViewModel
             val icon: Drawable?,
         )
 
-        private val _apps = MutableStateFlow<List<AppUiModel>>(emptyList())
-        val apps: StateFlow<List<AppUiModel>> = _apps.asStateFlow()
+        private val catalog = MutableStateFlow<List<AppCatalogItem>>(emptyList())
+        private val selectedPackages = MutableStateFlow<Set<String>>(emptySet())
 
-        private val selected = MutableStateFlow<Set<String>>(emptySet())
+        val apps: StateFlow<List<AppUiModel>> =
+            combine(catalog, selectedPackages) { currentCatalog, currentSelected ->
+                currentCatalog.map { item ->
+                    AppUiModel(
+                        label = item.label,
+                        packageName = item.packageName,
+                        usageTimeMs = item.usageTimeMs,
+                        isSelected = item.packageName in currentSelected,
+                        icon = item.icon,
+                    )
+                }
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
         init {
             load()
@@ -45,7 +72,7 @@ class AppListViewModel
         private fun load() {
             viewModelScope.launch {
                 val currentTargets = targetsRepository.observeTargets().first()
-                selected.value = currentTargets
+                selectedPackages.value = currentTargets
 
                 // パッケージ一覧取得・UsageStats照会・アイコン読み込みは重いので Main から退避する
                 val appList =
@@ -56,34 +83,28 @@ class AppListViewModel
                                 lookbackMillis = lookbackMillis,
                                 excludeSelf = true,
                             ).map { app ->
-                                AppUiModel(
+                                AppCatalogItem(
                                     label = app.label,
                                     packageName = app.packageName,
                                     usageTimeMs = app.usageTimeMs,
-                                    isSelected = app.packageName in currentTargets,
                                     icon = app.icon,
                                 )
                             }
                     }
 
-                _apps.value = appList
+                catalog.value = appList
             }
         }
 
         fun toggleSelection(packageName: String) {
-            val current = selected.value
-            val new = if (packageName in current) current - packageName else current + packageName
-            selected.value = new
-            _apps.value =
-                _apps.value.map {
-                    if (it.packageName == packageName) it.copy(isSelected = !it.isSelected) else it
-                }
+            val current = selectedPackages.value
+            selectedPackages.value = if (packageName in current) current - packageName else current + packageName
         }
 
         fun save(onSaved: () -> Unit) {
             viewModelScope.launch {
                 withContext(Dispatchers.Default) {
-                    updateTargetsUseCase.updateTargets(selected.value)
+                    updateTargetsUseCase.updateTargets(selectedPackages.value)
                 }
                 onSaved()
             }

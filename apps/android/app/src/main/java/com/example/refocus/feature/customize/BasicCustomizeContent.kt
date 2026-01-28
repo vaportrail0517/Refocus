@@ -273,6 +273,7 @@ fun BasicCustomizeContent(
                     title = "ミニゲームを選択",
                     confirmLabel = "閉じる",
                     showDismissButton = false,
+                    scrollableBody = true,
                     onConfirm = { showMiniGameTestDialog = false },
                     onDismiss = { showMiniGameTestDialog = false },
                 ) {

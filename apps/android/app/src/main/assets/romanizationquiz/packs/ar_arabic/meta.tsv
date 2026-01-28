@@ -1,0 +1,7 @@
+displayName	アラビア文字
+direction	LTR
+source	wikidata_cc0_dump
+scheme	ar_arabic
+allowedCountriesIso2	SA,AE,QA,BH,KW,OM,YE,JO,LB,SY,IQ,EG,SD,LY,TN,DZ,MA
+allowedCountriesQid	Q851,Q878,Q846,Q398,Q817,Q842,Q805,Q810,Q822,Q858,Q796,Q79,Q1049,Q1016,Q948,Q262,Q1028
+romanSource	wikidata_label_en

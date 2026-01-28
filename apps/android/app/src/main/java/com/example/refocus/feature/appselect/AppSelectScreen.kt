@@ -5,8 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -52,6 +54,15 @@ fun AppSelectScreen(
                 apps.filter { it.label.contains(q, ignoreCase = true) }
             }
         }
+
+    // Phase1（対象選択UI改善）：選択中を常に上部に集約して表示する
+    val (selectedApps, candidateApps) =
+        remember(filtered) {
+            val selected = filtered.filter { it.isSelected }
+            val candidates = filtered.filter { !it.isSelected }
+            selected to candidates
+        }
+
     Scaffold(
         bottomBar = {
             Box(
@@ -101,15 +112,69 @@ fun AppSelectScreen(
             LazyColumn(
                 modifier = Modifier.weight(1f),
             ) {
-                items(filtered) { appItem ->
-                    AppRow(
-                        app = appItem,
-                        onClick = { viewModel.toggleSelection(appItem.packageName) },
-                    )
+                if (selectedApps.isEmpty() && candidateApps.isEmpty()) {
+                    item {
+                        Text(
+                            text = "該当するアプリがありません．",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(vertical = 16.dp),
+                        )
+                    }
+                } else {
+                    if (selectedApps.isNotEmpty()) {
+                        item {
+                            SectionHeader(title = "選択中（${selectedApps.size}）")
+                        }
+                        items(
+                            items = selectedApps,
+                            key = { it.packageName },
+                        ) { appItem ->
+                            AppRow(
+                                app = appItem,
+                                onClick = { viewModel.toggleSelection(appItem.packageName) },
+                            )
+                        }
+                        item { Spacer(modifier = Modifier.height(8.dp)) }
+                    }
+
+                    item {
+                        SectionHeader(title = "候補（${candidateApps.size}）")
+                    }
+                    if (candidateApps.isEmpty()) {
+                        item {
+                            Text(
+                                text = "候補がありません．",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(vertical = 8.dp),
+                            )
+                        }
+                    } else {
+                        items(
+                            items = candidateApps,
+                            key = { it.packageName },
+                        ) { appItem ->
+                            AppRow(
+                                app = appItem,
+                                onClick = { viewModel.toggleSelection(appItem.packageName) },
+                            )
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp, bottom = 4.dp),
+    )
 }
 
 @Composable
@@ -129,7 +194,7 @@ private fun AppRow(
         val iconPainter =
             remember(app.packageName) {
                 app.icon?.let { drawable ->
-                    // サイズは Drawable 側に任せつつ、そのままBitmap化
+                    // サイズは Drawable 側に任せつつ，そのままBitmap化
                     val bitmap = drawable.toBitmap()
                     BitmapPainter(bitmap.asImageBitmap())
                 }

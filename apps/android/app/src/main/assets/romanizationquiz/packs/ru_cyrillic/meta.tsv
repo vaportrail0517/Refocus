@@ -1,0 +1,7 @@
+displayName	キリル文字（ロシア）
+direction	LTR
+source	wikidata_cc0_dump
+scheme	ru_cyrillic
+allowedCountriesIso2	RU
+allowedCountriesQid	Q159
+romanSource	wikidata_label_en
