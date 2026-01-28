@@ -1,0 +1,7 @@
+displayName	ヘブライ文字
+direction	LTR
+source	wikidata_cc0_dump
+scheme	he_hebrew
+allowedCountriesIso2	IL
+allowedCountriesQid	Q801
+romanSource	wikidata_label_en

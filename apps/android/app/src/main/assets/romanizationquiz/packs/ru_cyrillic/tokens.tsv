@@ -1,45 +1,59 @@
-# script	roman
-А	a
-Б	b
-В	v
-Г	g
-Д	d
-Е	e
-Ё	yo
-Ж	zh
-З	z
-И	i
-Й	y
-К	k
-Л	l
-М	m
-Н	n
-О	o
-П	p
-Р	r
-С	s
-Т	t
-У	u
-Ф	f
-Х	kh
-Ц	ts
-Ч	ch
-Ш	sh
-Щ	shch
-Ы	y
-Э	e
-Ю	yu
-Я	ya
-Ь	
-Ъ	
-
-# Kazakh / Mongolian Cyrillic (subset)
-Ә	a
-Ғ	gh
-Қ	q
-Ң	ng
-Ө	o
-Ұ	u
-Ү	u
-Һ	h
-І	i
+# Auto-generated tokens (roman column intentionally empty)
+# Columns: scriptChar	roman
+А	
+Б	
+В	
+Г	
+Д	
+Е	
+Ж	
+З	
+И	
+К	
+Л	
+М	
+Н	
+О	
+П	
+Р	
+С	
+Т	
+У	
+Ф	
+Х	
+Ч	
+Ш	
+Э	
+Ю	
+Я	
+а	
+б	
+в	
+г	
+д	
+е	
+ж	
+з	
+и	
+й	
+к	
+л	
+м	
+н	
+о	
+п	
+р	
+с	
+т	
+у	
+ф	
+х	
+ц	
+ч	
+ш	
+щ	
+ы	
+ь	
+ю	
+я	
+ё	

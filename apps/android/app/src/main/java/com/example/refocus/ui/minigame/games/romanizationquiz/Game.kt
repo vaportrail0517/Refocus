@@ -39,7 +39,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
-private const val TIME_LIMIT_SECONDS = 40
+private const val TIME_LIMIT_SECONDS = 60
 private const val FEEDBACK_MILLIS = 420L
 
 private enum class Phase {
@@ -243,7 +243,7 @@ private fun GameWithPlan(
         val progressLabel = "${answeredCount.coerceAtMost(plan.rounds.size)}/${plan.rounds.size}"
         MiniGameHeader(
             title = "英語表記推理クイズ",
-            subtitle = "${plan.pack.displayName}・${plan.pack.romanizationStandard}",
+            subtitle = "ヒントから英語表記を当てる",
             rightTop = "${remainingSeconds}s",
             rightBottom = progressLabel,
         )

@@ -4,7 +4,7 @@ import com.example.refocus.core.model.MiniGameKind
 import com.example.refocus.ui.minigame.catalog.MiniGameDescriptor
 import com.example.refocus.ui.minigame.catalog.MiniGameEntry
 
-private const val TIME_LIMIT_SECONDS = 40
+private const val TIME_LIMIT_SECONDS = 60
 
 internal val romanizationQuizEntry: MiniGameEntry =
     MiniGameEntry(

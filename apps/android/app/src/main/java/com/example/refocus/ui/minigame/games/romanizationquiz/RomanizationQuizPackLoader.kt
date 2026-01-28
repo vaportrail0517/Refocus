@@ -132,13 +132,20 @@ private fun readKeyValueTsv(assets: AssetManager, path: String): Map<String, Str
 private fun readTwoColumnTsv(assets: AssetManager, path: String): List<Pair<String, String>> {
     assets.open(path).bufferedReader(Charsets.UTF_8).use { br ->
         val out = mutableListOf<Pair<String, String>>()
-        br.forEachTsvLine { cols ->
-            if (cols.size < 2) return@forEachTsvLine
-            val a = cols[0]
-            val b = cols[1]
-            if (a.isBlank()) return@forEachTsvLine
-            // roman は空文字を許可する（例: ь, ъ を落とす）
-            out.add(a to b)
+        var lineNo = 0
+        for (raw0 in br.lineSequence()) {
+            lineNo += 1
+            val raw = if (lineNo == 1) raw0.trimStart('\uFEFF') else raw0
+            val line = raw.trimEnd('\r') // CRLF 対策，ただし \t は消さない
+            if (line.isBlank()) continue
+            if (line.trimStart().startsWith("#")) continue
+
+            val tab = line.indexOf('\t')
+            val a = if (tab >= 0) line.substring(0, tab).trim() else line.trim()
+            val b = if (tab >= 0) line.substring(tab + 1).trim() else "" // 2列目は無くても空扱い
+            if (a.isBlank()) continue
+
+            out.add(a to b) // b は空でも許可
         }
         return out
     }
